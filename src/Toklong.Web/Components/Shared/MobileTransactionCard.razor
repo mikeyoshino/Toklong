@@ -1,0 +1,94 @@
+@using Toklong.Application.Transactions
+
+<div class="mobile-only mobile-transaction-summary">
+    <div class="mobile-card">
+        <div class="product-block">
+            <div class="product-visual">
+                <img src="@Transaction.PhotoUrl" alt="รูปประกอบรายการ @Transaction.ProductName" />
+            </div>
+            <div class="product-copy">
+                <strong>@Transaction.ProductName</strong>
+                <small>@Description</small>
+                <span class="condition-pill">@ConditionLabel</span>
+            </div>
+        </div>
+        @if (ShowSeller)
+        {
+            <div class="seller-row">
+                <span class="seller-profile">
+                    <span class="mini-avatar">@SellerInitials</span>
+                    <span>
+                        <strong>@Transaction.SellerDisplayName</strong>
+                        <small>● ติดต่อผู้ขายได้</small>
+                    </span>
+                </span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M12 3 5 6v5c0 4.6 2.7 8.3 7 10 4.3-1.7 7-5.4 7-10V6l-7-3Z"
+                          stroke="#2b7fff" stroke-width="1.7" stroke-linejoin="round" />
+                </svg>
+            </div>
+        }
+    </div>
+
+    @if (ShowPrice)
+    {
+        <div class="price-summary">
+            <div class="price-line"><span>รายการ</span><span>@Money(Transaction.PriceSatang)</span></div>
+            @if (!IsDigital)
+            {
+                <div class="price-line"><span>ค่าส่ง</span><span>@Money(Transaction.ShippingFeeSatang)</span></div>
+            }
+            <div class="price-line"><span>@(IsDigital ? "กำหนดส่งมอบ" : "กำหนดส่ง")</span><span>ภายใน @ShipByLabel</span></div>
+            <div class="price-line total"><span>ยอดชำระ</span><span>@Money(Transaction.BuyerTotalSatang)</span></div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public TransactionView Transaction { get; set; } = default!;
+    [Parameter] public bool ShowSeller { get; set; } = true;
+    [Parameter] public bool ShowPrice { get; set; } = true;
+    private bool IsDigital =>
+        Transaction.FulfillmentType ==
+        Toklong.Domain.Transactions.FulfillmentType.DigitalHandoff;
+
+    private string Description
+    {
+        get
+        {
+            var detail = string.IsNullOrWhiteSpace(Transaction.KnownDefects)
+                ? Transaction.Description
+                : Transaction.KnownDefects;
+            detail = detail.ReplaceLineEndings(" ").Trim();
+            return detail.Length <= 58 ? detail : $"{detail[..58]}…";
+        }
+    }
+
+    private string ConditionLabel => Transaction.Condition switch
+    {
+        Toklong.Domain.Transactions.ConditionCode.New => "สินค้าใหม่",
+        Toklong.Domain.Transactions.ConditionCode.UsedDefects => "มือสอง · มีตำหนิ",
+        Toklong.Domain.Transactions.ConditionCode.UsedGood => "มือสอง · สภาพดี",
+        _ => "ตามรายละเอียด"
+    };
+
+    private string SellerInitials
+    {
+        get
+        {
+            var words = Transaction.SellerDisplayName
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            return string.Concat(words.Take(2).Select(word => word[0])).ToUpperInvariant();
+        }
+    }
+
+    private static string Money(long satang) => $"฿{satang / 100m:N2}";
+    private string ShipByLabel => Transaction.ShipByDurationHours switch
+    {
+        24 => "24 ชั่วโมง",
+        48 => "2 วัน",
+        72 => "3 วัน",
+        120 => "5 วัน",
+        _ => $"{Transaction.ShipByDurationHours} ชั่วโมง"
+    };
+}

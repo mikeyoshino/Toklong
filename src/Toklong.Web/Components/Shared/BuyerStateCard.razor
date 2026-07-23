@@ -1,0 +1,39 @@
+@using Toklong.Application.Transactions
+@using Toklong.Domain.Transactions
+
+<section class="action-card sticky-card">
+    @switch (Transaction.State)
+    {
+        case TransactionState.TrackingUnverified:
+            <div class="step-label danger-text">ต้องตรวจสอบเพิ่มเติม</div>
+            <h2>Tracking ยังตรวจสอบไม่ได้</h2>
+            <p>ช่วง 168 ชั่วโมงยังไม่เริ่ม และการจ่ายอัตโนมัติถูกบล็อก หากได้รับสินค้าจริง กรุณาติดต่อช่องทางช่วยเหลือเพื่อยืนยันอย่างปลอดภัย</p>
+            break;
+        case TransactionState.Disputed:
+        case TransactionState.ResolutionPending:
+            <div class="step-label danger-text">พักการจ่ายแล้ว</div>
+            <h2>อยู่ระหว่างตรวจสอบปัญหา</h2>
+            <p>รายละเอียดที่คุณส่งถูกบันทึกแล้ว การคืนเงินหรือจ่ายเงินต้องมาจากผู้มีอำนาจหรือข้อตกลงร่วมกัน ไม่ตัดสินโดย AI</p>
+            break;
+        case TransactionState.PayoutPending:
+            <div class="step-label">คำสั่งจ่ายเริ่มแล้ว</div>
+            <h2>กำลังดำเนินการจ่ายให้ผู้ขาย</h2>
+            <p>ผู้ซื้อยืนยันรับหรือครบกำหนดโดยไม่มีข้อโต้แย้งแล้ว สถานะจะปิดเมื่อการโอนได้รับการยืนยัน</p>
+            break;
+        case TransactionState.PaidOut:
+            <div class="step-label success-text">รายการเสร็จสมบูรณ์</div>
+            <h2>ยืนยันการโอนให้ผู้ขายแล้ว</h2>
+            <div class="deadline-box"><span>เวลายืนยัน</span><strong>@ThaiDate(Transaction.PayoutConfirmedAt)</strong></div>
+            break;
+        default:
+            <h2>@Transaction.StateLabel</h2>
+            <p>เปิดรายละเอียดรายการเพื่อตรวจสถานะล่าสุด</p>
+            break;
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public TransactionView Transaction { get; set; } = default!;
+    private static string ThaiDate(DateTimeOffset? value) =>
+        value?.ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm 'น. (เวลาไทย)'") ?? "—";
+}

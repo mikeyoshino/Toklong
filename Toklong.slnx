@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Toklong.Application/Toklong.Application.csproj" />
+    <Project Path="src/Toklong.Domain/Toklong.Domain.csproj" />
+    <Project Path="src/Toklong.Infrastructure/Toklong.Infrastructure.csproj" />
+    <Project Path="src/Toklong.Web/Toklong.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Toklong.Application.Tests/Toklong.Application.Tests.csproj" />
+    <Project Path="tests/Toklong.Domain.Tests/Toklong.Domain.Tests.csproj" />
+  </Folder>
+</Solution>

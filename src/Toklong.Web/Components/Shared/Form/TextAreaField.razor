@@ -1,0 +1,32 @@
+@using System.Linq.Expressions
+
+<div class="field">
+    <label class="form-label" for="@Id">@Label @if (Required) { <span aria-hidden="true">*</span> }</label>
+    @if (!string.IsNullOrWhiteSpace(Hint))
+    {
+        <div class="field-hint" id="@($"{Id}-hint")">@Hint</div>
+    }
+    <InputTextArea id="@Id"
+                   class="control form-control textarea"
+                   rows="@Rows"
+                   placeholder="@Placeholder"
+                   aria-describedby="@DescribedBy"
+                   Value="@Value"
+                   ValueChanged="@ValueChanged"
+                   ValueExpression="@ValueExpression" />
+    <ValidationMessage For="ValueExpression" />
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Id { get; set; } = "";
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter] public string? Hint { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public int Rows { get; set; } = 4;
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter, EditorRequired] public Expression<Func<string>> ValueExpression { get; set; } = default!;
+
+    private string? DescribedBy => string.IsNullOrWhiteSpace(Hint) ? null : $"{Id}-hint";
+}

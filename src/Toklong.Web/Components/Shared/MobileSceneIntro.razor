@@ -1,0 +1,15 @@
+<div class="mobile-scene-intro app-scene">
+    <div class="scene-kicker">
+        <span>ขั้นที่ @Step จาก 4</span>
+        <strong>@Kicker</strong>
+    </div>
+    <h1 class="scene-title">@Title</h1>
+    <p class="scene-subtitle">@Subtitle</p>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public int Step { get; set; }
+    [Parameter, EditorRequired] public string Kicker { get; set; } = "";
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter, EditorRequired] public string Subtitle { get; set; } = "";
+}

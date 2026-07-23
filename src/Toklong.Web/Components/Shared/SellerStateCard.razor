@@ -1,0 +1,57 @@
+@using Toklong.Application.Transactions
+@using Toklong.Domain.Transactions
+
+<section class="action-card sticky-card">
+    @switch (Transaction.State)
+    {
+        case TransactionState.DigitalDeliverySubmitted:
+            <div class="step-label">ขั้นที่ 4 จาก 4 · รอผู้ซื้อ</div>
+            <h2>แจ้งส่งมอบแล้ว</h2>
+            <p>การจ่ายยังถูกบล็อกจนกว่าผู้ซื้อยืนยันรับ หรือรายการผ่านการตรวจสอบที่ได้รับสิทธิ์ ไม่มีการปล่อยเงินอัตโนมัติจากเวลา</p>
+            break;
+        case TransactionState.TrackingSubmitted:
+        case TransactionState.InTransit:
+            <div class="step-label">ขั้นที่ 3 จาก 4 · การจัดส่ง</div>
+            <h2>@(Transaction.State == TransactionState.InTransit ? "พัสดุกำลังเดินทาง" : "รอขนส่งตรวจสอบ Tracking")</h2>
+            <div class="deadline-box"><span>@Transaction.CarrierCode</span><strong>@Transaction.TrackingNumber</strong></div>
+            <p>ช่วงแจ้งปัญหา 168 ชั่วโมงจะยังไม่เริ่มจนกว่าขนส่งยืนยันการนำส่ง</p>
+            break;
+        case TransactionState.TrackingUnverified:
+            <div class="step-label danger-text">ต้องตรวจสอบเพิ่มเติม</div>
+            <h2>Tracking ยังตรวจสอบไม่ได้</h2>
+            <p>ระบบบล็อกการจ่ายอัตโนมัติไว้ ผู้ซื้ออาจยืนยันรับเอง หรือรายการต้องผ่านการตรวจสอบที่ได้รับสิทธิ์</p>
+            break;
+        case TransactionState.DeliveredDisputeWindow:
+            <div class="step-label">ขั้นที่ 4 จาก 4 · ช่วงตรวจสินค้า</div>
+            <h2>พัสดุถึงผู้ซื้อแล้ว</h2>
+            <div class="deadline-box"><span>จ่ายได้หลังเวลานี้ หากไม่มีปัญหา</span><strong>@ThaiDate(Transaction.DisputeWindowEndsAt)</strong></div>
+            <p>ข้อโต้แย้งที่เปิดก่อนกำหนดจะหยุดการจ่ายทันที</p>
+            break;
+        case TransactionState.Disputed:
+        case TransactionState.ResolutionPending:
+            <div class="step-label danger-text">พักการจ่าย</div>
+            <h2>อยู่ระหว่างตรวจสอบปัญหา</h2>
+            <p>AI ไม่มีสิทธิ์ตัดสินคืนเงินหรือจ่ายเงิน การตัดสินต้องมาจากผู้มีอำนาจหรือข้อตกลงร่วมกันที่บันทึกไว้</p>
+            break;
+        case TransactionState.PayoutPending:
+            <div class="step-label">กำลังดำเนินการ</div>
+            <h2>เริ่มคำสั่งจ่ายแล้ว</h2>
+            <p>สถานะนี้ยังไม่หมายถึงเงินเข้าบัญชี การโอนสำเร็จต้องได้รับการยืนยันจากแหล่งที่ได้รับสิทธิ์</p>
+            break;
+        case TransactionState.PaidOut:
+            <div class="step-label success-text">เสร็จสมบูรณ์</div>
+            <h2>ยืนยันการโอนให้ผู้ขายแล้ว</h2>
+            <div class="deadline-box"><span>เวลาอ้างอิง</span><strong>@ThaiDate(Transaction.PayoutConfirmedAt)</strong></div>
+            break;
+        default:
+            <h2>@Transaction.StateLabel</h2>
+            <p>เปิดรายละเอียดรายการเพื่อตรวจสถานะล่าสุด</p>
+            break;
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public TransactionView Transaction { get; set; } = default!;
+    private static string ThaiDate(DateTimeOffset? value) =>
+        value?.ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm 'น. (เวลาไทย)'") ?? "—";
+}

@@ -1,0 +1,46 @@
+@page "/seller/sign-in"
+
+<PageTitle>เข้าสู่ระบบผู้ขาย — TOKLONG</PageTitle>
+<AppHeader BackHref="/" BackLabel="กลับหน้าแรก" />
+
+<main class="auth-shell">
+    <section class="auth-card">
+        <div class="auth-icon" aria-hidden="true">◎</div>
+        <span class="eyebrow"><span class="eyebrow-dot"></span>สำหรับผู้ขาย</span>
+        <h1>ยืนยันเบอร์ก่อนเริ่มขาย</h1>
+        <p>ใช้ OTP เพียงครั้งแรก แล้วครั้งถัดไปสร้างลิงก์ได้ทันที</p>
+
+        @if (!string.IsNullOrWhiteSpace(Error))
+        {
+            <AlertMessage Message="@Error" Danger />
+        }
+
+        <form method="post" action="/auth/seller/otp/request" class="auth-form">
+            <AntiforgeryToken />
+            <input type="hidden" name="returnUrl" value="@SafeReturnUrl" />
+            <label class="form-label" for="phone">เบอร์มือถือ</label>
+            <input class="form-control" id="phone" name="phone"
+                   type="tel" inputmode="tel" autocomplete="tel"
+                   placeholder="08X XXX XXXX" required />
+            <button class="button button-primary" type="submit">
+                รับรหัส OTP
+            </button>
+        </form>
+
+        <div class="auth-trust">
+            <span aria-hidden="true">✓</span>
+            <p><strong>ไม่มีรหัสผ่านให้จำ</strong>เบอร์โทรใช้ยืนยันบัญชีและแจ้งสถานะรายการสำคัญ</p>
+        </div>
+    </section>
+</main>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+
+    private string SafeReturnUrl =>
+        !string.IsNullOrWhiteSpace(ReturnUrl) && ReturnUrl.StartsWith('/')
+            && !ReturnUrl.StartsWith("//", StringComparison.Ordinal)
+                ? ReturnUrl
+                : "/sales/create";
+}

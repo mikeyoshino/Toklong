@@ -1,0 +1,228 @@
+@page "/seller/{Token}"
+@rendermode InteractiveServer
+@using Toklong.Application.Features.Shipping.SubmitTracking
+@using Toklong.Application.Features.DigitalDelivery.SubmitDigitalDelivery
+@using Toklong.Application.Features.Transactions.GetTransaction
+@using Toklong.Application.Transactions
+@using Toklong.Domain.Transactions
+@using Toklong.Web.Models
+@inject Toklong.Web.Services.ApplicationRequestSender Sender
+@inject NavigationManager Navigation
+
+<PageTitle>รายการผู้ขาย — TOKLONG</PageTitle>
+
+<AppHeader BackHref="/" BackLabel="หน้าแรก" />
+
+<main class="page-shell">
+    @if (loading)
+    {
+        <div class="loading-state">กำลังเปิดรายการผู้ขาย…</div>
+    }
+    else if (transaction is null)
+    {
+        <AlertMessage Message="@error" Danger />
+    }
+    else
+    {
+        <div class="transaction-heading">
+            <div><span class="eyebrow"><span class="eyebrow-dot"></span>มุมมองผู้ขาย</span><h1>@transaction.ProductName</h1></div>
+            <StatusBadge State="transaction.State" Label="transaction.StateLabel" />
+        </div>
+
+        <AlertMessage Message="@success" />
+        <AlertMessage Message="@error" Danger />
+
+        <div class="mobile-only mobile-flow-head">
+            <MobileSceneIntro Step="@SellerStep"
+                              Kicker="@SellerKicker"
+                              Title="@SellerTitle"
+                              Subtitle="@SellerSubtitle" />
+            @if (transaction.State is TransactionState.PaidAwaitingShipment or TransactionState.PaidAwaitingDigitalDelivery)
+            {
+                <div class="mobile-card success-card">
+                    <div class="success-head">
+                        <span class="success-icon">
+                            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        </span>
+                        <span><strong>ผู้ซื้อชำระสำเร็จ</strong><small>เลขอ้างอิง @transaction.PaymentReference</small></span>
+                    </div>
+                    <div class="success-amount">@Money(transaction.BuyerTotalSatang)</div>
+                    <div class="success-caption">ยอดรอการจ่ายตามเงื่อนไขผ่านผู้ให้บริการ</div>
+                </div>
+            }
+            else
+            {
+                <MobileTransactionCard Transaction="transaction" ShowSeller="false" />
+            }
+        </div>
+
+        <div class="transaction-grid">
+            <div class="desktop-transaction-detail">
+                <TransactionSummary Transaction="transaction" />
+                <TransactionDetails Transaction="transaction" />
+            </div>
+            <aside>
+                @if (transaction.State == TransactionState.LinkActive)
+                {
+                    <section class="action-card sticky-card">
+                        <div class="step-label">ขั้นถัดไป · รอผู้ซื้อ</div>
+                        <h2>ส่งลิงก์นี้กลับไปในแชต</h2>
+                        <div class="copy-value">@PublicUrl</div>
+                        <p>อย่าส่งมอบจนกว่าสถานะจะยืนยันยอดและแสดงขั้นตอนส่งมอบสำหรับรายการนี้</p>
+                        <a class="button button-primary" href="@($"/p/{transaction.PublicToken}")">เปิดหน้าที่ผู้ซื้อเห็น</a>
+                    </section>
+                }
+                else if (transaction.State is TransactionState.CheckoutStarted or TransactionState.PaymentPending)
+                {
+                    <section class="action-card sticky-card">
+                        <div class="step-label">กำลังตรวจสอบ</div>
+                        <h2>ยังไม่ควรส่งมอบ</h2>
+                        <p>ผู้ซื้อเริ่มขั้นตอนชำระแล้ว แต่ระบบยังไม่ได้รับการยืนยันยอดจากแหล่งที่ได้รับสิทธิ์ สลิปและข้อความจากผู้ซื้อไม่ใช่หลักฐานยืนยันสถานะ</p>
+                    </section>
+                }
+                else if (transaction.State == TransactionState.PaidAwaitingShipment)
+                {
+                    <EditForm Model="trackingForm" OnValidSubmit="SubmitTrackingAsync" FormName="seller-tracking" class="form-card sticky-card mobile-shipping-card">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="validation-summary" />
+                        <div class="step-label">ยอดชำระได้รับการยืนยันแล้ว</div>
+                        <h2>แจ้งส่งสินค้า</h2>
+                        <div class="deadline-box">
+                            <span>ส่งและกรอก Tracking ภายใน</span>
+                            <strong>@ThaiDate(transaction.ShipByAt)</strong>
+                        </div>
+                        <SelectField TValue="string" Id="carrier" Label="บริษัทขนส่ง" DisplayText="@CarrierLabel(trackingForm.CarrierCode)" Required @bind-Value="trackingForm.CarrierCode">
+                            <option value="THAIPOST">ไปรษณีย์ไทย</option>
+                            <option value="FLASH">Flash Express</option>
+                            <option value="KERRY">Kerry Express</option>
+                            <option value="JNT">J&amp;T Express</option>
+                        </SelectField>
+                        <TextField Id="tracking" Label="หมายเลขติดตาม" Required @bind-Value="trackingForm.TrackingNumber" />
+                        <PrimaryButton Busy="busy" Disabled="busy">บันทึกหมายเลขติดตาม</PrimaryButton>
+                    </EditForm>
+                }
+                else if (transaction.State == TransactionState.PaidAwaitingDigitalDelivery)
+                {
+                    <EditForm Model="digitalDeliveryForm" OnValidSubmit="SubmitDigitalDeliveryAsync" FormName="seller-digital-delivery" class="form-card sticky-card mobile-shipping-card">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="validation-summary" />
+                        <div class="step-label">ยอดชำระได้รับการยืนยันแล้ว</div>
+                        <h2>แจ้งว่าส่งมอบแล้ว</h2>
+                        <div class="deadline-box">
+                            <span>ส่งมอบผ่านช่องทางที่ตกลงกันภายใน</span>
+                            <strong>@ThaiDate(transaction.ShipByAt)</strong>
+                        </div>
+                        <TextAreaField Id="digital-delivery-statement"
+                                       Label="รายละเอียดการส่งมอบ"
+                                       Hint="เช่น “ส่งข้อมูลผ่าน LINE ที่ตกลงกันแล้ว” ห้ามใส่รหัสผ่าน รหัสกู้คืน private key หรือข้อมูลลับ"
+                                       Required
+                                       @bind-Value="digitalDeliveryForm.Statement" />
+                        <div class="notice">
+                            การกดปุ่มนี้ไม่ทำให้เกิดการจ่ายเงิน ผู้ซื้อต้องยืนยันว่าได้รับแล้ว
+                            หรือรายการต้องผ่านการตรวจสอบที่ได้รับสิทธิ์
+                        </div>
+                        <PrimaryButton Busy="busy" Disabled="busy">บันทึกว่าส่งมอบแล้ว</PrimaryButton>
+                    </EditForm>
+                }
+                else
+                {
+                    <SellerStateCard Transaction="transaction" />
+                }
+            </aside>
+        </div>
+    }
+</main>
+
+@code {
+    [Parameter] public string Token { get; set; } = "";
+    private readonly TrackingForm trackingForm = new();
+    private readonly DigitalDeliveryForm digitalDeliveryForm = new();
+    private TransactionView? transaction;
+    private bool loading = true;
+    private bool busy;
+    private string? error;
+    private string? success;
+    private string PublicUrl => $"{Navigation.BaseUri.TrimEnd('/')}/p/{transaction?.PublicToken}";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            transaction = await Sender.Send(new GetSellerTransactionQuery(Token));
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task SubmitTrackingAsync()
+    {
+        busy = true;
+        error = null;
+        try
+        {
+            transaction = await Sender.Send(new SubmitTrackingCommand(Token, trackingForm.CarrierCode, trackingForm.TrackingNumber));
+            success = "บันทึกหมายเลขติดตามแล้ว กำลังรอข้อมูลที่ตรวจสอบได้จากขนส่ง";
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task SubmitDigitalDeliveryAsync()
+    {
+        busy = true;
+        error = null;
+        try
+        {
+            transaction = await Sender.Send(new SubmitDigitalDeliveryCommand(
+                Token,
+                digitalDeliveryForm.Statement));
+            success = "บันทึกการส่งมอบแล้ว กำลังรอผู้ซื้อยืนยันหรือแจ้งปัญหา";
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private static string ThaiDate(DateTimeOffset? value) =>
+        value?.ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm 'น. (เวลาไทย)'") ?? "—";
+
+    private static string CarrierLabel(string code) => code switch
+    {
+        "FLASH" => "Flash Express",
+        "KERRY" => "Kerry Express",
+        "JNT" => "J&T Express",
+        _ => "ไปรษณีย์ไทย"
+    };
+
+    private bool ReadyToFulfill => transaction?.State is
+        TransactionState.PaidAwaitingShipment or
+        TransactionState.PaidAwaitingDigitalDelivery;
+    private int SellerStep => ReadyToFulfill ? 3 : 1;
+    private string SellerKicker => ReadyToFulfill ? "ยอดชำระยืนยันแล้ว" : "มุมมองผู้ขาย";
+    private string SellerTitle => transaction?.State == TransactionState.PaidAwaitingDigitalDelivery
+        ? "ส่งมอบผ่านช่องทางที่ตกลงกัน"
+        : ReadyToFulfill ? "ส่งสินค้าได้เลย" : "รายการของคุณ";
+    private string SellerSubtitle => ReadyToFulfill
+        ? "ระบบแสดงขั้นตอนส่งมอบหลังได้รับการยืนยันยอดชำระจากแหล่งที่ได้รับสิทธิ์"
+        : "ติดตามสถานะและทำขั้นตอนถัดไปของรายการนี้";
+    private static string Money(long satang) => $"฿{satang / 100m:N2}";
+}

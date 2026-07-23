@@ -1,0 +1,17 @@
+@using Toklong.Domain.Transactions
+
+<span class="@CssClass">@Label</span>
+
+@code {
+    [Parameter, EditorRequired] public TransactionState State { get; set; }
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+
+    private string CssClass => State switch
+    {
+        TransactionState.PaidOut => "status status-success",
+        TransactionState.PaidAwaitingShipment or TransactionState.PaidAwaitingDigitalDelivery or TransactionState.PayoutEligible => "status status-action",
+        TransactionState.Disputed or TransactionState.ResolutionPending or TransactionState.TrackingUnverified => "status status-danger",
+        TransactionState.InTransit or TransactionState.DeliveredDisputeWindow or TransactionState.DigitalDeliverySubmitted or TransactionState.PayoutPending => "status status-info",
+        _ => "status"
+    };
+}

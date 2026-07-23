@@ -1,0 +1,37 @@
+@using Toklong.Application.Transactions
+
+<details class="details-card">
+    <summary>รายละเอียดรายการ</summary>
+    <dl>
+        <div><dt>เลขรายการ</dt><dd>@Transaction.Id</dd></div>
+        <div><dt>รูปแบบส่งมอบ</dt><dd>@(Transaction.FulfillmentType == Toklong.Domain.Transactions.FulfillmentType.DigitalHandoff ? "สินค้าดิจิทัล · ผู้ซื้อยืนยันรับ" : "สินค้าจัดส่ง · ใช้ Tracking")</dd></div>
+        <div><dt>ข้อกำหนด</dt><dd>@Transaction.TermsVersion</dd></div>
+        <div><dt>ผู้ขายยอมรับ</dt><dd>@ThaiDate(Transaction.SellerAcceptedAt)</dd></div>
+        @if (Transaction.BuyerAcceptedAt is not null)
+        {
+            <div><dt>ผู้ซื้อยอมรับ</dt><dd>@ThaiDate(Transaction.BuyerAcceptedAt.Value)</dd></div>
+        }
+        @if (!string.IsNullOrWhiteSpace(Transaction.ProductSnapshotHash))
+        {
+            <div><dt>หลักฐาน snapshot</dt><dd class="hash">@Transaction.ProductSnapshotHash</dd></div>
+        }
+        @if (!string.IsNullOrWhiteSpace(Transaction.PaymentReference))
+        {
+            <div><dt>เลขอ้างอิงชำระ</dt><dd>@Transaction.PaymentReference</dd></div>
+        }
+        @if (!string.IsNullOrWhiteSpace(Transaction.TrackingNumber))
+        {
+            <div><dt>Tracking</dt><dd>@Transaction.CarrierCode · @Transaction.TrackingNumber</dd></div>
+        }
+        @if (Transaction.DigitalDeliverySubmittedAt is not null)
+        {
+            <div><dt>ผู้ขายแจ้งส่งมอบ</dt><dd>@ThaiDate(Transaction.DigitalDeliverySubmittedAt.Value)</dd></div>
+        }
+    </dl>
+</details>
+
+@code {
+    [Parameter, EditorRequired] public TransactionView Transaction { get; set; } = default!;
+    private static string ThaiDate(DateTimeOffset value) =>
+        value.ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm 'น.'");
+}

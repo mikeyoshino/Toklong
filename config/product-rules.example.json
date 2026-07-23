@@ -1,0 +1,60 @@
+{
+  "product_name": "TOKLONG",
+  "currency": "THB",
+  "money_unit": "satang",
+  "mvp_scope": {
+    "physical_goods_only": true,
+    "one_seller": true,
+    "one_buyer": true,
+    "one_payment": true,
+    "one_shipment": true,
+    "one_payout": true,
+    "domestic_shipping_only": true,
+    "services_enabled": false,
+    "digital_goods_enabled": false,
+    "marketplace_discovery_enabled": false,
+    "in_app_chat_enabled": false,
+    "partial_refunds_enabled": false,
+    "split_shipments_enabled": false
+  },
+  "deadlines": {
+    "default_ship_by_hours": 48,
+    "dispute_window_hours": 168,
+    "buyer_auto_release_reminder_hours_before": 24
+  },
+  "release_rules": {
+    "early_release_on_buyer_confirmation": true,
+    "auto_eligibility_after_deadline": true,
+    "requires_verified_carrier_delivery": true,
+    "block_when_tracking_unverified": true,
+    "block_when_dispute_open": true,
+    "block_when_refund_pending": true,
+    "block_when_risk_hold": true
+  },
+  "payment_rules": {
+    "provider_webhook_is_source_of_truth": true,
+    "client_redirect_can_mark_paid": false,
+    "seller_can_ship_before_confirmed_payment": false,
+    "provider_webhook_signature_required": true,
+    "provider_event_idempotency_required": true
+  },
+  "shipping_rules": {
+    "supported_carrier_required": true,
+    "tracking_number_required": true,
+    "seller_entered_delivered_status_trusted": false,
+    "carrier_event_idempotency_required": true
+  },
+  "copy": {
+    "payment_label": "ชำระผ่านพาร์ทเนอร์",
+    "funds_waiting_label": "เงินรอการจ่ายตามเงื่อนไข",
+    "escrow_label_enabled": false
+  },
+  "open_decisions": {
+    "payment_provider": null,
+    "tracking_provider": null,
+    "fee_model": null,
+    "minimum_transaction_satang": null,
+    "maximum_transaction_satang": null,
+    "initial_category_allowlist": []
+  }
+}

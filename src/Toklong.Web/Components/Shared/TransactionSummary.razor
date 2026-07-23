@@ -1,0 +1,41 @@
+@using Toklong.Application.Transactions
+
+<article class="product-card">
+    <img src="@Transaction.PhotoUrl" alt="รูปประกอบรายการ @Transaction.ProductName" />
+    <div>
+        <div class="product-meta">
+            @(Transaction.FulfillmentType == Toklong.Domain.Transactions.FulfillmentType.DigitalHandoff
+                ? "สินค้าดิจิทัล · ผู้ซื้อยืนยันรับ"
+                : "สินค้าจัดส่ง · ใช้ Tracking")
+        </div>
+        <h2>@Transaction.ProductName</h2>
+        <p>@Transaction.Description</p>
+        @if (!string.IsNullOrWhiteSpace(Transaction.KnownDefects))
+        {
+            <div class="defect-note"><strong>ตำหนิที่แจ้งไว้</strong> @Transaction.KnownDefects</div>
+        }
+    </div>
+</article>
+
+<section class="summary-card" aria-label="สรุปยอดชำระ">
+    <div><span>ยอดรายการ</span><strong>@Money(Transaction.PriceSatang)</strong></div>
+    @if (Transaction.FulfillmentType == Toklong.Domain.Transactions.FulfillmentType.PhysicalShipment)
+    {
+        <div><span>ค่าจัดส่ง</span><strong>@Money(Transaction.ShippingFeeSatang)</strong></div>
+    }
+    <div class="total"><span>ยอดรวม</span><strong>@Money(Transaction.BuyerTotalSatang)</strong></div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public TransactionView Transaction { get; set; } = default!;
+
+    private string ConditionLabel => Transaction.Condition switch
+    {
+        Toklong.Domain.Transactions.ConditionCode.New => "สินค้าใหม่",
+        Toklong.Domain.Transactions.ConditionCode.UsedDefects => "มือสอง · มีตำหนิ",
+        Toklong.Domain.Transactions.ConditionCode.UsedGood => "มือสอง · สภาพดี",
+        _ => "ตามรายละเอียดข้อตกลง"
+    };
+
+    private static string Money(long satang) => $"฿{satang / 100m:N2}";
+}

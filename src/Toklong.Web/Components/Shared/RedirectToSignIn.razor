@@ -1,0 +1,15 @@
+@inject NavigationManager Navigation
+
+<div class="loading-state">กำลังไปหน้าลงชื่อเข้าใช้…</div>
+
+@code {
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+        var relative = "/" + Navigation.ToBaseRelativePath(Navigation.Uri);
+        Navigation.NavigateTo(
+            $"/seller/sign-in?returnUrl={Uri.EscapeDataString(relative)}",
+            forceLoad: true);
+    }
+}

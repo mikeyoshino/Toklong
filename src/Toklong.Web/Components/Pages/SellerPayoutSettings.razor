@@ -1,0 +1,146 @@
+@page "/seller/settings/payouts"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using Toklong.Application.Features.Sellers
+@using Toklong.Web.Models
+@inject Toklong.Web.Services.ApplicationRequestSender Sender
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+
+<PageTitle>บัญชีรับเงิน — TOKLONG</PageTitle>
+<AppHeader BackHref="@SafeReturnUrl" BackLabel="กลับ" />
+
+<main class="page-shell narrow payout-settings-page">
+    <div class="page-heading">
+        <span class="eyebrow"><span class="eyebrow-dot"></span>ตั้งค่าผู้ขาย</span>
+        <h1>บัญชีสำหรับรับเงิน</h1>
+        <p>ตั้งค่าครั้งเดียว แล้วเลือกใช้ตอนสร้างลิงก์ข้อตกลงได้ทันที</p>
+    </div>
+
+    @if (profile is null)
+    {
+        <div class="loading-state">กำลังโหลดบัญชี…</div>
+    }
+    else
+    {
+        @if (profile.PayoutAccounts.Count > 0)
+        {
+            <section class="saved-payouts" aria-label="บัญชีที่บันทึกไว้">
+                @foreach (var account in profile.PayoutAccounts)
+                {
+                    <button type="button" class="saved-payout-card"
+                            @onclick="() => Edit(account)">
+                        <span class="bank-symbol" aria-hidden="true">฿</span>
+                        <span>
+                            <strong>@BankLabel(account.BankCode)</strong>
+                            <small>@account.AccountName · @account.MaskedNumber</small>
+                        </span>
+                        <span class="edit-label">แก้ไข</span>
+                    </button>
+                }
+            </section>
+        }
+
+        <EditForm Model="form" OnValidSubmit="SaveAsync" FormName="payout-settings"
+                  class="form-card payout-settings-form">
+            <DataAnnotationsValidator />
+            <div class="form-section-heading">
+                <span>@(form.AccountId.HasValue ? "✓" : "+")</span>
+                <div>
+                    <h2>@(form.AccountId.HasValue ? "แก้ไขบัญชี" : "เพิ่มบัญชีรับเงิน")</h2>
+                    <p>ชื่อบัญชีควรตรงกับเจ้าของเบอร์ที่ยืนยัน</p>
+                </div>
+            </div>
+            <AlertMessage Message="@error" Danger />
+            <SelectField TValue="string" Id="settings-bank" Label="ธนาคาร"
+                         DisplayText="@BankLabel(form.BankCode)" Required
+                         @bind-Value="form.BankCode">
+                <option value="KBANK">ธนาคารกสิกรไทย</option>
+                <option value="SCB">ธนาคารไทยพาณิชย์</option>
+                <option value="KTB">ธนาคารกรุงไทย</option>
+                <option value="BBL">ธนาคารกรุงเทพ</option>
+                <option value="BAY">ธนาคารกรุงศรีอยุธยา</option>
+                <option value="TTB">ธนาคารทหารไทยธนชาต</option>
+                <option value="GSB">ธนาคารออมสิน</option>
+                <option value="BAAC">ธนาคารเพื่อการเกษตรและสหกรณ์การเกษตร</option>
+            </SelectField>
+            <TextField Id="settings-account-name" Label="ชื่อบัญชี"
+                       Autocomplete="name" Required @bind-Value="form.AccountName" />
+            <TextField Id="settings-account-number" Label="เลขบัญชี"
+                       InputMode="numeric" Autocomplete="off"
+                       Required="@(!form.AccountId.HasValue)"
+                       Hint="@(form.AccountId.HasValue ? "เว้นว่างเพื่อใช้เลขบัญชีเดิม" : "ข้อมูลนี้ไม่แสดงแก่ผู้ซื้อ")"
+                       @bind-Value="form.AccountNumber" />
+            <PrimaryButton Busy="busy" Disabled="busy"
+                           BusyText="กำลังบันทึก…">
+                บันทึกบัญชีรับเงิน
+            </PrimaryButton>
+        </EditForm>
+    }
+</main>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+
+    private readonly PayoutAccountForm form = new();
+    private SellerProfile? profile;
+    private Guid sellerId;
+    private bool busy;
+    private string? error;
+    private string SafeReturnUrl =>
+        !string.IsNullOrWhiteSpace(ReturnUrl) && ReturnUrl.StartsWith('/')
+            && !ReturnUrl.StartsWith("//", StringComparison.Ordinal)
+                ? ReturnUrl
+                : "/sales/create";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authentication = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        Guid.TryParse(authentication.User.FindFirst(
+            System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out sellerId);
+        if (sellerId != Guid.Empty)
+            profile = await Sender.Send(new GetSellerProfileQuery(sellerId));
+    }
+
+    private void Edit(SellerPayoutAccountView account)
+    {
+        form.AccountId = account.Id;
+        form.BankCode = account.BankCode;
+        form.AccountName = account.AccountName;
+        form.AccountNumber = "";
+        error = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        busy = true;
+        error = null;
+        try
+        {
+            profile = await Sender.Send(new SaveSellerPayoutAccountCommand(
+                sellerId, form.AccountId, form.BankCode,
+                form.AccountName, form.AccountNumber));
+            Navigation.NavigateTo(SafeReturnUrl, forceLoad: true);
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private static string BankLabel(string code) => code switch
+    {
+        "SCB" => "ธนาคารไทยพาณิชย์",
+        "KTB" => "ธนาคารกรุงไทย",
+        "BBL" => "ธนาคารกรุงเทพ",
+        "BAY" => "ธนาคารกรุงศรีอยุธยา",
+        "TTB" => "ธนาคารทหารไทยธนชาต",
+        "GSB" => "ธนาคารออมสิน",
+        "BAAC" => "ธนาคารเพื่อการเกษตรและสหกรณ์การเกษตร",
+        _ => "ธนาคารกสิกรไทย"
+    };
+}

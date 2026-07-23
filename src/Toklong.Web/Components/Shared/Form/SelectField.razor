@@ -1,0 +1,47 @@
+@typeparam TValue
+@using System.Linq.Expressions
+
+<div class="field">
+    <label class="form-label" for="@Id">@Label @if (Required) { <span aria-hidden="true">*</span> }</label>
+    @if (!string.IsNullOrWhiteSpace(Hint))
+    {
+        <div class="field-hint" id="@($"{Id}-hint")">@Hint</div>
+    }
+    <div class="custom-select" data-custom-select>
+        <InputSelect TValue="TValue"
+                     id="@Id"
+                     class="native-select"
+                     aria-describedby="@DescribedBy"
+                     Value="@Value"
+                     ValueChanged="@ValueChanged"
+                     ValueExpression="@ValueExpression">
+            @ChildContent
+        </InputSelect>
+        <button class="control form-control custom-select-trigger"
+                type="button"
+                aria-haspopup="listbox"
+                aria-expanded="false"
+                aria-controls="@($"{Id}-menu")"
+                data-select-trigger>
+            <span data-select-value>@(string.IsNullOrWhiteSpace(DisplayText) ? "กรุณาเลือก" : DisplayText)</span>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+        </button>
+    </div>
+    <ValidationMessage For="ValueExpression" />
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Id { get; set; } = "";
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter] public string? Hint { get; set; }
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public string? DisplayText { get; set; }
+    [Parameter] public TValue Value { get; set; } = default!;
+    [Parameter] public EventCallback<TValue> ValueChanged { get; set; }
+    [Parameter, EditorRequired] public Expression<Func<TValue>> ValueExpression { get; set; } = default!;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string? DescribedBy => string.IsNullOrWhiteSpace(Hint) ? null : $"{Id}-hint";
+}

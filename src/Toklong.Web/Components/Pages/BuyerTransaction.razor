@@ -1,0 +1,299 @@
+@page "/buyer/{Token}"
+@rendermode InteractiveServer
+@using Toklong.Application.Features.Disputes.OpenDispute
+@using Toklong.Application.Features.Payouts.ConfirmReceipt
+@using Toklong.Application.Features.Transactions.GetTransaction
+@using Toklong.Application.Transactions
+@using Toklong.Domain.Transactions
+@using Toklong.Web.Models
+@inject Toklong.Web.Services.ApplicationRequestSender Sender
+@inject IConfiguration Configuration
+
+<PageTitle>รายการผู้ซื้อ — TOKLONG</PageTitle>
+
+<AppHeader BackHref="/" BackLabel="หน้าแรก" />
+
+<main class="page-shell">
+    @if (loading)
+    {
+        <div class="loading-state">กำลังเปิดรายการผู้ซื้อ…</div>
+    }
+    else if (transaction is null)
+    {
+        <AlertMessage Message="@error" Danger />
+    }
+    else
+    {
+        <div class="transaction-heading">
+            <div><span class="eyebrow"><span class="eyebrow-dot"></span>มุมมองผู้ซื้อ</span><h1>@transaction.ProductName</h1></div>
+            <StatusBadge State="transaction.State" Label="transaction.StateLabel" />
+        </div>
+
+        <AlertMessage Message="@success" />
+        <AlertMessage Message="@error" Danger />
+
+        <div class="mobile-only mobile-flow-head">
+            <MobileSceneIntro Step="@BuyerStep"
+                              Kicker="@BuyerKicker"
+                              Title="@BuyerTitle"
+                              Subtitle="@BuyerSubtitle" />
+            @if (transaction.State == TransactionState.DeliveredDisputeWindow)
+            {
+                <div class="mobile-card delivery-card">
+                    <span class="delivery-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M3.5 7.5h11v8h-11zM14.5 10h3l3 3v2.5h-6V10Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                            <path d="m7 12 2 2 3-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </span>
+                    <h4>ขนส่งยืนยันการนำส่งแล้ว</h4>
+                    <p>@transaction.CarrierCode · @transaction.TrackingNumber</p>
+                </div>
+                <div class="countdown-shell">
+                    <div class="countdown-ring"><span><strong>7</strong>วัน</span></div>
+                    <div class="countdown-copy"><strong>แจ้งปัญหาได้ถึง @ThaiDate(transaction.DisputeWindowEndsAt)</strong><small>หากไม่มีข้อโต้แย้ง ระบบจึงเริ่มคำสั่งจ่ายให้ผู้ขาย</small></div>
+                </div>
+            }
+            else if (transaction.State == TransactionState.DigitalDeliverySubmitted)
+            {
+                <div class="mobile-card delivery-card">
+                    <span class="delivery-icon">✓</span>
+                    <h4>ผู้ขายแจ้งว่าส่งมอบแล้ว</h4>
+                    <p>ตรวจผ่านช่องทางที่ตกลงกันก่อนกดยืนยัน</p>
+                </div>
+            }
+            else
+            {
+                <MobileTransactionCard Transaction="transaction" />
+            }
+        </div>
+
+        <div class="transaction-grid">
+            <div class="desktop-transaction-detail">
+                <TransactionSummary Transaction="transaction" />
+                <TransactionDetails Transaction="transaction" />
+            </div>
+            <aside>
+                @if (transaction.State == TransactionState.PaymentPending)
+                {
+                    <section class="action-card sticky-card">
+                        <div class="step-label">ขั้นที่ 2 จาก 4 · ชำระเงิน</div>
+                        <h2>โอนด้วยเลขอ้างอิงนี้</h2>
+                        <div class="bank-card">
+                            <div><span>ธนาคาร</span><strong>@BankName</strong></div>
+                            <div><span>ชื่อบัญชี</span><strong>@AccountName</strong></div>
+                            <div><span>เลขบัญชี</span><strong>@AccountNumber</strong></div>
+                            <div><span>ยอดที่ต้องโอน</span><strong>@Money(transaction.BuyerTotalSatang)</strong></div>
+                            <div><span>เลขอ้างอิง</span><strong>@transaction.PaymentReference</strong></div>
+                        </div>
+                        <div class="notice">
+                            หลังโอน ระบบจะแสดง “กำลังตรวจสอบการชำระ” จนกว่ารายการเดินบัญชีจะได้รับการตรวจสอบ
+                            สลิปอย่างเดียวไม่ทำให้ผู้ขายเห็นว่าส่งสินค้าได้
+                        </div>
+                    </section>
+                }
+                else if (transaction.State == TransactionState.PaidAwaitingShipment)
+                {
+                    <section class="action-card sticky-card">
+                        <div class="step-label success-text">ยืนยันยอดชำระแล้ว</div>
+                        <h2>รอผู้ขายจัดส่ง</h2>
+                        <div class="deadline-box"><span>ผู้ขายต้องส่งภายใน</span><strong>@ThaiDate(transaction.ShipByAt)</strong></div>
+                        <p>หากไม่มี Tracking ที่ตรวจสอบได้ภายในกำหนด รายการต้องเข้าสู่ขั้นตอนตรวจสอบการยกเลิก/คืนเงิน</p>
+                    </section>
+                }
+                else if (transaction.State == TransactionState.PaidAwaitingDigitalDelivery)
+                {
+                    <section class="action-card sticky-card">
+                        <div class="step-label success-text">ยืนยันยอดชำระแล้ว</div>
+                        <h2>รอผู้ขายส่งมอบ</h2>
+                        <div class="deadline-box"><span>ผู้ขายต้องส่งมอบภายใน</span><strong>@ThaiDate(transaction.ShipByAt)</strong></div>
+                        <p>ผู้ขายจะส่งผ่านช่องทางที่ตกลงกัน TOKLONG จะไม่ขอให้คุณรับรหัสผ่านหรือข้อมูลลับผ่านหน้านี้</p>
+                    </section>
+                }
+                else if (transaction.State is TransactionState.TrackingSubmitted or TransactionState.InTransit)
+                {
+                    <section class="action-card sticky-card">
+                        <div class="step-label">ขั้นที่ 3 จาก 4 · การจัดส่ง</div>
+                        <h2>@(transaction.State == TransactionState.InTransit ? "พัสดุกำลังเดินทาง" : "รอขนส่งตรวจสอบ Tracking")</h2>
+                        <div class="bank-card">
+                            <div><span>ขนส่ง</span><strong>@transaction.CarrierCode</strong></div>
+                            <div><span>Tracking</span><strong>@transaction.TrackingNumber</strong></div>
+                        </div>
+                        <p>ยังไม่เริ่มนับ 168 ชั่วโมงจนกว่าขนส่งยืนยันการนำส่ง</p>
+                    </section>
+                }
+                else if (transaction.State == TransactionState.DeliveredDisputeWindow)
+                {
+                    <section class="action-card mobile-delivery-action">
+                        <div class="step-label">ขั้นที่ 4 จาก 4 · ตรวจสินค้า</div>
+                        <h2>ขนส่งยืนยันการนำส่งแล้ว</h2>
+                        <div class="deadline-box"><span>แจ้งปัญหาได้ถึง</span><strong>@ThaiDate(transaction.DisputeWindowEndsAt)</strong></div>
+                        <p>กรุณาตรวจสินค้า รูป อุปกรณ์ สภาพ และตำหนิ ก่อนยืนยันรับ</p>
+                        <PrimaryButton Type="button" Busy="busy" Disabled="busy" @onclick="ConfirmReceiptAsync">
+                            ได้รับสินค้าแล้ว
+                        </PrimaryButton>
+                    </section>
+
+                    <EditForm Model="disputeForm" OnValidSubmit="OpenDisputeAsync" FormName="buyer-dispute" class="form-card danger-card mobile-dispute-card">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="validation-summary" />
+                        <h2>แจ้งปัญหา</h2>
+                        <SelectField TValue="DisputeReason" Id="reason" Label="ประเภทปัญหา" DisplayText="@DisputeReasonLabel(disputeForm.Reason)" Required @bind-Value="disputeForm.Reason">
+                            <option value="@DisputeReason.NotReceived">ไม่ได้รับสินค้าแม้ขนส่งแจ้งว่าส่งแล้ว</option>
+                            <option value="@DisputeReason.WrongItem">ได้รับสินค้าผิด</option>
+                            <option value="@DisputeReason.NotAsDescribed">สินค้าไม่ตรงรายละเอียดอย่างมีนัยสำคัญ</option>
+                            <option value="@DisputeReason.UndisclosedDamage">มีความเสียหายหรือตำหนิที่ไม่ได้แจ้ง</option>
+                            <option value="@DisputeReason.SuspectedCounterfeit">สงสัยว่าเป็นสินค้าปลอม</option>
+                            <option value="@DisputeReason.EmptyOrTamperedParcel">พัสดุว่างหรือมีร่องรอยเปิด</option>
+                            <option value="@DisputeReason.Other">อื่น ๆ</option>
+                        </SelectField>
+                        <TextAreaField Id="statement" Label="รายละเอียดปัญหา" Hint="อธิบายสิ่งที่พบและหลักฐานที่มี โดยหลีกเลี่ยงข้อมูลส่วนตัวเกินจำเป็น" Required @bind-Value="disputeForm.Statement" />
+                        <PrimaryButton Busy="busy" Disabled="busy" Secondary>เปิดข้อโต้แย้งและพักการจ่าย</PrimaryButton>
+                    </EditForm>
+                }
+                else if (transaction.State == TransactionState.DigitalDeliverySubmitted)
+                {
+                    <section class="action-card mobile-delivery-action">
+                        <div class="step-label">ขั้นที่ 4 จาก 4 · ตรวจการส่งมอบ</div>
+                        <h2>ผู้ขายแจ้งว่าส่งมอบแล้ว</h2>
+                        <div class="notice">
+                            @(transaction.DigitalDeliveryStatement ?? "ผู้ขายส่งมอบผ่านช่องทางที่ตกลงกัน")
+                        </div>
+                        <p>ตรวจว่าคุณได้รับและควบคุมรายการดิจิทัลได้ตามข้อตกลงก่อนยืนยัน การยืนยันจะเริ่มขั้นตอนจ่ายเงินให้ผู้ขาย</p>
+                        <PrimaryButton Type="button" Busy="busy" Disabled="busy" @onclick="ConfirmReceiptAsync">
+                            ได้รับรายการดิจิทัลแล้ว
+                        </PrimaryButton>
+                    </section>
+
+                    <EditForm Model="disputeForm" OnValidSubmit="OpenDisputeAsync" FormName="buyer-digital-dispute" class="form-card danger-card mobile-dispute-card">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="validation-summary" />
+                        <h2>ยังไม่ได้รับหรือมีปัญหา</h2>
+                        <SelectField TValue="DisputeReason" Id="digital-reason" Label="ประเภทปัญหา" DisplayText="@DisputeReasonLabel(disputeForm.Reason)" Required @bind-Value="disputeForm.Reason">
+                            <option value="@DisputeReason.NotReceived">ยังไม่ได้รับข้อมูลหรือสิทธิ์</option>
+                            <option value="@DisputeReason.WrongItem">ได้รับรายการผิด</option>
+                            <option value="@DisputeReason.NotAsDescribed">รายการหรือสิทธิ์ไม่ตรงข้อตกลง</option>
+                            <option value="@DisputeReason.Other">อื่น ๆ</option>
+                        </SelectField>
+                        <TextAreaField Id="digital-statement" Label="รายละเอียดปัญหา" Hint="อธิบายสิ่งที่เกิดขึ้นโดยไม่ใส่รหัสผ่าน รหัสกู้คืน หรือข้อมูลลับ" Required @bind-Value="disputeForm.Statement" />
+                        <PrimaryButton Busy="busy" Disabled="busy" Secondary>เปิดข้อโต้แย้งและพักการจ่าย</PrimaryButton>
+                    </EditForm>
+                }
+                else
+                {
+                    <BuyerStateCard Transaction="transaction" />
+                }
+            </aside>
+        </div>
+    }
+</main>
+
+@code {
+    [Parameter] public string Token { get; set; } = "";
+    private readonly DisputeForm disputeForm = new();
+    private TransactionView? transaction;
+    private bool loading = true;
+    private bool busy;
+    private string? error;
+    private string? success;
+    private string BankName => Configuration["ManualBank:BankName"] ?? "กรุณาตั้งค่า";
+    private string AccountName => Configuration["ManualBank:AccountName"] ?? "กรุณาตั้งค่า";
+    private string AccountNumber => Configuration["ManualBank:AccountNumber"] ?? "กรุณาตั้งค่า";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            transaction = await Sender.Send(new GetBuyerTransactionQuery(Token));
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task ConfirmReceiptAsync()
+    {
+        busy = true;
+        error = null;
+        try
+        {
+            transaction = await Sender.Send(new ConfirmReceiptCommand(Token));
+            success = transaction.FulfillmentType == FulfillmentType.DigitalHandoff
+                ? "บันทึกการยืนยันรับรายการดิจิทัลแล้ว และเริ่มคำสั่งจ่ายให้ผู้ขาย"
+                : "บันทึกการยืนยันรับสินค้าแล้ว และเริ่มคำสั่งจ่ายให้ผู้ขาย";
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task OpenDisputeAsync()
+    {
+        busy = true;
+        error = null;
+        try
+        {
+            transaction = await Sender.Send(new OpenDisputeCommand(Token, disputeForm.Reason, disputeForm.Statement));
+            success = "เปิดข้อโต้แย้งแล้ว การจ่ายเงินถูกพักไว้ระหว่างตรวจสอบ";
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private static string ThaiDate(DateTimeOffset? value) =>
+        value?.ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm 'น. (เวลาไทย)'") ?? "—";
+    private static string Money(long satang) => $"฿{satang / 100m:N2}";
+    private static string DisputeReasonLabel(DisputeReason reason) => reason switch
+    {
+        DisputeReason.NotReceived => "ไม่ได้รับสินค้าแม้ขนส่งแจ้งว่าส่งแล้ว",
+        DisputeReason.WrongItem => "ได้รับสินค้าผิด",
+        DisputeReason.UndisclosedDamage => "มีความเสียหายหรือตำหนิที่ไม่ได้แจ้ง",
+        DisputeReason.SuspectedCounterfeit => "สงสัยว่าเป็นสินค้าปลอม",
+        DisputeReason.EmptyOrTamperedParcel => "พัสดุว่างหรือมีร่องรอยเปิด",
+        DisputeReason.Other => "อื่น ๆ",
+        _ => "สินค้าไม่ตรงรายละเอียดอย่างมีนัยสำคัญ"
+    };
+
+    private int BuyerStep => transaction?.State switch
+    {
+        TransactionState.TrackingSubmitted or TransactionState.InTransit => 3,
+        TransactionState.DeliveredDisputeWindow or TransactionState.DigitalDeliverySubmitted => 4,
+        _ => 2
+    };
+    private string BuyerKicker => transaction?.State switch
+    {
+        TransactionState.TrackingSubmitted or TransactionState.InTransit => "กำลังจัดส่ง",
+        TransactionState.DeliveredDisputeWindow => "ช่วงตรวจสินค้า",
+        TransactionState.DigitalDeliverySubmitted => "ตรวจการส่งมอบ",
+        _ => "ตรวจสอบก่อนจ่าย"
+    };
+    private string BuyerTitle => transaction?.State switch
+    {
+        TransactionState.TrackingSubmitted or TransactionState.InTransit => "พัสดุกำลังเดินทาง",
+        TransactionState.DeliveredDisputeWindow => "พัสดุถึงแล้ว",
+        TransactionState.DigitalDeliverySubmitted => "ผู้ขายแจ้งว่าส่งมอบแล้ว",
+        _ => "ตรวจสอบและชำระ"
+    };
+    private string BuyerSubtitle => transaction?.State switch
+    {
+        TransactionState.DeliveredDisputeWindow => "ตรวจสินค้าให้ตรงกับรูปและรายละเอียดก่อนยืนยันรับ",
+        TransactionState.DigitalDeliverySubmitted => "ตรวจผ่านช่องทางที่ตกลงกันก่อนยืนยัน เพราะไม่มีการจ่ายอัตโนมัติ",
+        _ => "ดูยอด สถานะ และขั้นตอนถัดไปของรายการนี้"
+    };
+}

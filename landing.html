@@ -1,0 +1,1473 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f8fbff" />
+  <meta name="description" content="TOKLONG — เปลี่ยนข้อตกลงซื้อขายสินค้าจากแชตให้เป็นลิงก์เดียว รองรับทั้งสินค้าจัดส่งและสินค้าดิจิทัลที่โอนได้ พร้อมเงื่อนไขจ่ายเงินที่ชัดเจน" />
+  <title>TOKLONG — ตกลงกันแล้ว ส่งลิงก์เดียว จบดีลอย่างชัดเจน</title>
+  <style>
+    :root {
+      --ink: #111827;
+      --ink-soft: #475569;
+      --muted: #64748b;
+      --line: rgba(15, 23, 42, 0.09);
+      --line-strong: rgba(15, 23, 42, 0.15);
+      --surface: #ffffff;
+      --surface-soft: #f6f9fc;
+      --surface-blue: #eef7ff;
+      --blue: #2b7fff;
+      --blue-deep: #135ecb;
+      --blue-ink: #0e4da5;
+      --sky: #70c8ff;
+      --mint: #65d6bf;
+      --mint-deep: #13836c;
+      --amber: #f4b65d;
+      --danger: #d84966;
+      --shadow-sm: 0 10px 30px rgba(31, 72, 125, 0.08);
+      --shadow-md: 0 24px 70px rgba(39, 86, 145, 0.14);
+      --shadow-lg: 0 38px 110px rgba(39, 86, 145, 0.19);
+      --radius-sm: 14px;
+      --radius-md: 22px;
+      --radius-lg: 32px;
+      --max: 1180px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 6%, rgba(112, 200, 255, 0.08), transparent 28rem),
+        #ffffff;
+      font-family: "Noto Sans Thai", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.65;
+      overflow-x: hidden;
+      text-rendering: optimizeLegibility;
+    }
+    body.locked { overflow: hidden; }
+    a { color: inherit; text-decoration: none; }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    h1[tabindex="-1"]:focus { outline: none; }
+    img, svg { display: block; max-width: 100%; }
+    [hidden] { display: none !important; }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .container { width: min(calc(100% - 40px), var(--max)); margin-inline: auto; }
+    .section { position: relative; padding: 104px 0; }
+    .section-head { max-width: 760px; margin-bottom: 46px; }
+    .section-head.center { margin-inline: auto; text-align: center; }
+    .section-title {
+      margin: 16px 0 14px;
+      font-size: clamp(34px, 5vw, 58px);
+      line-height: 1.11;
+      letter-spacing: -0.045em;
+      font-weight: 800;
+    }
+    .section-lead { margin: 0; color: var(--ink-soft); font-size: clamp(17px, 2vw, 20px); line-height: 1.75; }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 12px;
+      border: 1px solid rgba(43, 127, 255, 0.16);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.84);
+      color: var(--blue-ink);
+      box-shadow: 0 8px 24px rgba(43, 127, 255, 0.07);
+      backdrop-filter: blur(12px);
+      font-size: 13px;
+      font-weight: 760;
+    }
+    .eyebrow-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--blue);
+      box-shadow: 0 0 0 5px rgba(43, 127, 255, 0.11);
+    }
+
+    .button {
+      min-height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      border: 1px solid transparent;
+      border-radius: 14px;
+      padding: 0 19px;
+      font-weight: 760;
+      outline: none;
+      transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease, border-color 180ms ease;
+    }
+    .button:hover { transform: translateY(-2px); }
+    .button:focus-visible { box-shadow: 0 0 0 4px rgba(43, 127, 255, 0.18); }
+    .button-primary {
+      color: #fff;
+      background: linear-gradient(135deg, #2b7fff, #1d69df);
+      box-shadow: 0 13px 30px rgba(43, 127, 255, 0.27);
+    }
+    .button-primary:hover { box-shadow: 0 17px 38px rgba(43, 127, 255, 0.34); }
+    .button-secondary {
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.84);
+      border-color: rgba(15, 23, 42, 0.11);
+      box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+    }
+    .button-secondary:hover { border-color: rgba(43, 127, 255, 0.24); background: #fff; }
+    .button-ghost { min-height: 40px; padding-inline: 13px; color: var(--ink-soft); background: transparent; }
+    .button-sm { min-height: 40px; padding-inline: 15px; border-radius: 12px; font-size: 14px; }
+    .icon { width: 19px; height: 19px; flex: 0 0 auto; }
+
+    /* Header */
+    .site-header {
+      position: fixed;
+      inset: 0 0 auto;
+      z-index: 100;
+      padding: 15px 0;
+      transition: padding 180ms ease, background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+    }
+    .site-header.scrolled {
+      padding: 10px 0;
+      background: rgba(255, 255, 255, 0.84);
+      border-bottom: 1px solid var(--line);
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+      backdrop-filter: blur(18px) saturate(1.3);
+    }
+    .nav-shell { min-height: 54px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+    .brand { display: inline-flex; align-items: center; gap: 11px; min-width: max-content; font-size: 20px; font-weight: 850; letter-spacing: -0.035em; }
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      position: relative;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      color: #fff;
+      background: linear-gradient(145deg, #2b7fff, #76cfff);
+      box-shadow: 0 10px 22px rgba(43, 127, 255, 0.24);
+      overflow: hidden;
+    }
+    .brand-mark::before {
+      content: "";
+      position: absolute;
+      inset: -28% 36% 44% -24%;
+      border-radius: 999px;
+      background: rgba(255,255,255,.48);
+      transform: rotate(-20deg);
+    }
+    .brand-mark svg { position: relative; z-index: 1; }
+    .nav-links {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-left: auto;
+      padding: 4px;
+      border-radius: 14px;
+      color: #374151;
+      font-size: 14px;
+      font-weight: 680;
+      isolation: isolate;
+    }
+    .nav-link { position: relative; z-index: 2; padding: 8px 13px; border-radius: 10px; }
+    .nav-spotlight {
+      position: absolute;
+      z-index: 1;
+      left: 4px;
+      top: 4px;
+      width: 90px;
+      height: calc(100% - 8px);
+      border: 1px solid rgba(43,127,255,.12);
+      border-radius: 10px;
+      background: linear-gradient(135deg, rgba(43,127,255,.10), rgba(112,200,255,.06));
+      box-shadow: 0 8px 24px rgba(43,127,255,.07);
+      opacity: 0;
+      transform: translateX(0);
+      transition: transform 220ms cubic-bezier(.2,.8,.2,1), width 220ms ease, opacity 140ms ease;
+      pointer-events: none;
+    }
+    .nav-links.has-spotlight .nav-spotlight { opacity: 1; }
+    .nav-actions { display: flex; align-items: center; gap: 8px; }
+    .menu-toggle {
+      width: 44px;
+      height: 44px;
+      display: none;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: rgba(255,255,255,.92);
+      color: var(--ink);
+    }
+    .mobile-panel {
+      position: fixed;
+      inset: 76px 16px auto;
+      z-index: 99;
+      display: none;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: rgba(255,255,255,.97);
+      box-shadow: var(--shadow-md);
+      backdrop-filter: blur(18px);
+    }
+    .mobile-panel.open { display: block; animation: fade-up 180ms ease both; }
+    .mobile-panel a { display: block; padding: 12px 10px; border-radius: 10px; font-size: 15px; font-weight: 700; }
+    .mobile-panel a:hover { color: var(--blue-ink); background: #eef6ff; }
+    .mobile-panel .button { width: 100%; margin-top: 8px; }
+
+    /* Hero */
+    .hero {
+      position: relative;
+      min-height: 835px;
+      display: flex;
+      align-items: center;
+      padding: 136px 0 88px;
+      isolation: isolate;
+      overflow: hidden;
+      --spot-x: 70%;
+      --spot-y: 29%;
+    }
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -5;
+      background:
+        radial-gradient(760px circle at var(--spot-x) var(--spot-y), rgba(95, 185, 255, 0.24), transparent 43%),
+        radial-gradient(540px circle at 10% 28%, rgba(101, 214, 191, 0.10), transparent 48%),
+        radial-gradient(420px circle at 50% 5%, rgba(139,130,255,.07), transparent 48%),
+        linear-gradient(180deg, #fbfdff 0%, #ffffff 84%);
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      width: 610px;
+      height: 610px;
+      right: -220px;
+      top: 95px;
+      z-index: -4;
+      border-radius: 50%;
+      background: conic-gradient(from 40deg, rgba(43,127,255,.07), rgba(112,200,255,.22), rgba(139,130,255,.08), rgba(43,127,255,.07));
+      filter: blur(15px);
+      animation: slow-spin 18s linear infinite;
+    }
+    .hero-grid-pattern {
+      position: absolute;
+      inset: 0;
+      z-index: -3;
+      opacity: .24;
+      background-image:
+        linear-gradient(rgba(43,127,255,.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(43,127,255,.08) 1px, transparent 1px);
+      background-size: 54px 54px;
+      mask-image: linear-gradient(to bottom, black, transparent 74%);
+    }
+    .hero-orb { position: absolute; z-index: -2; border-radius: 50%; pointer-events: none; }
+    .hero-orb.one { width: 18px; height: 18px; left: 7%; top: 29%; background: rgba(43,127,255,.24); animation: float-y 5.8s ease-in-out infinite; }
+    .hero-orb.two { width: 11px; height: 11px; left: 45%; top: 16%; background: rgba(101,214,191,.5); animation: float-y 4.7s ease-in-out -1.2s infinite; }
+    .hero-layout { display: grid; grid-template-columns: 1.03fr .97fr; align-items: center; gap: clamp(48px, 7vw, 92px); }
+    .hero-copy { max-width: 670px; }
+    .hero-title {
+      margin: 20px 0 22px;
+      font-size: clamp(48px, 7vw, 82px);
+      line-height: 1.03;
+      letter-spacing: -0.058em;
+      font-weight: 850;
+    }
+    .soft-highlight { position: relative; display: inline-block; color: var(--blue-deep); white-space: nowrap; }
+    .soft-highlight::after {
+      content: "";
+      position: absolute;
+      left: 2%; right: 1%; bottom: 2px; height: 15px; z-index: -1;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(112,200,255,.13), rgba(43,127,255,.24));
+      transform: rotate(-1deg);
+    }
+    .hero-subtitle { max-width: 625px; margin: 0 0 30px; color: var(--ink-soft); font-size: clamp(18px, 2.2vw, 22px); line-height: 1.75; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 30px; }
+    .hero-note { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; color: var(--muted); font-size: 13px; font-weight: 620; }
+    .hero-note span { display: inline-flex; align-items: center; gap: 7px; }
+    .hero-note svg { color: var(--blue); }
+    .source-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+    .source-chip { padding: 7px 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink-soft); background: rgba(255,255,255,.7); font-size: 11px; font-weight: 720; }
+
+    /* Mobile product animation */
+    .hero-visual { min-height: 635px; position: relative; display: grid; place-items: center; perspective: 1200px; }
+    .halo {
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      border: 1px solid rgba(43,127,255,.11);
+      border-radius: 50%;
+      box-shadow: 0 0 0 42px rgba(43,127,255,.035), 0 0 0 94px rgba(43,127,255,.02);
+      animation: halo-pulse 5s ease-in-out infinite;
+    }
+    .phone-wrap { position: relative; width: min(354px, 86vw); transform: rotateY(-5deg) rotateX(1.5deg); animation: phone-float 6.4s ease-in-out infinite; }
+    .phone {
+      position: relative;
+      border: 8px solid #101827;
+      border-radius: 46px;
+      padding: 12px;
+      background: #101827;
+      box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,.9) inset;
+    }
+    .phone::before {
+      content: "";
+      position: absolute;
+      width: 34%;
+      height: 24px;
+      top: 7px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 6;
+      border-radius: 0 0 16px 16px;
+      background: #101827;
+    }
+    .phone-screen {
+      min-height: 602px;
+      position: relative;
+      overflow: hidden;
+      border-radius: 33px;
+      background:
+        radial-gradient(circle at 90% 2%, rgba(112,200,255,.25), transparent 180px),
+        linear-gradient(180deg, #fafdff, #f4f8fc);
+    }
+    .phone-top {
+      min-height: 65px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 21px 18px 11px;
+      border-bottom: 1px solid rgba(15,23,42,.06);
+      background: rgba(255,255,255,.72);
+      backdrop-filter: blur(12px);
+    }
+    .phone-brand { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 850; letter-spacing: -.03em; }
+    .phone-brand .brand-mark { width: 25px; height: 25px; border-radius: 8px; }
+    .phone-brand .brand-mark svg { width: 14px; }
+    .role-badge { padding: 4px 8px; border-radius: 999px; color: var(--blue-ink); background: #e8f3ff; font-size: 9px; font-weight: 800; }
+    .phone-stage { position: relative; min-height: 490px; padding: 17px 17px 12px; }
+    .app-scene { animation: scene-in 430ms cubic-bezier(.2,.8,.2,1) both; }
+    .scene-kicker { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; color: var(--muted); font-size: 9px; font-weight: 720; }
+    .scene-kicker strong { color: var(--blue-ink); }
+    .scene-title { margin: 0 0 3px; font-size: 22px; line-height: 1.28; letter-spacing: -.04em; }
+    .scene-subtitle { margin: 0 0 14px; color: var(--muted); font-size: 10px; line-height: 1.5; }
+    .mobile-card { border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,.92); box-shadow: 0 10px 28px rgba(15,23,42,.045); overflow: hidden; }
+    .product-block { display: grid; grid-template-columns: 83px 1fr; gap: 12px; padding: 12px; }
+    .product-visual {
+      min-height: 83px;
+      display: grid;
+      place-items: center;
+      position: relative;
+      border-radius: 14px;
+      background: linear-gradient(145deg, #edf6ff, #dfeeff);
+      overflow: hidden;
+    }
+    .camera-body { width: 55px; height: 37px; position: relative; border-radius: 9px; background: #25344b; box-shadow: inset 0 -4px 0 rgba(0,0,0,.14), 0 8px 16px rgba(20,40,70,.17); }
+    .camera-body::before { content:""; position:absolute; width:25px; height:25px; left:15px; top:7px; border:5px solid #d4e8ff; border-radius:50%; background:#4b6383; box-shadow: inset 0 0 0 4px #22324a; }
+    .camera-body::after { content:""; position:absolute; width:14px; height:6px; left:8px; top:-5px; border-radius:4px 4px 0 0; background:#354964; }
+    .camera-flash { position:absolute; width:10px; height:7px; right:8px; top:6px; border-radius:3px; background:#bfe4ff; }
+    .product-copy strong { display: block; font-size: 11px; line-height: 1.35; }
+    .product-copy small { display: block; margin-top: 3px; color: var(--muted); font-size: 8.5px; }
+    .condition-pill { display: inline-flex; margin-top: 7px; padding: 4px 6px; border-radius: 999px; color: #72521b; background: #fff4dc; font-size: 7.5px; font-weight: 800; }
+    .form-stack { display: grid; gap: 8px; margin-top: 9px; }
+    .field-mini { padding: 9px 10px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+    .field-mini label { display:block; margin-bottom:3px; color: var(--muted); font-size: 7.5px; font-weight:720; }
+    .field-mini strong { display:block; font-size: 10px; }
+    .field-row { display:grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .mobile-primary, .mobile-secondary {
+      width: 100%; min-height: 40px; display:flex; align-items:center; justify-content:center; gap:7px; border-radius:12px; font-size:10px; font-weight:820;
+    }
+    .mobile-primary { border:0; color:#fff; background:linear-gradient(135deg,#2b7fff,#1d69df); box-shadow:0 10px 22px rgba(43,127,255,.22); }
+    .mobile-secondary { border:1px solid var(--line); color:var(--ink-soft); background:#fff; }
+    .link-card { display:flex; align-items:center; gap:8px; margin-top:9px; padding:10px; border:1px solid rgba(43,127,255,.14); border-radius:13px; color:var(--blue-ink); background:#eef7ff; }
+    .link-card span:first-child { width:26px; height:26px; display:grid; place-items:center; flex:0 0 auto; border-radius:8px; color:#fff; background:var(--blue); }
+    .link-card strong { display:block; font-size:8.5px; }
+    .link-card small { display:block; color:var(--muted); font-size:7.2px; }
+    .seller-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border-top:1px solid var(--line); }
+    .seller-profile { display:flex; align-items:center; gap:8px; }
+    .mini-avatar { width:28px; height:28px; display:grid; place-items:center; border-radius:50%; color:#14549e; background:#ddecff; font-size:8px; font-weight:850; }
+    .seller-profile strong { display:block; font-size:8.8px; }
+    .seller-profile small { display:block; color:var(--mint-deep); font-size:7px; font-weight:760; }
+    .price-summary { margin-top:9px; padding:12px; border:1px solid var(--line); border-radius:16px; background:#fff; }
+    .price-line { display:flex; justify-content:space-between; gap:12px; margin:4px 0; color:var(--muted); font-size:8.5px; }
+    .price-line.total { margin-top:9px; padding-top:9px; border-top:1px solid var(--line); color:var(--ink); font-size:10px; font-weight:800; }
+    .protection-note { display:flex; gap:8px; margin:9px 0; padding:9px; border-radius:12px; color:#155f4e; background:#e7faf5; font-size:7.5px; line-height:1.45; }
+    .protection-note svg { flex:0 0 auto; margin-top:1px; }
+    .success-card { padding:14px; color:#fff; background:radial-gradient(circle at 90% 5%,rgba(255,255,255,.25),transparent 100px),linear-gradient(145deg,#2b7fff,#1d68dc); border:0; }
+    .success-head { display:flex; align-items:center; gap:10px; }
+    .success-icon { width:36px; height:36px; display:grid; place-items:center; border-radius:12px; background:rgba(255,255,255,.16); }
+    .success-head strong { display:block; font-size:11px; }
+    .success-head small { display:block; color:rgba(255,255,255,.72); font-size:8px; }
+    .success-amount { margin:16px 0 2px; font-size:25px; line-height:1; letter-spacing:-.04em; font-weight:850; }
+    .success-caption { color:rgba(255,255,255,.75); font-size:8px; }
+    .shipping-card { margin-top:9px; padding:12px; }
+    .ship-deadline { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .ship-deadline span:first-child { font-size:9px; font-weight:800; }
+    .ship-pill { padding:4px 7px; border-radius:999px; color:#72521b; background:#fff3d7; font-size:7px; font-weight:800; }
+    .carrier-row { display:grid; grid-template-columns:92px 1fr; gap:7px; }
+    .select-mini, .tracking-mini { min-height:36px; display:flex; align-items:center; padding:0 9px; border:1px solid var(--line); border-radius:10px; background:#fbfdff; font-size:8px; }
+    .tracking-mini { color:var(--ink); font-weight:760; letter-spacing:.02em; }
+    .shipment-timeline { display:grid; gap:9px; margin-top:9px; padding:12px; }
+    .shipment-row { display:grid; grid-template-columns:24px 1fr auto; align-items:center; gap:8px; }
+    .shipment-dot { width:24px; height:24px; display:grid; place-items:center; border-radius:8px; color:var(--blue-deep); background:#e8f3ff; }
+    .shipment-row strong { display:block; font-size:8.5px; }
+    .shipment-row small { display:block; color:var(--muted); font-size:7px; }
+    .shipment-row time { color:var(--muted); font-size:6.8px; }
+    .delivery-card { padding:13px; text-align:center; }
+    .delivery-icon { width:48px; height:48px; display:grid; place-items:center; margin:0 auto 9px; border-radius:16px; color:#14755f; background:#e4f9f3; }
+    .delivery-card h4 { margin:0 0 3px; font-size:13px; }
+    .delivery-card p { margin:0; color:var(--muted); font-size:8px; }
+    .countdown-shell { display:grid; grid-template-columns:78px 1fr; align-items:center; gap:12px; margin-top:11px; padding:11px; border:1px solid var(--line); border-radius:16px; background:#fff; text-align:left; }
+    .countdown-ring { width:70px; height:70px; display:grid; place-items:center; position:relative; border-radius:50%; background:conic-gradient(var(--blue) 0 78%, #e8eef5 78% 100%); }
+    .countdown-ring::after { content:""; position:absolute; inset:7px; border-radius:50%; background:#fff; }
+    .countdown-ring span { position:relative; z-index:1; text-align:center; font-size:8px; color:var(--muted); }
+    .countdown-ring strong { display:block; color:var(--ink); font-size:20px; line-height:1; }
+    .countdown-copy strong { display:block; font-size:9px; }
+    .countdown-copy small { display:block; margin-top:3px; color:var(--muted); font-size:7.3px; }
+    .action-grid { display:grid; grid-template-columns:1.2fr .8fr; gap:7px; margin-top:9px; }
+    .payout-overlay {
+      position:absolute; inset:0; z-index:5; display:grid; place-items:center; padding:28px; color:#fff;
+      background:linear-gradient(160deg,rgba(19,131,108,.97),rgba(39,176,145,.96));
+      opacity:0; visibility:hidden; transform:scale(.98); transition:opacity 280ms ease, transform 280ms ease, visibility 280ms ease;
+    }
+    .payout-overlay.show { opacity:1; visibility:visible; transform:scale(1); }
+    .payout-content { text-align:center; }
+    .payout-check { width:72px; height:72px; display:grid; place-items:center; margin:0 auto 16px; border:1px solid rgba(255,255,255,.34); border-radius:24px; background:rgba(255,255,255,.15); box-shadow:0 18px 35px rgba(2,70,54,.22); }
+    .payout-content h4 { margin:0 0 4px; font-size:21px; letter-spacing:-.04em; }
+    .payout-content p { margin:0; color:rgba(255,255,255,.78); font-size:9px; }
+    .payout-content strong { display:block; margin-top:18px; font-size:27px; }
+
+    .phone-footer { min-height:47px; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 14px 12px; border-top:1px solid rgba(15,23,42,.06); background:rgba(255,255,255,.82); }
+    .stage-dots { display:flex; gap:5px; }
+    .stage-dot { width:7px; height:7px; padding:0; border:0; border-radius:999px; background:#dbe4ee; transition:width 180ms ease, background 180ms ease; }
+    .stage-dot.active { width:22px; background:var(--blue); }
+    .phone-controls { display:flex; align-items:center; gap:5px; }
+    .phone-control { width:29px; height:29px; display:grid; place-items:center; border:1px solid var(--line); border-radius:9px; color:var(--ink-soft); background:#fff; }
+    .stage-caption { position:absolute; left:50%; bottom:-44px; transform:translateX(-50%); width:max-content; max-width:96vw; display:flex; gap:7px; padding:8px; border:1px solid rgba(255,255,255,.85); border-radius:16px; background:rgba(255,255,255,.82); box-shadow:var(--shadow-sm); backdrop-filter:blur(15px); }
+    .stage-chip { padding:6px 9px; border-radius:10px; color:var(--muted); font-size:8px; font-weight:760; transition:color 180ms ease, background 180ms ease; }
+    .stage-chip.active { color:var(--blue-ink); background:#eaf4ff; }
+    .floating-card { position:absolute; z-index:5; border:1px solid rgba(255,255,255,.84); background:rgba(255,255,255,.86); box-shadow:var(--shadow-md); backdrop-filter:blur(16px) saturate(1.3); }
+    .floating-card.payment { display:flex; align-items:center; gap:9px; right:-64px; top:92px; padding:11px 13px; border-radius:17px; color:#155f4e; font-size:9px; font-weight:790; animation:float-card 4.8s ease-in-out -2s infinite; }
+    .floating-card.tracking { width:192px; left:-68px; bottom:82px; padding:13px; border-radius:18px; animation:float-card 5.4s ease-in-out -.8s infinite; }
+    .float-icon { width:31px; height:31px; display:grid; place-items:center; flex:0 0 auto; border-radius:10px; color:#14755f; background:#e4fbf4; }
+    .tracking strong { display:block; font-size:9px; }
+    .tracking small { display:block; color:var(--muted); font-size:7.5px; }
+
+    /* Trust strip */
+    .trust-strip { position:relative; z-index:10; margin-top:-10px; }
+    .trust-shell { display:grid; grid-template-columns:repeat(3,1fr); border:1px solid var(--line); border-radius:22px; background:rgba(255,255,255,.92); box-shadow:var(--shadow-sm); overflow:hidden; }
+    .trust-item { min-height:92px; display:flex; align-items:center; gap:14px; padding:20px 25px; border-right:1px solid var(--line); }
+    .trust-item:last-child { border-right:0; }
+    .trust-icon { width:42px; height:42px; display:grid; place-items:center; flex:0 0 auto; border-radius:14px; color:var(--blue-deep); background:#edf6ff; }
+    .trust-item strong { display:block; font-size:14px; }
+    .trust-item small { display:block; color:var(--muted); font-size:12px; }
+
+    /* Role simplicity */
+    .simple-section { background:linear-gradient(180deg,#fff,#fbfdff); }
+    .simple-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    .role-card { position:relative; min-height:410px; padding:34px; border:1px solid var(--line); border-radius:30px; background:#fff; box-shadow:0 14px 42px rgba(15,23,42,.05); overflow:hidden; }
+    .role-card.seller { background:radial-gradient(circle at 90% 0%,rgba(112,200,255,.18),transparent 250px),#fff; }
+    .role-card.buyer { background:radial-gradient(circle at 90% 0%,rgba(101,214,191,.15),transparent 250px),#fff; }
+    .role-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:28px; }
+    .role-symbol { width:52px; height:52px; display:grid; place-items:center; border-radius:17px; color:var(--blue-deep); background:#eaf4ff; }
+    .role-card.buyer .role-symbol { color:#14755f; background:#e5faf4; }
+    .role-label { padding:6px 9px; border-radius:999px; color:var(--blue-ink); background:#edf6ff; font-size:10px; font-weight:800; }
+    .role-card.buyer .role-label { color:#14755f; background:#e5faf4; }
+    .role-card h3 { margin:0 0 7px; font-size:28px; letter-spacing:-.04em; }
+    .role-card > p { margin:0 0 25px; color:var(--muted); font-size:15px; }
+    .role-actions { display:grid; gap:10px; }
+    .role-action { display:grid; grid-template-columns:34px 1fr; align-items:start; gap:12px; padding:13px; border:1px solid var(--line); border-radius:16px; background:rgba(255,255,255,.82); }
+    .role-number { width:34px; height:34px; display:grid; place-items:center; border-radius:11px; color:var(--blue-ink); background:#eaf4ff; font-size:12px; font-weight:850; }
+    .role-card.buyer .role-number { color:#14755f; background:#e5faf4; }
+    .role-action strong { display:block; font-size:14px; }
+    .role-action small { display:block; color:var(--muted); font-size:11px; }
+    .system-pill { display:inline-flex; align-items:center; gap:8px; margin-top:16px; padding:9px 12px; border-radius:999px; color:#4d5e73; background:#f2f6fa; font-size:11px; font-weight:720; }
+
+    /* Four steps */
+    .steps-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
+    .step-card { position:relative; min-height:290px; padding:25px; border:1px solid var(--line); border-radius:24px; background:#fff; box-shadow:0 12px 32px rgba(15,23,42,.045); overflow:hidden; transition:transform 200ms ease,box-shadow 200ms ease,border-color 200ms ease; }
+    .step-card:hover { transform:translateY(-7px); border-color:rgba(43,127,255,.18); box-shadow:0 22px 55px rgba(43,90,145,.1); }
+    .step-card::after { content:attr(data-step); position:absolute; right:12px; bottom:-20px; color:rgba(43,127,255,.055); font-size:105px; line-height:1; font-weight:900; letter-spacing:-.08em; }
+    .step-icon { width:52px; height:52px; display:grid; place-items:center; margin-bottom:36px; border-radius:17px; color:var(--blue-deep); background:linear-gradient(145deg,#f2f8ff,#e4f2ff); box-shadow:0 10px 24px rgba(43,127,255,.08); }
+    .step-card h3 { margin:0 0 11px; font-size:20px; letter-spacing:-.025em; }
+    .step-card p { margin:0; color:var(--ink-soft); font-size:15px; }
+
+    /* Back office */
+    .backoffice-section { background:radial-gradient(circle at 82% 30%,rgba(112,200,255,.12),transparent 30rem),var(--surface-soft); border-top:1px solid rgba(15,23,42,.05); border-bottom:1px solid rgba(15,23,42,.05); }
+    .backoffice-layout { display:grid; grid-template-columns:.82fr 1.18fr; align-items:center; gap:clamp(45px,8vw,92px); }
+    .feature-list { display:grid; gap:10px; margin:30px 0 34px; }
+    .feature-row { display:flex; align-items:flex-start; gap:12px; padding:12px 0; }
+    .feature-check { width:24px; height:24px; display:grid; place-items:center; flex:0 0 auto; margin-top:2px; border-radius:9px; color:#14755f; background:#e4f9f3; }
+    .feature-row strong { display:block; margin-bottom:2px; font-size:16px; }
+    .feature-row p { margin:0; color:var(--muted); font-size:14px; }
+    .backend-window { position:relative; min-height:540px; padding:24px; border:1px solid rgba(15,23,42,.1); border-radius:30px; background:#fff; box-shadow:var(--shadow-md); overflow:hidden; }
+    .backend-window::before { content:""; position:absolute; width:320px; height:320px; right:-140px; top:-130px; border-radius:50%; background:rgba(112,200,255,.13); }
+    .backend-head { position:relative; z-index:1; display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:20px; }
+    .backend-head h3 { margin:0; font-size:20px; letter-spacing:-.03em; }
+    .backend-head p { margin:3px 0 0; color:var(--muted); font-size:11px; }
+    .backend-status { padding:6px 9px; border-radius:999px; color:#14755f; background:#e5faf4; font-size:9px; font-weight:800; }
+    .backend-product { position:relative; z-index:1; display:grid; grid-template-columns:72px 1fr auto; align-items:center; gap:12px; padding:14px; border:1px solid var(--line); border-radius:18px; background:#fbfdff; }
+    .backend-product .product-visual { min-height:66px; }
+    .backend-product strong { display:block; font-size:12px; }
+    .backend-product small { display:block; color:var(--muted); font-size:9px; }
+    .backend-price { text-align:right; font-size:15px; font-weight:850; }
+    .backend-price small { font-size:8px; font-weight:600; }
+    .backend-timeline { position:relative; z-index:1; display:grid; gap:0; margin-top:16px; }
+    .backend-row { position:relative; display:grid; grid-template-columns:39px 1fr auto; align-items:center; gap:10px; min-height:68px; padding:9px 5px; }
+    .backend-row:not(:last-child)::after { content:""; position:absolute; left:19px; top:48px; width:1px; height:38px; background:#dbe6f1; }
+    .backend-icon { width:38px; height:38px; display:grid; place-items:center; border-radius:13px; color:var(--blue-deep); background:#eaf4ff; }
+    .backend-row.done .backend-icon { color:#14755f; background:#e5faf4; }
+    .backend-row strong { display:block; font-size:12px; }
+    .backend-row small { display:block; color:var(--muted); font-size:9px; }
+    .backend-time { color:var(--muted); font-size:8px; }
+    .backend-note { position:relative; z-index:1; margin-top:14px; padding:13px 14px; border:1px solid rgba(43,127,255,.12); border-radius:14px; color:var(--blue-ink); background:rgba(234,244,255,.72); font-size:10px; line-height:1.55; }
+
+    /* Use cases */
+    .use-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:17px; }
+    .use-card { min-height:245px; padding:27px; border:1px solid var(--line); border-radius:25px; background:#fff; box-shadow:0 12px 35px rgba(15,23,42,.04); }
+    .use-icon { width:48px; height:48px; display:grid; place-items:center; margin-bottom:22px; border-radius:16px; color:var(--blue-deep); background:#eaf4ff; }
+    .use-card:nth-child(2) .use-icon { color:#14755f; background:#e5faf4; }
+    .use-card:nth-child(3) .use-icon { color:#72521b; background:#fff2d7; }
+    .use-card h3 { margin:0 0 8px; font-size:20px; letter-spacing:-.03em; }
+    .use-card p { margin:0; color:var(--ink-soft); font-size:14px; }
+    .use-card span { display:inline-block; margin-top:17px; padding:5px 8px; border-radius:999px; color:var(--muted); background:#f3f6f9; font-size:9px; font-weight:750; }
+
+    /* Safety */
+    .safety-panel { position:relative; display:grid; grid-template-columns:.9fr 1.1fr; align-items:center; gap:clamp(45px,8vw,100px); padding:clamp(36px,7vw,78px); border:1px solid rgba(43,127,255,.11); border-radius:36px; background:radial-gradient(circle at 10% 110%,rgba(101,214,191,.15),transparent 360px),linear-gradient(145deg,#f6fbff,#fff); box-shadow:var(--shadow-sm); overflow:hidden; }
+    .shield-scene { position:relative; min-height:390px; display:grid; place-items:center; }
+    .shield-orbit { position:absolute; width:320px; height:320px; border:1px dashed rgba(43,127,255,.2); border-radius:50%; animation:slow-spin 22s linear infinite; }
+    .shield-orbit::before,.shield-orbit::after { content:""; position:absolute; width:13px; height:13px; border-radius:50%; background:var(--blue); box-shadow:0 0 0 7px rgba(43,127,255,.09); }
+    .shield-orbit::before { left:17px; top:76px; }
+    .shield-orbit::after { right:9px; bottom:91px; background:var(--mint); box-shadow:0 0 0 7px rgba(101,214,191,.1); }
+    .shield-core { width:190px; height:220px; display:grid; place-items:center; position:relative; color:#fff; filter:drop-shadow(0 26px 28px rgba(43,127,255,.2)); }
+    .shield-core svg { width:100%; height:100%; }
+    .shield-lock { position:absolute; width:66px; height:66px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.35); border-radius:21px; background:rgba(255,255,255,.16); backdrop-filter:blur(12px); }
+    .safety-copy h2 { margin:16px 0 15px; font-size:clamp(35px,5vw,56px); line-height:1.12; letter-spacing:-.045em; }
+    .safety-copy > p { margin:0; color:var(--ink-soft); font-size:17px; }
+    .safety-list { display:grid; gap:14px; margin-top:28px; }
+    .safety-item { display:grid; grid-template-columns:34px 1fr; align-items:start; gap:12px; }
+    .safety-item-icon { width:34px; height:34px; display:grid; place-items:center; border-radius:11px; color:#14745e; background:#e5faf4; }
+    .safety-item strong { display:block; margin-bottom:2px; font-size:15px; }
+    .safety-item span { display:block; color:var(--muted); font-size:13px; }
+    .legal-note { margin-top:24px; padding:14px 16px; border:1px solid rgba(43,127,255,.12); border-radius:14px; color:var(--blue-ink); background:rgba(234,244,255,.75); font-size:12px; font-weight:650; }
+
+    /* FAQ */
+    .faq-layout { display:grid; grid-template-columns:.72fr 1.28fr; align-items:start; gap:clamp(42px,8vw,96px); }
+    .faq-sticky { position:sticky; top:112px; }
+    .faq-list { border-top:1px solid var(--line); }
+    .faq-item { border-bottom:1px solid var(--line); }
+    .faq-button { width:100%; min-height:82px; display:flex; align-items:center; justify-content:space-between; gap:20px; border:0; padding:18px 0; color:var(--ink); background:transparent; text-align:left; font-size:17px; font-weight:760; }
+    .faq-plus { width:31px; height:31px; position:relative; flex:0 0 auto; border:1px solid var(--line); border-radius:10px; background:#fff; transition:transform 200ms ease,background 200ms ease; }
+    .faq-plus::before,.faq-plus::after { content:""; position:absolute; inset:50% auto auto 50%; width:12px; height:1.5px; border-radius:2px; background:var(--ink-soft); transform:translate(-50%,-50%); transition:transform 200ms ease; }
+    .faq-plus::after { transform:translate(-50%,-50%) rotate(90deg); }
+    .faq-item.open .faq-plus { background:#eaf4ff; transform:rotate(45deg); }
+    .faq-answer { display:grid; grid-template-rows:0fr; transition:grid-template-rows 240ms ease; }
+    .faq-answer > div { overflow:hidden; }
+    .faq-answer p { margin:0; padding:0 48px 24px 0; color:var(--ink-soft); font-size:15px; }
+    .faq-item.open .faq-answer { grid-template-rows:1fr; }
+
+    /* CTA */
+    .cta-section { padding-top:38px; }
+    .cta-panel { position:relative; min-height:390px; display:grid; place-items:center; padding:58px 30px; border-radius:36px; color:#fff; background:radial-gradient(circle at 15% 120%,rgba(101,214,191,.25),transparent 350px),radial-gradient(circle at 90% -20%,rgba(148,199,255,.48),transparent 390px),linear-gradient(145deg,#145dc8,#267df0); box-shadow:0 30px 80px rgba(43,127,255,.25); text-align:center; overflow:hidden; }
+    .cta-panel::before,.cta-panel::after { content:""; position:absolute; border:1px solid rgba(255,255,255,.15); border-radius:50%; }
+    .cta-panel::before { width:480px; height:480px; left:-270px; top:-160px; box-shadow:0 0 0 45px rgba(255,255,255,.035); }
+    .cta-panel::after { width:340px; height:340px; right:-180px; bottom:-220px; box-shadow:0 0 0 35px rgba(255,255,255,.035); }
+    .cta-content { position:relative; z-index:1; max-width:760px; }
+    .cta-content h2 { margin:0 0 15px; font-size:clamp(38px,6vw,65px); line-height:1.08; letter-spacing:-.055em; }
+    .cta-content p { margin:0 auto 29px; max-width:620px; color:rgba(255,255,255,.82); font-size:17px; }
+    .cta-actions { display:flex; justify-content:center; flex-wrap:wrap; gap:11px; }
+    .cta-actions .button-primary { color:var(--blue-ink); background:#fff; box-shadow:0 14px 32px rgba(5,39,89,.18); }
+    .cta-actions .button-secondary { color:#fff; border-color:rgba(255,255,255,.25); background:rgba(255,255,255,.09); }
+
+    /* Footer */
+    .site-footer { padding:60px 0 28px; }
+    .footer-top { display:grid; grid-template-columns:1.4fr repeat(3,.65fr); gap:46px; padding-bottom:44px; border-bottom:1px solid var(--line); }
+    .footer-brand p { max-width:360px; margin:16px 0 0; color:var(--muted); font-size:13px; }
+    .footer-col strong { display:block; margin-bottom:14px; font-size:13px; }
+    .footer-col a { display:block; margin:9px 0; color:var(--muted); font-size:13px; }
+    .footer-col a:hover { color:var(--blue-deep); }
+    .footer-bottom { display:flex; align-items:center; justify-content:space-between; gap:20px; padding-top:22px; color:var(--muted); font-size:11px; }
+    .footer-bottom-links { display:flex; flex-wrap:wrap; gap:16px; }
+
+    /* Modal */
+    .modal-backdrop { position:fixed; inset:0; z-index:200; display:grid; place-items:center; padding:20px; background:rgba(15,23,42,.48); backdrop-filter:blur(10px); opacity:0; visibility:hidden; transition:opacity 190ms ease,visibility 190ms ease; }
+    .modal-backdrop.open { opacity:1; visibility:visible; }
+    .modal { width:min(100%,520px); position:relative; border:1px solid rgba(255,255,255,.8); border-radius:28px; padding:34px; background:#fff; box-shadow:0 35px 100px rgba(15,23,42,.26); transform:translateY(18px) scale(.98); transition:transform 210ms ease; }
+    .modal-backdrop.open .modal { transform:translateY(0) scale(1); }
+    .modal-close { position:absolute; width:40px; height:40px; right:17px; top:17px; display:grid; place-items:center; border:1px solid var(--line); border-radius:12px; color:var(--ink-soft); background:#fff; }
+    .modal h2 { margin:17px 0 8px; font-size:29px; line-height:1.25; letter-spacing:-.04em; }
+    .modal > p { margin:0 0 22px; color:var(--muted); font-size:14px; }
+    .form-grid { display:grid; gap:12px; }
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .form-label { display:block; margin-bottom:6px; font-size:12px; font-weight:750; }
+    .form-control { width:100%; min-height:48px; border:1px solid rgba(15,23,42,.13); border-radius:13px; padding:0 13px; outline:0; background:#fff; transition:border-color 160ms ease,box-shadow 160ms ease; }
+    .form-control:focus { border-color:rgba(43,127,255,.5); box-shadow:0 0 0 4px rgba(43,127,255,.11); }
+    .landing-select { position:relative; }
+    .landing-select-native { position:absolute; width:1px; height:1px; overflow:hidden; opacity:0; pointer-events:none; }
+    .landing-select-trigger { display:flex; align-items:center; justify-content:space-between; gap:10px; cursor:pointer; text-align:left; }
+    .landing-select-trigger svg { flex:0 0 auto; color:var(--ink-soft); transition:transform 160ms ease; }
+    .landing-select.open .landing-select-trigger { border-color:rgba(43,127,255,.5); box-shadow:0 0 0 4px rgba(43,127,255,.11); }
+    .landing-select.open .landing-select-trigger svg { transform:rotate(180deg); }
+    .landing-select-menu { position:absolute; z-index:20; top:calc(100% + 7px); left:0; right:0; display:none; overflow:auto; max-height:210px; padding:7px; border:1px solid rgba(15,23,42,.11); border-radius:15px; background:rgba(255,255,255,.99); box-shadow:0 22px 60px rgba(15,23,42,.2); backdrop-filter:blur(16px); }
+    .landing-select.open .landing-select-menu { display:block; animation:select-menu-in 150ms ease-out; }
+    .landing-select-option { width:100%; min-height:43px; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 11px; border:0; border-radius:10px; color:var(--ink); background:transparent; cursor:pointer; text-align:left; font-size:12px; }
+    .landing-select-option:hover,.landing-select-option:focus-visible,.landing-select-option.active { color:var(--blue-ink); background:#eaf4ff; outline:0; }
+    .landing-select-option svg { visibility:hidden; flex:0 0 auto; color:var(--blue); }
+    .landing-select-option.active { font-weight:750; }
+    .landing-select-option.active svg { visibility:visible; }
+    @keyframes select-menu-in { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+    .modal .button { width:100%; margin-top:6px; }
+    .modal-footnote { margin:14px 0 0 !important; text-align:center; font-size:10px !important; }
+
+    /* Toast */
+    .toast { position:fixed; left:50%; bottom:24px; z-index:260; min-width:min(380px,calc(100% - 30px)); display:flex; align-items:center; gap:11px; padding:13px 16px; border:1px solid rgba(255,255,255,.85); border-radius:14px; color:#fff; background:rgba(20,38,65,.94); box-shadow:0 18px 50px rgba(15,23,42,.25); backdrop-filter:blur(12px); font-size:13px; font-weight:650; opacity:0; transform:translate(-50%,20px); pointer-events:none; transition:opacity 180ms ease,transform 180ms ease; }
+    .toast.show { opacity:1; transform:translate(-50%,0); }
+    .toast-icon { width:28px; height:28px; display:grid; place-items:center; flex:0 0 auto; border-radius:9px; color:#173a33; background:#7be0c5; }
+
+    /* Reveals & animation */
+    .reveal { opacity:0; transform:translateY(24px); transition:opacity 620ms ease,transform 620ms ease; }
+    .reveal.in-view { opacity:1; transform:translateY(0); }
+    @keyframes slow-spin { to { transform:rotate(360deg); } }
+    @keyframes float-y { 50% { transform:translateY(-14px); } }
+    @keyframes phone-float { 50% { transform:rotateY(-3deg) rotateX(.5deg) translateY(-12px); } }
+    @keyframes halo-pulse { 50% { transform:scale(1.035); opacity:.72; } }
+    @keyframes float-card { 50% { transform:translateY(-10px) rotate(1deg); } }
+    @keyframes scene-in { from { opacity:0; transform:translateX(18px) scale(.985); } to { opacity:1; transform:none; } }
+    @keyframes fade-up { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+
+    @media (max-width: 1040px) {
+      .nav-links { display:none; }
+      .nav-actions .button-ghost { display:none; }
+      .menu-toggle { display:grid; }
+      .hero-layout { grid-template-columns:1fr; }
+      .hero-copy { max-width:800px; margin-inline:auto; text-align:center; }
+      .hero-actions,.hero-note,.source-chips { justify-content:center; }
+      .hero-visual { min-height:680px; margin-top:12px; }
+      .simple-grid { grid-template-columns:1fr; }
+      .steps-grid { grid-template-columns:repeat(2,1fr); }
+      .backoffice-layout { grid-template-columns:1fr; }
+      .backoffice-copy { max-width:720px; }
+      .backend-window { max-width:760px; width:100%; margin-inline:auto; }
+      .safety-panel { grid-template-columns:1fr; }
+      .shield-scene { min-height:330px; }
+      .faq-layout { grid-template-columns:1fr; }
+      .faq-sticky { position:static; }
+      .footer-top { grid-template-columns:1.4fr repeat(2,.7fr); }
+      .footer-col:last-child { grid-column:2 / -1; }
+    }
+
+    @media (max-width: 760px) {
+      .container { width:min(calc(100% - 28px),var(--max)); }
+      .section { padding:82px 0; }
+      .section-title { font-size:clamp(32px,10vw,46px); }
+      .site-header { padding:10px 0; }
+      .nav-actions .button-primary { display:none; }
+      .hero { min-height:auto; padding:119px 0 70px; }
+      .hero-layout,.hero-copy { min-width:0; width:100%; }
+      .hero-copy > .eyebrow { max-width:100%; justify-content:center; white-space:normal; font-size:11px; line-height:1.45; text-align:left; }
+      .hero-title { max-width:100%; font-size:clamp(38px,11vw,48px); overflow-wrap:anywhere; }
+      .hero-subtitle { max-width:100%; font-size:16px; }
+      .hero-actions { display:grid; }
+      .hero-actions .button { width:100%; }
+      .hero-note { max-width:100%; gap:8px 14px; font-size:10px; }
+      .hero-note span { min-width:0; }
+      .source-chips { max-width:100%; }
+      .hero-visual { min-height:610px; }
+      .phone-wrap { width:min(312px,86vw); }
+      .phone-screen { min-height:565px; }
+      .halo { width:370px; height:370px; }
+      .floating-card.payment { right:-18px; top:72px; }
+      .floating-card.tracking { left:-20px; bottom:66px; }
+      .stage-caption { bottom:-46px; gap:3px; padding:6px; }
+      .stage-chip { padding:5px 7px; font-size:7px; }
+      .trust-shell { grid-template-columns:1fr; }
+      .trust-item { min-height:82px; border-right:0; border-bottom:1px solid var(--line); }
+      .trust-item:last-child { border-bottom:0; }
+      .role-card { min-height:auto; padding:27px 22px; }
+      .steps-grid { grid-template-columns:1fr; }
+      .step-card { min-height:240px; }
+      .use-grid { grid-template-columns:1fr; }
+      .safety-panel { padding:32px 22px; }
+      .shield-orbit { width:280px; height:280px; }
+      .faq-answer p { padding-right:0; }
+      .cta-panel { min-height:410px; padding:48px 20px; border-radius:28px; }
+      .cta-actions { display:grid; }
+      .footer-top { grid-template-columns:1fr 1fr; gap:32px 24px; }
+      .footer-brand { grid-column:1 / -1; }
+      .footer-col:last-child { grid-column:auto; }
+      .footer-bottom { align-items:flex-start; flex-direction:column; }
+      .modal { padding:29px 22px 24px; }
+      .form-row { grid-template-columns:1fr; }
+    }
+
+    @media (max-width: 430px) {
+      .brand { font-size:18px; }
+      .brand-mark { width:32px; height:32px; }
+      .hero-visual { min-height:585px; }
+      .phone-wrap { width:286px; }
+      .phone { border-width:7px; }
+      .phone-screen { min-height:537px; }
+      .phone-stage { padding-inline:13px; }
+      .floating-card.payment { right:-8px; }
+      .floating-card.tracking { width:170px; left:-7px; bottom:54px; }
+      .stage-chip:nth-child(2) { display:none; }
+      .backend-window { padding:17px; }
+      .backend-product { grid-template-columns:60px 1fr; }
+      .backend-price { grid-column:2; text-align:left; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,*::before,*::after { animation-duration:.001ms !important; animation-iteration-count:1 !important; scroll-behavior:auto !important; transition-duration:.001ms !important; }
+      .reveal { opacity:1; transform:none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header" id="siteHeader">
+    <div class="container nav-shell">
+      <a class="brand" href="#top" aria-label="TOKLONG หน้าแรก">
+        <span class="brand-mark" aria-hidden="true">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none"><path d="M6.5 7.5h11v9h-11z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <span>TOKLONG</span>
+      </a>
+
+      <nav class="nav-links" id="navLinks" aria-label="เมนูหลัก">
+        <span class="nav-spotlight" id="navSpotlight" aria-hidden="true"></span>
+        <a class="nav-link" href="#for-who">สำหรับใคร</a>
+        <a class="nav-link" href="#how-it-works">วิธีใช้งาน</a>
+        <a class="nav-link" href="#behind-scenes">ระบบหลังบ้าน</a>
+        <a class="nav-link" href="#safety">ความคุ้มครอง</a>
+        <a class="nav-link" href="#faq">คำถามที่พบบ่อย</a>
+      </nav>
+
+      <div class="nav-actions">
+        <button class="button button-ghost button-sm" type="button" data-play-flow>ดูตัวอย่าง</button>
+        <button class="button button-primary button-sm" type="button" data-open-create>สร้างลิงก์ข้อตกลง</button>
+        <button class="menu-toggle" id="menuToggle" type="button" aria-label="เปิดเมนู" aria-expanded="false">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="mobile-panel" id="mobilePanel" aria-hidden="true">
+    <a href="#for-who">สำหรับใคร</a>
+    <a href="#how-it-works">วิธีใช้งาน</a>
+    <a href="#behind-scenes">ระบบหลังบ้าน</a>
+    <a href="#safety">ความคุ้มครอง</a>
+    <a href="#faq">คำถามที่พบบ่อย</a>
+    <button class="button button-primary" type="button" data-open-create>สร้างลิงก์ข้อตกลง</button>
+  </div>
+
+  <main id="top">
+    <section class="hero" id="hero" aria-labelledby="heroTitle">
+      <div class="hero-grid-pattern" aria-hidden="true"></div>
+      <div class="hero-orb one" aria-hidden="true"></div>
+      <div class="hero-orb two" aria-hidden="true"></div>
+
+      <div class="container hero-layout">
+        <div class="hero-copy">
+          <span class="eyebrow"><span class="eyebrow-dot"></span>สำหรับดีลที่ตกลงกันจาก Facebook, Marketplace หรือแชต</span>
+          <h1 class="hero-title" id="heroTitle">
+            ตกลงกันแล้ว<br />ส่งลิงก์เดียว<br /><span class="soft-highlight">จบดีลอย่างชัดเจน</span>
+          </h1>
+          <p class="hero-subtitle">
+            รองรับทั้งสินค้าจัดส่งและสินค้าดิจิทัลที่โอนได้ ผู้ซื้อเห็นรายละเอียดชุดเดียวกัน ชำระผ่านพาร์ทเนอร์ แล้วผู้ขายจึงส่งมอบตามเงื่อนไข
+          </p>
+          <div class="hero-actions">
+            <button class="button button-primary" type="button" data-open-create>
+              สร้างลิงก์ข้อตกลง
+              <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button class="button button-secondary" type="button" data-play-flow>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/></svg>
+              ดู Flow บนมือถือ
+            </button>
+          </div>
+          <div class="hero-note" aria-label="จุดเด่นสำคัญ">
+            <span><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>เริ่มส่งมอบหลังยืนยันยอดชำระ</span>
+            <span><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>สินค้าดิจิทัลไม่มีการจ่ายอัตโนมัติจากเวลา</span>
+          </div>
+          <div class="source-chips" aria-label="ตัวอย่างช่องทางที่ใช้ร่วมกันได้">
+            <span class="source-chip">Facebook Groups</span>
+            <span class="source-chip">Facebook Marketplace</span>
+            <span class="source-chip">LINE / Messenger</span>
+            <span class="source-chip">Instagram DM</span>
+          </div>
+        </div>
+
+        <div class="hero-visual" id="flowDemo" aria-label="ตัวอย่าง Mobile UI ตั้งแต่ผู้ขายสร้างลิงก์จนผู้ซื้อยืนยันรับ">
+          <div class="halo" aria-hidden="true"></div>
+          <div class="phone-wrap">
+            <div class="phone">
+              <div class="phone-screen">
+                <div class="phone-top">
+                  <div class="phone-brand">
+                    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M6.5 7.5h11v9h-11z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                    TOKLONG
+                  </div>
+                  <span class="role-badge" id="phoneRole">ผู้ขาย</span>
+                </div>
+                <div class="phone-stage" id="phoneStage"></div>
+                <div class="payout-overlay" id="payoutOverlay" aria-hidden="true">
+                  <div class="payout-content">
+                    <span class="payout-check"><svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="m5 12 4.3 4.3L19 6.7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                    <h4>รอผู้ซื้อยืนยันรับ</h4>
+                    <p>ยังไม่ส่งคำสั่งจ่ายเงินให้ผู้ขาย</p>
+                    <strong>ไม่มี Auto-release</strong>
+                  </div>
+                </div>
+                <div class="phone-footer">
+                  <div class="stage-dots" id="stageDots" aria-label="เลือกขั้นตอนตัวอย่าง"></div>
+                  <div class="phone-controls">
+                    <button class="phone-control" id="prevStage" type="button" aria-label="ขั้นตอนก่อนหน้า"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                    <button class="phone-control" id="toggleStage" type="button" aria-label="หยุดการเล่น"><svg id="toggleIcon" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 7v10M15 7v10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+                    <button class="phone-control" id="nextStage" type="button" aria-label="ขั้นตอนถัดไป"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="stage-caption" id="stageCaption" aria-hidden="true"></div>
+
+          <div class="floating-card payment" aria-hidden="true">
+              <span class="float-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 7h16v10H4z" stroke="currentColor" stroke-width="1.7"/><path d="M4 10h16M8 15h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>
+              ยืนยันยอดชำระก่อนส่งมอบ
+            </div>
+            <div class="floating-card tracking" aria-hidden="true">
+              <strong>เงื่อนไขตามวิธีส่งมอบ</strong>
+              <small>Physical ใช้ขนส่ง · Digital ใช้ผู้ซื้อยืนยัน</small>
+            </div>
+          </div>
+          <span class="sr-only" id="flowLive" aria-live="polite"></span>
+        </div>
+      </div>
+    </section>
+
+    <div class="trust-strip">
+      <div class="container">
+        <div class="trust-shell reveal">
+          <div class="trust-item">
+            <span class="trust-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 7h16v10H4z" stroke="currentColor" stroke-width="1.7"/><path d="M4 10h16M8 15h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>
+            <span><strong>ชำระผ่านลิงก์เดียว</strong><small>ผู้ซื้อเห็นรายการ ยอด และเงื่อนไขส่งมอบก่อนจ่าย</small></span>
+          </div>
+          <div class="trust-item">
+            <span class="trust-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M3.5 7.5h11v8h-11zM14.5 10h3l3 3v2.5h-6V10Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM17.5 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" stroke="currentColor" stroke-width="1.7"/></svg></span>
+            <span><strong>เงื่อนไขตามวิธีส่งมอบ</strong><small>Physical ใช้ Tracking ส่วน Digital ต้องยืนยันรับหรือ manual review</small></span>
+          </div>
+          <div class="trust-item">
+            <span class="trust-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6v5c0 4.6 2.7 8.3 7 10 4.3-1.7 7-5.4 7-10V6l-7-3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span><strong>หยุดจ่ายเมื่อมีข้อโต้แย้ง</strong><small>การแจ้งปัญหาภายในกำหนดจะพัก payout ไว้ก่อน</small></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section class="section simple-section" id="for-who" aria-labelledby="simpleTitle">
+      <div class="container">
+        <div class="section-head center reveal">
+          <span class="eyebrow"><span class="eyebrow-dot"></span>ไม่ต้องเรียนรู้ระบบซับซ้อน</span>
+          <h2 class="section-title" id="simpleTitle">ผู้ใช้ทำจริงเพียงคนละ 3 อย่าง</h2>
+          <p class="section-lead">สัญญาซื้อขาย บันทึกการยอมรับ เงื่อนไขการจ่าย และหลักฐานเวลาให้ระบบจัดการหลังบ้าน ไม่กลายเป็นขั้นตอนบังคับบนหน้าจอ</p>
+        </div>
+
+        <div class="simple-grid">
+          <article class="role-card seller reveal">
+            <div class="role-head">
+              <span class="role-symbol"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 4h14v16H5z" stroke="currentColor" stroke-width="1.7"/><path d="M8 8h8M8 12h6M8 16h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>
+              <span class="role-label">ผู้ขาย</span>
+            </div>
+            <h3>สร้างลิงก์ ส่งมอบ รับเงิน</h3>
+            <p>ใช้ได้กับสินค้าที่จัดส่ง หรือรายการดิจิทัลที่ผู้ขายครอบครองและมีสิทธิ์โอน โดยไม่ใช่บริการ คริปโต วอลเล็ต หรือ stored value</p>
+            <div class="role-actions">
+              <div class="role-action"><span class="role-number">1</span><span><strong>ใส่รูป รายละเอียด และราคา</strong><small>ระบบสร้างหน้าชำระเงินพร้อมเงื่อนไขรายการ</small></span></div>
+              <div class="role-action"><span class="role-number">2</span><span><strong>ส่งมอบเมื่อยอดชำระยืนยันแล้ว</strong><small>Physical เพิ่ม Tracking · Digital ส่งผ่านช่องทางที่ตกลงกัน</small></span></div>
+              <div class="role-action"><span class="role-number">3</span><span><strong>รับเงินเมื่อครบเงื่อนไข</strong><small>Digital ต้องผู้ซื้อยืนยันหรือผ่าน manual review ไม่มี auto-release จากเวลา</small></span></div>
+            </div>
+            <span class="system-pill"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>ไม่ต้องส่งสัญญาให้ลูกค้าเซ็นอีกหน้า</span>
+          </article>
+
+          <article class="role-card buyer reveal">
+            <div class="role-head">
+              <span class="role-symbol"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 6h15l-2 8H8L6 3H3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 20a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM18 20a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" stroke="currentColor" stroke-width="1.7"/></svg></span>
+              <span class="role-label">ผู้ซื้อ</span>
+            </div>
+            <h3>ตรวจ จ่าย ยืนยันรับ</h3>
+            <p>ผู้ซื้อไม่ต้องค้นหาสินค้าในแพลตฟอร์ม เพียงเปิดลิงก์ที่ผู้ขายส่งมาและตรวจรายละเอียดก่อนชำระ</p>
+            <div class="role-actions">
+              <div class="role-action"><span class="role-number">1</span><span><strong>ตรวจสินค้า ผู้ขาย และยอดรวม</strong><small>เห็นรายละเอียดเดียวกับที่ระบบบันทึกไว้</small></span></div>
+              <div class="role-action"><span class="role-number">2</span><span><strong>ชำระและติดตามการส่งมอบ</strong><small>Physical ดู Tracking · Digital ตรวจผ่านช่องทางที่ตกลงกัน</small></span></div>
+              <div class="role-action"><span class="role-number">3</span><span><strong>ยืนยันรับหรือแจ้งปัญหา</strong><small>สินค้าดิจิทัลจะไม่ปล่อยเงินเองหากผู้ซื้อยังไม่ยืนยัน</small></span></div>
+            </div>
+            <span class="system-pill"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6v5c0 4.6 2.7 8.3 7 10 4.3-1.7 7-5.4 7-10V6l-7-3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>ข้อโต้แย้งที่เปิดทันเวลาจะพักการจ่ายเงิน</span>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="how-it-works" aria-labelledby="howTitle">
+      <div class="container">
+        <div class="section-head center reveal">
+          <span class="eyebrow"><span class="eyebrow-dot"></span>Flow หลัก 4 ขั้น</span>
+          <h2 class="section-title" id="howTitle">จากข้อตกลงในแชต ถึงผู้ขายได้รับเงิน</h2>
+          <p class="section-lead">ไม่ใช่หน้าลงประกาศใหม่ ระบบบันทึกดีลที่ตกลงกันแล้วและใช้เงื่อนไขส่งมอบที่เหมาะกับแต่ละประเภท</p>
+        </div>
+
+        <div class="steps-grid">
+          <article class="step-card reveal" data-step="1">
+            <div class="step-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 4h14v16H5z" stroke="currentColor" stroke-width="1.7"/><path d="M8 8h8M8 12h6M8 16h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div>
+            <h3>ผู้ขายสร้างลิงก์ข้อตกลง</h3>
+            <p>เลือกรูปแบบส่งมอบ ใส่รูป รายละเอียด ยอด และกำหนดส่งมอบ แล้วแชร์กลับไปในแชตเดิม</p>
+          </article>
+          <article class="step-card reveal" data-step="2">
+            <div class="step-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 7h16v10H4z" stroke="currentColor" stroke-width="1.7"/><path d="M4 10h16M8 15h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div>
+            <h3>ผู้ซื้อชำระเงิน</h3>
+            <p>ตรวจรายละเอียดและเงื่อนไขทั้งหมดก่อนจ่าย ผู้ขายเห็นขั้นตอนส่งมอบหลังผู้ให้บริการยืนยันยอดเท่านั้น</p>
+          </article>
+          <article class="step-card reveal" data-step="3">
+            <div class="step-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M3.5 7.5h11v8h-11zM14.5 10h3l3 3v2.5h-6V10Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM17.5 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" stroke="currentColor" stroke-width="1.7"/></svg></div>
+            <h3>ผู้ขายส่งมอบตามประเภท</h3>
+            <p>Physical เพิ่ม Tracking ส่วน Digital ส่งผ่านช่องทางที่ตกลงกัน และไม่ใส่รหัสผ่านหรือรหัสกู้คืนใน TOKLONG</p>
+          </article>
+          <article class="step-card reveal" data-step="4">
+            <div class="step-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6v5c0 4.6 2.7 8.3 7 10 4.3-1.7 7-5.4 7-10V6l-7-3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <h3>ยืนยันรับ หรือครบเงื่อนไข</h3>
+            <p>ของจัดส่งอาจครบกำหนด 7 วันหลังขนส่งยืนยันการนำส่ง ส่วนสินค้าดิจิทัลต้องให้ผู้ซื้อยืนยันหรือผ่านการตรวจโดยผู้มีอำนาจ</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section backoffice-section" id="behind-scenes" aria-labelledby="backTitle">
+      <div class="container backoffice-layout">
+        <div class="backoffice-copy reveal">
+          <span class="eyebrow"><span class="eyebrow-dot"></span>ความซับซ้อนอยู่หลังบ้าน</span>
+          <h2 class="section-title" id="backTitle">ไม่ต้องมีขั้นตอน “ร่างและเซ็นสัญญา” บนหน้าแอป</h2>
+          <p class="section-lead">เมื่อผู้ซื้อกดชำระ ระบบเก็บ snapshot ของรายการ รูป ยอด วิธีส่งมอบ กำหนดส่ง เงื่อนไข และเวลาที่ยอมรับไว้ ผู้ใช้เปิดดูได้จาก “รายละเอียดรายการ” เมื่อต้องการ</p>
+          <div class="feature-list">
+            <div class="feature-row"><span class="feature-check"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><strong>ระบบล็อกรายละเอียด ณ เวลาชำระ</strong><p>การแก้สินค้า ราคา หรือเงื่อนไขหลังจากนั้นต้องสร้างลิงก์ใหม่</p></span></div>
+            <div class="feature-row"><span class="feature-check"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><strong>แยกเงื่อนไขตามวิธีส่งมอบ</strong><p>ของจัดส่งนับ 7 วันจากขนส่งยืนยันการนำส่งเท่านั้น ส่วนสินค้าดิจิทัลไม่มีการปล่อยเงินอัตโนมัติตามเวลา</p></span></div>
+            <div class="feature-row"><span class="feature-check"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><strong>ข้อโต้แย้งจะพัก payout</strong><p>AI ช่วยจัดหมวดและสรุปหลักฐานได้ แต่ไม่ควรตัดสินการคืนหรือจ่ายเงินเอง</p></span></div>
+          </div>
+        </div>
+
+        <div class="backend-window reveal" aria-label="ตัวอย่างข้อมูลรายการที่ระบบจัดการหลังบ้าน">
+          <div class="backend-head">
+            <div><h3>รายการ TL-240718-9A2</h3><p>Transaction record · ผู้ซื้อและผู้ขายเปิดดูได้</p></div>
+            <span class="backend-status">กำลังตรวจสินค้า</span>
+          </div>
+          <div class="backend-product">
+            <div class="product-visual" aria-hidden="true"><div class="camera-body"><span class="camera-flash"></span></div></div>
+            <div><strong>กล้องฟิล์ม Compact 35mm</strong><small>มือสอง · สภาพดี · รอยใช้งานเล็กน้อย</small></div>
+            <div class="backend-price">฿4,560<small>รวมค่าส่ง</small></div>
+          </div>
+          <div class="backend-timeline">
+            <div class="backend-row done"><span class="backend-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><strong>บันทึกรายละเอียดและการยอมรับแล้ว</strong><small>ข้อกำหนดเวอร์ชัน 1.2 · รายละเอียดถูกล็อกแล้ว</small></span><time class="backend-time">18 ก.ค. 10:42</time></div>
+            <div class="backend-row done"><span class="backend-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 7h16v10H4z" stroke="currentColor" stroke-width="1.7"/><path d="M4 10h16" stroke="currentColor" stroke-width="1.7"/></svg></span><span><strong>ผู้ให้บริการยืนยันยอดชำระ</strong><small>Payment reference PAY-8F21</small></span><time class="backend-time">18 ก.ค. 10:44</time></div>
+            <div class="backend-row"><span class="backend-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.7"/><path d="M12 8v4l2.7 1.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><strong>ช่วงโต้แย้งสิ้นสุด 27 ก.ค. 14:18</strong><small>แจ้งเตือนผู้ซื้อก่อนหมดเวลา 24 ชั่วโมง</small></span><time class="backend-time">เหลือ 5 วัน</time></div>
+            <div class="backend-row"><span class="backend-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M14 7l5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><strong>รอส่งคำสั่งจ่ายให้ผู้ขาย</strong><small>ทำเมื่อยืนยันรับ หรือหมดเวลาโดยไม่มี dispute</small></span><time class="backend-time">รอดำเนินการ</time></div>
+          </div>
+          <div class="backend-note">หน้าจอนี้เป็นข้อมูลหลังบ้านและหน้า “รายละเอียดรายการ” ไม่ใช่ onboarding step ผู้ใช้จึงยังรู้สึกว่าใช้งานเพียงสร้างลิงก์ จ่าย ส่ง และรับเงิน</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="useTitle">
+      <div class="container">
+        <div class="section-head center reveal">
+          <span class="eyebrow"><span class="eyebrow-dot"></span>ดีลที่ตกลงกันแล้ว</span>
+          <h2 class="section-title" id="useTitle">รองรับสองวิธีส่งมอบที่ตรวจสอบได้</h2>
+          <p class="section-lead">MVP รองรับของที่จัดส่งได้ และสินค้าดิจิทัลที่ผู้ขายมีสิทธิโอนจริง โดยยังไม่มีหน้าค้นหา ร้านค้า บริการ งานหลายงวด กระเป๋าเงิน หรือคริปโท</p>
+        </div>
+        <div class="use-grid">
+          <article class="use-card reveal"><div class="use-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 7h14v12H5z" stroke="currentColor" stroke-width="1.7"/><path d="M8 7V5h8v2M8 11h8M8 15h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><h3>ซื้อขายของมือสอง</h3><p>กล้อง รองเท้า กระเป๋า ของสะสม และอุปกรณ์ที่ระบุสภาพด้วยรูปและรายละเอียดได้</p><span>เหมาะกับ MVP</span></article>
+          <article class="use-card reveal"><div class="use-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 5h14v14H5z" stroke="currentColor" stroke-width="1.7"/><path d="m8 14 3-3 2 2 3-4 2 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div><h3>สินค้าดิจิทัลที่โอนได้</h3><p>เช่น ไอดีเกมที่แพลตฟอร์มต้นทางอนุญาตให้โอน โดยส่งมอบผ่านช่องทางที่ตกลงกันและไม่กรอกรหัสลับใน TOKLONG</p><span>ผู้ซื้อต้องยืนยันรับ</span></article>
+          <article class="use-card reveal"><div class="use-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 5h16v11H8l-4 3V5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8 9h8M8 12h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><h3>ดีลจากแชตส่วนตัว</h3><p>ตกลงรายละเอียดกันใน LINE, Messenger หรือ Instagram แล้วผู้ขายส่งลิงก์ข้อตกลงกลับไปปิดดีล</p><span>ลิงก์เดียวจบ</span></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="safety" aria-labelledby="safetyTitle">
+      <div class="container">
+        <div class="safety-panel reveal">
+          <div class="shield-scene" aria-hidden="true">
+            <div class="shield-orbit"></div>
+            <div class="shield-core">
+              <svg viewBox="0 0 200 230" fill="none"><defs><linearGradient id="shieldGradient" x1="30" y1="20" x2="180" y2="210" gradientUnits="userSpaceOnUse"><stop stop-color="#6CC8FF"/><stop offset="1" stop-color="#216FDE"/></linearGradient></defs><path d="M100 8 24 39v54c0 55 30 101 76 127 46-26 76-72 76-127V39L100 8Z" fill="url(#shieldGradient)"/><path d="M100 24 39 49v44c0 44 22 82 61 107 39-25 61-63 61-107V49l-61-25Z" stroke="rgba(255,255,255,.33)" stroke-width="2"/></svg>
+              <div class="shield-lock"><svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M7.5 10V7.7a4.5 4.5 0 0 1 9 0V10M6 10h12v10H6V10Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 14v2.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div>
+            </div>
+          </div>
+          <div class="safety-copy">
+            <span class="eyebrow"><span class="eyebrow-dot"></span>ออกแบบเงื่อนไขให้เข้าใจง่าย</span>
+            <h2 id="safetyTitle">เงื่อนไขรับเงินต้องชัดในทุกวิธีส่งมอบ</h2>
+            <p>ของจัดส่งต้องแสดงวันและเวลาสิ้นสุดช่วงตรวจสินค้า ส่วนสินค้าดิจิทัลต้องบอกชัดว่าไม่มีการปล่อยเงินอัตโนมัติตามเวลา</p>
+            <div class="safety-list">
+              <div class="safety-item"><span class="safety-item-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><strong>เริ่มนับจาก carrier-confirmed delivery</strong><span>กรณี tracking ตรวจไม่ได้ ไม่ควร auto-release จนกว่าผู้ซื้อยืนยันหรือเจ้าหน้าที่ตรวจ</span></span></div>
+              <div class="safety-item"><span class="safety-item-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><strong>Digital ไม่มี auto-release ตามเวลา</strong><span>ผู้ขายแจ้งส่งมอบได้ แต่ต้องรอผู้ซื้อยืนยันหรือผู้มีอำนาจตรวจและอนุมัติ</span></span></div>
+              <div class="safety-item"><span class="safety-item-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><strong>เปิด dispute แล้วหยุด payout ทันที</strong><span>เก็บเหตุผล รูปสินค้า บรรจุภัณฑ์ และหลักฐานการสนทนาไว้ในเคสเดียว</span></span></div>
+            </div>
+            <div class="legal-note">Prototype ใช้คำว่า “ชำระผ่านพาร์ทเนอร์” และ “จ่ายเมื่อครบเงื่อนไข” ไม่อ้างว่าแพลตฟอร์มถือเงินเองหรือเป็นบริการ escrow จนกว่าโครงสร้างผู้ให้บริการและกฎหมายจะได้รับการยืนยัน</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="faq" aria-labelledby="faqTitle">
+      <div class="container faq-layout">
+        <div class="faq-sticky reveal">
+          <span class="eyebrow"><span class="eyebrow-dot"></span>คำถามที่พบบ่อย</span>
+          <h2 class="section-title" id="faqTitle">ตอบให้ชัดก่อนผู้ใช้กดชำระ</h2>
+          <p class="section-lead">คำถามส่วนใหญ่ของผลิตภัณฑ์นี้ไม่ใช่เรื่องฟีเจอร์ แต่เป็นเรื่องเงินจะถูกจ่ายเมื่อไร และถ้าสินค้ามีปัญหาต้องทำอย่างไร</p>
+        </div>
+        <div class="faq-list reveal">
+          <article class="faq-item open"><button class="faq-button" type="button" aria-expanded="true">TOKLONG เป็น marketplace สำหรับค้นหาสินค้าไหม?<span class="faq-plus" aria-hidden="true"></span></button><div class="faq-answer"><div><p>ไม่ใช่ ผู้ซื้อและผู้ขายตกลงกันจาก Facebook Marketplace กลุ่มออนไลน์ หรือแชตก่อน แล้วนำดีลมาสร้างลิงก์ข้อตกลงและติดตามรายการบน TOKLONG</p></div></div></article>
+          <article class="faq-item"><button class="faq-button" type="button" aria-expanded="false">ผู้ขายได้รับเงินเมื่อไร?<span class="faq-plus" aria-hidden="true"></span></button><div class="faq-answer"><div><p>ของจัดส่ง: เมื่อผู้ซื้อยืนยันรับ หรือครบ 7 วันหลังขนส่งยืนยันการนำส่งโดยไม่มีข้อโต้แย้ง สินค้าดิจิทัล: เมื่อผู้ซื้อยืนยันรับ หรือผู้มีอำนาจตรวจและอนุมัติเท่านั้น จากนั้นระบบจึงส่งคำสั่งจ่ายผ่านพาร์ทเนอร์</p></div></div></article>
+          <article class="faq-item"><button class="faq-button" type="button" aria-expanded="false">ถ้าผู้ขายไม่ส่งมอบภายในกำหนดล่ะ?<span class="faq-plus" aria-hidden="true"></span></button><div class="faq-answer"><div><p>ระบบเตือนผู้ขายก่อนหมดเวลา หากของจัดส่งยังไม่มี Tracking ที่ตรวจสอบได้ หรือสินค้าดิจิทัลยังไม่มีการแจ้งส่งมอบ รายการต้องเข้าสู่ขั้นตอนยกเลิกหรือคืนเงินตามนโยบายที่อนุมัติไว้</p></div></div></article>
+          <article class="faq-item"><button class="faq-button" type="button" aria-expanded="false">ถ้ารายการไม่ตรงรายละเอียดต้องทำอย่างไร?<span class="faq-plus" aria-hidden="true"></span></button><div class="faq-answer"><div><p>ผู้ซื้อกด “แจ้งปัญหา” ก่อนยืนยันรับ สำหรับของจัดส่งต้องทำภายในวันเวลาที่แสดง ระบบพักการจ่ายเงินทันที แล้วรวบรวมหลักฐานเพื่อเข้าสู่กระบวนการที่กำหนด</p></div></div></article>
+          <article class="faq-item"><button class="faq-button" type="button" aria-expanded="false">ต้องเซ็นสัญญาซื้อขายอีกหน้าหรือไม่?<span class="faq-plus" aria-hidden="true"></span></button><div class="faq-answer"><div><p>ไม่ต้องเป็นขั้นตอนแยกบน UI ระบบเก็บรายละเอียดรายการ เงื่อนไข เวอร์ชันข้อกำหนด การยอมรับ และเวลาไว้หลังบ้าน ผู้ใช้เปิดดูหรือดาวน์โหลดสรุปรายการได้เมื่อต้องการ</p></div></div></article>
+          <article class="faq-item"><button class="faq-button" type="button" aria-expanded="false">รายการแบบใดไม่รองรับใน MVP?<span class="faq-plus" aria-hidden="true"></span></button><div class="faq-answer"><div><p>ไม่รองรับบริการ งานหลายงวด พรีออเดอร์ กระเป๋าเงิน คริปโท บัตรมูลค่า สินค้าควบคุม ของผิดกฎหมาย หรือบัญชีดิจิทัลที่แพลตฟอร์มต้นทางห้ามโอน และห้ามกรอกรหัสผ่าน รหัสกู้คืน หรือ private key ใน TOKLONG</p></div></div></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section cta-section" aria-labelledby="ctaTitle">
+      <div class="container">
+        <div class="cta-panel reveal">
+          <div class="cta-content">
+            <h2 id="ctaTitle">ตกลงกันในแชต แล้วจบดีลผ่านลิงก์เดียว</h2>
+            <p>ไม่ต้องสร้างร้าน ไม่ต้องย้ายบทสนทนา และไม่ต้องพาผู้ใช้ผ่านขั้นตอนสัญญาหลายหน้า</p>
+            <div class="cta-actions">
+              <button class="button button-primary" type="button" data-open-create>สร้างลิงก์ข้อตกลง</button>
+              <button class="button button-secondary" type="button" data-play-flow>เล่น Mobile UI อีกครั้ง</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <a class="brand" href="#top"><span class="brand-mark" aria-hidden="true"><svg width="21" height="21" viewBox="0 0 24 24" fill="none"><path d="M6.5 7.5h11v9h-11z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>TOKLONG</span></a>
+          <p>ลิงก์ข้อตกลงและชำระเงินสำหรับดีลจากแชต รองรับทั้งของจัดส่งและสินค้าดิจิทัลที่โอนได้ตามเงื่อนไข</p>
+        </div>
+        <div class="footer-col"><strong>ผลิตภัณฑ์</strong><a href="#for-who">สำหรับผู้ซื้อ/ผู้ขาย</a><a href="#how-it-works">วิธีใช้งาน</a><a href="#behind-scenes">ระบบหลังบ้าน</a></div>
+        <div class="footer-col"><strong>ความไว้ใจ</strong><a href="#safety">ความคุ้มครอง</a><a href="#faq">คำถามที่พบบ่อย</a><a href="#safety">สินค้าต้องห้าม</a></div>
+        <div class="footer-col"><strong>ติดต่อ</strong><a href="mailto:hello@toklong.example">hello@toklong.example</a><a href="#top">ศูนย์ช่วยเหลือ</a><a href="#top">สถานะระบบ</a></div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 TOKLONG. Product prototype.</span>
+        <div class="footer-bottom-links"><a href="#safety">นโยบายความเป็นส่วนตัว</a><a href="#safety">ข้อกำหนดการใช้งาน</a><a href="#safety">นโยบายข้อโต้แย้ง</a></div>
+      </div>
+    </div>
+  </footer>
+
+  <div class="modal-backdrop" id="createModal" role="dialog" aria-modal="true" aria-labelledby="createTitle" aria-hidden="true">
+    <div class="modal">
+      <button class="modal-close" type="button" aria-label="ปิดหน้าต่าง" data-close-modal><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg></button>
+      <span class="eyebrow"><span class="eyebrow-dot"></span>เริ่มสร้างลิงก์ข้อตกลง</span>
+      <h2 id="createTitle">นำข้อมูลที่ตกลงกันแล้วไปต่อ</h2>
+      <p>กรอกเฉพาะข้อมูลเริ่มต้น แล้วตรวจรายละเอียด รูป และเงื่อนไขอีกครั้งในหน้าถัดไป</p>
+      <form id="createForm" class="form-grid" action="/sales/create" method="get">
+        <div><label class="form-label" for="productName">รายการที่ตกลงซื้อขาย</label><input class="form-control" id="productName" name="productName" value="ไอดีเกมพร้อมสิทธิ์โอน" required /></div>
+        <div class="form-row">
+          <div>
+            <label class="form-label" id="fulfillmentTypeLabel" for="fulfillmentType">วิธีส่งมอบ</label>
+            <div class="landing-select" data-landing-select>
+              <select class="landing-select-native" id="fulfillmentType" name="fulfillmentType" tabindex="-1">
+                <option value="DigitalHandoff">สินค้าดิจิทัลที่โอนได้</option>
+                <option value="PhysicalShipment">สินค้าที่จัดส่ง</option>
+              </select>
+              <button class="form-control landing-select-trigger" type="button" aria-labelledby="fulfillmentTypeLabel fulfillmentTypeValue" aria-haspopup="listbox" aria-expanded="false">
+                <span id="fulfillmentTypeValue" data-select-value>สินค้าดิจิทัลที่โอนได้</span>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <div class="landing-select-menu" role="listbox"></div>
+            </div>
+          </div>
+          <div><label class="form-label" for="productPrice">ยอดที่ตกลง</label><input class="form-control" id="productPrice" name="priceBaht" type="number" min="1" value="2500" required /></div>
+        </div>
+        <div>
+            <label class="form-label" id="shipByLabel" for="shipBy">ส่งมอบภายใน</label>
+            <div class="landing-select" data-landing-select>
+              <select class="landing-select-native" id="shipBy" name="shipByDurationHours" tabindex="-1">
+                <option value="48">2 วัน</option>
+                <option value="72">3 วัน</option>
+                <option value="120">5 วัน</option>
+              </select>
+              <button class="form-control landing-select-trigger" type="button" aria-labelledby="shipByLabel shipByValue" aria-haspopup="listbox" aria-expanded="false">
+                <span id="shipByValue" data-select-value>2 วัน</span>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <div class="landing-select-menu" role="listbox"></div>
+            </div>
+        </div>
+        <button class="button button-primary" type="submit">ไปตรวจและสร้างลิงก์</button>
+      </form>
+      <p class="modal-footnote">Prototype เท่านั้น · ไม่รับชำระเงินจริง</p>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"><span class="toast-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span id="toastText">สร้างลิงก์แล้ว</span></div>
+
+  <script>
+    (() => {
+      const header = document.getElementById('siteHeader');
+      const hero = document.getElementById('hero');
+      const navLinks = document.getElementById('navLinks');
+      const navSpotlight = document.getElementById('navSpotlight');
+      const menuToggle = document.getElementById('menuToggle');
+      const mobilePanel = document.getElementById('mobilePanel');
+      const phoneStage = document.getElementById('phoneStage');
+      const phoneRole = document.getElementById('phoneRole');
+      const stageDots = document.getElementById('stageDots');
+      const stageCaption = document.getElementById('stageCaption');
+      const prevStage = document.getElementById('prevStage');
+      const nextStage = document.getElementById('nextStage');
+      const toggleStage = document.getElementById('toggleStage');
+      const toggleIcon = document.getElementById('toggleIcon');
+      const payoutOverlay = document.getElementById('payoutOverlay');
+      const flowLive = document.getElementById('flowLive');
+      const modal = document.getElementById('createModal');
+      const createForm = document.getElementById('createForm');
+      const toast = document.getElementById('toast');
+      const toastText = document.getElementById('toastText');
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      let stageIndex = 0;
+      let playing = !reducedMotion;
+      let autoplayTimer = null;
+      let payoutTimer = null;
+      let toastTimer = null;
+      let lastFocused = null;
+
+      const iconMenu = '<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>';
+      const iconClose = '<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>';
+      const iconPause = '<path d="M9 7v10M15 7v10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>';
+      const iconPlay = '<path d="m9 7 8 5-8 5V7Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>';
+
+      const scenes = [
+        {
+          label: 'สร้างข้อตกลง', role: 'ผู้ขาย', live: 'ขั้นที่ 1 ผู้ขายเลือกรูปแบบส่งมอบและสร้างลิงก์จากข้อตกลงในแชต',
+          html: `
+            <div class="app-scene">
+              <div class="scene-kicker"><span>ขั้นที่ 1 จาก 4</span><strong>ประมาณ 1 นาที</strong></div>
+              <h3 class="scene-title">สร้างลิงก์ข้อตกลง</h3>
+              <p class="scene-subtitle">เลือกวิธีส่งมอบให้ตรงกับรายการที่ตกลงกันแล้ว</p>
+              <div class="mobile-card product-block">
+                <div class="product-visual" aria-hidden="true"><svg width="48" height="48" viewBox="0 0 24 24" fill="none"><path d="M7 9h10a4 4 0 0 1 3.7 5.5l-1.2 3a2 2 0 0 1-3.3.7L14 16h-4l-2.2 2.2a2 2 0 0 1-3.3-.7l-1.2-3A4 4 0 0 1 7 9Z" stroke="#2b7fff" stroke-width="1.6"/><path d="M8 12v3M6.5 13.5h3M15.5 12.5h.01M18 14.5h.01" stroke="#2b7fff" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+                <div class="product-copy"><strong>ไอดีเกมพร้อมสิทธิ์โอน</strong><small>ผู้ขายยืนยันว่าเป็นเจ้าของและแพลตฟอร์มอนุญาตให้โอน</small><span class="condition-pill">สินค้าดิจิทัลที่โอนได้</span></div>
+              </div>
+              <div class="form-stack">
+                <div class="field-row"><div class="field-mini"><label>ยอดที่ตกลง</label><strong>฿2,500</strong></div><div class="field-mini"><label>ค่าส่ง</label><strong>ไม่มี</strong></div></div>
+                <div class="field-mini"><label>กำหนดส่งมอบ</label><strong>ภายใน 2 วันหลังยืนยันยอดชำระ</strong></div>
+                <button class="mobile-primary" type="button" tabindex="-1">สร้างลิงก์ข้อตกลง <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M14 7l5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+              </div>
+              <div class="link-card"><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M10 13a4 4 0 0 0 5.7.1l2.2-2.2a4 4 0 0 0-5.7-5.7L11 6.4M14 11a4 4 0 0 0-5.7-.1l-2.2 2.2a4 4 0 0 0 5.7 5.7l1.2-1.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><span><strong>toklong.app/p/7E3XQ</strong><small>คัดลอกแล้ว · ส่งกลับไปในแชตได้เลย</small></span></div>
+            </div>`
+        },
+        {
+          label: 'ตรวจและชำระ', role: 'ผู้ซื้อ', live: 'ขั้นที่ 2 ผู้ซื้อเปิดลิงก์ ตรวจสิทธิ์โอน เงื่อนไข และชำระเงิน',
+          html: `
+            <div class="app-scene">
+              <div class="scene-kicker"><span>ขั้นที่ 2 จาก 4</span><strong>ตรวจสอบก่อนจ่าย</strong></div>
+              <h3 class="scene-title">ตรวจสอบและชำระ</h3>
+              <p class="scene-subtitle">ผู้ซื้อเห็นรายการ ผู้ขาย ยอด และเงื่อนไขรับเงินในหน้าเดียว</p>
+              <div class="mobile-card">
+                <div class="product-block">
+                  <div class="product-visual" aria-hidden="true"><svg width="48" height="48" viewBox="0 0 24 24" fill="none"><path d="M7 9h10a4 4 0 0 1 3.7 5.5l-1.2 3a2 2 0 0 1-3.3.7L14 16h-4l-2.2 2.2a2 2 0 0 1-3.3-.7l-1.2-3A4 4 0 0 1 7 9Z" stroke="#2b7fff" stroke-width="1.6"/><path d="M8 12v3M6.5 13.5h3M15.5 12.5h.01M18 14.5h.01" stroke="#2b7fff" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+                  <div class="product-copy"><strong>ไอดีเกมพร้อมสิทธิ์โอน</strong><small>สินค้าดิจิทัล · ส่งมอบภายใน 2 วัน</small><span class="condition-pill">รูปประกอบ 3 รูป</span></div>
+                </div>
+                <div class="seller-row"><span class="seller-profile"><span class="mini-avatar">NP</span><span><strong>Nina P.</strong><small>● ยืนยันเบอร์แล้ว</small></span></span><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6v5c0 4.6 2.7 8.3 7 10 4.3-1.7 7-5.4 7-10V6l-7-3Z" stroke="#2b7fff" stroke-width="1.7" stroke-linejoin="round"/></svg></div>
+              </div>
+              <div class="price-summary"><div class="price-line"><span>รายการ</span><span>฿2,500</span></div><div class="price-line"><span>ค่าส่ง</span><span>฿0</span></div><div class="price-line total"><span>ยอดชำระ</span><span>฿2,500</span></div></div>
+              <div class="protection-note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6v5c0 4.6 2.7 8.3 7 10 4.3-1.7 7-5.4 7-10V6l-7-3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>สินค้าดิจิทัลไม่มีการปล่อยเงินอัตโนมัติตามเวลา คุณต้องยืนยันรับหรือแจ้งปัญหา</span></div>
+              <button class="mobile-primary" type="button" tabindex="-1">ชำระ ฿2,500</button>
+            </div>`
+        },
+        {
+          label: 'ส่งมอบ', role: 'ผู้ขาย', live: 'ขั้นที่ 3 ผู้ขายเห็นยอดชำระที่ยืนยันแล้ว ส่งมอบผ่านช่องทางที่ตกลง และแจ้งสถานะ',
+          html: `
+            <div class="app-scene">
+              <div class="scene-kicker"><span>ขั้นที่ 3 จาก 4</span><strong>ยอดชำระยืนยันแล้ว</strong></div>
+              <h3 class="scene-title">ส่งมอบได้เลย</h3>
+              <p class="scene-subtitle">ระบบแสดงสถานะนี้หลังได้รับการยืนยันจากผู้ให้บริการชำระเงิน</p>
+              <div class="mobile-card success-card">
+                <div class="success-head"><span class="success-icon"><svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><strong>ผู้ซื้อชำระสำเร็จ</strong><small>Payment reference PAY-8F21</small></span></div>
+                <div class="success-amount">฿2,500</div><div class="success-caption">เงินรอการจ่ายตามเงื่อนไขผ่านพาร์ทเนอร์</div>
+              </div>
+              <div class="mobile-card shipping-card">
+                <div class="ship-deadline"><span>ส่งมอบภายใน</span><span class="ship-pill">พรุ่งนี้ 18:00</span></div>
+                <div class="field-mini"><label>ช่องทางที่ตกลงกัน</label><strong>ส่งรายละเอียดผ่าน LINE แล้ว</strong></div>
+                <button class="mobile-primary" type="button" tabindex="-1" style="margin-top:9px">แจ้งว่าส่งมอบแล้ว</button>
+              </div>
+              <div class="mobile-card shipment-timeline">
+                <div class="shipment-row"><span class="shipment-dot"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 5h14v14H5zM8 9h8M8 13h5" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span><span><strong>อย่าใส่ข้อมูลลับใน TOKLONG</strong><small>ไม่กรอกรหัสผ่าน รหัสกู้คืน หรือ private key</small></span><time>สำคัญ</time></div>
+              </div>
+            </div>`
+        },
+        {
+          label: 'ยืนยันรับ', role: 'ผู้ซื้อ', live: 'ขั้นที่ 4 ผู้ซื้อตรวจสินค้าดิจิทัล ยืนยันรับหรือแจ้งปัญหา โดยไม่มีการปล่อยเงินอัตโนมัติตามเวลา',
+          html: `
+            <div class="app-scene">
+              <div class="scene-kicker"><span>ขั้นที่ 4 จาก 4</span><strong>รอผู้ซื้อยืนยัน</strong></div>
+              <h3 class="scene-title">ผู้ขายแจ้งส่งมอบแล้ว</h3>
+              <p class="scene-subtitle">ตรวจสิทธิ์เข้าใช้และรายละเอียดให้ครบก่อนยืนยันรับ</p>
+              <div class="mobile-card delivery-card">
+                <span class="delivery-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M5 5h14v14H5z" stroke="currentColor" stroke-width="1.7"/><path d="m8 12 2.2 2.2L16 9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                <h4>ส่งมอบผ่าน LINE แล้ว</h4><p>ผู้ขายแจ้งเมื่อ 20 ก.ค. 14:18</p>
+              </div>
+              <div class="countdown-shell"><div class="countdown-ring"><span><strong>✓</strong></span></div><div class="countdown-copy"><strong>ไม่มีการปล่อยเงินอัตโนมัติ</strong><small>ผู้ขายยังไม่ได้รับเงินจนกว่าคุณยืนยัน หรือมีการตรวจโดยผู้มีอำนาจ</small></div></div>
+              <div class="action-grid"><button class="mobile-primary" type="button" tabindex="-1">ได้รับสินค้าดิจิทัลแล้ว</button><button class="mobile-secondary" type="button" tabindex="-1">แจ้งปัญหา</button></div>
+              <div class="protection-note" style="margin-bottom:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6v5c0 4.6 2.7 8.3 7 10 4.3-1.7 7-5.4 7-10V6l-7-3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span>เมื่อแจ้งปัญหา ระบบจะพักการจ่ายเงินทันที</span></div>
+            </div>`
+        }
+      ];
+
+      function showToast(message) {
+        toastText.textContent = message;
+        toast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
+      }
+
+      function closeMenu() {
+        mobilePanel.classList.remove('open');
+        mobilePanel.setAttribute('aria-hidden', 'true');
+        menuToggle.setAttribute('aria-expanded', 'false');
+        menuToggle.setAttribute('aria-label', 'เปิดเมนู');
+        menuToggle.innerHTML = iconMenu;
+        document.body.classList.remove('locked');
+      }
+
+      function syncPlayIcon() {
+        toggleStage.setAttribute('aria-label', playing ? 'หยุดการเล่น' : 'เล่นต่อ');
+        toggleIcon.innerHTML = playing ? iconPause : iconPlay;
+      }
+
+      function scheduleAutoplay() {
+        clearTimeout(autoplayTimer);
+        if (!playing) return;
+        autoplayTimer = setTimeout(() => showStage((stageIndex + 1) % scenes.length), 4400);
+      }
+
+      function showStage(index, userInitiated = false) {
+        stageIndex = (index + scenes.length) % scenes.length;
+        const scene = scenes[stageIndex];
+        clearTimeout(payoutTimer);
+        payoutOverlay.classList.remove('show');
+        payoutOverlay.setAttribute('aria-hidden', 'true');
+        phoneRole.textContent = scene.role;
+        phoneStage.innerHTML = scene.html;
+        flowLive.textContent = scene.live;
+        [...stageDots.children].forEach((dot, i) => dot.classList.toggle('active', i === stageIndex));
+        [...stageCaption.children].forEach((chip, i) => chip.classList.toggle('active', i === stageIndex));
+        if (stageIndex === scenes.length - 1 && !reducedMotion) {
+          payoutTimer = setTimeout(() => {
+            payoutOverlay.classList.add('show');
+            payoutOverlay.setAttribute('aria-hidden', 'false');
+          }, 2400);
+        }
+        if (userInitiated && !playing) syncPlayIcon();
+        scheduleAutoplay();
+      }
+
+      scenes.forEach((scene, index) => {
+        const dot = document.createElement('button');
+        dot.className = 'stage-dot';
+        dot.type = 'button';
+        dot.setAttribute('aria-label', `แสดงขั้นตอน ${index + 1}: ${scene.label}`);
+        dot.addEventListener('click', () => showStage(index, true));
+        stageDots.appendChild(dot);
+
+        const chip = document.createElement('span');
+        chip.className = 'stage-chip';
+        chip.textContent = scene.label;
+        stageCaption.appendChild(chip);
+      });
+
+      menuToggle.addEventListener('click', () => {
+        const open = !mobilePanel.classList.contains('open');
+        mobilePanel.classList.toggle('open', open);
+        mobilePanel.setAttribute('aria-hidden', String(!open));
+        menuToggle.setAttribute('aria-expanded', String(open));
+        menuToggle.setAttribute('aria-label', open ? 'ปิดเมนู' : 'เปิดเมนู');
+        menuToggle.innerHTML = open ? iconClose : iconMenu;
+        document.body.classList.toggle('locked', open);
+      });
+      mobilePanel.querySelectorAll('a,button').forEach((item) => item.addEventListener('click', closeMenu));
+      window.addEventListener('scroll', () => header.classList.toggle('scrolled', window.scrollY > 18), { passive: true });
+
+      if (hero && window.matchMedia('(pointer:fine)').matches) {
+        hero.addEventListener('pointermove', (event) => {
+          const rect = hero.getBoundingClientRect();
+          hero.style.setProperty('--spot-x', `${((event.clientX - rect.left) / rect.width) * 100}%`);
+          hero.style.setProperty('--spot-y', `${((event.clientY - rect.top) / rect.height) * 100}%`);
+        });
+      }
+
+      navLinks?.querySelectorAll('.nav-link').forEach((link) => {
+        link.addEventListener('pointerenter', () => {
+          const parentRect = navLinks.getBoundingClientRect();
+          const rect = link.getBoundingClientRect();
+          navSpotlight.style.width = `${rect.width}px`;
+          navSpotlight.style.transform = `translateX(${rect.left - parentRect.left - 4}px)`;
+          navLinks.classList.add('has-spotlight');
+        });
+      });
+      navLinks?.addEventListener('pointerleave', () => navLinks.classList.remove('has-spotlight'));
+
+      prevStage.addEventListener('click', () => showStage(stageIndex - 1, true));
+      nextStage.addEventListener('click', () => showStage(stageIndex + 1, true));
+      toggleStage.addEventListener('click', () => { playing = !playing; syncPlayIcon(); scheduleAutoplay(); });
+      document.querySelectorAll('[data-play-flow]').forEach((button) => button.addEventListener('click', () => {
+        playing = !reducedMotion;
+        syncPlayIcon();
+        showStage(0);
+        document.getElementById('flowDemo').scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'center' });
+      }));
+
+      let openLandingSelect = null;
+      const closeLandingSelect = () => {
+        if (!openLandingSelect) return;
+        openLandingSelect.classList.remove('open');
+        openLandingSelect.querySelector('.landing-select-trigger').setAttribute('aria-expanded', 'false');
+        openLandingSelect = null;
+      };
+      document.querySelectorAll('[data-landing-select]').forEach((root) => {
+        const native = root.querySelector('.landing-select-native');
+        const trigger = root.querySelector('.landing-select-trigger');
+        const value = root.querySelector('[data-select-value]');
+        const menu = root.querySelector('.landing-select-menu');
+        const sync = () => {
+          const selected = native.options[native.selectedIndex];
+          value.textContent = selected.textContent;
+          menu.querySelectorAll('.landing-select-option').forEach((option, index) => {
+            const active = index === native.selectedIndex;
+            option.classList.toggle('active', active);
+            option.setAttribute('aria-selected', String(active));
+          });
+        };
+        [...native.options].forEach((source, index) => {
+          const option = document.createElement('button');
+          option.type = 'button';
+          option.className = 'landing-select-option';
+          option.setAttribute('role', 'option');
+          const text = document.createElement('span');
+          text.textContent = source.textContent;
+          const check = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          check.setAttribute('width', '17');
+          check.setAttribute('height', '17');
+          check.setAttribute('viewBox', '0 0 24 24');
+          check.setAttribute('fill', 'none');
+          check.setAttribute('aria-hidden', 'true');
+          check.innerHTML = '<path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+          option.append(text, check);
+          option.addEventListener('click', () => {
+            native.selectedIndex = index;
+            native.dispatchEvent(new Event('change', { bubbles:true }));
+            sync();
+            closeLandingSelect();
+            trigger.focus();
+          });
+          menu.appendChild(option);
+        });
+        trigger.addEventListener('click', () => {
+          const opening = openLandingSelect !== root;
+          closeLandingSelect();
+          if (opening) {
+            openLandingSelect = root;
+            root.classList.add('open');
+            trigger.setAttribute('aria-expanded', 'true');
+            sync();
+          }
+        });
+        trigger.addEventListener('keydown', (event) => {
+          if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+          event.preventDefault();
+          const last = native.options.length - 1;
+          if (event.key === 'ArrowDown') native.selectedIndex = Math.min(last, native.selectedIndex + 1);
+          if (event.key === 'ArrowUp') native.selectedIndex = Math.max(0, native.selectedIndex - 1);
+          if (event.key === 'Home') native.selectedIndex = 0;
+          if (event.key === 'End') native.selectedIndex = last;
+          native.dispatchEvent(new Event('change', { bubbles:true }));
+          sync();
+          if (!root.classList.contains('open')) trigger.click();
+        });
+        sync();
+      });
+      document.addEventListener('click', (event) => {
+        if (!event.target.closest('[data-landing-select]')) closeLandingSelect();
+      });
+
+      const openModal = (trigger) => {
+        lastFocused = trigger || document.activeElement;
+        modal.classList.add('open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('locked');
+        setTimeout(() => document.getElementById('productName').focus(), 60);
+      };
+      const closeModal = () => {
+        closeLandingSelect();
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('locked');
+        lastFocused?.focus();
+      };
+      document.querySelectorAll('[data-open-create]').forEach((button) => button.addEventListener('click', () => openModal(button)));
+      document.querySelectorAll('[data-close-modal]').forEach((button) => button.addEventListener('click', closeModal));
+      modal.addEventListener('click', (event) => { if (event.target === modal) closeModal(); });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          if (openLandingSelect) closeLandingSelect();
+          else if (modal.classList.contains('open')) closeModal();
+          else closeMenu();
+        }
+      });
+      document.querySelectorAll('.faq-button').forEach((button) => {
+        button.addEventListener('click', () => {
+          const item = button.closest('.faq-item');
+          const open = !item.classList.contains('open');
+          item.classList.toggle('open', open);
+          button.setAttribute('aria-expanded', String(open));
+        });
+      });
+
+      const revealObserver = 'IntersectionObserver' in window
+        ? new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                entry.target.classList.add('in-view');
+                revealObserver.unobserve(entry.target);
+              }
+            });
+          }, { threshold: .12 })
+        : null;
+      document.querySelectorAll('.reveal').forEach((element) => {
+        if (revealObserver) revealObserver.observe(element); else element.classList.add('in-view');
+      });
+
+      syncPlayIcon();
+      showStage(0);
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+<header class="site-header">
+    <div class="container nav-shell">
+        <a class="brand" href="/" aria-label="TOKLONG หน้าแรก">
+            <span class="brand-mark" aria-hidden="true">
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none">
+                    <path d="M6.5 7.5h11v9h-11z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                    <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </span>
+            <span>TOKLONG</span>
+        </a>
+        <div class="nav-actions">
+            @if (!string.IsNullOrWhiteSpace(BackHref))
+            {
+                <a class="button button-secondary button-sm" href="@BackHref">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="m14 7-5 5 5 5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    @BackLabel
+                </a>
+            }
+        </div>
+    </div>
+</header>
+
+@code {
+    [Parameter] public string? BackHref { get; set; }
+    [Parameter] public string BackLabel { get; set; } = "ย้อนกลับ";
+}
