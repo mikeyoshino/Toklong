@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 82 82">
+  <path id="transaction-rail-upper"
+        d="M13 27c0-7.7 6.3-14 14-14h28c7.7 0 14 6.3 14 14s-6.3 14-14 14H41"
+        fill="none" stroke="#2B7FFF" stroke-width="12"
+        stroke-linecap="round"/>
+</svg>

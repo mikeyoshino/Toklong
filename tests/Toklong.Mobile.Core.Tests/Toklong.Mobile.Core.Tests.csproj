@@ -30,11 +30,41 @@
     <None Include="../../src/Toklong.Mobile/AppShell.xaml"
           Link="Ui/AppShell.xaml"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Mobile/MauiProgram.cs"
+          Link="Ui/MauiProgram.cs"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Mobile/App.xaml.cs"
+          Link="Ui/App.xaml.cs"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../src/Toklong.Mobile/Controls/OtpCodeInput.xaml"
           Link="Ui/Controls/OtpCodeInput.xaml"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Mobile/Controls/TransactionRailMarkView.xaml"
+          Link="Ui/Controls/TransactionRailMarkView.xaml"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../src/Toklong.Mobile/Pages/*.xaml"
           Link="Ui/Pages/%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../src/Toklong.Mobile/Resources/Images/brand_mark.svg"
+          Link="Brand/brand_mark.svg"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Mobile/Resources/AppIcon/appicon.svg"
+          Link="Brand/appicon.svg"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Mobile/Resources/AppIcon/appiconfg.svg"
+          Link="Brand/appiconfg.svg"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Mobile/Resources/Splash/splash.svg"
+          Link="Brand/splash.svg"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Mobile/Resources/Images/ui_ai_assist.svg"
+          Link="Brand/ui_ai_assist.svg"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../landing.html"
+          Link="Brand/landing.html"
           CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

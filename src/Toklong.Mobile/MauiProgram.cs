@@ -104,6 +104,9 @@ public static class MauiProgram
             });
 
         builder.Services.AddSingleton<AppShell>();
+        builder.Services.AddSingleton<IStartupMotionPreference, StartupMotionPreference>();
+        builder.Services.AddSingleton<StartupCoordinator>();
+        builder.Services.AddSingleton<StartupLogoPage>();
 #if DEBUG && ANDROID
         var apiOptions = new MobileApiOptions(
             new Uri("http://10.0.2.2:5181/"));

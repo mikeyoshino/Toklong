@@ -16,6 +16,30 @@
   outline, marker, and label; all incomplete steps are gray. The main status
   card communicates the current state.
 
+## Mobile startup brand motion
+
+The mobile identity is the TOKLONG Transaction Rail: two rounded rails approach
+from opposite sides and form one compact transaction path. The Mint node is a
+brand confirmation beat only; it never represents provider-confirmed payment,
+refund, payout, delivery, or any transaction state.
+
+On a normal cold launch, the in-app reveal plays once in exactly 1.2 seconds:
+
+1. the separated rails begin their arrival over 250 ms;
+2. the rails connect over 400 ms;
+3. the Mint confirmation node pulses once over 200 ms; and
+4. the TOKLONG wordmark enters over 350 ms.
+
+Authentication lookup runs concurrently with this reveal. The native OS launch
+screen remains static and uses the separated first frame so handoff into the
+app does not imply a completed animation before the app can render. The intro
+is a temporary root page, is not added to Shell history, and does not replay
+when the app returns from the background.
+
+When the platform requests Reduced Motion, show the completed Transaction Rail
+and wordmark immediately with no animation-duration delay. Routing and
+authentication behavior remain identical.
+
 ## Landing page information architecture
 
 1. **Hero**
@@ -139,9 +163,9 @@ Show:
 - One secondary action `ให้ AI ช่วยกรอก` below the heading. It opens a
   bottom-sheet overlay only on demand, accepts one image/chat screenshot or
   pasted chat text, previews the extracted draft, and fills only blank fields
-  after the buyer confirms. Its icon is the TOKLONG `T` inside scan corners
-  with the Mint confirmation dot; do not use a generic sparkle or marketplace
-  icon. The source image is not a product-evidence photo.
+  after the buyer confirms. Its icon is the TOKLONG Transaction Rail inside
+  scan corners with the Mint confirmation node; do not use a generic sparkle
+  or marketplace icon. The source image is not a product-evidence photo.
 - Plain-language notice that only the account verified with the specified
   seller phone can respond.
 

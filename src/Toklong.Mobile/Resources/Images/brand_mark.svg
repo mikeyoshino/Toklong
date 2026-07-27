@@ -1,4 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <path d="M6 7h20v5.5h-7V26h-6V12.5H6V7Z" fill="#FFFFFF"/>
-  <circle cx="25" cy="7" r="3.2" fill="#A8F0DE"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 82 82">
+  <g id="transaction-rail" fill="none">
+    <path d="M13 27c0-7.7 6.3-14 14-14h28c7.7 0 14 6.3 14 14s-6.3 14-14 14H41"
+          stroke="#FFFFFF" stroke-width="12" stroke-linecap="round"/>
+    <path d="M69 55c0 7.7-6.3 14-14 14H27c-7.7 0-14-6.3-14-14s6.3-14 14-14h14"
+          stroke="#BFE2FF" stroke-width="12" stroke-linecap="round"/>
+    <circle cx="41" cy="41" r="9" fill="#65D6BF"
+            stroke="#FFFFFF" stroke-width="4"/>
+  </g>
 </svg>

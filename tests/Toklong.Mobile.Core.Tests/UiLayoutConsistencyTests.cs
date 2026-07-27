@@ -846,6 +846,90 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
+    public void StartupLogo_IsNonInteractiveAndHasOneAccessibleName()
+    {
+        var page = Load("Ui", "Pages", "StartupLogoPage.xaml");
+        var mark = Load(
+            "Ui",
+            "Controls",
+            "TransactionRailMarkView.xaml");
+
+        Assert.Empty(page.Descendants(Maui + "Button"));
+        Assert.Empty(page.Descendants(Maui + "Entry"));
+        Assert.Contains(
+            page.Descendants(),
+            element =>
+                element.Name.LocalName == "TransactionRailMarkView");
+
+        Assert.Equal(
+            "True",
+            AttributeValue(
+                mark.Root!,
+                "AutomationProperties.IsInAccessibleTree"));
+        Assert.Equal(
+            "โลโก้ TOKLONG",
+            AttributeValue(
+                mark.Root!,
+                "SemanticProperties.Description"));
+
+        var decorativeChildren = mark
+            .Descendants()
+            .Where(element =>
+                element.Name.LocalName is "Image" or "Border" or "Label");
+        Assert.All(
+            decorativeChildren,
+            element => Assert.Equal(
+                "False",
+                AttributeValue(
+                    element,
+                    "AutomationProperties.IsInAccessibleTree")));
+    }
+
+    [Fact]
+    public void StartupLogo_IsNotPartOfShellHistory()
+    {
+        var shell = Load("Ui", "AppShell.xaml");
+
+        Assert.DoesNotContain(
+            shell.Descendants(),
+            element =>
+                AttributeValue(element, "Route") == "startup");
+        Assert.Equal(
+            "welcome",
+            AttributeValue(
+                shell.Descendants()
+                    .First(element =>
+                        element.Name.LocalName == "ShellContent"),
+                "Route"));
+    }
+
+    [Fact]
+    public void StartupServices_AreRegisteredAndShellIsInstalledAfterIntro()
+    {
+        var program = File.ReadAllText(
+            Path.Combine(
+                AppContext.BaseDirectory,
+                "Ui",
+                "MauiProgram.cs"));
+        var app = File.ReadAllText(
+            Path.Combine(
+                AppContext.BaseDirectory,
+                "Ui",
+                "App.xaml.cs"));
+
+        Assert.Contains(
+            "AddSingleton<IStartupMotionPreference, StartupMotionPreference>()",
+            program);
+        Assert.Contains("AddSingleton<StartupCoordinator>()", program);
+        Assert.Contains("AddSingleton<StartupLogoPage>()", program);
+        Assert.Contains("new Window(startupPage)", app);
+        Assert.Contains("window.Page = shell", app);
+        Assert.DoesNotContain(
+            "IAuthenticationService authentication",
+            app);
+    }
+
+    [Fact]
     public void EveryUserFacingFormControl_UsesTheSharedControlStyle()
     {
         var pageDirectory = Path.Combine(AppContext.BaseDirectory, "Ui", "Pages");

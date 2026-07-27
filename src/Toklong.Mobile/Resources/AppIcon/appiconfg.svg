@@ -1,5 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <path d="M112 166c0-30 24-54 54-54h180c30 0 54 24 54 54v180c0 30-24 54-54 54H166c-30 0-54-24-54-54V166Z" fill="#fff"/>
-  <path d="M176 209h160v38H275v112h-38V247h-61v-38Z" fill="#2B7FFF"/>
-  <circle cx="346" cy="166" r="21" fill="#65D6BF"/>
+  <g id="transaction-rail" fill="none"
+     transform="translate(51 51) scale(5)">
+    <path d="M13 27c0-7.7 6.3-14 14-14h28c7.7 0 14 6.3 14 14s-6.3 14-14 14H41"
+          stroke="#FFFFFF" stroke-width="12" stroke-linecap="round"/>
+    <path d="M69 55c0 7.7-6.3 14-14 14H27c-7.7 0-14-6.3-14-14s6.3-14 14-14h14"
+          stroke="#BFE2FF" stroke-width="12" stroke-linecap="round"/>
+    <circle cx="41" cy="41" r="9" fill="#65D6BF"
+            stroke="#FFFFFF" stroke-width="4"/>
+  </g>
 </svg>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Toklong.Mobile.Controls.TransactionRailMarkView"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Name="Root"
+    AutomationProperties.IsInAccessibleTree="True"
+    SemanticProperties.Description="โลโก้ TOKLONG">
+    <Grid
+        ColumnDefinitions="110,Auto"
+        ColumnSpacing="16">
+        <Grid
+            WidthRequest="110"
+            HeightRequest="110">
+            <Image
+                x:Name="UpperRail"
+                AutomationProperties.IsInAccessibleTree="False"
+                Source="brand_rail_upper.png" />
+            <Image
+                x:Name="LowerRail"
+                AutomationProperties.IsInAccessibleTree="False"
+                Source="brand_rail_lower.png" />
+            <Border
+                x:Name="ConfirmationPulse"
+                WidthRequest="26"
+                HeightRequest="26"
+                HorizontalOptions="Center"
+                VerticalOptions="Center"
+                AutomationProperties.IsInAccessibleTree="False"
+                BackgroundColor="Transparent"
+                Stroke="#65D6BF"
+                StrokeThickness="2">
+                <Border.StrokeShape>
+                    <Ellipse />
+                </Border.StrokeShape>
+            </Border>
+            <Image
+                x:Name="ConfirmationNode"
+                AutomationProperties.IsInAccessibleTree="False"
+                Source="brand_confirmation_node.png" />
+        </Grid>
+        <Label
+            x:Name="Wordmark"
+            Grid.Column="1"
+            VerticalOptions="Center"
+            AutomationProperties.IsInAccessibleTree="False"
+            FontAttributes="Bold"
+            FontFamily="NotoSansThai"
+            FontSize="30"
+            CharacterSpacing="-0.4"
+            Text="TOKLONG"
+            TextColor="#122A47" />
+    </Grid>
+</ContentView>

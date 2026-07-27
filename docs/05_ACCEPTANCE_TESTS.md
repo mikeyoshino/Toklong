@@ -1005,3 +1005,25 @@ management.
 **Then** autoplay is disabled or effectively paused
 **And** the user can navigate all four scenes with controls
 **And** the static four-step section communicates the full flow.
+
+### H2 — Mobile startup logo respects motion and routing
+
+**Given** the native mobile app starts from a cold launch with normal motion
+**When** the static launch surface hands off to the app
+**Then** the two Transaction Rail layers assemble, the Mint node confirms once,
+and the TOKLONG wordmark enters in exactly 1.2 seconds
+**And** authentication lookup occurs concurrently
+**And** the intro is not placed in Shell history
+**And** the animation does not replay on foreground resume.
+
+**Given** the platform requests reduced motion
+**When** the app starts
+**Then** the completed static mark appears immediately
+**And** no animation-duration delay is added
+**And** the same authenticated or unauthenticated route is selected.
+
+**Given** startup session lookup fails
+**When** the animation or static reduced-motion presentation completes
+**Then** the app opens the unauthenticated welcome route
+**And** no credential, session content, payment state, or success claim is
+displayed.
