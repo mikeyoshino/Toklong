@@ -69,6 +69,12 @@ public partial class App : Application
                     result.SessionError,
                     "Mobile session lookup failed during startup.");
             }
+            if (result.PendingRegistrationError is not null)
+            {
+                logger.LogWarning(
+                    result.PendingRegistrationError,
+                    "Pending mobile registration lookup failed during startup.");
+            }
 
             window.Page = shell;
             await shell.GoToAsync(result.Route, false);

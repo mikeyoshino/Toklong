@@ -320,13 +320,31 @@ Primary action depends on state:
 
 ### Create buyer offer
 
-An unauthenticated app launch first shows a welcome page with two unambiguous
-actions: `เข้าสู่ระบบ` and `สมัครสมาชิก`. It preserves the existing TOKLONG
-palette and branding and must not advertise social sign-in that is not
-implemented. Returning buyers enter only their registered phone number. First
-and last name plus the receipt/refund contact email are collected only on the
-separate first-time registration screen and are not requested or overwritten
-during later sign-in.
+An unauthenticated app launch first shows the approved centered TOKLONG mark,
+the headline `ซื้อขายออนไลน์ ง่ายขึ้น`, and two unambiguous actions:
+`เข้าสู่ระบบ` and `สมัครสมาชิก`. The welcome screen does not use shield,
+truck, payment-status, country, or currency artwork. It preserves the existing
+blue-to-purple brand tile and exact mark and must not advertise social sign-in
+that is not implemented.
+
+All authentication phone fields are local Thai-mobile fields labelled
+`เบอร์มือถือไทย`. They use the thin modern smartphone icon and the helper
+`กรอกเบอร์ 10 หลัก เช่น 081-234-5678`. Do not show `+66`, a country flag,
+country picker, email-login framing, or an old handset icon. Returning buyers
+see `เข้าสู่ระบบด้วยเบอร์มือถือ` and the primary action
+`ส่งรหัสทาง SMS`.
+
+First-time registration is three steps:
+
+1. enter only the Thai mobile number and request the SMS code;
+2. verify the same six-digit experience used by sign-in;
+3. after verified proof, enter first and last name and the required
+   receipt/refund contact email, review tappable Terms and Privacy links, and
+   press `สร้างบัญชีและเริ่มใช้งาน`.
+
+The final sentence immediately before that button states that pressing it
+records acceptance; no separate checkbox is added. Email is not a login
+identifier and is not requested or overwritten during later sign-in.
 
 Both paths continue to a `รหัสยืนยัน 6 หลัก` screen. The six digits appear over
 six underlines but are backed by one numeric input so paste, deletion,
@@ -335,6 +353,15 @@ internal technical term and is not used in normal consumer copy. After
 authentication, the create-offer page must explain that this is a private
 proposal for a seller already known from another channel, not a public request
 or marketplace bid. Keep it short:
+
+The server-side proof for a new registration expires after 15 minutes and is
+bound to the app installation. The app resumes a still-valid profile-completion
+step after backgrounding or restart. Startup priority is: valid authenticated
+session to the transaction list; otherwise valid pending registration to
+profile completion; otherwise Welcome. The unsigned DEBUG iOS simulator uses
+in-memory authentication storage, so cold-process resume must be verified on a
+signed physical build. Consumer screens and logs must not expose internal
+registration tokens, hashes, idempotency values, or one-time codes.
 
 Phone fields accept only ASCII digits, stop at 10 digits, and display the value
 as `092-103-1202` while the user types. The separators are visual formatting and

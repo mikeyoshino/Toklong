@@ -10,6 +10,7 @@ public sealed class StartupCoordinatorTests
         var authentication = new AuthenticationStub(() => Task.FromResult(true));
         var coordinator = new StartupCoordinator(
             authentication,
+            new PendingRegistrationStoreStub(false),
             new MotionPreferenceStub(false));
         var plays = 0;
 
@@ -29,6 +30,7 @@ public sealed class StartupCoordinatorTests
     {
         var coordinator = new StartupCoordinator(
             new AuthenticationStub(() => Task.FromResult(false)),
+            new PendingRegistrationStoreStub(false),
             new MotionPreferenceStub(true));
 
         var result = await coordinator.StartAsync(
@@ -44,6 +46,7 @@ public sealed class StartupCoordinatorTests
         var failure = new InvalidOperationException("secure store failed");
         var coordinator = new StartupCoordinator(
             new AuthenticationStub(() => Task.FromException<bool>(failure)),
+            new PendingRegistrationStoreStub(false),
             new MotionPreferenceStub(false));
 
         var result = await coordinator.StartAsync(_ => Task.CompletedTask);
@@ -62,6 +65,7 @@ public sealed class StartupCoordinatorTests
             new AuthenticationStub(() => Task.FromResult(true));
         var coordinator = new StartupCoordinator(
             authentication,
+            new PendingRegistrationStoreStub(false),
             new MotionPreferenceStub(false));
 
         var startup = coordinator.StartAsync(
@@ -81,6 +85,7 @@ public sealed class StartupCoordinatorTests
         var authentication = new AuthenticationStub(() => Task.FromResult(true));
         var coordinator = new StartupCoordinator(
             authentication,
+            new PendingRegistrationStoreStub(false),
             new MotionPreferenceStub(false));
         var plays = 0;
 
@@ -101,10 +106,65 @@ public sealed class StartupCoordinatorTests
         Assert.Equal(1, plays);
     }
 
+    [Fact]
+    public async Task StartAsync_without_session_with_pending_registration_routes_to_completion()
+    {
+        var coordinator = new StartupCoordinator(
+            new AuthenticationStub(
+                () => Task.FromResult(false)),
+            new PendingRegistrationStoreStub(true),
+            new MotionPreferenceStub(false));
+
+        var result = await coordinator.StartAsync(
+            _ => Task.CompletedTask);
+
+        Assert.Equal(
+            AuthenticationRoutes.CompleteRegistration,
+            result.Route);
+    }
+
+    [Fact]
+    public async Task StartAsync_prefers_authenticated_session_over_pending_registration()
+    {
+        var coordinator = new StartupCoordinator(
+            new AuthenticationStub(
+                () => Task.FromResult(true)),
+            new PendingRegistrationStoreStub(true),
+            new MotionPreferenceStub(false));
+
+        var result = await coordinator.StartAsync(
+            _ => Task.CompletedTask);
+
+        Assert.Equal("//transactions", result.Route);
+    }
+
     private sealed class MotionPreferenceStub(bool reduced)
         : IStartupMotionPreference
     {
         public bool IsReducedMotionEnabled { get; } = reduced;
+    }
+
+    private sealed class PendingRegistrationStoreStub(bool valid)
+        : IPendingRegistrationStore
+    {
+        public Task<PendingMobileRegistration?> GetValidAsync(
+            DateTimeOffset now) =>
+            Task.FromResult(
+                valid
+                    ? new PendingMobileRegistration(
+                        "opaque-ticket",
+                        now.AddMinutes(1),
+                        "081-***-5678",
+                        Guid.NewGuid().ToString("N"),
+                        Guid.NewGuid().ToString("N"))
+                    : null);
+
+        public Task SaveAsync(
+            PendingMobileRegistration pending) =>
+            throw new NotSupportedException();
+
+        public void Clear() =>
+            throw new NotSupportedException();
     }
 
     private sealed class AuthenticationStub(

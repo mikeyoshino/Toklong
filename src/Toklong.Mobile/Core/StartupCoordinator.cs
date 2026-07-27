@@ -7,10 +7,12 @@ public interface IStartupMotionPreference
 
 public sealed record StartupResult(
     string Route,
-    Exception? SessionError);
+    Exception? SessionError,
+    Exception? PendingRegistrationError);
 
 public sealed class StartupCoordinator(
     IAuthenticationService authentication,
+    IPendingRegistrationStore pendingRegistrations,
     IStartupMotionPreference motionPreference)
 {
     private readonly object gate = new();
@@ -35,20 +37,28 @@ public sealed class StartupCoordinator(
         CancellationToken cancellationToken)
     {
         var sessionTask = ResolveSessionAsync();
-
-        if (!motionPreference.IsReducedMotionEnabled)
-        {
-            await Task.WhenAll(
-                sessionTask,
-                playAnimationAsync(cancellationToken));
-        }
+        var pendingTask = ResolvePendingRegistrationAsync();
+        var motionTask = motionPreference.IsReducedMotionEnabled
+            ? Task.CompletedTask
+            : playAnimationAsync(cancellationToken);
+        await Task.WhenAll(
+            sessionTask,
+            pendingTask,
+            motionTask);
 
         cancellationToken.ThrowIfCancellationRequested();
         var session = await sessionTask;
+        var pending = await pendingTask;
 
         return new StartupResult(
-            session.HasSession ? "//transactions" : "//welcome",
-            session.Error);
+            session.HasSession
+                ? "//transactions"
+                : pending.HasPending
+                    ? AuthenticationRoutes
+                        .CompleteRegistration
+                    : "//welcome",
+            session.Error,
+            pending.Error);
     }
 
     private async Task<(bool HasSession, Exception? Error)>
@@ -57,6 +67,22 @@ public sealed class StartupCoordinator(
         try
         {
             return (await authentication.HasSessionAsync(), null);
+        }
+        catch (Exception exception)
+        {
+            return (false, exception);
+        }
+    }
+
+    private async Task<(bool HasPending, Exception? Error)>
+        ResolvePendingRegistrationAsync()
+    {
+        try
+        {
+            return (
+                await pendingRegistrations.GetValidAsync(
+                    DateTimeOffset.UtcNow) is not null,
+                null);
         }
         catch (Exception exception)
         {

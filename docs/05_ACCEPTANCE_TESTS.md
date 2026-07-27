@@ -306,11 +306,61 @@ and tells the seller that transfer to their account is being processed
 **When** the native app opens
 **Then** the welcome screen appears before either form
 **And** it offers `เข้าสู่ระบบ` and `สมัครสมาชิก` as separate actions
-**And** sign-in asks only for the registered phone number
-**And** registration asks for first and last name, a payment-contact email, and
-a Thai mobile number
+**And** the exact TOKLONG mark is centered above
+`ซื้อขายออนไลน์ ง่ายขึ้น`
+**And** no shield, truck, payment-status, social-login, country, or currency
+artwork is shown
+**And** sign-in says `เข้าสู่ระบบด้วยเบอร์มือถือ` and asks only for the
+registered Thai mobile number
+**And** the shared field says `เบอร์มือถือไทย`, uses the selected thin
+smartphone icon, and shows `081-234-5678` without `+66`, a flag, or a country
+picker
+**And** registration asks for only the Thai mobile number before SMS
 **And** both paths continue to the same six-digit verification experience
 **And** no unavailable social-login action is shown.
+
+### A0.0.5.2 — New registration completes only after verified phone proof
+
+**Given** a Thai mobile number with no buyer or seller account
+**When** the user verifies the SMS code in sign-up mode
+**Then** no account or authenticated session is created yet
+**And** the verified registration proof expires after 15 minutes and is bound
+to the same app installation
+**And** the app opens `ตั้งค่าบัญชีให้เสร็จ`
+**And** that screen shows the verified masked phone read-only
+**And** it requires `ชื่อและนามสกุล` and
+`อีเมลสำหรับใบเสร็จและการคืนเงิน`
+**And** tappable underlined Terms and Privacy links appear immediately before
+`สร้างบัญชีและเริ่มใช้งาน`
+**And** the sentence states that pressing the button records acceptance
+without a separate checkbox
+**And** the account, immutable terms acceptance, proof consumption, and mobile
+session complete atomically
+**And** an exact retry returns a session for the same buyer without a second
+account or terms acceptance
+**And** a different request key, installation, expired proof, or old terms
+version cannot reuse the proof
+**And** neither API responses nor logs contain a one-time-code hash or
+registration-proof hash.
+
+### A0.0.5.3 — Authentication resume and accessibility are deterministic
+
+**Given** the app starts after interruption
+**When** startup state is resolved
+**Then** a valid authenticated session always routes to `//transactions`
+**And** without a session, a valid pending registration routes to profile
+completion
+**And** without either, the app routes to Welcome
+**And** an invalid or expired secure-storage record is cleared and does not
+crash startup
+**And** authenticated push/deep-link initialization does not run for a pending
+registration
+**And** the brand exposes one `โลโก้ TOKLONG` semantic element
+**And** decorative mark and smartphone images are excluded from the
+accessibility tree
+**And** the six visible code positions remain backed by one focusable numeric
+input with paste, deletion, VoiceOver, large text, and iOS one-time-code
+AutoFill support.
 
 ### A0.0.6 — Returning to the transaction list preserves its layout
 
