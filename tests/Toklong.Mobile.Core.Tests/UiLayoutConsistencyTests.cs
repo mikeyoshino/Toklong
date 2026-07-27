@@ -180,7 +180,7 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
-    public void CreateOfferUsesAgreementHeading()
+    public void CreateOfferUsesApprovedOfferHeading()
     {
         var createOffer = Load(
             "Ui",
@@ -196,8 +196,10 @@ public sealed class UiLayoutConsistencyTests
                 AttributeValue(layout, "AutomationId") ==
                 "QuickDealForm");
 
-        Assert.Contains("สร้างข้อตกลงซื้อขาย", labels);
-        Assert.Contains("สร้างดีลผู้ซื้อกับผู้ขาย", labels);
+        Assert.Contains("สร้างข้อเสนอ", labels);
+        Assert.Contains("ส่งให้ผู้ขายตรวจและตอบรับ", labels);
+        Assert.DoesNotContain("สร้างข้อตกลงซื้อขาย", labels);
+        Assert.DoesNotContain("สร้างดีลผู้ซื้อกับผู้ขาย", labels);
         Assert.DoesNotContain(
             "คุณกรอก ผู้ขายยืนยันหรือปฏิเสธ",
             labels);
@@ -207,13 +209,104 @@ public sealed class UiLayoutConsistencyTests
         Assert.DoesNotContain("บันทึกสิ่งที่ตกลงกัน", labels);
         Assert.DoesNotContain("ดีลซื้อขายส่วนตัว", labels);
         Assert.Equal(
-            "{StaticResource SpacingXl}",
+            "24",
             AttributeValue(quickDealForm, "Spacing"));
         Assert.DoesNotContain(
             quickDealForm.Ancestors(Maui + "Border"),
             border =>
                 AttributeValue(border, "Style") ==
                 "{StaticResource RefinedFormCard}");
+    }
+
+    [Fact]
+    public void CreateOfferUsesApprovedEssentialFirstVisualHierarchy()
+    {
+        var resources = Load("Ui", "App.xaml");
+        var createOffer = Load(
+            "Ui",
+            "Pages",
+            "CreateOfferPage.xaml");
+        var header = createOffer
+            .Descendants(Maui + "Border")
+            .Single(border =>
+                AttributeValue(border, "AutomationId") ==
+                "CreateOfferHeader");
+        var progress = header
+            .Descendants(Maui + "Grid")
+            .Single(grid =>
+                AttributeValue(grid, "AutomationId") ==
+                "CreateOfferProgress");
+        var priceSection = createOffer
+            .Descendants(Maui + "VerticalStackLayout")
+            .Single(layout =>
+                AttributeValue(layout, "AutomationId") ==
+                "ItemPriceSection");
+        var amountBorder = priceSection
+            .Descendants(Maui + "Border")
+            .Single();
+        var orderedSections = createOffer
+            .Descendants()
+            .Select(element =>
+                AttributeValue(element, "AutomationId"))
+            .Where(value => value is
+                "SellerPhoneSection" or
+                "ProductNameSection" or
+                "ItemPriceSection" or
+                "DeliveryAddressSection" or
+                "SecondaryOfferOptions")
+            .ToArray();
+
+        Assert.Equal(
+            "False",
+            AttributeValue(
+                createOffer.Root!,
+                "Shell.NavBarIsVisible"));
+        Assert.Contains(
+            header.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                "สร้างข้อเสนอ");
+        Assert.Contains(
+            header.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                "ส่งให้ผู้ขายตรวจและตอบรับ");
+        Assert.Equal(
+            2,
+            progress.Elements(Maui + "BoxView").Count());
+        Assert.Equal(
+            "{StaticResource RefinedAmountBorder}",
+            AttributeValue(amountBorder, "Style"));
+        Assert.Null(
+            AttributeValue(priceSection, "BackgroundColor"));
+        Assert.Equal(
+            new[]
+            {
+                "SellerPhoneSection",
+                "ProductNameSection",
+                "ItemPriceSection",
+                "DeliveryAddressSection",
+                "SecondaryOfferOptions"
+            },
+            orderedSections);
+        Assert.Equal(
+            "None",
+            StyleSetterValue(
+                resources,
+                "RefinedFormLabel",
+                "FontAttributes"));
+        Assert.Equal(
+            "NotoSansThaiMedium",
+            StyleSetterValue(
+                resources,
+                "RefinedFormLabel",
+                "FontFamily"));
+        Assert.Equal(
+            "None",
+            StyleSetterValue(
+                resources,
+                "RefinedHelperText",
+                "FontAttributes"));
     }
 
     [Fact]
@@ -341,81 +434,73 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
-    public void CreateOfferShowsAccessibleBuyerCostPreviewAfterValidPrice()
+    public void CreateOfferReviewContainsTheOnlyBuyerCostBreakdown()
     {
         var createOffer = Load(
             "Ui",
             "Pages",
             "CreateOfferPage.xaml");
-        var summary = createOffer
-            .Descendants(Maui + "Border")
-            .Single(border =>
-                AttributeValue(border, "AutomationId") ==
-                "BuyerCostPreviewSummary");
-        var sheet = createOffer
+        var reviewSheet = createOffer
             .Descendants(Maui + "Grid")
             .Single(grid =>
                 AttributeValue(grid, "AutomationId") ==
-                "BuyerCostPreviewSheet");
-        var closeButton = sheet
+                "QuickDealReviewSheet");
+        var costSummary = reviewSheet
+            .Descendants(Maui + "Border")
+            .Single(border =>
+                AttributeValue(border, "AutomationId") ==
+                "ReviewCostSummary");
+        var reviewButton = createOffer
             .Descendants(Maui + "Button")
             .Single(button =>
                 AttributeValue(button, "AutomationId") ==
-                "BuyerCostPreviewCloseButton");
-        var spacer = createOffer
-            .Descendants(Maui + "BoxView")
-            .Single(box =>
-                AttributeValue(box, "AutomationId") ==
-                "BuyerCostPreviewFormSpacer");
+                "ReviewQuickDealButton");
 
-        Assert.Equal(
-            "{Binding HasCostPreview}",
-            AttributeValue(summary, "IsVisible"));
-        Assert.Equal(
-            "{StaticResource BrandBlueDeep}",
-            AttributeValue(summary, "BackgroundColor"));
-        Assert.True(
-            RequiredIntAttribute(
-                summary,
-                "MinimumHeightRequest") >= 64);
-        Assert.Equal(
-            "{Binding CostPreviewSemanticDescription}",
-            AttributeValue(
-                summary,
-                "SemanticProperties.Description"));
-        Assert.Equal(
-            "{Binding IsCostPreviewSheetOpen}",
-            AttributeValue(sheet, "IsVisible"));
+        Assert.DoesNotContain(
+            createOffer.Descendants(),
+            element =>
+                AttributeValue(element, "AutomationId") is
+                    "BuyerCostPreviewSummary" or
+                    "BuyerCostPreviewSheet" or
+                    "BuyerCostPreviewFormSpacer");
         Assert.Contains(
-            summary.Descendants(Maui + "TapGestureRecognizer"),
-            gesture =>
-                AttributeValue(gesture, "Command") ==
-                "{Binding OpenCostPreviewCommand}");
-        Assert.Equal(
-            "{Binding CloseCostPreviewCommand}",
-            AttributeValue(closeButton, "Command"));
-        Assert.Equal("44", AttributeValue(closeButton, "WidthRequest"));
-        Assert.Equal("44", AttributeValue(closeButton, "HeightRequest"));
-        Assert.True(
-            RequiredIntAttribute(spacer, "HeightRequest") >= 96);
-        Assert.Equal(
-            "{Binding HasCostPreview}",
-            AttributeValue(spacer, "IsVisible"));
-        Assert.Contains(
-            sheet.Descendants(Maui + "Label"),
+            costSummary.Descendants(Maui + "Label"),
             label =>
                 AttributeValue(label, "Text") ==
-                "ยังไม่ตัดเงินในขั้นตอนนี้");
+                "{Binding CostProtectionFeeText}");
         Assert.Contains(
-            sheet.Descendants(Maui + "Label"),
+            costSummary.Descendants(Maui + "Label"),
             label =>
                 AttributeValue(label, "Text") ==
                 "{Binding CostShippingText}");
-        Assert.DoesNotContain(
-            summary.Descendants(Maui + "Label"),
+        Assert.Contains(
+            costSummary.Descendants(Maui + "Label"),
             label =>
-                AttributeValue(label, "FontAttributes") ==
-                "Bold");
+                AttributeValue(label, "Text") ==
+                "{Binding CostTotalText}");
+        Assert.Contains(
+            costSummary.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                "ยังไม่ตัดเงินในขั้นตอนนี้");
+        Assert.DoesNotContain(
+            reviewSheet.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") is
+                    "กำหนดส่งสินค้า" or
+                    "ผู้ขายต้องส่งภายใน 3 วันหลังระบบยืนยันยอดชำระ");
+        var pricingTrigger = reviewButton
+            .Descendants(Maui + "DataTrigger")
+            .Single(trigger =>
+                AttributeValue(trigger, "Binding") ==
+                "{Binding IsReviewPricing}");
+        Assert.Contains(
+            pricingTrigger.Descendants(Maui + "Setter"),
+            setter =>
+                AttributeValue(setter, "Property") ==
+                    "Text" &&
+                AttributeValue(setter, "Value") ==
+                    "กำลังคำนวณค่าใช้จ่าย...");
     }
 
     [Fact]

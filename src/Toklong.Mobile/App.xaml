@@ -1,0 +1,410 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Application
+    x:Class="Toklong.Mobile.App"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    UserAppTheme="Light">
+    <Application.Resources>
+        <ResourceDictionary>
+            <Color x:Key="Ink">#101828</Color>
+            <Color x:Key="InkSoft">#475467</Color>
+            <Color x:Key="Muted">#667085</Color>
+            <Color x:Key="Line">#E4EAF1</Color>
+            <Color x:Key="Surface">#FFFFFF</Color>
+            <Color x:Key="SurfaceSoft">#F6F9FC</Color>
+            <Color x:Key="SurfaceBlue">#EEF7FF</Color>
+            <Color x:Key="BrandBlue">#2B7FFF</Color>
+            <Color x:Key="BrandBlueDeep">#145FC7</Color>
+            <Color x:Key="Mint">#65D6BF</Color>
+            <Color x:Key="Danger">#C52F4D</Color>
+            <Color x:Key="DangerSoft">#FFF1F3</Color>
+            <Color x:Key="Success">#087C68</Color>
+            <Color x:Key="SuccessSoft">#EAFBF7</Color>
+
+            <!-- Compact layout system shared by every user-facing screen. -->
+            <x:Double x:Key="SpacingXs">4</x:Double>
+            <x:Double x:Key="SpacingSm">8</x:Double>
+            <x:Double x:Key="SpacingMd">12</x:Double>
+            <x:Double x:Key="SpacingLg">20</x:Double>
+            <x:Double x:Key="SpacingXl">28</x:Double>
+
+            <x:Double x:Key="InputMinimumHeight">52</x:Double>
+            <x:Double x:Key="CompactControlMinimumHeight">44</x:Double>
+            <x:Double x:Key="MultilineInputMinimumHeight">112</x:Double>
+            <x:Double x:Key="PrimaryButtonMinimumHeight">52</x:Double>
+            <x:Double x:Key="SecondaryButtonMinimumHeight">48</x:Double>
+            <Thickness x:Key="RefinedScreenPadding">20,20,20,28</Thickness>
+            <Thickness x:Key="AuthScreenPadding">22,20,22,28</Thickness>
+
+            <Style TargetType="ContentPage">
+                <Setter Property="BackgroundColor" Value="#FBFDFF" />
+            </Style>
+            <Style TargetType="Label">
+                <Setter Property="FontFamily" Value="NotoSansThai" />
+                <Setter Property="TextColor" Value="{StaticResource Ink}" />
+                <Setter Property="FontSize" Value="14" />
+            </Style>
+            <Style TargetType="Button">
+                <Setter Property="FontFamily" Value="NotoSansThai" />
+            </Style>
+            <Style TargetType="Entry">
+                <Setter Property="FontFamily" Value="NotoSansThai" />
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="BackgroundColor" Value="Transparent" />
+                <Setter Property="TextColor" Value="{StaticResource Ink}" />
+                <Setter Property="PlaceholderColor" Value="#98A2B3" />
+                <Setter Property="VerticalOptions" Value="Center" />
+                <Setter Property="VerticalTextAlignment" Value="Center" />
+            </Style>
+            <Style TargetType="Editor">
+                <Setter Property="FontFamily" Value="NotoSansThai" />
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="BackgroundColor" Value="Transparent" />
+                <Setter Property="TextColor" Value="{StaticResource Ink}" />
+                <Setter Property="PlaceholderColor" Value="#98A2B3" />
+            </Style>
+            <Style TargetType="Picker">
+                <Setter Property="FontFamily" Value="NotoSansThai" />
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="BackgroundColor" Value="Transparent" />
+                <Setter Property="TextColor" Value="{StaticResource Ink}" />
+                <Setter Property="TitleColor" Value="#98A2B3" />
+                <Setter Property="VerticalOptions" Value="Center" />
+                <Setter Property="VerticalTextAlignment" Value="Center" />
+            </Style>
+            <Style x:Key="PageTitle" TargetType="Label">
+                <Setter Property="FontSize" Value="30" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="TextColor" Value="{StaticResource Ink}" />
+                <Setter Property="CharacterSpacing" Value="-0.2" />
+            </Style>
+            <Style x:Key="AuthTitle" TargetType="Label">
+                <Setter Property="FontFamily" Value="NotoSansThai" />
+                <Setter Property="FontSize" Value="30" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="CharacterSpacing" Value="-0.25" />
+                <Setter Property="LineHeight" Value="1.08" />
+                <Setter Property="TextColor" Value="{StaticResource Ink}" />
+            </Style>
+            <Style x:Key="AuthBackButton" TargetType="Button">
+                <Setter Property="WidthRequest" Value="44" />
+                <Setter Property="HeightRequest" Value="44" />
+                <Setter Property="MinimumWidthRequest" Value="44" />
+                <Setter Property="MinimumHeightRequest" Value="44" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="CornerRadius" Value="22" />
+                <Setter Property="BackgroundColor" Value="White" />
+                <Setter Property="BorderColor" Value="{StaticResource Line}" />
+                <Setter Property="BorderWidth" Value="1" />
+                <Setter Property="TextColor" Value="{StaticResource Ink}" />
+                <Setter Property="FontSize" Value="26" />
+            </Style>
+            <Style x:Key="AuthSecondaryButton" TargetType="Button">
+                <Setter Property="FontFamily" Value="NotoSansThai" />
+                <Setter Property="BackgroundColor" Value="White" />
+                <Setter Property="TextColor" Value="{StaticResource BrandBlueDeep}" />
+                <Setter Property="BorderColor" Value="#A9D0FF" />
+                <Setter Property="BorderWidth" Value="1.2" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="FontSize" Value="15" />
+                <Setter Property="MinimumHeightRequest" Value="{StaticResource PrimaryButtonMinimumHeight}" />
+                <Setter Property="CornerRadius" Value="16" />
+                <Setter Property="Padding" Value="18,12" />
+            </Style>
+            <Style
+                x:Key="AuthFormCard"
+                TargetType="Border"
+                BasedOn="{StaticResource SurfaceCard}">
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="BackgroundColor" Value="Transparent" />
+                <Setter Property="StrokeThickness" Value="0" />
+                <Setter Property="StrokeShape" Value="Rectangle" />
+            </Style>
+            <Style x:Key="SectionTitle" TargetType="Label">
+                <Setter Property="FontSize" Value="18" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="TextColor" Value="{StaticResource Ink}" />
+            </Style>
+            <Style x:Key="MutedText" TargetType="Label">
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="TextColor" Value="{StaticResource Muted}" />
+            </Style>
+            <Style x:Key="PrimaryButton" TargetType="Button">
+                <Setter Property="FontFamily" Value="NotoSansThai" />
+                <Setter Property="BackgroundColor" Value="{StaticResource BrandBlue}" />
+                <Setter Property="TextColor" Value="White" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="FontSize" Value="15" />
+                <Setter Property="MinimumHeightRequest" Value="{StaticResource PrimaryButtonMinimumHeight}" />
+                <Setter Property="CornerRadius" Value="16" />
+                <Setter Property="Padding" Value="18,12" />
+            </Style>
+            <Style x:Key="SecondaryButton" TargetType="Button">
+                <Setter Property="FontFamily" Value="NotoSansThai" />
+                <Setter Property="BackgroundColor" Value="White" />
+                <Setter Property="TextColor" Value="{StaticResource Ink}" />
+                <Setter Property="BorderColor" Value="{StaticResource Line}" />
+                <Setter Property="BorderWidth" Value="1" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="FontSize" Value="15" />
+                <Setter Property="MinimumHeightRequest" Value="{StaticResource SecondaryButtonMinimumHeight}" />
+                <Setter Property="CornerRadius" Value="16" />
+                <Setter Property="Padding" Value="18,10" />
+            </Style>
+            <Style x:Key="FilterButton" TargetType="Button">
+                <Setter Property="FontFamily" Value="NotoSansThai" />
+                <Setter Property="BackgroundColor" Value="White" />
+                <Setter Property="TextColor" Value="{StaticResource InkSoft}" />
+                <Setter Property="BorderColor" Value="{StaticResource Line}" />
+                <Setter Property="BorderWidth" Value="1" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="MinimumHeightRequest" Value="{StaticResource CompactControlMinimumHeight}" />
+                <Setter Property="CornerRadius" Value="20" />
+                <Setter Property="Padding" Value="16,8" />
+            </Style>
+            <Style x:Key="HomeStatusFilter" TargetType="Button">
+                <Setter Property="FontFamily" Value="NotoSansThai" />
+                <Setter Property="Padding" Value="16,8" />
+                <Setter Property="MinimumHeightRequest" Value="{StaticResource CompactControlMinimumHeight}" />
+                <Setter Property="BackgroundColor" Value="White" />
+                <Setter Property="BorderColor" Value="{StaticResource Line}" />
+                <Setter Property="BorderWidth" Value="1" />
+                <Setter Property="CornerRadius" Value="20" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="TextColor" Value="{StaticResource Muted}" />
+            </Style>
+            <Style x:Key="FieldBorder" TargetType="Border">
+                <Setter Property="BackgroundColor" Value="White" />
+                <Setter Property="Stroke" Value="{StaticResource Line}" />
+                <Setter Property="StrokeThickness" Value="1" />
+                <Setter Property="MinimumHeightRequest" Value="{StaticResource InputMinimumHeight}" />
+                <Setter Property="Padding" Value="16,0" />
+                <Setter Property="StrokeShape" Value="RoundRectangle 14" />
+            </Style>
+            <Style x:Key="SurfaceCard" TargetType="Border">
+                <Setter Property="BackgroundColor" Value="#F7FFFFFF" />
+                <Setter Property="Stroke" Value="#110F172A" />
+                <Setter Property="StrokeThickness" Value="1" />
+                <Setter Property="StrokeShape" Value="RoundRectangle 20" />
+            </Style>
+            <Style x:Key="Eyebrow" TargetType="Label">
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="TextColor" Value="{StaticResource BrandBlueDeep}" />
+                <Setter Property="CharacterSpacing" Value="0.4" />
+            </Style>
+
+            <!-- Shared layout and semantic component styles. -->
+            <Style x:Key="RefinedScreenContent" TargetType="VerticalStackLayout">
+                <Setter Property="MaximumWidthRequest" Value="720" />
+                <Setter Property="HorizontalOptions" Value="Fill" />
+                <Setter Property="Padding" Value="{StaticResource RefinedScreenPadding}" />
+                <Setter Property="Spacing" Value="{StaticResource SpacingXl}" />
+            </Style>
+            <Style
+                x:Key="RefinedFormCard"
+                TargetType="Border"
+                BasedOn="{StaticResource SurfaceCard}">
+                <Setter Property="Padding" Value="{StaticResource SpacingLg}" />
+            </Style>
+            <Style x:Key="RefinedFormSection" TargetType="VerticalStackLayout">
+                <Setter Property="Spacing" Value="{StaticResource SpacingSm}" />
+            </Style>
+            <Style x:Key="RefinedFormLabel" TargetType="Label">
+                <Setter Property="FontFamily" Value="NotoSansThaiMedium" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontAttributes" Value="None" />
+                <Setter Property="TextColor" Value="{StaticResource Ink}" />
+                <Setter Property="VerticalOptions" Value="Center" />
+            </Style>
+            <Style x:Key="RefinedRequiredIndicator" TargetType="Label">
+                <Setter Property="FontFamily" Value="NotoSansThai" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="TextColor" Value="{StaticResource Danger}" />
+                <Setter Property="VerticalOptions" Value="Center" />
+            </Style>
+            <Style
+                x:Key="RefinedInputBorder"
+                TargetType="Border"
+                BasedOn="{StaticResource FieldBorder}">
+                <Setter Property="MinimumHeightRequest" Value="{StaticResource InputMinimumHeight}" />
+                <Setter Property="Padding" Value="16,0" />
+                <Setter Property="StrokeShape" Value="RoundRectangle 14" />
+            </Style>
+            <Style x:Key="RefinedEntry" TargetType="Entry">
+                <Setter Property="FontFamily" Value="NotoSansThai" />
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="BackgroundColor" Value="Transparent" />
+                <Setter Property="TextColor" Value="{StaticResource Ink}" />
+                <Setter Property="PlaceholderColor" Value="#98A2B3" />
+                <Setter Property="VerticalOptions" Value="Center" />
+                <Setter Property="VerticalTextAlignment" Value="Center" />
+            </Style>
+            <Style x:Key="RefinedPicker" TargetType="Picker">
+                <Setter Property="FontFamily" Value="NotoSansThai" />
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="BackgroundColor" Value="Transparent" />
+                <Setter Property="TextColor" Value="{StaticResource Ink}" />
+                <Setter Property="TitleColor" Value="#98A2B3" />
+                <Setter Property="VerticalOptions" Value="Center" />
+                <Setter Property="VerticalTextAlignment" Value="Center" />
+            </Style>
+            <Style x:Key="RefinedEditorBorder" TargetType="Border">
+                <Setter Property="MinimumHeightRequest" Value="{StaticResource MultilineInputMinimumHeight}" />
+                <Setter Property="Padding" Value="16,12" />
+                <Setter Property="BackgroundColor" Value="White" />
+                <Setter Property="Stroke" Value="{StaticResource Line}" />
+                <Setter Property="StrokeThickness" Value="1" />
+                <Setter Property="StrokeShape" Value="RoundRectangle 14" />
+            </Style>
+            <Style x:Key="RefinedEditor" TargetType="Editor">
+                <Setter Property="FontFamily" Value="NotoSansThai" />
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="BackgroundColor" Value="Transparent" />
+                <Setter Property="TextColor" Value="{StaticResource Ink}" />
+                <Setter Property="PlaceholderColor" Value="#98A2B3" />
+            </Style>
+            <Style x:Key="RefinedHelperText" TargetType="Label">
+                <Setter Property="FontFamily" Value="NotoSansThai" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="FontAttributes" Value="None" />
+                <Setter Property="TextColor" Value="{StaticResource Muted}" />
+                <Setter Property="LineHeight" Value="1.35" />
+            </Style>
+            <Style x:Key="RefinedBodyText" TargetType="Label">
+                <Setter Property="FontFamily" Value="NotoSansThai" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="TextColor" Value="{StaticResource InkSoft}" />
+                <Setter Property="LineHeight" Value="1.35" />
+            </Style>
+            <Style x:Key="RefinedValidationBorder" TargetType="Border">
+                <Setter Property="Padding" Value="{StaticResource SpacingMd}" />
+                <Setter Property="BackgroundColor" Value="{StaticResource DangerSoft}" />
+                <Setter Property="Stroke" Value="#FFD0D9" />
+                <Setter Property="StrokeThickness" Value="1" />
+                <Setter Property="StrokeShape" Value="RoundRectangle 12" />
+            </Style>
+            <Style x:Key="RefinedValidationText" TargetType="Label">
+                <Setter Property="FontFamily" Value="NotoSansThai" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="TextColor" Value="{StaticResource Danger}" />
+                <Setter Property="LineHeight" Value="1.35" />
+            </Style>
+            <Style x:Key="RefinedPrimaryButton" TargetType="Button">
+                <Setter Property="FontFamily" Value="NotoSansThai" />
+                <Setter Property="BackgroundColor" Value="{StaticResource BrandBlue}" />
+                <Setter Property="TextColor" Value="White" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="FontSize" Value="15" />
+                <Setter Property="MinimumHeightRequest" Value="{StaticResource PrimaryButtonMinimumHeight}" />
+                <Setter Property="CornerRadius" Value="16" />
+                <Setter Property="Padding" Value="18,12" />
+                <Setter Property="VisualStateManager.VisualStateGroups">
+                    <VisualStateGroupList>
+                        <VisualStateGroup x:Name="CommonStates">
+                            <VisualState x:Name="Normal" />
+                            <VisualState x:Name="Pressed">
+                                <VisualState.Setters>
+                                    <Setter Property="Opacity" Value="0.86" />
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="Disabled">
+                                <VisualState.Setters>
+                                    <Setter Property="Opacity" Value="0.55" />
+                                </VisualState.Setters>
+                            </VisualState>
+                        </VisualStateGroup>
+                    </VisualStateGroupList>
+                </Setter>
+            </Style>
+            <Style x:Key="RefinedSecondaryActionButton" TargetType="Button">
+                <Setter Property="FontFamily" Value="NotoSansThai" />
+                <Setter Property="BackgroundColor" Value="{StaticResource SurfaceBlue}" />
+                <Setter Property="TextColor" Value="{StaticResource BrandBlueDeep}" />
+                <Setter Property="BorderColor" Value="#B8D9FF" />
+                <Setter Property="BorderWidth" Value="1" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="FontSize" Value="15" />
+                <Setter Property="MinimumHeightRequest" Value="{StaticResource PrimaryButtonMinimumHeight}" />
+                <Setter Property="CornerRadius" Value="16" />
+                <Setter Property="Padding" Value="18,12" />
+                <Setter Property="VisualStateManager.VisualStateGroups">
+                    <VisualStateGroupList>
+                        <VisualStateGroup x:Name="CommonStates">
+                            <VisualState x:Name="Normal" />
+                            <VisualState x:Name="Pressed">
+                                <VisualState.Setters>
+                                    <Setter Property="Opacity" Value="0.86" />
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="Disabled">
+                                <VisualState.Setters>
+                                    <Setter Property="Opacity" Value="0.55" />
+                                </VisualState.Setters>
+                            </VisualState>
+                        </VisualStateGroup>
+                    </VisualStateGroupList>
+                </Setter>
+            </Style>
+            <Style x:Key="RefinedSegmentButton" TargetType="Button">
+                <Setter Property="FontFamily" Value="NotoSansThai" />
+                <Setter Property="BackgroundColor" Value="White" />
+                <Setter Property="TextColor" Value="{StaticResource InkSoft}" />
+                <Setter Property="BorderColor" Value="{StaticResource Line}" />
+                <Setter Property="BorderWidth" Value="1" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="MinimumHeightRequest" Value="{StaticResource CompactControlMinimumHeight}" />
+                <Setter Property="CornerRadius" Value="16" />
+                <Setter Property="Padding" Value="16,8" />
+                <Setter Property="VisualStateManager.VisualStateGroups">
+                    <VisualStateGroupList>
+                        <VisualStateGroup x:Name="CommonStates">
+                            <VisualState x:Name="Normal" />
+                            <VisualState x:Name="Pressed">
+                                <VisualState.Setters>
+                                    <Setter Property="Opacity" Value="0.86" />
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="Disabled">
+                                <VisualState.Setters>
+                                    <Setter Property="Opacity" Value="0.55" />
+                                </VisualState.Setters>
+                            </VisualState>
+                        </VisualStateGroup>
+                    </VisualStateGroupList>
+                </Setter>
+            </Style>
+            <Style x:Key="RefinedAmountBorder" TargetType="Border">
+                <Setter Property="MinimumHeightRequest" Value="{StaticResource InputMinimumHeight}" />
+                <Setter Property="Padding" Value="16,0" />
+                <Setter Property="BackgroundColor" Value="White" />
+                <Setter Property="Stroke" Value="#B8D9FF" />
+                <Setter Property="StrokeThickness" Value="1" />
+                <Setter Property="StrokeShape" Value="RoundRectangle 14" />
+            </Style>
+            <Style x:Key="RefinedAmountEntry" TargetType="Entry">
+                <Setter Property="FontFamily" Value="NotoSansThai" />
+                <Setter Property="FontSize" Value="18" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="BackgroundColor" Value="Transparent" />
+                <Setter Property="TextColor" Value="{StaticResource Ink}" />
+                <Setter Property="PlaceholderColor" Value="#98A2B3" />
+                <Setter Property="VerticalOptions" Value="Center" />
+                <Setter Property="VerticalTextAlignment" Value="Center" />
+            </Style>
+            <Style x:Key="RefinedInlineButton" TargetType="Button">
+                <Setter Property="FontFamily" Value="NotoSansThai" />
+                <Setter Property="MinimumHeightRequest" Value="{StaticResource CompactControlMinimumHeight}" />
+                <Setter Property="Padding" Value="8,8" />
+                <Setter Property="BackgroundColor" Value="Transparent" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="TextColor" Value="{StaticResource BrandBlue}" />
+            </Style>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

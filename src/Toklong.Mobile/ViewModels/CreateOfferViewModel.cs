@@ -42,8 +42,8 @@ public sealed class CreateOfferViewModel(
     private string addressLine = "";
     private bool addressDataLoaded;
     private BuyerCostPreview? costPreview;
-    private bool isCostPreviewSheetOpen;
-    private CancellationTokenSource? costPreviewCancellation;
+    private bool isReviewPricing;
+    private CancellationTokenSource? reviewPricingCancellation;
     private readonly BuyerCostPreviewRequestTracker costPreviewTracker = new();
 
     public string AgreementDetails
@@ -108,7 +108,7 @@ public sealed class CreateOfferViewModel(
         set
         {
             if (SetProperty(ref amountBaht, value ?? ""))
-                ScheduleCostPreview();
+                InvalidateReviewPricing();
         }
     }
 
@@ -129,18 +129,11 @@ public sealed class CreateOfferViewModel(
     public string CostShippingText =>
         CostPreview?.ShippingText(fulfillmentType) ?? "";
 
-    public string CostPreviewSemanticDescription =>
-        !HasCostPreview
-            ? ""
-            : $"{CostSummaryLabel} {CostTotalText} " +
-              $"ค่าจัดส่ง {CostShippingText} " +
-              "ยังไม่ตัดเงินในขั้นตอนนี้ แตะเพื่อดูรายละเอียด";
-
-    public bool IsCostPreviewSheetOpen
+    public bool IsReviewPricing
     {
-        get => isCostPreviewSheetOpen;
+        get => isReviewPricing;
         private set => SetProperty(
-            ref isCostPreviewSheetOpen,
+            ref isReviewPricing,
             value);
     }
 
@@ -157,8 +150,6 @@ public sealed class CreateOfferViewModel(
             OnPropertyChanged(nameof(CostTotalText));
             OnPropertyChanged(nameof(CostSummaryLabel));
             OnPropertyChanged(nameof(CostShippingText));
-            OnPropertyChanged(
-                nameof(CostPreviewSemanticDescription));
         }
     }
 
@@ -501,13 +492,9 @@ public sealed class CreateOfferViewModel(
     public ICommand UseSavedAddressCommand =>
         new Command(() => UseSavedAddress = true);
     public ICommand ReviewCommand =>
-        new Command(OpenReview);
+        new AsyncCommand(OpenReviewAsync);
     public ICommand CloseReviewCommand =>
         new Command(CloseReview);
-    public ICommand OpenCostPreviewCommand =>
-        new Command(OpenCostPreview);
-    public ICommand CloseCostPreviewCommand =>
-        new Command(CloseCostPreview);
     public ICommand SelectNewConditionCommand =>
         new Command(() => SelectedConditionIndex = 0);
     public ICommand SelectUsedGoodConditionCommand =>
@@ -550,6 +537,10 @@ public sealed class CreateOfferViewModel(
 
     private void SelectFulfillment(AppFulfillmentType value)
     {
+        if (fulfillmentType == value)
+            return;
+
+        InvalidateReviewPricing();
         fulfillmentType = value;
         OnPropertyChanged(nameof(IsPhysical));
         OnPropertyChanged(nameof(IsDigital));
@@ -560,66 +551,39 @@ public sealed class CreateOfferViewModel(
         OnPropertyChanged(nameof(ReviewSummary));
         OnPropertyChanged(nameof(CostSummaryLabel));
         OnPropertyChanged(nameof(CostShippingText));
-        OnPropertyChanged(
-            nameof(CostPreviewSemanticDescription));
     }
 
-    private void OpenCostPreview()
+    public void CancelReviewPricing()
     {
-        if (HasCostPreview)
-            IsCostPreviewSheetOpen = true;
+        InvalidateReviewPricing();
     }
 
-    private void CloseCostPreview()
+    private void InvalidateReviewPricing()
     {
-        IsCostPreviewSheetOpen = false;
-    }
-
-    public void CancelCostPreview()
-    {
-        costPreviewCancellation?.Cancel();
-        costPreviewCancellation?.Dispose();
-        costPreviewCancellation = null;
+        reviewPricingCancellation?.Cancel();
+        reviewPricingCancellation?.Dispose();
+        reviewPricingCancellation = null;
         costPreviewTracker.Invalidate();
-        IsCostPreviewSheetOpen = false;
-    }
-
-    public void ResumeCostPreview()
-    {
-        if (!HasCostPreview)
-            ScheduleCostPreview();
-    }
-
-    private void ScheduleCostPreview()
-    {
-        costPreviewCancellation?.Cancel();
-        costPreviewCancellation?.Dispose();
-        costPreviewCancellation = null;
-        var requestVersion = costPreviewTracker.Begin();
         CostPreview = null;
-        IsCostPreviewSheetOpen = false;
+        IsReviewPricing = false;
+        IsReviewSheetOpen = false;
+    }
 
-        if (!TryGetPreviewPriceSatang(out var itemPriceSatang))
+    private async Task OpenReviewAsync()
+    {
+        Message = "";
+        if (!ValidateQuickDeal(out _, out var amount))
             return;
 
+        var itemPriceSatang =
+            checked((long)(amount * 100m));
+        InvalidateReviewPricing();
+        var requestVersion = costPreviewTracker.Begin();
         var cancellation = new CancellationTokenSource();
-        costPreviewCancellation = cancellation;
-        _ = LoadCostPreviewAsync(
-            requestVersion,
-            itemPriceSatang,
-            cancellation);
-    }
-
-    private async Task LoadCostPreviewAsync(
-        long requestVersion,
-        long itemPriceSatang,
-        CancellationTokenSource cancellation)
-    {
+        reviewPricingCancellation = cancellation;
+        IsReviewPricing = true;
         try
         {
-            await Task.Delay(
-                TimeSpan.FromMilliseconds(350),
-                cancellation.Token);
             var preview =
                 await transactionService.GetBuyerCostPreviewAsync(
                     itemPriceSatang,
@@ -632,6 +596,10 @@ public sealed class CreateOfferViewModel(
                 return;
 
             CostPreview = preview;
+            OnPropertyChanged(nameof(ReviewSummary));
+            OnPropertyChanged(nameof(FormattedReviewAmount));
+            OnPropertyChanged(nameof(ReviewDeliveryText));
+            IsReviewSheetOpen = true;
         }
         catch (OperationCanceledException)
         {
@@ -639,16 +607,18 @@ public sealed class CreateOfferViewModel(
         catch
         {
             if (costPreviewTracker.IsCurrent(requestVersion))
-                CostPreview = null;
+                Message =
+                    "คำนวณค่าคุ้มครองผู้ซื้อไม่ได้ กรุณาลองอีกครั้ง";
         }
         finally
         {
             if (ReferenceEquals(
-                    costPreviewCancellation,
+                    reviewPricingCancellation,
                     cancellation))
             {
-                costPreviewCancellation.Dispose();
-                costPreviewCancellation = null;
+                reviewPricingCancellation.Dispose();
+                reviewPricingCancellation = null;
+                IsReviewPricing = false;
             }
         }
     }
@@ -665,21 +635,9 @@ public sealed class CreateOfferViewModel(
         return true;
     }
 
-    private void OpenReview()
-    {
-        Message = "";
-        if (!ValidateQuickDeal(out _, out _))
-            return;
-
-        OnPropertyChanged(nameof(ReviewSummary));
-        OnPropertyChanged(nameof(FormattedReviewAmount));
-        OnPropertyChanged(nameof(ReviewDeliveryText));
-        IsReviewSheetOpen = true;
-    }
-
     private void CloseReview()
     {
-        IsReviewSheetOpen = false;
+        InvalidateReviewPricing();
         Message = "";
     }
 
