@@ -25,6 +25,9 @@ public static class DependencyInjection
         services.AddScoped<ISellerRepository, SellerRepository>();
         services.AddScoped<IMobileSessionRepository, MobileSessionRepository>();
         services.AddScoped<
+            IPendingMobileRegistrationRepository,
+            PendingMobileRegistrationRepository>();
+        services.AddScoped<
             INotificationInboxRepository,
             NotificationInboxRepository>();
         services.AddScoped<IUnitOfWork>(provider => provider.GetRequiredService<ToklongDbContext>());

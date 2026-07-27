@@ -27,6 +27,11 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
     public DbSet<SellerAccount> Sellers => Set<SellerAccount>();
     public DbSet<SellerPayoutAccount> SellerPayoutAccounts => Set<SellerPayoutAccount>();
     public DbSet<MobileSession> MobileSessions => Set<MobileSession>();
+    public DbSet<PendingMobileRegistration> PendingMobileRegistrations =>
+        Set<PendingMobileRegistration>();
+    public DbSet<MobileAccountTermsAcceptance>
+        MobileAccountTermsAcceptances =>
+        Set<MobileAccountTermsAcceptance>();
     public DbSet<NotificationOutboxMessage> NotificationOutbox =>
         Set<NotificationOutboxMessage>();
     public DbSet<DisputeEvidence> DisputeEvidence =>
@@ -35,7 +40,7 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
     public override int SaveChanges(
         bool acceptAllChangesOnSuccess)
     {
-        EnsureAgreementAcceptancesAreAppendOnly();
+        EnsureAcceptancesAreAppendOnly();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
@@ -43,7 +48,7 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         bool acceptAllChangesOnSuccess,
         CancellationToken cancellationToken = default)
     {
-        EnsureAgreementAcceptancesAreAppendOnly();
+        EnsureAcceptancesAreAppendOnly();
         return base.SaveChangesAsync(
             acceptAllChangesOnSuccess,
             cancellationToken);
@@ -374,9 +379,50 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         mobileSession.Property(x => x.PhoneNumber).HasMaxLength(16);
         mobileSession.Property(x => x.RefreshTokenHash).HasMaxLength(64);
         mobileSession.Property(x => x.Version).IsConcurrencyToken();
+
+        var pendingRegistration =
+            modelBuilder.Entity<PendingMobileRegistration>();
+        pendingRegistration.ToTable("pending_mobile_registrations");
+        pendingRegistration.HasKey(x => x.Id);
+        pendingRegistration.HasIndex(x => x.TicketHash).IsUnique();
+        pendingRegistration.HasIndex(x => x.ExpiresAt);
+        pendingRegistration.Property(x => x.TicketHash).HasMaxLength(64);
+        pendingRegistration.Property(x => x.PhoneNumber).HasMaxLength(16);
+        pendingRegistration.Property(x => x.InstallationId)
+            .HasMaxLength(32);
+        pendingRegistration.Property(x => x.CompletionIdempotencyKey)
+            .HasMaxLength(32);
+        pendingRegistration.Property(x => x.Version).IsConcurrencyToken();
+        pendingRegistration.HasOne<BuyerAccount>()
+            .WithMany()
+            .HasForeignKey(x => x.BuyerId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        var accountTermsAcceptance =
+            modelBuilder.Entity<MobileAccountTermsAcceptance>();
+        accountTermsAcceptance.ToTable(
+            "mobile_account_terms_acceptances");
+        accountTermsAcceptance.HasKey(x => x.Id);
+        accountTermsAcceptance.HasIndex(x => new
+        {
+            x.BuyerId,
+            x.TermsVersion
+        }).IsUnique();
+        accountTermsAcceptance.HasIndex(x => x.IdempotencyKey)
+            .IsUnique();
+        accountTermsAcceptance.Property(x => x.TermsVersion)
+            .HasMaxLength(40);
+        accountTermsAcceptance.Property(x => x.InstallationId)
+            .HasMaxLength(32);
+        accountTermsAcceptance.Property(x => x.IdempotencyKey)
+            .HasMaxLength(32);
+        accountTermsAcceptance.HasOne<BuyerAccount>()
+            .WithMany()
+            .HasForeignKey(x => x.BuyerId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 
-    private void EnsureAgreementAcceptancesAreAppendOnly()
+    private void EnsureAcceptancesAreAppendOnly()
     {
         var deletedTransactionIds = ChangeTracker
             .Entries<SaleTransaction>()
@@ -393,5 +439,14 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
                     entry.Entity.TransactionId)))
             throw new InvalidOperationException(
                 "Agreement acceptance records are append-only.");
+
+        if (ChangeTracker
+            .Entries<MobileAccountTermsAcceptance>()
+            .Any(entry =>
+                entry.State is
+                    EntityState.Modified or
+                    EntityState.Deleted))
+            throw new InvalidOperationException(
+                "Mobile account terms acceptance records are append-only.");
     }
 }
