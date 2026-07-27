@@ -2,7 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make `ตรวจข้อมูลก่อนส่ง` the only place that displays the server-priced Buyer Protection breakdown and remove the separate price overlays and shipment-deadline card.
+**Goal:** Redesign Create Offer to the approved mobile layout and make
+`ตรวจข้อมูลก่อนส่ง` the only place that displays the server-priced Buyer
+Protection breakdown.
 
 **Architecture:** Keep the authenticated pricing endpoint, reusable `BuyerCostPreview`, and integer-satang API adapter unchanged. Replace background debounce with one cancellable request initiated by the review action; open the existing review sheet only after the response still matches the current validated item price.
 
@@ -18,7 +20,10 @@
 - The cost section states `ยังไม่ตัดเงินในขั้นตอนนี้`.
 - Remove `BuyerCostPreviewSummary`, `BuyerCostPreviewSheet`, `BuyerCostPreviewFormSpacer`, and `กำหนดส่งสินค้า`.
 - Preserve the existing review summary, condition selection, defect input, and final submit behavior.
-- Use existing TOKLONG colors, spacing, font sizes, and normal cost-label weights.
+- Use the approved header, essential-first form order, borderless/backgroundless
+  price section, and progressive-disclosure layout.
+- Use Medium 500 for labels and Regular 400 for descriptions and values.
+- Preserve every existing behavior and automation/semantic contract.
 
 ---
 
@@ -101,6 +106,16 @@ public void CreateOfferReviewContainsTheOnlyBuyerCostBreakdown()
 Also assert that `ReviewQuickDealButton` binds to `ReviewCommand` and has an
 `IsReviewPricing` trigger which disables the button and changes its text to
 `กำลังคำนวณค่าใช้จ่าย...`.
+
+Add a separate visual-contract test that verifies:
+
+- the custom header contains `สร้างข้อเสนอ`,
+  `ส่งให้ผู้ขายตรวจและตอบรับ`, and two progress segments;
+- the price section has no background or outer border and the amount input
+  retains `RefinedAmountBorder`;
+- the form-label style is Medium rather than Bold and helper text is Regular;
+- the essential fields precede the optional/progressive-disclosure section;
+- the page hides the native Shell navigation bar.
 
 - [ ] **Step 2: Run the focused test and verify RED**
 
@@ -257,6 +272,21 @@ Update `ReviewQuickDealButton` with:
     <Setter Property="Text" Value="กำลังคำนวณค่าใช้จ่าย..." />
 </DataTrigger>
 ```
+
+- [ ] **Step 2.1: Apply the approved Create Offer visual hierarchy**
+
+In `CreateOfferPage.xaml` and shared resources:
+
+- add the custom rounded header and progress indicator;
+- reorder seller phone, product name, price, and delivery address above
+  secondary actions;
+- keep the price group transparent and borderless while retaining one amount
+  input border;
+- render fulfillment, optional photo, optional details, and AI assistance as
+  secondary actions below the essential fields;
+- set form labels to Medium and descriptions/values to Regular;
+- retain all bindings, commands, validation, semantic descriptions, and
+  automation IDs.
 
 - [ ] **Step 3: Remove deleted-sheet focus code**
 

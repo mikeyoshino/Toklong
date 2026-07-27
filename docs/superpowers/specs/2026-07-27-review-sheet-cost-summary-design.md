@@ -89,3 +89,31 @@ Remove:
   spacer, or shipment-deadline card.
 - The iOS simulator verifies that tapping `ตรวจข้อมูลก่อนส่ง` opens one
   scrollable review sheet containing the correct server-priced total.
+
+## Approved Create Offer visual design
+
+The form follows the approved Superdesign draft
+`TOKLONG - สร้างข้อเสนอ (Price Section Refinement)`.
+
+- Replace the native navigation/title treatment with a white rounded header
+  containing a pale-blue back action, `สร้างข้อเสนอ`, the subtitle
+  `ส่งให้ผู้ขายตรวจและตอบรับ`, and a two-segment progress indicator.
+- Show the essential fields first: seller phone, product name, item price, and
+  physical delivery address.
+- Keep the product-price section directly on the page background. It has no
+  outer card border, white container, shadow, or outer card padding. The amount
+  input keeps one blue rounded border.
+- Keep the delivery-address summary as a white rounded bordered card. The
+  address editor remains available through the existing change action.
+- Move fulfillment type, optional product photo, optional agreement details,
+  and AI assistance below the essential fields as progressive-disclosure
+  actions without deleting behavior.
+- Use Noto Sans Thai Medium 500 for form labels and Regular 400 for helper
+  descriptions, placeholders, entered values, picker values, and fee-row
+  labels. Reserve Bold 700 for page titles, primary actions, the large amount,
+  and final totals.
+- Focus is shown by the active input border only. The page heading never
+  receives a visible focus border.
+- Existing automation IDs, semantic descriptions, physical/digital behavior,
+  address editing, photo handling, AI drafting, validation, condition/defect
+  selection, and submission logic remain intact.

@@ -179,9 +179,14 @@ notification is created.
 ### A0.0.4.2 — Quick Deal keeps optional fields out of the first screen
 
 **Given** an authenticated buyer opens offer creation
-**Then** seller phone, product name, item price, optional managed-photo
-action, and the applicable delivery address are immediately available
-**And** the heading helper is `สร้างดีลผู้ซื้อกับผู้ขาย`
+**Then** seller phone, product name, item price, and the applicable delivery
+address appear before optional actions
+**And** the header shows `สร้างข้อเสนอ`,
+`ส่งให้ผู้ขายตรวจและตอบรับ`, and a two-step progress indicator
+**And** the price section has no outer card border or white container while its
+amount input retains one visible blue outline
+**And** form labels use a lighter weight than titles and primary actions, while
+descriptions and ordinary field values use regular weight
 **And** no `ดีลซื้อขายส่วนตัว` badge or outer bordered form card reduces the
 available input width
 **And** no separate informational card repeats the later review and
@@ -204,7 +209,8 @@ evidence represent the photo as absent without failing hash validation.
 **When** the buyer taps `ตรวจข้อมูลก่อนส่ง`
 **Then** the ordinary required fields and physical address are validated before
 the review sheet opens
-**And** the sheet shows the exact offer summary and fixed 72-hour shipping rule
+**And** the sheet shows the exact offer summary and server-priced cost breakdown
+**And** no separate shipment-deadline card is shown
 **And** the buyer must select `ใหม่`, `มือสอง สภาพดี`, or `มีตำหนิ`
 **And** the defect input is shown and required only for `มีตำหนิ`
 **And** only `ส่งข้อเสนอให้ผู้ขาย` creates the offer.
@@ -219,24 +225,32 @@ used-good offer
 
 **Given** an authenticated buyer enters a valid item price between 1,000 and
 30,000 THB with no more than two decimal places
-**When** the latest debounced pricing request succeeds
+**When** the buyer selects `ตรวจข้อมูลก่อนส่ง`
+**And** the fresh pricing request for the exact current price succeeds
 **Then** the server applies the active versioned Buyer Protection policy using
 integer satang
-**And** the create-offer screen shows a bottom summary only for that exact
-latest price
+**And** the review sheet opens only after that exact matching response
+**And** the review sheet is the only price-breakdown surface
 **And** a physical item labels the amount `ยอดก่อนค่าจัดส่ง` and the shipping
 row `รอผู้ขายเลือก`
 **And** a digital item labels the amount `ยอดเมื่อผู้ขายตอบรับ` and the
 shipping row `ไม่มีค่าจัดส่ง`
-**And** both the summary and its detail sheet state
-`ยังไม่ตัดเงินในขั้นตอนนี้`
-**And** the detail sheet separates item price, Buyer Protection fee, shipping,
-and total while keeping the form action reachable.
+**And** the review states `ยังไม่ตัดเงินในขั้นตอนนี้`
+**And** it separates item price, Buyer Protection fee, shipping, and total
+while keeping condition and final actions reachable
+**And** no sticky total bar, separate pricing sheet, or shipment-deadline card
+is present.
 
-**When** the buyer changes, clears, or enters an invalid price before an older
-request returns
-**Then** the older response cannot replace the latest preview
-**And** no preview is shown until a valid matching server response arrives.
+**When** the buyer edits the price or fulfillment type, closes the review, or
+leaves the page before an older request returns
+**Then** the older response cannot open or replace the review
+**And** no preview is shown until a valid matching server response arrives
+after another review action.
+
+**When** pricing fails
+**Then** the review remains closed
+**And** the form shows a retryable message
+**And** selecting `ตรวจข้อมูลก่อนส่ง` again starts a fresh request.
 
 **When** any preview is requested or displayed
 **Then** no transaction, immutable snapshot, agreement acceptance, notification,
