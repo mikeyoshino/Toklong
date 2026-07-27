@@ -11,6 +11,15 @@ public sealed record OtpChallengeResult(
     string MaskedPhoneNumber,
     string? DevelopmentCode);
 
+public abstract record AuthenticationVerificationResult;
+
+public sealed record SessionVerificationResult
+    : AuthenticationVerificationResult;
+
+public sealed record RegistrationRequiredVerificationResult(
+    PendingMobileRegistration Pending)
+    : AuthenticationVerificationResult;
+
 public sealed record MobileProfile(
     string DisplayName,
     string PhoneNumber,
@@ -30,16 +39,18 @@ public interface IAuthenticationService
     Task<OtpChallengeResult> RequestCodeAsync(
         string phoneNumber,
         AuthenticationMode mode,
-        string? fullName,
-        string? email,
         CancellationToken cancellationToken = default);
 
-    Task VerifyCodeAsync(
+    Task<AuthenticationVerificationResult> VerifyCodeAsync(
         string challengeId,
         string code,
         AuthenticationMode mode,
-        string? fullName,
-        string? email,
+        CancellationToken cancellationToken = default);
+
+    Task CompleteRegistrationAsync(
+        string fullName,
+        string email,
+        string termsVersion,
         CancellationToken cancellationToken = default);
 
     Task<MobileProfile> GetProfileAsync(

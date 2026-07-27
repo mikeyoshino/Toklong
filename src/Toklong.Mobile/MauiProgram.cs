@@ -118,6 +118,9 @@ public static class MauiProgram
             new Uri("https://api.toklong.co.th/"));
 #endif
         builder.Services.AddSingleton(apiOptions);
+        builder.Services.AddSingleton<
+            IInstallationIdProvider,
+            InstallationIdProvider>();
         builder.Services.AddHttpClient(
             "ToklongApi",
             client =>
@@ -135,17 +138,26 @@ public static class MauiProgram
             builder.Services.AddSingleton<
                 IMobileSessionStore,
                 InMemoryMobileSessionStore>();
+            builder.Services.AddSingleton<
+                IPendingRegistrationStore,
+                InMemoryPendingRegistrationStore>();
         }
         else
         {
             builder.Services.AddSingleton<
                 IMobileSessionStore,
                 SecureMobileSessionStore>();
+            builder.Services.AddSingleton<
+                IPendingRegistrationStore,
+                SecurePendingRegistrationStore>();
         }
 #else
         builder.Services.AddSingleton<
             IMobileSessionStore,
             SecureMobileSessionStore>();
+        builder.Services.AddSingleton<
+            IPendingRegistrationStore,
+            SecurePendingRegistrationStore>();
 #endif
         builder.Services.AddSingleton<IDraftPhotoStore>(
             new DraftPhotoStore(FileSystem.AppDataDirectory));

@@ -122,17 +122,20 @@ public sealed class StartupCoordinatorTests
         public Task<OtpChallengeResult> RequestCodeAsync(
             string phoneNumber,
             AuthenticationMode mode,
-            string? fullName,
-            string? email,
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task VerifyCodeAsync(
+        public Task<AuthenticationVerificationResult> VerifyCodeAsync(
             string challengeId,
             string code,
             AuthenticationMode mode,
-            string? fullName,
-            string? email,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task CompleteRegistrationAsync(
+            string fullName,
+            string email,
+            string termsVersion,
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 

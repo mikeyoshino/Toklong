@@ -6,6 +6,8 @@ namespace Toklong.Mobile.Services;
 public sealed class MobileAuthenticationService(
     MobileApiClient api,
     IMobileSessionStore sessionStore,
+    IPendingRegistrationStore pendingRegistrations,
+    IInstallationIdProvider installationIds,
     IPushRegistrationService pushRegistration)
     : IAuthenticationService
 {
@@ -15,8 +17,6 @@ public sealed class MobileAuthenticationService(
     public async Task<OtpChallengeResult> RequestCodeAsync(
         string phoneNumber,
         AuthenticationMode mode,
-        string? fullName,
-        string? email,
         CancellationToken cancellationToken = default)
     {
         var normalizedPhone = ThaiMobilePhoneInput.Sanitize(phoneNumber);
@@ -29,13 +29,7 @@ public sealed class MobileAuthenticationService(
             new
             {
                 PhoneNumber = normalizedPhone,
-                Mode = mode.ToString(),
-                FullName = mode == AuthenticationMode.SignUp
-                    ? fullName?.Trim()
-                    : null,
-                Email = mode == AuthenticationMode.SignUp
-                    ? email?.Trim()
-                    : null
+                Mode = mode.ToString()
             },
             cancellationToken);
         await MobileApiClient.EnsureSuccessAsync(response, cancellationToken);
@@ -45,12 +39,10 @@ public sealed class MobileAuthenticationService(
                    "ไม่พบข้อมูลรหัสยืนยัน");
     }
 
-    public async Task VerifyCodeAsync(
+    public async Task<AuthenticationVerificationResult> VerifyCodeAsync(
         string challengeId,
         string code,
         AuthenticationMode mode,
-        string? fullName,
-        string? email,
         CancellationToken cancellationToken = default)
     {
         using var response = await api.CreateClient().PostAsJsonAsync(
@@ -60,24 +52,87 @@ public sealed class MobileAuthenticationService(
                 ChallengeId = challengeId,
                 Code = code.Trim(),
                 Mode = mode.ToString(),
-                FullName = mode == AuthenticationMode.SignUp
-                    ? fullName?.Trim()
-                    : null,
-                Email = mode == AuthenticationMode.SignUp
-                    ? email?.Trim()
-                    : null
+                InstallationId =
+                    installationIds.GetInstallationId()
             },
             cancellationToken);
         await MobileApiClient.EnsureSuccessAsync(response, cancellationToken);
+        var verification = await response.Content
+            .ReadFromJsonAsync<VerificationResponse>(
+                cancellationToken: cancellationToken)
+            ?? throw new InvalidOperationException(
+                "เข้าสู่ระบบไม่สำเร็จ");
+        if (string.Equals(
+                verification.Outcome,
+                "session",
+                StringComparison.Ordinal) &&
+            verification.Session is not null)
+        {
+            await SaveSessionAsync(verification.Session);
+            pendingRegistrations.Clear();
+            return new SessionVerificationResult();
+        }
+
+        if (string.Equals(
+                verification.Outcome,
+                "registration_required",
+                StringComparison.Ordinal) &&
+            verification.Registration is not null)
+        {
+            var pending = new PendingMobileRegistration(
+                verification.Registration.RegistrationTicket,
+                verification.Registration.ExpiresAt,
+                verification.Registration.MaskedPhoneNumber,
+                installationIds.GetInstallationId(),
+                Guid.NewGuid().ToString("N"));
+            await pendingRegistrations.SaveAsync(pending);
+            return new RegistrationRequiredVerificationResult(
+                pending);
+        }
+
+        throw new InvalidOperationException(
+            "ผลการยืนยันเบอร์ไม่ถูกต้อง");
+    }
+
+    public async Task CompleteRegistrationAsync(
+        string fullName,
+        string email,
+        string termsVersion,
+        CancellationToken cancellationToken = default)
+    {
+        var pending = await pendingRegistrations.GetValidAsync(
+                DateTimeOffset.UtcNow)
+            ?? throw new InvalidOperationException(
+                "การยืนยันเบอร์หมดอายุ กรุณายืนยันเบอร์ใหม่");
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            "api/mobile/auth/registration/complete")
+        {
+            Content = JsonContent.Create(new
+            {
+                pending.RegistrationTicket,
+                FullName = fullName.Trim(),
+                Email = email.Trim(),
+                TermsVersion = termsVersion,
+                pending.InstallationId
+            })
+        };
+        request.Headers.Add(
+            "Idempotency-Key",
+            pending.CompletionIdempotencyKey);
+        using var response = await api.CreateClient().SendAsync(
+            request,
+            cancellationToken);
+        await MobileApiClient.EnsureSuccessAsync(
+            response,
+            cancellationToken);
         var issued = await response.Content
             .ReadFromJsonAsync<MobileApiClient.SessionResponse>(
                 cancellationToken: cancellationToken)
             ?? throw new InvalidOperationException(
-                "เข้าสู่ระบบไม่สำเร็จ");
-        await sessionStore.SaveAsync(new StoredMobileSession(
-            issued.AccessToken,
-            issued.RefreshToken,
-            issued.AccessTokenExpiresAt));
+                "สร้างบัญชีไม่สำเร็จ");
+        await SaveSessionAsync(issued);
+        pendingRegistrations.Clear();
     }
 
     public async Task<MobileProfile> GetProfileAsync(
@@ -136,8 +191,26 @@ public sealed class MobileAuthenticationService(
         finally
         {
             sessionStore.Clear();
+            pendingRegistrations.Clear();
         }
     }
 
+    private Task SaveSessionAsync(
+        MobileApiClient.SessionResponse issued) =>
+        sessionStore.SaveAsync(new StoredMobileSession(
+            issued.AccessToken,
+            issued.RefreshToken,
+            issued.AccessTokenExpiresAt));
+
     private sealed record EmailUpdateResponse(string Email);
+
+    private sealed record VerificationResponse(
+        string Outcome,
+        MobileApiClient.SessionResponse? Session,
+        RegistrationResponse? Registration);
+
+    private sealed record RegistrationResponse(
+        string RegistrationTicket,
+        DateTimeOffset ExpiresAt,
+        string MaskedPhoneNumber);
 }
