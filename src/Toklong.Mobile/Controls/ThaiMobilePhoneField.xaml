@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Toklong.Mobile.Controls.ThaiMobilePhoneField"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Name="Root">
+    <VerticalStackLayout
+        Style="{StaticResource RefinedFormSection}">
+        <controls:FormLabelView
+            xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
+            IsRequired="True"
+            Text="เบอร์มือถือไทย" />
+        <Border Style="{StaticResource RefinedInputBorder}">
+            <Grid ColumnDefinitions="26,*" ColumnSpacing="10">
+                <Image
+                    WidthRequest="21"
+                    HeightRequest="21"
+                    VerticalOptions="Center"
+                    AutomationProperties.IsInAccessibleTree="False"
+                    Source="ui_smartphone.png" />
+                <controls:ThaiMobilePhoneEntry
+                    xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
+                    Grid.Column="1"
+                    Style="{StaticResource RefinedEntry}"
+                    Placeholder="081-234-5678"
+                    SemanticProperties.Description="เบอร์มือถือไทย 10 หลัก"
+                    PhoneNumber="{Binding PhoneNumber, Source={x:Reference Root}, Mode=TwoWay}" />
+            </Grid>
+        </Border>
+        <Label
+            Style="{StaticResource RefinedHelperText}"
+            Text="กรอกเบอร์ 10 หลัก เช่น 081-234-5678" />
+    </VerticalStackLayout>
+</ContentView>

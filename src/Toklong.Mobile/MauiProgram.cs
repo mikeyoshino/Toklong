@@ -196,12 +196,16 @@ public static class MauiProgram
         builder.Services.AddTransient<SignInViewModel>();
         builder.Services.AddTransient<SignUpViewModel>();
         builder.Services.AddTransient<VerifyCodeViewModel>();
+        builder.Services.AddTransient<
+            CompleteRegistrationViewModel>();
         builder.Services.AddSingleton<AccountViewModel>();
 
         builder.Services.AddSingleton<WelcomePage>();
         builder.Services.AddTransient<SignInPage>();
         builder.Services.AddTransient<SignUpPage>();
         builder.Services.AddTransient<VerifyCodePage>();
+        builder.Services.AddTransient<
+            CompleteRegistrationPage>();
         builder.Services.AddSingleton<TransactionsPage>();
         builder.Services.AddTransient<TransactionDetailPage>();
         builder.Services.AddTransient<ShippingLabelPage>();

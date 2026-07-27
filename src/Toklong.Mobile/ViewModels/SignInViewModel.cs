@@ -55,9 +55,7 @@ public sealed class SignInViewModel(
         {
             var challenge = await authentication.RequestCodeAsync(
                 PhoneNumber,
-                AuthenticationMode.SignIn,
-                null,
-                null);
+                AuthenticationMode.SignIn);
             await Shell.Current.GoToAsync(
                 nameof(VerifyCodePage),
                 new Dictionary<string, object>
@@ -67,9 +65,7 @@ public sealed class SignInViewModel(
                         challenge.MaskedPhoneNumber,
                         challenge.DevelopmentCode,
                         PhoneNumber,
-                        AuthenticationMode.SignIn,
-                        null,
-                        null)
+                        AuthenticationMode.SignIn)
                 });
         }
         catch (Exception exception)

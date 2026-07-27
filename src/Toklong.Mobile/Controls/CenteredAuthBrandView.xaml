@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Toklong.Mobile.Controls.CenteredAuthBrandView"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Name="Root">
+    <VerticalStackLayout
+        HorizontalOptions="Center"
+        Spacing="10"
+        AutomationProperties.IsInAccessibleTree="True"
+        SemanticProperties.Description="โลโก้ TOKLONG">
+        <Border
+            WidthRequest="{Binding MarkSize, Source={x:Reference Root}}"
+            HeightRequest="{Binding MarkSize, Source={x:Reference Root}}"
+            HorizontalOptions="Center"
+            Stroke="#32FFFFFF"
+            StrokeThickness="1"
+            StrokeShape="RoundRectangle 24">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#3C8AF1" Offset="0" />
+                    <GradientStop Color="#216ACB" Offset="0.72" />
+                    <GradientStop Color="#5D43C4" Offset="1" />
+                </LinearGradientBrush>
+            </Border.Background>
+            <Image
+                Margin="15"
+                AutomationProperties.IsInAccessibleTree="False"
+                Source="brand_mark.png" />
+        </Border>
+        <Label
+            HorizontalTextAlignment="Center"
+            AutomationProperties.IsInAccessibleTree="False"
+            FontAttributes="Bold"
+            FontFamily="NotoSansThai"
+            FontSize="{Binding WordmarkSize, Source={x:Reference Root}}"
+            CharacterSpacing="1.2"
+            Text="TOKLONG"
+            TextColor="#122A47" />
+    </VerticalStackLayout>
+</ContentView>

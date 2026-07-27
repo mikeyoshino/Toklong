@@ -8,10 +8,10 @@
     Shell.NavBarIsVisible="False"
     Shell.TabBarIsVisible="False">
     <ContentPage.Background>
-        <RadialGradientBrush Center="0.84,0.03" Radius="0.98">
-            <GradientStop Color="#DCEFFF" Offset="0" />
-            <GradientStop Color="#F6FAFF" Offset="0.38" />
-            <GradientStop Color="#FFFFFF" Offset="0.9" />
+        <RadialGradientBrush Center="0.5,0.03" Radius="0.95">
+            <GradientStop Color="#E2F1FF" Offset="0" />
+            <GradientStop Color="#F8FBFF" Offset="0.44" />
+            <GradientStop Color="#FFFFFF" Offset="1" />
         </RadialGradientBrush>
     </ContentPage.Background>
     <ScrollView SafeAreaEdges="SoftInput">
@@ -19,49 +19,45 @@
             MaximumWidthRequest="520"
             Padding="{StaticResource AuthScreenPadding}"
             Spacing="24">
-            <Grid ColumnDefinitions="44,*" ColumnSpacing="14">
+            <Grid ColumnDefinitions="44,*,44">
                 <Button
                     Style="{StaticResource AuthBackButton}"
                     Clicked="OnBackClicked"
                     SemanticProperties.Description="กลับไปหน้าเริ่มต้น"
                     Text="‹" />
-                <controls:BrandLockupView
+                <controls:CenteredAuthBrandView
                     Grid.Column="1"
-                    VerticalOptions="Center" />
+                    HorizontalOptions="Center"
+                    MarkSize="58"
+                    WordmarkSize="18" />
             </Grid>
 
             <VerticalStackLayout Spacing="8">
                 <Label
+                    HorizontalTextAlignment="Center"
                     Style="{StaticResource AuthTitle}"
-                    Text="ยินดีต้อนรับกลับ" />
+                    Text="เข้าสู่ระบบด้วยเบอร์มือถือ" />
                 <Label
+                    HorizontalTextAlignment="Center"
                     Style="{StaticResource RefinedBodyText}"
-                    Text="ใช้เบอร์โทรศัพท์ที่สมัครไว้เพื่อดูรายการของคุณ"
+                    Text="เราจะส่งรหัสยืนยันทาง SMS ให้คุณ"
                     TextColor="{StaticResource InkSoft}" />
             </VerticalStackLayout>
 
             <Border Style="{StaticResource AuthFormCard}">
                 <VerticalStackLayout Spacing="18">
-                    <VerticalStackLayout Style="{StaticResource RefinedFormSection}">
-                        <controls:FormLabelView IsRequired="True" Text="เบอร์โทรศัพท์" />
-                        <Border Style="{StaticResource RefinedInputBorder}">
-                            <controls:ThaiMobilePhoneEntry
-                                Style="{StaticResource RefinedEntry}"
-                                Placeholder="เช่น 081-234-5678"
-                                SemanticProperties.Description="เบอร์โทรศัพท์สำหรับเข้าสู่ระบบ"
-                                PhoneNumber="{Binding PhoneNumber}" />
-                        </Border>
-                        <Label
-                            Style="{StaticResource RefinedHelperText}"
-                            Text="เราจะส่งรหัสยืนยัน 6 หลักไปยังเบอร์นี้" />
-                    </VerticalStackLayout>
+                    <controls:ThaiMobilePhoneField
+                        PhoneNumber="{Binding PhoneNumber, Mode=TwoWay}" />
 
                     <Button
                         Style="{StaticResource RefinedPrimaryButton}"
                         Command="{Binding ContinueCommand}"
-                        Text="รับรหัสยืนยัน">
+                        Text="ส่งรหัสทาง SMS">
                         <Button.Triggers>
-                            <DataTrigger TargetType="Button" Binding="{Binding IsBusy}" Value="True">
+                            <DataTrigger
+                                TargetType="Button"
+                                Binding="{Binding IsBusy}"
+                                Value="True">
                                 <Setter Property="IsEnabled" Value="False" />
                                 <Setter Property="Text" Value="กำลังส่งรหัส..." />
                             </DataTrigger>
@@ -84,7 +80,14 @@
                     Text="{Binding Message}" />
             </Border>
 
-            <HorizontalStackLayout HorizontalOptions="Center" Spacing="4">
+            <Label
+                HorizontalTextAlignment="Center"
+                Style="{StaticResource RefinedHelperText}"
+                Text="ปลอดภัยและสะดวก ไม่ต้องใช้รหัสผ่าน" />
+
+            <HorizontalStackLayout
+                HorizontalOptions="Center"
+                Spacing="4">
                 <Label
                     VerticalOptions="Center"
                     Text="ยังไม่มีบัญชี?"
@@ -94,24 +97,6 @@
                     Command="{Binding OpenSignUpCommand}"
                     Text="สมัครสมาชิก" />
             </HorizontalStackLayout>
-
-            <Border
-                Padding="13"
-                BackgroundColor="#F7FAFD"
-                Stroke="{StaticResource Line}"
-                StrokeShape="RoundRectangle 14">
-                <Grid ColumnDefinitions="28,*" ColumnSpacing="9">
-                    <Image
-                        WidthRequest="24"
-                        HeightRequest="24"
-                        Source="ui_shield.png" />
-                    <Label
-                        Grid.Column="1"
-                        VerticalOptions="Center"
-                        Style="{StaticResource RefinedHelperText}"
-                        Text="TOKLONG จะไม่ขอรหัสผ่านธนาคาร รหัสกู้คืน หรือข้อมูลบัตรในขั้นตอนนี้" />
-                </Grid>
-            </Border>
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

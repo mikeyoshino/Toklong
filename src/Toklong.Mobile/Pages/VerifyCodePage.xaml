@@ -8,10 +8,10 @@
     Shell.NavBarIsVisible="False"
     Shell.TabBarIsVisible="False">
     <ContentPage.Background>
-        <RadialGradientBrush Center="0.84,0.03" Radius="0.98">
-            <GradientStop Color="#DCEFFF" Offset="0" />
-            <GradientStop Color="#F6FAFF" Offset="0.38" />
-            <GradientStop Color="#FFFFFF" Offset="0.9" />
+        <RadialGradientBrush Center="0.5,0.03" Radius="0.95">
+            <GradientStop Color="#E2F1FF" Offset="0" />
+            <GradientStop Color="#F8FBFF" Offset="0.44" />
+            <GradientStop Color="#FFFFFF" Offset="1" />
         </RadialGradientBrush>
     </ContentPage.Background>
     <ScrollView SafeAreaEdges="SoftInput">
@@ -19,35 +19,34 @@
             MaximumWidthRequest="520"
             Padding="{StaticResource AuthScreenPadding}"
             Spacing="24">
-            <Grid ColumnDefinitions="44,*" ColumnSpacing="14">
+            <Grid ColumnDefinitions="44,*,44">
                 <Button
                     Style="{StaticResource AuthBackButton}"
-                    Clicked="OnBackClicked"
-                    SemanticProperties.Description="ย้อนกลับไปแก้เบอร์โทรศัพท์"
+                    Command="{Binding EditPhoneCommand}"
+                    SemanticProperties.Description="ย้อนกลับไปแก้เบอร์มือถือ"
                     Text="‹" />
-                <controls:BrandLockupView
+                <controls:CenteredAuthBrandView
                     Grid.Column="1"
-                    VerticalOptions="Center" />
+                    HorizontalOptions="Center"
+                    MarkSize="58"
+                    WordmarkSize="18" />
             </Grid>
-
-            <Border
-                WidthRequest="64"
-                HeightRequest="64"
-                HorizontalOptions="Start"
-                BackgroundColor="#EAF4FF"
-                StrokeThickness="0"
-                StrokeShape="RoundRectangle 21">
-                <Image Margin="15" Source="ui_shield.png" />
-            </Border>
 
             <VerticalStackLayout Spacing="8">
                 <Label
+                    HorizontalTextAlignment="Center"
                     Style="{StaticResource AuthTitle}"
-                    Text="ใส่รหัส 6 หลัก" />
+                    Text="กรอกรหัส 6 หลัก" />
                 <Label
+                    HorizontalTextAlignment="Center"
                     Style="{StaticResource RefinedBodyText}"
-                    Text="{Binding MaskedPhoneNumber, StringFormat='เราส่งรหัสไปที่ {0}'}"
+                    Text="{Binding MaskedPhoneNumber, StringFormat='ส่งรหัสทาง SMS ไปที่ {0}'}"
                     TextColor="{StaticResource InkSoft}" />
+                <Button
+                    HorizontalOptions="Center"
+                    Style="{StaticResource RefinedInlineButton}"
+                    Command="{Binding EditPhoneCommand}"
+                    Text="แก้ไขเบอร์" />
             </VerticalStackLayout>
 
             <Border Style="{StaticResource AuthFormCard}">
@@ -72,9 +71,12 @@
                     <Button
                         Style="{StaticResource RefinedPrimaryButton}"
                         Command="{Binding ConfirmCommand}"
-                        Text="ยืนยัน">
+                        Text="{Binding ConfirmButtonText}">
                         <Button.Triggers>
-                            <DataTrigger TargetType="Button" Binding="{Binding IsBusy}" Value="True">
+                            <DataTrigger
+                                TargetType="Button"
+                                Binding="{Binding IsBusy}"
+                                Value="True">
                                 <Setter Property="IsEnabled" Value="False" />
                                 <Setter Property="Text" Value="กำลังยืนยัน..." />
                             </DataTrigger>
@@ -83,7 +85,9 @@
                 </VerticalStackLayout>
             </Border>
 
-            <HorizontalStackLayout HorizontalOptions="Center" Spacing="4">
+            <HorizontalStackLayout
+                HorizontalOptions="Center"
+                Spacing="4">
                 <Label
                     VerticalOptions="Center"
                     Text="ยังไม่ได้รับรหัส?"
@@ -91,7 +95,8 @@
                 <Button
                     Style="{StaticResource RefinedInlineButton}"
                     Command="{Binding ResendCommand}"
-                    Text="ขอรหัสใหม่" />
+                    IsEnabled="{Binding CanResend}"
+                    Text="{Binding ResendButtonText}" />
             </HorizontalStackLayout>
 
             <ActivityIndicator
@@ -111,7 +116,7 @@
             <Label
                 HorizontalTextAlignment="Center"
                 Style="{StaticResource RefinedHelperText}"
-                Text="รหัสใช้ได้ครั้งเดียวและมีเวลาจำกัด อย่าส่งรหัสนี้ให้ผู้อื่น"
+                Text="รหัสใช้ได้ครั้งเดียว อย่าบอกรหัสนี้กับผู้อื่น"
                 TextColor="{StaticResource Muted}" />
         </VerticalStackLayout>
     </ScrollView>

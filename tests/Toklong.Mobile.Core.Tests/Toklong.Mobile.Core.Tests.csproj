@@ -39,6 +39,9 @@
     <None Include="../../src/Toklong.Mobile/Controls/OtpCodeInput.xaml"
           Link="Ui/Controls/OtpCodeInput.xaml"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Mobile/Controls/ThaiMobilePhoneField.xaml"
+          Link="Ui/Controls/ThaiMobilePhoneField.xaml"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../src/Toklong.Mobile/Controls/TransactionRailMarkView.xaml"
           Link="Ui/Controls/TransactionRailMarkView.xaml"
           CopyToOutputDirectory="PreserveNewest" />

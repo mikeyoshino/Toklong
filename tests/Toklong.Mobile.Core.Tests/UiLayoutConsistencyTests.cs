@@ -18,13 +18,34 @@ public sealed class UiLayoutConsistencyTests
             StyleSetterValue(resources, "RefinedInputBorder", "MinimumHeightRequest"));
 
         var signIn = Load("Ui", "Pages", "SignInPage.xaml");
-        var phone = signIn.Descendants().Single(element => element.Name.LocalName == "ThaiMobilePhoneEntry");
+        var sharedPhoneField = signIn
+            .Descendants()
+            .Single(element =>
+                element.Name.LocalName ==
+                "ThaiMobilePhoneField");
+        Assert.Equal(
+            "{Binding PhoneNumber, Mode=TwoWay}",
+            AttributeValue(
+                sharedPhoneField,
+                "PhoneNumber"));
+
+        var phoneField = Load(
+            "Ui",
+            "Controls",
+            "ThaiMobilePhoneField.xaml");
+        var phone = phoneField
+            .Descendants()
+            .Single(element =>
+                element.Name.LocalName ==
+                "ThaiMobilePhoneEntry");
         Assert.Equal("{StaticResource RefinedEntry}", AttributeValue(phone, "Style"));
-        Assert.Equal("{Binding PhoneNumber}", AttributeValue(phone, "PhoneNumber"));
+        Assert.Equal(
+            "{Binding PhoneNumber, Source={x:Reference Root}, Mode=TwoWay}",
+            AttributeValue(phone, "PhoneNumber"));
         Assert.Null(phone.Attribute("Text"));
         Assert.Equal(
             "{StaticResource RefinedInputBorder}",
-            AttributeValue(phone.Parent!, "Style"));
+            AttributeValue(phone.Parent!.Parent!, "Style"));
 
         var verifyCode = Load("Ui", "Pages", "VerifyCodePage.xaml");
         var codeInput = verifyCode
@@ -66,14 +87,19 @@ public sealed class UiLayoutConsistencyTests
         Assert.Contains("สมัครสมาชิก", buttonLabels);
         Assert.Contains(
             welcome.Descendants(),
-            element => element.Name.LocalName == "BrandLockupView");
+            element =>
+                element.Name.LocalName ==
+                "CenteredAuthBrandView");
     }
 
     [Fact]
-    public void SignupCollectsEmail_AndCheckoutDoesNotRenderAnEmailField()
+    public void RegistrationCompletionCollectsEmail_AndCheckoutDoesNotRenderAnEmailField()
     {
-        var signUp = Load("Ui", "Pages", "SignUpPage.xaml");
-        var emailEntry = signUp
+        var completion = Load(
+            "Ui",
+            "Pages",
+            "CompleteRegistrationPage.xaml");
+        var emailEntry = completion
             .Descendants(Maui + "Entry")
             .Single(entry =>
                 AttributeValue(entry, "Text") == "{Binding Email}");
