@@ -237,14 +237,13 @@ public sealed class MobileDisputeEvidenceApiTests
     private static async Task<string> SignUpAsync(
         HttpClient client)
     {
+        var installationId = Guid.NewGuid().ToString("N");
         using var requestOtp = await client.PostAsJsonAsync(
             "/api/mobile/auth/otp/request",
             new
             {
                 PhoneNumber = "0812345678",
-                Mode = "SignUp",
-                FullName = "ผู้ซื้อ หลักฐาน",
-                Email = "evidence@example.com"
+                Mode = "SignUp"
             });
         requestOtp.EnsureSuccessStatusCode();
         using var otpJson = JsonDocument.Parse(
@@ -259,12 +258,35 @@ public sealed class MobileDisputeEvidenceApiTests
                 ChallengeId = challengeId,
                 Code = "123456",
                 Mode = "SignUp",
-                FullName = "ผู้ซื้อ หลักฐาน",
-                Email = "evidence@example.com"
+                InstallationId = installationId
             });
         verify.EnsureSuccessStatusCode();
-        using var sessionJson = JsonDocument.Parse(
+        using var verificationJson = JsonDocument.Parse(
             await verify.Content.ReadAsStringAsync());
+        var registrationTicket = verificationJson.RootElement
+            .GetProperty("registration")
+            .GetProperty("registrationTicket")
+            .GetString();
+        using var completion = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/mobile/auth/registration/complete")
+        {
+            Content = JsonContent.Create(new
+            {
+                RegistrationTicket = registrationTicket,
+                FullName = "ผู้ซื้อ หลักฐาน",
+                Email = "evidence@example.com",
+                TermsVersion = "terms-mvp-v1",
+                InstallationId = installationId
+            })
+        };
+        completion.Headers.Add(
+            "Idempotency-Key",
+            Guid.NewGuid().ToString("N"));
+        using var completed = await client.SendAsync(completion);
+        completed.EnsureSuccessStatusCode();
+        using var sessionJson = JsonDocument.Parse(
+            await completed.Content.ReadAsStringAsync());
         return sessionJson.RootElement
             .GetProperty("accessToken")
             .GetString()!;

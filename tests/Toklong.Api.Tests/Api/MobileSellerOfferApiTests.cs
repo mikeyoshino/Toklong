@@ -854,14 +854,13 @@ public sealed class MobileSellerOfferApiTests
         string phoneNumber = "0812345678",
         string fullName = "ผู้ขาย ทดสอบ")
     {
+        var installationId = Guid.NewGuid().ToString("N");
         using var request = await client.PostAsJsonAsync(
             "/api/mobile/auth/otp/request",
             new
             {
                 PhoneNumber = phoneNumber,
-                Mode = "SignUp",
-                FullName = fullName,
-                Email = $"{phoneNumber}@example.com"
+                Mode = "SignUp"
             });
         request.EnsureSuccessStatusCode();
         var challenge = await request.Content
@@ -874,36 +873,35 @@ public sealed class MobileSellerOfferApiTests
                 challenge.ChallengeId,
                 Code = "123456",
                 Mode = "SignUp",
-                FullName = fullName,
-                Email = $"{phoneNumber}@example.com"
+                InstallationId = installationId
             });
-        if (verify.IsSuccessStatusCode)
-            return (await verify.Content
-                .ReadFromJsonAsync<SessionResponse>())!;
+        verify.EnsureSuccessStatusCode();
+        var verification = await verify.Content
+            .ReadFromJsonAsync<VerificationResponse>();
+        Assert.NotNull(verification);
+        if (verification.Session is not null)
+            return verification.Session;
 
-        using var signInRequest = await client.PostAsJsonAsync(
-            "/api/mobile/auth/otp/request",
-            new
+        Assert.NotNull(verification.Registration);
+        using var completion = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/mobile/auth/registration/complete")
+        {
+            Content = JsonContent.Create(new
             {
-                PhoneNumber = phoneNumber,
-                Mode = "SignIn",
-                FullName = (string?)null
-            });
-        signInRequest.EnsureSuccessStatusCode();
-        var signInChallenge = await signInRequest.Content
-            .ReadFromJsonAsync<OtpResponse>();
-        Assert.NotNull(signInChallenge);
-        using var signInVerify = await client.PostAsJsonAsync(
-            "/api/mobile/auth/otp/verify",
-            new
-            {
-                signInChallenge.ChallengeId,
-                Code = "123456",
-                Mode = "SignIn",
-                FullName = (string?)null
-            });
-        signInVerify.EnsureSuccessStatusCode();
-        return (await signInVerify.Content
+                verification.Registration.RegistrationTicket,
+                FullName = fullName,
+                Email = $"{phoneNumber}@example.com",
+                TermsVersion = "terms-mvp-v1",
+                InstallationId = installationId
+            })
+        };
+        completion.Headers.Add(
+            "Idempotency-Key",
+            Guid.NewGuid().ToString("N"));
+        using var completed = await client.SendAsync(completion);
+        completed.EnsureSuccessStatusCode();
+        return (await completed.Content
             .ReadFromJsonAsync<SessionResponse>())!;
     }
 
@@ -913,6 +911,11 @@ public sealed class MobileSellerOfferApiTests
         string RefreshToken,
         DateTimeOffset AccessTokenExpiresAt,
         bool CanSell);
+    private sealed record VerificationResponse(
+        SessionResponse? Session,
+        RegistrationResponse? Registration);
+    private sealed record RegistrationResponse(
+        string RegistrationTicket);
     private sealed record PayoutAccount(
         Guid Id,
         string MaskedNumber);

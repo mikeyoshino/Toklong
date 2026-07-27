@@ -5,6 +5,8 @@ using MediatR;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Toklong.Application.Abstractions;
 using Toklong.Application.Common;
 using Toklong.Application.Features.Authentication;
@@ -25,10 +27,10 @@ using Toklong.Application.Features.Transactions.ActOnTransaction;
 using Toklong.Application.Features.Transactions.ManageDisputeEvidence;
 using Toklong.Application.Pricing;
 using Toklong.Application.Transactions;
-using Toklong.Domain.Buyers;
 using Toklong.Domain.Common;
 using Toklong.Domain.Transactions;
 using Toklong.Api.Security;
+using Toklong.Infrastructure.Persistence;
 
 namespace Toklong.Api.Api;
 
@@ -102,6 +104,10 @@ public static class MobileApi
             .RequireRateLimiting("otp-request");
         api.MapPost("/auth/otp/verify", VerifyOtpAsync)
             .RequireRateLimiting("otp-verify");
+        api.MapPost(
+                "/auth/registration/complete",
+                CompleteRegistrationAsync)
+            .RequireRateLimiting("registration-complete");
         api.MapPost("/auth/refresh", RefreshSessionAsync)
             .RequireRateLimiting("otp-verify");
 
@@ -295,16 +301,10 @@ public static class MobileApi
         CancellationToken cancellationToken)
     {
         if (request.Mode == MobileAuthenticationMode.SignUp &&
-            (request.FullName ?? "")
-                .Split(
-                    ' ',
-                    StringSplitOptions.RemoveEmptyEntries |
-                    StringSplitOptions.TrimEntries)
-                .Length < 2)
+            (request.FullName is not null ||
+             request.Email is not null))
             throw new ArgumentException(
-                "กรุณากรอกชื่อและนามสกุลตอนสมัครสมาชิก");
-        if (request.Mode == MobileAuthenticationMode.SignUp)
-            BuyerAccount.NormalizeEmail(request.Email ?? "");
+                "กรุณายืนยันเบอร์ก่อน แล้วกรอกข้อมูลสมัครสมาชิกในขั้นถัดไป");
 
         var challenge = await sender.Send(
             new RequestBuyerOtpCommand(request.PhoneNumber),
@@ -321,19 +321,72 @@ public static class MobileApi
         MobileSessionTokenService tokens,
         CancellationToken cancellationToken)
     {
-        var profile = await sender.Send(
-            new CreateMobileSessionCommand(
+        if (request.Mode == MobileAuthenticationMode.SignUp &&
+            (request.FullName is not null ||
+             request.Email is not null))
+            throw new ArgumentException(
+                "กรุณายืนยันเบอร์ก่อน แล้วกรอกข้อมูลสมัครสมาชิกในขั้นถัดไป");
+
+        var result = await sender.Send(
+            new VerifyMobileCodeCommand(
                 request.ChallengeId,
                 request.Code,
                 request.Mode,
-                request.Mode == MobileAuthenticationMode.SignUp
-                    ? request.FullName
-                    : null,
-                request.Mode == MobileAuthenticationMode.SignUp
-                    ? request.Email
-                    : null),
+                request.InstallationId),
             cancellationToken);
-        var issued = await tokens.CreateAsync(profile, cancellationToken);
+        if (result.Session is not null)
+        {
+            var issued = await tokens.CreateAsync(
+                result.Session,
+                cancellationToken);
+            return Results.Ok(
+                new MobileOtpVerificationResponse(
+                    "session",
+                    ToResponse(issued),
+                    null));
+        }
+
+        var registration = result.Registration!;
+        return Results.Ok(
+            new MobileOtpVerificationResponse(
+                "registration_required",
+                null,
+                new MobileRegistrationRequiredResponse(
+                    registration.RegistrationTicket,
+                    registration.ExpiresAt,
+                    registration.MaskedPhoneNumber)));
+    }
+
+    private static async Task<IResult> CompleteRegistrationAsync(
+        MobileRegistrationCompletion request,
+        HttpRequest httpRequest,
+        ISender sender,
+        MobileSessionTokenService tokens,
+        ToklongDbContext database,
+        CancellationToken cancellationToken)
+    {
+        var idempotencyKey =
+            RequiredNormalizedIdempotencyKey(httpRequest);
+        await using IDbContextTransaction? transaction =
+            database.Database.IsRelational()
+                ? await database.Database.BeginTransactionAsync(
+                    cancellationToken)
+                : null;
+
+        var profile = await sender.Send(
+            new CompleteMobileRegistrationCommand(
+                request.RegistrationTicket,
+                request.FullName,
+                request.Email,
+                request.TermsVersion,
+                RequiredInstallationId(request.InstallationId),
+                idempotencyKey),
+            cancellationToken);
+        var issued = await tokens.CreateAsync(
+            profile,
+            cancellationToken);
+        if (transaction is not null)
+            await transaction.CommitAsync(cancellationToken);
         return Results.Ok(ToResponse(issued));
     }
 
@@ -1345,6 +1398,18 @@ public static class MobileApi
             issued.CanBuy,
             issued.CanSell);
 
+    private static string RequiredNormalizedIdempotencyKey(
+        HttpRequest request)
+    {
+        var value = request.Headers["Idempotency-Key"].ToString();
+        return value.Length == 32 &&
+               Guid.TryParseExact(value, "N", out var id) &&
+               id != Guid.Empty
+            ? id.ToString("N")
+            : throw new ArgumentException(
+                "Idempotency-Key ไม่ถูกต้อง");
+    }
+
     private sealed record PartyIds(
         Guid? BuyerId,
         Guid? SellerId,
@@ -1383,7 +1448,25 @@ public sealed record MobileOtpVerification(
     string Code,
     MobileAuthenticationMode Mode,
     string? FullName,
-    string? Email);
+    string? Email,
+    string? InstallationId);
+
+public sealed record MobileOtpVerificationResponse(
+    string Outcome,
+    MobileSessionResponse? Session,
+    MobileRegistrationRequiredResponse? Registration);
+
+public sealed record MobileRegistrationRequiredResponse(
+    string RegistrationTicket,
+    DateTimeOffset ExpiresAt,
+    string MaskedPhoneNumber);
+
+public sealed record MobileRegistrationCompletion(
+    string RegistrationTicket,
+    string FullName,
+    string Email,
+    string TermsVersion,
+    string InstallationId);
 
 public sealed record MobileSessionResponse(
     string AccessToken,

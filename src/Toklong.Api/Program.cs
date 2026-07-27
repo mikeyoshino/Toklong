@@ -46,6 +46,12 @@ builder.Services.AddSingleton(demoSimulation);
 if (demoSimulation.Enabled)
     builder.Services.AddHostedService<
         DevelopmentDemoSimulationWorker>();
+builder.Services.AddSingleton<
+    PendingRegistrationCleanupWorker>();
+if (!builder.Environment.IsEnvironment("Testing"))
+    builder.Services.AddHostedService(provider =>
+        provider.GetRequiredService<
+            PendingRegistrationCleanupWorker>());
 
 var keysPath = Path.GetFullPath(
     PersistentStoragePath.Resolve(
@@ -85,6 +91,16 @@ builder.Services
         _ => { });
 var rateLimiterPartitionSecret =
     RandomNumberGenerator.GetBytes(32);
+var otpRequestPermitLimit = builder.Configuration.GetValue(
+    "RateLimits:OtpRequestPermitLimit",
+    5);
+var otpVerifyPermitLimit = builder.Configuration.GetValue(
+    "RateLimits:OtpVerifyPermitLimit",
+    10);
+var registrationCompletePermitLimit =
+    builder.Configuration.GetValue(
+        "RateLimits:RegistrationCompletePermitLimit",
+        10);
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -95,7 +111,7 @@ builder.Services.AddRateLimiter(options =>
                 rateLimiterPartitionSecret),
             _ => new SlidingWindowRateLimiterOptions
             {
-                PermitLimit = 5,
+                PermitLimit = otpRequestPermitLimit,
                 Window = TimeSpan.FromMinutes(10),
                 SegmentsPerWindow = 5,
                 QueueLimit = 0,
@@ -108,7 +124,20 @@ builder.Services.AddRateLimiter(options =>
                 rateLimiterPartitionSecret),
             _ => new SlidingWindowRateLimiterOptions
             {
-                PermitLimit = 10,
+                PermitLimit = otpVerifyPermitLimit,
+                Window = TimeSpan.FromMinutes(10),
+                SegmentsPerWindow = 5,
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+    options.AddPolicy("registration-complete", context =>
+        RateLimitPartition.GetSlidingWindowLimiter(
+            RateLimitKey(
+                context,
+                rateLimiterPartitionSecret),
+            _ => new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = registrationCompletePermitLimit,
                 Window = TimeSpan.FromMinutes(10),
                 SegmentsPerWindow = 5,
                 QueueLimit = 0,

@@ -94,14 +94,13 @@ public sealed class MobileAgreementDraftApiTests
 
     private static async Task<string> SignUpAsync(HttpClient client)
     {
+        var installationId = Guid.NewGuid().ToString("N");
         using var otpResponse = await client.PostAsJsonAsync(
             "/api/mobile/auth/otp/request",
             new
             {
                 PhoneNumber = "0865550011",
-                Mode = "SignUp",
-                FullName = "ผู้ซื้อ เอไอ",
-                Email = "ai-buyer@example.com"
+                Mode = "SignUp"
             });
         otpResponse.EnsureSuccessStatusCode();
         var challenge = await otpResponse.Content
@@ -115,11 +114,31 @@ public sealed class MobileAgreementDraftApiTests
                 challenge.ChallengeId,
                 Code = "123456",
                 Mode = "SignUp",
-                FullName = "ผู้ซื้อ เอไอ",
-                Email = "ai-buyer@example.com"
+                InstallationId = installationId
             });
         verifyResponse.EnsureSuccessStatusCode();
-        var session = await verifyResponse.Content
+        var verification = await verifyResponse.Content
+            .ReadFromJsonAsync<VerificationResponse>();
+        Assert.NotNull(verification?.Registration);
+        using var completion = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/mobile/auth/registration/complete")
+        {
+            Content = JsonContent.Create(new
+            {
+                verification.Registration.RegistrationTicket,
+                FullName = "ผู้ซื้อ เอไอ",
+                Email = "ai-buyer@example.com",
+                TermsVersion = "terms-mvp-v1",
+                InstallationId = installationId
+            })
+        };
+        completion.Headers.Add(
+            "Idempotency-Key",
+            Guid.NewGuid().ToString("N"));
+        using var completed = await client.SendAsync(completion);
+        completed.EnsureSuccessStatusCode();
+        var session = await completed.Content
             .ReadFromJsonAsync<SessionResponse>();
         Assert.NotNull(session);
         return session.AccessToken;
@@ -131,6 +150,10 @@ public sealed class MobileAgreementDraftApiTests
         string? DevelopmentCode);
 
     private sealed record SessionResponse(string AccessToken);
+    private sealed record VerificationResponse(
+        RegistrationResponse? Registration);
+    private sealed record RegistrationResponse(
+        string RegistrationTicket);
 
     private sealed class StubExtractor
         : IAgreementDraftExtractionService
