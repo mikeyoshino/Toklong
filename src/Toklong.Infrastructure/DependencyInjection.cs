@@ -27,6 +27,9 @@ public static class DependencyInjection
         services.AddScoped<
             IPendingMobileRegistrationRepository,
             PendingMobileRegistrationRepository>();
+        services.AddSingleton<
+            IRegistrationTicketService,
+            RegistrationTicketService>();
         services.AddScoped<
             INotificationInboxRepository,
             NotificationInboxRepository>();
