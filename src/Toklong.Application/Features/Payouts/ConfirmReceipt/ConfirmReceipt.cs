@@ -13,7 +13,7 @@ public sealed class ConfirmReceiptHandler(
     IUnitOfWork unitOfWork,
     IClock clock,
     TransactionTransitionService transitions,
-    IManualPayoutProvider payoutProvider) : IRequestHandler<ConfirmReceiptCommand, TransactionView>
+    IPayoutProvider payoutProvider) : IRequestHandler<ConfirmReceiptCommand, TransactionView>
 {
     public async Task<TransactionView> Handle(ConfirmReceiptCommand request, CancellationToken cancellationToken)
     {
@@ -21,7 +21,19 @@ public sealed class ConfirmReceiptHandler(
             ?? throw new NotFoundException("ไม่มีสิทธิ์เปิดรายการผู้ซื้อนี้");
         var now = clock.UtcNow;
         transaction.ConfirmReceipt(request.BuyerToken, now, transitions);
-        transaction.StartPayout(payoutProvider.CreateInstructionReference(transaction.Id), now, transitions);
+        var payout = await payoutProvider.CreateInstructionAsync(
+            transaction.Id,
+            transaction.SellerExpectedNetSatang,
+            transaction.Currency,
+            transaction.PayoutBankCode,
+            transaction.PayoutAccountName,
+            transaction.PayoutAccountNumber,
+            cancellationToken);
+        transaction.StartPayout(
+            payout.ProviderReference,
+            now,
+            transitions,
+            payout.Provider);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return TransactionView.From(transaction);
     }

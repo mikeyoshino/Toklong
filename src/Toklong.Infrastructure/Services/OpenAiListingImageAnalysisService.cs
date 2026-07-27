@@ -73,7 +73,7 @@ public sealed class OpenAiListingImageAnalysisService(ListingAiOptions options)
             var content = new List<ChatMessageContentPart>
             {
                 ChatMessageContentPart.CreateTextPart("""
-                    อ่านรูปสินค้าและ screenshot ประกาศทั้งหมด แล้วสร้างข้อมูลร่างสำหรับขายสินค้าที่จัดส่งได้ในประเทศไทย
+                    อ่านรูปสินค้าและ screenshot ประกาศทั้งหมด แล้วสร้างข้อมูลร่างสำหรับขายสินค้าที่จับต้องได้ในประเทศไทย
 
                     กฎ:
                     - ใช้เฉพาะข้อความและสิ่งที่เห็นในภาพ ห้ามเดายี่ห้อ รุ่น ราคา ความแท้ หรืออุปกรณ์ที่ไม่มีหลักฐาน

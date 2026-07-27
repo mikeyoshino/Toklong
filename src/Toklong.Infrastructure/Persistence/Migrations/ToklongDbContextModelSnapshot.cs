@@ -22,6 +22,186 @@ namespace Toklong.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Toklong.Domain.Authentication.MobileSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("BuyerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("LastRotatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PhoneNumber")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("RefreshTokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("SellerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuyerId");
+
+                    b.HasIndex("RefreshTokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("SellerId");
+
+                    b.ToTable("mobile_sessions", (string)null);
+                });
+
+            modelBuilder.Entity("Toklong.Domain.Buyers.BuyerAccount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("PhoneNumber")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTimeOffset>("PhoneVerifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SavedAddressLine")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset?>("SavedAddressUpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("SavedDistrictId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SavedDistrictName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("SavedPostalCode")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<int?>("SavedProvinceId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SavedProvinceName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int?>("SavedSubdistrictId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SavedSubdistrictName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PhoneNumber")
+                        .IsUnique();
+
+                    b.ToTable("buyers", (string)null);
+                });
+
+            modelBuilder.Entity("Toklong.Domain.Notifications.NotificationOutboxMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ActionDeadlineAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Audience")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset>("AvailableAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Detail")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTimeOffset?>("LastAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ProviderReference")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("Recipient")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("character varying(180)");
+
+                    b.Property<DateTimeOffset?>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Template")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<Guid>("TransactionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TransactionId");
+
+                    b.HasIndex("SentAt", "AvailableAt");
+
+                    b.ToTable("notification_outbox", (string)null);
+                });
+
             modelBuilder.Entity("Toklong.Domain.Sellers.SellerAccount", b =>
                 {
                     b.Property<Guid>("Id")
@@ -43,6 +223,38 @@ namespace Toklong.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTimeOffset>("PhoneVerifiedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SavedShippingAddressLine")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset?>("SavedShippingAddressUpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("SavedShippingDistrictId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SavedShippingDistrictName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("SavedShippingPostalCode")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<int?>("SavedShippingProvinceId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SavedShippingProvinceName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int?>("SavedShippingSubdistrictId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SavedShippingSubdistrictName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.HasKey("Id");
 
@@ -121,6 +333,72 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                     b.ToTable("activation_risk_events", (string)null);
                 });
 
+            modelBuilder.Entity("Toklong.Domain.Transactions.AgreementAcceptance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AcceptedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AgreementCoreSnapshotHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("AuthenticationMethod")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("CorrelationId")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("TermsSnapshotHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("TermsVersion")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid>("TransactionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("VerifiedPhoneNumber")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("character varying(180)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TransactionId", "IdempotencyKey")
+                        .IsUnique();
+
+                    b.HasIndex("TransactionId", "Role")
+                        .IsUnique();
+
+                    b.ToTable("agreement_acceptances", (string)null);
+                });
+
             modelBuilder.Entity("Toklong.Domain.Transactions.AuditEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -180,6 +458,69 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                     b.ToTable("audit_events", (string)null);
                 });
 
+            modelBuilder.Entity("Toklong.Domain.Transactions.DisputeEvidence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("EvidenceType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<long>("LengthBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Party")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("StorageReference")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("SubmittedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TransactionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TransactionId", "Party", "IdempotencyKey")
+                        .IsUnique();
+
+                    b.HasIndex("TransactionId", "Party", "SubmittedAt");
+
+                    b.ToTable("dispute_evidence", (string)null);
+                });
+
             modelBuilder.Entity("Toklong.Domain.Transactions.ExternalEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -220,6 +561,106 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                     b.ToTable("external_events", (string)null);
                 });
 
+            modelBuilder.Entity("Toklong.Domain.Transactions.FinancialRetentionRecord", b =>
+                {
+                    b.Property<Guid>("TransactionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("BuyerProtectionFeeSatang")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("BuyerTotalSatang")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<DateTimeOffset>("EvidenceRetentionExpiredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("FinancialRetentionExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PaymentProvider")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("PaymentReference")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("PayoutProvider")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("PayoutReference")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<long>("PlatformFeeSatang")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("PriceSatang")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("PurgedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RefundReference")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<DateTimeOffset>("RetentionStartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("SellerExpectedNetSatang")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("ShippingFeeSatang")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("TerminalState")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.HasKey("TransactionId");
+
+                    b.HasIndex("FinancialRetentionExpiresAt");
+
+                    b.ToTable("financial_retention_records", (string)null);
+                });
+
+            modelBuilder.Entity("Toklong.Domain.Transactions.RetentionFileDeletion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FileReference")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset>("QueuedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TransactionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("QueuedAt");
+
+                    b.HasIndex("TransactionId", "FileReference")
+                        .IsUnique();
+
+                    b.ToTable("retention_file_deletions", (string)null);
+                });
+
             modelBuilder.Entity("Toklong.Domain.Transactions.SaleTransaction", b =>
                 {
                     b.Property<Guid>("Id")
@@ -227,6 +668,22 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("ActivatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("AgreementCoreSnapshotCreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("AgreementCoreSnapshotHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("AgreementCoreSnapshotJson")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("AgreementSnapshotCreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("AgreementSnapshotSealedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset?>("BuyerAcceptedAt")
@@ -246,6 +703,18 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                     b.Property<string>("BuyerDisplayName")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
+
+                    b.Property<Guid?>("BuyerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("BuyerPaymentDeadlineAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("BuyerProtectionFeeSatang")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("BuyerTotalSatang")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("CarrierCode")
                         .HasMaxLength(40)
@@ -275,9 +744,32 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                     b.Property<string>("DeliveryAddress")
                         .HasColumnType("text");
 
+                    b.Property<string>("DeliveryAddressLine")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("DeliveryDistrictName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<string>("DeliveryEventId")
                         .HasMaxLength(160)
                         .HasColumnType("character varying(160)");
+
+                    b.Property<DateTimeOffset?>("DeliveryEventReceivedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeliveryPostalCode")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<string>("DeliveryProvinceName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("DeliverySubdistrictName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("Description")
                         .IsRequired()
@@ -301,10 +793,32 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
 
+                    b.Property<string>("DisputeResolutionReference")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<DateTimeOffset?>("DisputeResolvedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("DisputeStatement")
                         .HasColumnType("text");
 
                     b.Property<DateTimeOffset?>("DisputeWindowEndsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DisputeWindowStartsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ExpirationReason")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("FeePolicyVersion")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<DateTimeOffset?>("FirstCarrierScanAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("FulfillmentType")
@@ -312,9 +826,43 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
+                    b.Property<DateTimeOffset?>("InTransitAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("InitiatorRole")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("InspectionWindowDurationHours")
+                        .HasColumnType("integer");
+
                     b.Property<string>("KnownDefects")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("LegalHoldPlacedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LegalHoldReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("LegalHoldReference")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<int?>("PackageHeightCentimeters")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PackageLengthCentimeters")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PackageWeightGrams")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PackageWidthCentimeters")
+                        .HasColumnType("integer");
 
                     b.Property<DateTimeOffset?>("PaymentConfirmedAt")
                         .HasColumnType("timestamp with time zone");
@@ -346,13 +894,24 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("PayoutConfirmedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("PayoutProvider")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
                     b.Property<string>("PayoutReference")
                         .HasMaxLength(160)
                         .HasColumnType("character varying(160)");
 
+                    b.Property<string>("PayoutReleaseReason")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
                     b.Property<string>("PhotoUrl")
-                        .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<long>("PlatformFeeSatang")
+                        .HasColumnType("bigint");
 
                     b.Property<long>("PriceSatang")
                         .HasColumnType("bigint");
@@ -374,7 +933,39 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
-                    b.Property<DateTimeOffset>("SellerAcceptedAt")
+                    b.Property<DateTimeOffset?>("RefundActionExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("RefundActionRequiredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("RefundConfirmedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("RefundInstructionsSentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RefundProviderStatus")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("RefundReference")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<DateTimeOffset?>("RefundRequestedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("RetentionExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("RetentionStartsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("SellerAcceptanceDeadlineAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("SellerAcceptedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("SellerAccessToken")
@@ -392,7 +983,10 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
-                    b.Property<Guid>("SellerId")
+                    b.Property<long>("SellerExpectedNetSatang")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid?>("SellerId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset?>("ShipByAt")
@@ -401,13 +995,93 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                     b.Property<int>("ShipByDurationHours")
                         .HasColumnType("integer");
 
+                    b.Property<DateTimeOffset?>("ShippingCancelledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("ShippingConfirmedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ShippingCourierTrackingCode")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
                     b.Property<long>("ShippingFeeSatang")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("ShippingLastProviderStatus")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTimeOffset?>("ShippingLastReconciledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ShippingOriginAddress")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ShippingOriginAddressLine")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("ShippingOriginDistrictName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ShippingOriginPostalCode")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<string>("ShippingOriginProvinceName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ShippingOriginSubdistrictName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ShippingProviderTrackingCode")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("ShippingPurchaseReference")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<DateTimeOffset?>("ShippingQuoteExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ShippingQuoteProvider")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("ShippingQuoteReference")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<DateTimeOffset?>("ShippingReservedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ShippingServiceCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("ShippingServiceName")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<int?>("SnapshotSchemaVersion")
+                        .HasColumnType("integer");
 
                     b.Property<string>("State")
                         .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
+
+                    b.Property<string>("TermsSnapshotHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("TermsSnapshotJson")
+                        .HasColumnType("text");
 
                     b.Property<string>("TermsVersion")
                         .IsRequired()
@@ -421,6 +1095,10 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("TrackingSubmittedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("TrackingVerificationStatus")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
                     b.Property<long>("Version")
                         .IsConcurrencyToken()
                         .HasColumnType("bigint");
@@ -429,6 +1107,8 @@ namespace Toklong.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("BuyerAccessToken")
                         .IsUnique();
+
+                    b.HasIndex("BuyerId");
 
                     b.HasIndex("PaymentReference")
                         .IsUnique();
@@ -441,7 +1121,21 @@ namespace Toklong.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("SellerId");
 
+                    b.HasIndex("ShippingProviderTrackingCode")
+                        .IsUnique();
+
+                    b.HasIndex("RetentionExpiresAt", "LegalHoldPlacedAt");
+
                     b.ToTable("transactions", (string)null);
+                });
+
+            modelBuilder.Entity("Toklong.Domain.Notifications.NotificationOutboxMessage", b =>
+                {
+                    b.HasOne("Toklong.Domain.Transactions.SaleTransaction", null)
+                        .WithMany("Notifications")
+                        .HasForeignKey("TransactionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Toklong.Domain.Sellers.SellerPayoutAccount", b =>
@@ -453,10 +1147,28 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Toklong.Domain.Transactions.AgreementAcceptance", b =>
+                {
+                    b.HasOne("Toklong.Domain.Transactions.SaleTransaction", null)
+                        .WithMany("AgreementAcceptances")
+                        .HasForeignKey("TransactionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Toklong.Domain.Transactions.AuditEvent", b =>
                 {
                     b.HasOne("Toklong.Domain.Transactions.SaleTransaction", null)
                         .WithMany("AuditEvents")
+                        .HasForeignKey("TransactionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Toklong.Domain.Transactions.DisputeEvidence", b =>
+                {
+                    b.HasOne("Toklong.Domain.Transactions.SaleTransaction", null)
+                        .WithMany("DisputeEvidence")
                         .HasForeignKey("TransactionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -471,6 +1183,14 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Toklong.Domain.Transactions.SaleTransaction", b =>
+                {
+                    b.HasOne("Toklong.Domain.Buyers.BuyerAccount", null)
+                        .WithMany()
+                        .HasForeignKey("BuyerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("Toklong.Domain.Sellers.SellerAccount", b =>
                 {
                     b.Navigation("PayoutAccounts");
@@ -478,9 +1198,15 @@ namespace Toklong.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Toklong.Domain.Transactions.SaleTransaction", b =>
                 {
+                    b.Navigation("AgreementAcceptances");
+
                     b.Navigation("AuditEvents");
 
+                    b.Navigation("DisputeEvidence");
+
                     b.Navigation("ExternalEvents");
+
+                    b.Navigation("Notifications");
                 });
 #pragma warning restore 612, 618
         }

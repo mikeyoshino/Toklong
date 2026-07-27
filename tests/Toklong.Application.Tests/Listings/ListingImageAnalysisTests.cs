@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Toklong.Application.Abstractions;
@@ -126,7 +127,20 @@ public sealed class ListingImageAnalysisTests
         Directory.CreateDirectory(root);
         try
         {
-            var store = new ImportedProductImageStore(new TestEnvironment(root));
+            var storagePath = Path.Combine(
+                root,
+                "persistent",
+                "product-images");
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(
+                    new Dictionary<string, string?>
+                    {
+                        ["ProductImages:StoragePath"] = storagePath
+                    })
+                .Build();
+            var store = new ImportedProductImageStore(
+                new TestEnvironment(root),
+                configuration);
             var png = new ListingImageInput(
                 "product.png",
                 "image/png",
@@ -136,13 +150,30 @@ public sealed class ListingImageAnalysisTests
             var path = await store.SaveAsync(png, CancellationToken.None);
             var stored = await File.ReadAllBytesAsync(
                 Path.Combine(
-                    root,
-                    ImportedProductImageStore.StorageFolder,
+                    storagePath,
                     Path.GetFileName(path)));
 
             Assert.Equal(0xff, stored[0]);
             Assert.Equal(0xd8, stored[1]);
             Assert.EndsWith(".jpg", path);
+            await store.DeleteAsync(
+                $"https://toklong.example{path}",
+                CancellationToken.None);
+            Assert.False(File.Exists(
+                Path.Combine(
+                    storagePath,
+                    Path.GetFileName(path))));
+
+            var outsideFile = Path.Combine(
+                root,
+                "must-not-delete.txt");
+            await File.WriteAllTextAsync(
+                outsideFile,
+                "retained");
+            await store.DeleteAsync(
+                "/media/product-imports/../must-not-delete.txt",
+                CancellationToken.None);
+            Assert.True(File.Exists(outsideFile));
         }
         finally
         {
@@ -175,6 +206,11 @@ public sealed class ListingImageAnalysisTests
             ListingImageInput image,
             CancellationToken cancellationToken) =>
             Task.FromResult("/media/product-imports/test.jpg");
+
+        public Task DeleteAsync(
+            string fileReference,
+            CancellationToken cancellationToken) =>
+            Task.CompletedTask;
     }
 
     private sealed class TestEnvironment(string contentRootPath) : IHostEnvironment

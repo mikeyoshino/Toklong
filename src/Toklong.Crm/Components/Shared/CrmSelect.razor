@@ -1,0 +1,171 @@
+@typeparam TValue
+
+<div class="@FieldClass"
+     @onkeydown="HandleKeyDown">
+    <label id="@LabelId" for="@ControlId">@Label</label>
+    <button id="@ControlId"
+            class="crm-select-trigger"
+            type="button"
+            aria-haspopup="listbox"
+            aria-expanded="@_open"
+            aria-labelledby="@($"{LabelId} {ControlId}")"
+            disabled="@Disabled"
+            @onclick="Toggle">
+        <span>@SelectedLabel</span>
+        <svg viewBox="0 0 20 20"
+             fill="none"
+             aria-hidden="true">
+            <path d="m6 8 4 4 4-4"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round" />
+        </svg>
+    </button>
+
+    @if (_open)
+    {
+        <div class="crm-select-backdrop"
+             aria-hidden="true"
+             @onclick="Close"></div>
+        <div class="crm-select-menu"
+             role="listbox"
+             aria-labelledby="@LabelId">
+            @foreach (var option in Options)
+            {
+                var selected = EqualityComparer<TValue>
+                    .Default.Equals(option.Value, Value);
+                <button type="button"
+                        role="option"
+                        aria-selected="@selected"
+                        class="@(selected ? "selected" : null)"
+                        @onclick="() => SelectAsync(option.Value)">
+                    <span>
+                        <strong>@option.Label</strong>
+                        @if (!string.IsNullOrWhiteSpace(
+                            option.Description))
+                        {
+                            <small>@option.Description</small>
+                        }
+                    </span>
+                    @if (selected)
+                    {
+                        <svg viewBox="0 0 20 20"
+                             fill="none"
+                             aria-hidden="true">
+                            <path d="m5 10 3 3 7-7"
+                                  stroke="currentColor"
+                                  stroke-width="2"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round" />
+                        </svg>
+                    }
+                </button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public TValue Value { get; set; } = default!;
+
+    [Parameter]
+    public EventCallback<TValue> ValueChanged { get; set; }
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<CrmSelectOption<TValue>> Options
+        { get; set; } = [];
+
+    [Parameter]
+    public string? Id { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    private readonly string _generatedId =
+        $"crm-select-{Guid.NewGuid():N}";
+    private bool _open;
+
+    private string ControlId =>
+        string.IsNullOrWhiteSpace(Id)
+            ? _generatedId
+            : Id;
+
+    private string LabelId => $"{ControlId}-label";
+
+    private string FieldClass =>
+        string.Join(
+            " ",
+            new[]
+            {
+                "crm-select-field",
+                _open ? "open" : null,
+                Class
+            }.Where(item =>
+                !string.IsNullOrWhiteSpace(item)));
+
+    private string SelectedLabel =>
+        Options.FirstOrDefault(option =>
+            EqualityComparer<TValue>.Default.Equals(
+                option.Value,
+                Value))?.Label ??
+        "เลือก";
+
+    private void Toggle()
+    {
+        if (!Disabled)
+            _open = !_open;
+    }
+
+    private void Close() => _open = false;
+
+    private async Task SelectAsync(TValue value)
+    {
+        _open = false;
+        if (!EqualityComparer<TValue>.Default.Equals(
+                value,
+                Value))
+            await ValueChanged.InvokeAsync(value);
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs args)
+    {
+        if (Disabled)
+            return;
+        if (args.Key == "Escape")
+        {
+            Close();
+            return;
+        }
+        if (args.Key is "ArrowDown" or "ArrowUp")
+        {
+            if (Options.Count == 0)
+                return;
+            if (!_open)
+            {
+                _open = true;
+                return;
+            }
+            var currentIndex = Options
+                .Select((option, index) =>
+                    new { option, index })
+                .FirstOrDefault(item =>
+                    EqualityComparer<TValue>.Default.Equals(
+                        item.option.Value,
+                        Value))?.index ?? 0;
+            var offset = args.Key == "ArrowDown" ? 1 : -1;
+            var nextIndex =
+                (currentIndex + offset + Options.Count) %
+                Options.Count;
+            await SelectAsync(Options[nextIndex].Value);
+            _open = true;
+        }
+    }
+}

@@ -8,7 +8,7 @@ namespace Toklong.Application.Tests.Listings;
 public sealed class ListingImportTests
 {
     [Theory]
-    [InlineData("http://localhost:5180/sales/create")]
+    [InlineData("http://localhost:5180/offers/create")]
     [InlineData("http://127.0.0.1/admin")]
     [InlineData("http://10.0.0.5/private")]
     [InlineData("http://169.254.169.254/latest/meta-data")]

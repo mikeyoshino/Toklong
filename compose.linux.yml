@@ -1,0 +1,298 @@
+x-toklong-environment: &toklong-environment
+  DOTNET_ENVIRONMENT: Production
+  ASPNETCORE_ENVIRONMENT: Production
+  ConnectionStrings__ToklongDatabase: "Host=postgres;Port=5432;Database=toklong;Username=toklong;Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}"
+  Database__ApplyMigrations: "false"
+  ReverseProxy__TrustForwardedHeaders: "true"
+  Otp__Provider: "${OTP_PROVIDER:-ThaiBulkSms}"
+  Otp__BaseUrl: "${OTP_BASE_URL:-https://otp.thaibulksms.com/}"
+  Otp__ApiKey: "${OTP_API_KEY:?Set OTP_API_KEY}"
+  Otp__ApiSecret: "${OTP_API_SECRET:?Set OTP_API_SECRET}"
+  Notifications__Enabled: "true"
+  Notifications__BaseUrl: "${NOTIFICATION_BASE_URL:?Set NOTIFICATION_BASE_URL}"
+  Notifications__ApiKey: "${NOTIFICATION_API_KEY:?Set NOTIFICATION_API_KEY}"
+  Reconciliation__SigningSecret: "${RECONCILIATION_SIGNING_SECRET:?Set RECONCILIATION_SIGNING_SECRET}"
+  BankPayout__Provider: "${BANK_PAYOUT_PROVIDER:?Set BANK_PAYOUT_PROVIDER}"
+  BankPayout__BaseUrl: "${BANK_PAYOUT_BASE_URL:?Set BANK_PAYOUT_BASE_URL}"
+  BankPayout__ApiKey: "${BANK_PAYOUT_API_KEY:?Set BANK_PAYOUT_API_KEY}"
+  BankPayout__AllowManualInProduction: "false"
+  Stripe__Enabled: "${STRIPE_ENABLED:-false}"
+  Stripe__LiveMode: "${STRIPE_LIVE_MODE:-false}"
+  Stripe__EnableDigitalGoods: "${STRIPE_ENABLE_DIGITAL_GOODS:-false}"
+  Stripe__PublishableKey: "${STRIPE_PUBLISHABLE_KEY:-}"
+  Stripe__SecretKey: "${STRIPE_SECRET_KEY:-}"
+  Stripe__WebhookSecret: "${STRIPE_WEBHOOK_SECRET:-}"
+  BuyerProtectionFee__Enabled: "${BUYER_PROTECTION_FEE_ENABLED:-false}"
+  BuyerProtectionFee__MinimumFeeSatang: "${BUYER_PROTECTION_MINIMUM_FEE_SATANG:-5900}"
+  BuyerProtectionFee__MinimumItemPriceSatang: "${BUYER_PROTECTION_MINIMUM_ITEM_PRICE_SATANG:-100000}"
+  BuyerProtectionFee__MaximumItemPriceSatang: "${BUYER_PROTECTION_MAXIMUM_ITEM_PRICE_SATANG:-3000000}"
+  BuyerProtectionFee__PolicyVersion: "${BUYER_PROTECTION_POLICY_VERSION:-buyer-protection-v2}"
+  BuyerProtectionFee__Tiers__0__UpToItemPriceSatang: "500000"
+  BuyerProtectionFee__Tiers__0__RateBasisPoints: "400"
+  BuyerProtectionFee__Tiers__1__UpToItemPriceSatang: "1500000"
+  BuyerProtectionFee__Tiers__1__RateBasisPoints: "350"
+  BuyerProtectionFee__Tiers__2__UpToItemPriceSatang: "3000000"
+  BuyerProtectionFee__Tiers__2__RateBasisPoints: "300"
+  ShippingQuotes__Provider: Shippop
+  Shippop__BaseUrl: "${SHIPPOP_BASE_URL:-https://mkpservice.shippop.com/}"
+  Shippop__ApiKey: "${SHIPPOP_API_KEY:?Set SHIPPOP_API_KEY}"
+  Shippop__AccountEmail: "${SHIPPOP_ACCOUNT_EMAIL:?Set SHIPPOP_ACCOUNT_EMAIL}"
+  Shippop__QuoteSigningSecret: "${SHIPPOP_QUOTE_SIGNING_SECRET:?Set SHIPPOP_QUOTE_SIGNING_SECRET}"
+  Shippop__QuoteLifetimeMinutes: "${SHIPPOP_QUOTE_LIFETIME_MINUTES:-120}"
+  Shippop__ServiceCodes__0: "${SHIPPOP_SERVICE_CODE_0:-EMST}"
+  Shippop__ServiceCodes__1: "${SHIPPOP_SERVICE_CODE_1:-FLE}"
+  Shippop__ServiceCodes__2: "${SHIPPOP_SERVICE_CODE_2:-KRYX}"
+  Shippop__ServiceCodes__3: "${SHIPPOP_SERVICE_CODE_3:-KRYS}"
+  PublicUrls__WebBaseUrl: "https://${TOKLONG_WEB_DOMAIN:?Set TOKLONG_WEB_DOMAIN}"
+  ManualBank__BankName: "${MANUAL_BANK_NAME:-}"
+  ManualBank__AccountName: "${MANUAL_BANK_ACCOUNT_NAME:-}"
+  ManualBank__AccountNumber: "${MANUAL_BANK_ACCOUNT_NUMBER:-}"
+  OpenAI__ApiKey: "${OPENAI_API_KEY:-}"
+  DisputeEvidence__StoragePath: /var/lib/toklong/dispute-evidence
+  DisputeEvidence__EncryptionKeyFile: /run/secrets/dispute-evidence-key
+
+x-crm-environment: &crm-environment
+  <<: *toklong-environment
+  WorkforceIdentity__Enabled: "true"
+  WorkforceIdentity__TenantId: "${CRM_ENTRA_TENANT_ID:?Set CRM_ENTRA_TENANT_ID}"
+  WorkforceIdentity__ClientId: "${CRM_ENTRA_CLIENT_ID:?Set CRM_ENTRA_CLIENT_ID}"
+  WorkforceIdentity__ClientSecret: "${CRM_ENTRA_CLIENT_SECRET:?Set CRM_ENTRA_CLIENT_SECRET}"
+  WorkforceIdentity__CallbackPath: /signin-oidc
+  WorkforceIdentity__FinancialActionsEnabled: "${CRM_FINANCIAL_ACTIONS_ENABLED:-false}"
+  WorkforceIdentity__ConditionalAccessApproved: "${CRM_CONDITIONAL_ACCESS_APPROVED:-false}"
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: toklong
+      POSTGRES_USER: toklong
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}"
+      POSTGRES_INITDB_ARGS: --data-checksums
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    shm_size: 256mb
+    networks:
+      - backend
+
+  migrate:
+    build:
+      context: .
+      dockerfile: src/Toklong.Api/Dockerfile
+    restart: "no"
+    command:
+      - --migrate-only
+    environment:
+      <<: *toklong-environment
+      AllowedHosts: "${TOKLONG_API_DOMAIN:?Set TOKLONG_API_DOMAIN}"
+      DataProtection__KeysPath: /var/lib/toklong/data-protection/api
+      DataProtection__CertificatePath: /run/secrets/data-protection-certificate
+      DataProtection__CertificatePasswordFile: /run/secrets/data-protection-certificate-password
+      ProductImages__StoragePath: /var/lib/toklong/product-images
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - app-data:/var/lib/toklong
+    secrets:
+      - data-protection-certificate
+      - data-protection-certificate-password
+      - dispute-evidence-key
+    networks:
+      - backend
+
+  api:
+    build:
+      context: .
+      dockerfile: src/Toklong.Api/Dockerfile
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      <<: *toklong-environment
+      ASPNETCORE_HTTP_PORTS: "8080"
+      AllowedHosts: "${TOKLONG_API_DOMAIN:?Set TOKLONG_API_DOMAIN};localhost;127.0.0.1"
+      DataProtection__KeysPath: /var/lib/toklong/data-protection/api
+      DataProtection__CertificatePath: /run/secrets/data-protection-certificate
+      DataProtection__CertificatePasswordFile: /run/secrets/data-protection-certificate-password
+      ProductImages__StoragePath: /var/lib/toklong/product-images
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - app-data:/var/lib/toklong
+    secrets:
+      - data-protection-certificate
+      - data-protection-certificate-password
+      - dispute-evidence-key
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    networks:
+      - frontend
+      - backend
+
+  web:
+    build:
+      context: .
+      dockerfile: src/Toklong.Web/Dockerfile
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      <<: *toklong-environment
+      ASPNETCORE_HTTP_PORTS: "8080"
+      AllowedHosts: "${TOKLONG_WEB_DOMAIN:?Set TOKLONG_WEB_DOMAIN};localhost;127.0.0.1"
+      DataProtection__KeysPath: /var/lib/toklong/data-protection/web
+      DataProtection__CertificatePath: /run/secrets/data-protection-certificate
+      DataProtection__CertificatePasswordFile: /run/secrets/data-protection-certificate-password
+      ProductImages__StoragePath: /var/lib/toklong/product-images
+      MobileLinks__AppleTeamId: "${APPLE_TEAM_ID:?Set APPLE_TEAM_ID}"
+      MobileLinks__AndroidPackageName: "${ANDROID_PACKAGE_NAME:-th.co.toklong.mobile}"
+      MobileLinks__AndroidSha256Fingerprints__0: "${ANDROID_SHA256_FINGERPRINT:?Set ANDROID_SHA256_FINGERPRINT}"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - app-data:/var/lib/toklong
+    secrets:
+      - data-protection-certificate
+      - data-protection-certificate-password
+      - dispute-evidence-key
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    networks:
+      - frontend
+      - backend
+
+  worker:
+    build:
+      context: .
+      dockerfile: src/Toklong.Worker/Dockerfile
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      <<: *toklong-environment
+      AllowedHosts: "${TOKLONG_API_DOMAIN:?Set TOKLONG_API_DOMAIN}"
+    depends_on:
+      crm-migrate:
+        condition: service_completed_successfully
+    volumes:
+      - app-data:/var/lib/toklong
+    secrets:
+      - dispute-evidence-key
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    networks:
+      - backend
+
+  crm-migrate:
+    build:
+      context: .
+      dockerfile: src/Toklong.Crm/Dockerfile
+    restart: "no"
+    command:
+      - --migrate-only
+    environment:
+      <<: *crm-environment
+      AllowedHosts: "${TOKLONG_CRM_DOMAIN:?Set TOKLONG_CRM_DOMAIN}"
+      DataProtection__KeysPath: /var/lib/toklong/data-protection/crm
+      DataProtection__CertificatePath: /run/secrets/data-protection-certificate
+      DataProtection__CertificatePasswordFile: /run/secrets/data-protection-certificate-password
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - app-data:/var/lib/toklong
+    secrets:
+      - data-protection-certificate
+      - data-protection-certificate-password
+      - dispute-evidence-key
+    networks:
+      - backend
+
+  crm:
+    build:
+      context: .
+      dockerfile: src/Toklong.Crm/Dockerfile
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      <<: *crm-environment
+      ASPNETCORE_HTTP_PORTS: "8080"
+      AllowedHosts: "${TOKLONG_CRM_DOMAIN:?Set TOKLONG_CRM_DOMAIN};localhost;127.0.0.1"
+      DataProtection__KeysPath: /var/lib/toklong/data-protection/crm
+      DataProtection__CertificatePath: /run/secrets/data-protection-certificate
+      DataProtection__CertificatePasswordFile: /run/secrets/data-protection-certificate-password
+    depends_on:
+      crm-migrate:
+        condition: service_completed_successfully
+    volumes:
+      - app-data:/var/lib/toklong
+    secrets:
+      - data-protection-certificate
+      - data-protection-certificate-password
+      - dispute-evidence-key
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    networks:
+      - frontend
+      - backend
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      ACME_EMAIL: "${ACME_EMAIL:?Set ACME_EMAIL}"
+      TOKLONG_WEB_DOMAIN: "${TOKLONG_WEB_DOMAIN:?Set TOKLONG_WEB_DOMAIN}"
+      TOKLONG_API_DOMAIN: "${TOKLONG_API_DOMAIN:?Set TOKLONG_API_DOMAIN}"
+      TOKLONG_CRM_DOMAIN: "${TOKLONG_CRM_DOMAIN:?Set TOKLONG_CRM_DOMAIN}"
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+      crm:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - frontend
+
+volumes:
+  postgres-data:
+  app-data:
+  caddy-data:
+  caddy-config:
+
+networks:
+  frontend:
+  backend:
+    internal: true
+
+secrets:
+  data-protection-certificate:
+    file: "${DATA_PROTECTION_CERTIFICATE_FILE:?Set DATA_PROTECTION_CERTIFICATE_FILE}"
+  data-protection-certificate-password:
+    file: "${DATA_PROTECTION_CERTIFICATE_PASSWORD_FILE:?Set DATA_PROTECTION_CERTIFICATE_PASSWORD_FILE}"
+  dispute-evidence-key:
+    file: "${DISPUTE_EVIDENCE_KEY_FILE:?Set DISPUTE_EVIDENCE_KEY_FILE}"

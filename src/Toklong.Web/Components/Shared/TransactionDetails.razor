@@ -4,16 +4,66 @@
     <summary>รายละเอียดรายการ</summary>
     <dl>
         <div><dt>เลขรายการ</dt><dd>@Transaction.Id</dd></div>
-        <div><dt>รูปแบบส่งมอบ</dt><dd>@(Transaction.FulfillmentType == Toklong.Domain.Transactions.FulfillmentType.DigitalHandoff ? "สินค้าดิจิทัล · ผู้ซื้อยืนยันรับ" : "สินค้าจัดส่ง · ใช้ Tracking")</dd></div>
+        <div><dt>รูปแบบส่งมอบ</dt><dd>@(Transaction.FulfillmentType == Toklong.Domain.Transactions.FulfillmentType.DigitalHandoff ? "สินค้าดิจิทัล" : "สินค้าที่จับต้องได้")</dd></div>
         <div><dt>ข้อกำหนด</dt><dd>@Transaction.TermsVersion</dd></div>
-        <div><dt>ผู้ขายยอมรับ</dt><dd>@ThaiDate(Transaction.SellerAcceptedAt)</dd></div>
-        @if (Transaction.BuyerAcceptedAt is not null)
+        @if (!string.IsNullOrWhiteSpace(
+                 Transaction.DeliveryProvinceName))
+        {
+            <div>
+                <dt>พื้นที่จัดส่งที่ตกลง</dt>
+                <dd>@Transaction.DeliveryProvinceName @Transaction.DeliveryPostalCode</dd>
+            </div>
+        }
+        @if (Transaction.AgreementAcceptances.Count == 0 &&
+             Transaction.SellerAcceptedAt is not null)
+        {
+            <div><dt>ผู้ขายยอมรับ</dt><dd>@ThaiDate(Transaction.SellerAcceptedAt.Value)</dd></div>
+        }
+        @if (Transaction.AgreementAcceptances.Count == 0 &&
+             Transaction.BuyerAcceptedAt is not null)
         {
             <div><dt>ผู้ซื้อยอมรับ</dt><dd>@ThaiDate(Transaction.BuyerAcceptedAt.Value)</dd></div>
         }
+        @if (!string.IsNullOrWhiteSpace(Transaction.AgreementCoreSnapshotHash))
+        {
+            <div><dt>หลักฐานข้อตกลงร่วม</dt><dd class="hash">@Transaction.AgreementCoreSnapshotHash</dd></div>
+        }
+        @foreach (var acceptance in Transaction.AgreementAcceptances)
+        {
+            <div>
+                <dt>@AcceptanceRoleLabel(acceptance.Role)</dt>
+                <dd>
+                    @ThaiDate(acceptance.AcceptedAt)
+                    · บัญชีที่ยืนยันด้วยเบอร์โทร
+                </dd>
+            </div>
+        }
         @if (!string.IsNullOrWhiteSpace(Transaction.ProductSnapshotHash))
         {
-            <div><dt>หลักฐาน snapshot</dt><dd class="hash">@Transaction.ProductSnapshotHash</dd></div>
+            <div><dt>หลักฐานรายละเอียด</dt><dd class="hash">@Transaction.ProductSnapshotHash</dd></div>
+        }
+        @if (!string.IsNullOrWhiteSpace(Transaction.TermsSnapshotHash))
+        {
+            <div><dt>หลักฐานกติกา</dt><dd class="hash">@Transaction.TermsSnapshotHash</dd></div>
+        }
+        @if (Transaction.AgreementSnapshotCreatedAt is not null)
+        {
+            <div><dt>สร้าง snapshot</dt><dd>@ThaiDate(Transaction.AgreementSnapshotCreatedAt.Value)</dd></div>
+        }
+        @if (Transaction.AgreementSnapshotSealedAt is not null)
+        {
+            <div><dt>ยืนยัน snapshot หลังชำระ</dt><dd>@ThaiDate(Transaction.AgreementSnapshotSealedAt.Value)</dd></div>
+        }
+        @if (CanDownloadAgreementEvidence)
+        {
+            <div>
+                <dt>ดาวน์โหลดหลักฐาน</dt>
+                <dd>
+                    <a href="@($"/transactions/{Transaction.Id}/agreement-evidence")">ไฟล์ JSON พร้อม hash</a>
+                    ·
+                    <a href="@($"/transactions/{Transaction.Id}/agreement-evidence?format=html")">ฉบับอ่านง่าย/พิมพ์ PDF</a>
+                </dd>
+            </div>
         }
         @if (!string.IsNullOrWhiteSpace(Transaction.PaymentReference))
         {
@@ -27,11 +77,48 @@
         {
             <div><dt>ผู้ขายแจ้งส่งมอบ</dt><dd>@ThaiDate(Transaction.DigitalDeliverySubmittedAt.Value)</dd></div>
         }
+        @if (Transaction.DisputeWindowStartsAt is not null)
+        {
+            <div><dt>เริ่มตรวจสินค้า</dt><dd>@ThaiDate(Transaction.DisputeWindowStartsAt.Value)</dd></div>
+        }
+        @if (Transaction.DisputeWindowEndsAt is not null)
+        {
+            <div><dt>สิ้นสุดช่วงตรวจสินค้า</dt><dd>@ThaiDate(Transaction.DisputeWindowEndsAt.Value)</dd></div>
+        }
+        @if (Transaction.PayoutReleaseReason is not null)
+        {
+            <div><dt>เหตุผลเริ่มจ่าย</dt><dd>@ReleaseReasonLabel</dd></div>
+        }
     </dl>
 </details>
 
 @code {
     [Parameter, EditorRequired] public TransactionView Transaction { get; set; } = default!;
+
+    private bool CanDownloadAgreementEvidence =>
+        Transaction.AgreementAcceptances.Count >= 2 &&
+        !string.IsNullOrWhiteSpace(
+            Transaction.AgreementCoreSnapshotHash);
+
+    private string ReleaseReasonLabel => Transaction.PayoutReleaseReason switch
+    {
+        Toklong.Domain.Transactions.PayoutReleaseReason.BuyerConfirmedAfterInspection =>
+            "ผู้ซื้อตรวจแล้วและยืนยัน",
+        Toklong.Domain.Transactions.PayoutReleaseReason.PhysicalInspectionWindowElapsed =>
+            "ครบเวลาตรวจสินค้าโดยไม่มีข้อพิพาท",
+        Toklong.Domain.Transactions.PayoutReleaseReason.DigitalManualReview =>
+            "เจ้าหน้าที่อนุมัติการส่งมอบดิจิทัล",
+        Toklong.Domain.Transactions.PayoutReleaseReason.DisputeResolvedForSeller =>
+            "ข้อพิพาทสิ้นสุดและอนุมัติจ่ายผู้ขาย",
+        _ => "ยังไม่ระบุ"
+    };
+
+    private static string AcceptanceRoleLabel(
+        Toklong.Domain.Transactions.AgreementAcceptanceRole role) =>
+        role == Toklong.Domain.Transactions.AgreementAcceptanceRole.Seller
+            ? "หลักฐานผู้ขายยอมรับ"
+            : "หลักฐานผู้ซื้อยอมรับ";
+
     private static string ThaiDate(DateTimeOffset value) =>
         value.ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm 'น.'");
 }

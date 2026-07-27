@@ -1,0 +1,361 @@
+@page "/offers/create"
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Buyer")]
+@using Toklong.Application.Abstractions
+@using Toklong.Application.Features.Buyers
+@using Toklong.Application.Features.Offers.CreateBuyerOffer
+@using Toklong.Application.Features.Sales.AnalyzeListingImages
+@using Toklong.Application.Features.Sales.SaveListingPhoto
+@using Toklong.Domain.Transactions
+@using Toklong.Web.Models
+@inject Toklong.Web.Services.ApplicationRequestSender Sender
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+@inject IThaiAddressCatalog AddressCatalog
+
+<PageTitle>สร้างข้อเสนอซื้อ — TOKLONG</PageTitle>
+<AppHeader BackHref="/" BackLabel="กลับหน้าแรก" />
+
+<main class="page-shell narrow create-page">
+    <div class="page-heading create-heading">
+        <span class="eyebrow"><span class="eyebrow-dot"></span>ผู้ซื้อ · ขั้นที่ 1 จาก 4</span>
+        <h1>สร้างข้อเสนอซื้อ</h1>
+        <p>ใช้กับผู้ขายที่คุณคุยกันแล้ว ส่งลิงก์ส่วนตัวให้ผู้ขายตรวจและยืนยันก่อนที่คุณจะชำระ</p>
+    </div>
+
+    <AlertMessage Message="@error" Danger />
+    <AlertMessage Message="@photoMessage" />
+
+    <EditForm Model="form" OnValidSubmit="SubmitAsync" FormName="create-buyer-offer"
+              class="create-window">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="validation-summary" />
+
+        <section class="form-card">
+            <div class="form-section-heading">
+                <span>1</span>
+                <div><h2>สิ่งที่ตกลงกันในแชต</h2><p>นี่เป็นข้อเสนอส่วนตัว ไม่ใช่ประกาศหรือการประมูล</p></div>
+            </div>
+            <SelectField TValue="FulfillmentType"
+                         Id="offer-fulfillment"
+                         Label="รูปแบบการส่งมอบ"
+                         DisplayText="@FulfillmentLabel"
+                         Required
+                         @bind-Value="form.FulfillmentType">
+                <option value="@FulfillmentType.PhysicalShipment">สินค้าที่จับต้องได้</option>
+                <option value="@FulfillmentType.DigitalHandoff">สินค้าดิจิทัล</option>
+            </SelectField>
+            <TextField Id="offer-seller-phone"
+                       Label="เบอร์โทรผู้ขาย"
+                       Hint="ข้อเสนอนี้เปิดและตอบรับได้เฉพาะบัญชีที่ยืนยันด้วยเบอร์นี้"
+                       Placeholder="เช่น 0812345678"
+                       InputMode="tel"
+                       Required
+                       @bind-Value="form.SellerPhoneNumber" />
+            <TextField Id="offer-product-name"
+                       Label="ชื่อสินค้า"
+                       Placeholder="เช่น กล้อง Fujifilm X-T30 II"
+                       Required
+                       @bind-Value="form.ProductName" />
+            <TextAreaField Id="offer-description"
+                           Label="รายละเอียด สภาพ และสิ่งที่รวม"
+                           Hint="ระบุข้อมูลที่ตกลงกันให้ครบ ผู้ขายจะยืนยันหรือปฏิเสธ แต่แก้ข้อมูลนี้ไม่ได้"
+                           Required
+                           @bind-Value="form.ProposedDescription" />
+            <SelectField TValue="ConditionCode" Id="offer-condition"
+                         Label="สภาพโดยสรุป" DisplayText="@ConditionLabel"
+                         Required @bind-Value="form.Condition">
+                <option value="@ConditionCode.New">สินค้าใหม่</option>
+                <option value="@ConditionCode.UsedGood">มือสอง · สภาพดี</option>
+                <option value="@ConditionCode.UsedDefects">มือสอง · มีตำหนิ</option>
+            </SelectField>
+            <TextAreaField Id="offer-defects"
+                           Label="ตำหนิหรือข้อจำกัด (ถ้ามี)"
+                           Hint="ถ้าไม่มี ให้เว้นว่าง"
+                           @bind-Value="form.KnownDefects" />
+            <label for="buyer-offer-photo">
+                รูปสินค้า <span class="optional-label">(ไม่บังคับ)</span>
+            </label>
+            <p class="field-hint">
+                แนะนำสำหรับสินค้ามือสองหรือสินค้าที่ต้องตรวจสภาพ
+            </p>
+            <label class="listing-image-picker primary" for="buyer-offer-photo">
+                ถ่ายหรือเลือกรูป
+            </label>
+            <InputFile id="buyer-offer-photo"
+                       class="listing-image-input"
+                       accept="image/jpeg,image/png,image/webp"
+                       OnChange="SavePhotoAsync"
+                       disabled="@photoBusy" />
+            @if (!string.IsNullOrWhiteSpace(form.PhotoUrl))
+            {
+                <img class="offer-photo-preview"
+                     src="@form.PhotoUrl"
+                     alt="รูปสินค้าที่ผู้ซื้อเลือก" />
+            }
+        </section>
+
+        <section class="form-card">
+            <div class="form-section-heading">
+                <span>2</span>
+                <div><h2>ราคาสินค้า</h2><p>ยังไม่มีการเรียกเก็บเงินในขั้นนี้</p></div>
+            </div>
+            <MoneyField Id="offer-price"
+                        Label="ราคาสินค้า"
+                        Hint="รองรับราคา 1,000–30,000 บาท ผู้ขายจะระบุต้นทางและขนาดพัสดุก่อนคุณชำระ"
+                        Required
+                        @bind-Value="form.PriceBaht" />
+            @if (!IsDigital)
+            {
+                <div class="address-section">
+                    <h3>ที่อยู่จัดส่ง <span aria-hidden="true">*</span></h3>
+                    <p>เลือกให้เสร็จก่อนส่งข้อเสนอ ผู้ขายจะเห็นเฉพาะจังหวัดและรหัสไปรษณีย์จนกว่าระบบยืนยันยอดชำระ</p>
+                    @if (savedAddress is not null)
+                    {
+                        <CheckboxField Id="offer-use-saved-address"
+                                       Label="ใช้ที่อยู่ที่บันทึกไว้"
+                                       Hint="@savedAddress.DisplayText"
+                                       @bind-Value="form.UseSavedAddress" />
+                    }
+                    @if (savedAddress is null || !form.UseSavedAddress)
+                    {
+                        <TextAreaField Id="offer-address-line"
+                                       Label="บ้านเลขที่ อาคาร ถนน และรายละเอียดเพิ่มเติม"
+                                       Required
+                                       @bind-Value="form.AddressLine" />
+                        <SelectField TValue="int?"
+                                     Id="offer-province"
+                                     Label="จังหวัดปลายทาง"
+                                     DisplayText="@ProvinceLabel"
+                                     Required
+                                     Value="@form.ProvinceId"
+                                     ValueChanged="ProvinceChangedAsync"
+                                     ValueExpression="@(() => form.ProvinceId)">
+                            <option value="">กรุณาเลือกจังหวัด</option>
+                            @foreach (var province in AddressCatalog.Provinces)
+                            {
+                                <option value="@province.Id">@province.Name</option>
+                            }
+                        </SelectField>
+                        <SelectField TValue="int?"
+                                     Id="offer-district"
+                                     Label="อำเภอ / เขต"
+                                     DisplayText="@DistrictLabel"
+                                     Required
+                                     Value="@form.DistrictId"
+                                     ValueChanged="DistrictChangedAsync"
+                                     ValueExpression="@(() => form.DistrictId)">
+                            <option value="">กรุณาเลือกอำเภอหรือเขต</option>
+                            @foreach (var district in districts)
+                            {
+                                <option value="@district.Id">@district.Name</option>
+                            }
+                        </SelectField>
+                        <SelectField TValue="int?"
+                                     Id="offer-subdistrict"
+                                     Label="ตำบล / แขวง"
+                                     DisplayText="@SubdistrictLabel"
+                                     Required
+                                     @bind-Value="form.SubdistrictId">
+                            <option value="">กรุณาเลือกตำบลหรือแขวง</option>
+                            @foreach (var subdistrict in subdistricts)
+                            {
+                                <option value="@subdistrict.Id">@subdistrict.Name · @subdistrict.PostalCode</option>
+                            }
+                        </SelectField>
+                        @if (!string.IsNullOrWhiteSpace(PostalCode))
+                        {
+                            <div class="notice">ผู้ขายจะเห็นปลายทาง @ProvinceLabel @PostalCode</div>
+                        }
+                        <CheckboxField Id="offer-remember-address"
+                                       Label="จำที่อยู่นี้ไว้"
+                                       Hint="TOKLONG เก็บได้หนึ่งที่อยู่ การบันทึกครั้งใหม่จะแทนที่อยู่เดิม"
+                                       @bind-Value="form.RememberAddress" />
+                    }
+                </div>
+            }
+            <div class="notice">ผู้ขายต้องส่งสินค้าหรือส่งมอบภายใน 3 วันหลังระบบยืนยันยอดชำระ</div>
+        </section>
+
+        <section class="form-card">
+            <div class="form-section-heading">
+                <span>3</span>
+                <div><h2>ตรวจสอบก่อนส่ง</h2><p>ข้อเสนอนี้สร้างจากบัญชีผู้ซื้อที่เข้าสู่ระบบด้วยเบอร์โทรศัพท์แล้ว</p></div>
+            </div>
+            <div class="bank-card">
+                <div><span>ชื่อผู้ซื้อ</span><strong>@buyerName</strong></div>
+                <div><span>เบอร์ที่ยืนยันแล้ว</span><strong>@buyerPhone</strong></div>
+            </div>
+            <CheckboxField Id="offer-review-rule"
+                           Label="ฉันตรวจแล้วว่ารูป รายละเอียด และยอดตรงกับที่ตกลง"
+                           Hint="ผู้ขายจะแก้ข้อมูลไม่ได้ หากไม่ตรงต้องปฏิเสธและสร้างข้อเสนอใหม่"
+                           @bind-Value="form.AcceptedReviewRule" />
+        </section>
+
+        <div class="create-window-actions">
+            <PrimaryButton Busy="busy" Disabled="busy || photoBusy"
+                           BusyText="กำลังสร้างข้อเสนอ…">
+                สร้างลิงก์ให้ผู้ขาย
+            </PrimaryButton>
+        </div>
+    </EditForm>
+</main>
+
+@code {
+    private readonly CreateBuyerOfferForm form = new();
+    private bool busy;
+    private bool photoBusy;
+    private string? error;
+    private string? photoMessage;
+    private IReadOnlyList<ThaiDistrictOption> districts = [];
+    private IReadOnlyList<ThaiSubdistrictOption> subdistricts = [];
+    private BuyerSavedAddressView? savedAddress;
+    private Guid buyerId;
+    private string buyerName = "";
+    private string buyerPhone = "";
+    private bool IsDigital =>
+        form.FulfillmentType == FulfillmentType.DigitalHandoff;
+    private string FulfillmentLabel => IsDigital
+        ? "สินค้าดิจิทัล"
+        : "สินค้าที่จับต้องได้";
+    private string ConditionLabel => form.Condition switch
+    {
+        ConditionCode.New => "สินค้าใหม่",
+        ConditionCode.UsedGood => "มือสอง · สภาพดี",
+        ConditionCode.UsedDefects => "มือสอง · มีตำหนิ",
+        _ => "กรุณาเลือกสภาพสินค้า"
+    };
+    private string ProvinceLabel =>
+        AddressCatalog.Provinces.FirstOrDefault(
+            item => item.Id == form.ProvinceId)?.Name ??
+        "กรุณาเลือกจังหวัด";
+    private string DistrictLabel =>
+        districts.FirstOrDefault(
+            item => item.Id == form.DistrictId)?.Name ??
+        "กรุณาเลือกอำเภอหรือเขต";
+    private string SubdistrictLabel =>
+        subdistricts.FirstOrDefault(
+            item => item.Id == form.SubdistrictId)?.Name ??
+        "กรุณาเลือกตำบลหรือแขวง";
+    private string PostalCode =>
+        subdistricts.FirstOrDefault(
+            item => item.Id == form.SubdistrictId)?.PostalCode ??
+        "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authentication =
+            await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authentication.User;
+        Guid.TryParse(
+            user.FindFirst(
+                System.Security.Claims.ClaimTypes.NameIdentifier)?.Value,
+            out buyerId);
+        buyerName = user.Identity?.Name ?? "";
+        buyerPhone = user.FindFirst(
+            System.Security.Claims.ClaimTypes.MobilePhone)?.Value ?? "";
+        if (buyerId != Guid.Empty)
+        {
+            var profile = await Sender.Send(
+                new GetBuyerProfileQuery(buyerId));
+            savedAddress =
+                profile.SavedDeliveryAddress;
+            form.UseSavedAddress =
+                savedAddress is not null;
+        }
+    }
+
+    private async Task SavePhotoAsync(InputFileChangeEventArgs args)
+    {
+        photoBusy = true;
+        error = null;
+        photoMessage = null;
+        try
+        {
+            var file = args.File;
+            await using var source = file.OpenReadStream(
+                AnalyzeListingImagesHandler.MaximumImageBytes);
+            using var destination = new MemoryStream();
+            await source.CopyToAsync(destination);
+            var path = await Sender.Send(new SaveListingPhotoCommand(
+                new ListingImageInput(
+                    file.Name, file.ContentType, destination.ToArray())));
+            form.PhotoUrl = Navigation.ToAbsoluteUri(path).ToString();
+            photoMessage = "บันทึกรูปแล้ว";
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+        }
+        finally
+        {
+            photoBusy = false;
+        }
+    }
+
+    private Task ProvinceChangedAsync(int? provinceId)
+    {
+        form.ProvinceId = provinceId;
+        form.DistrictId = null;
+        form.SubdistrictId = null;
+        districts = provinceId.HasValue
+            ? AddressCatalog.GetDistricts(provinceId.Value)
+            : [];
+        subdistricts = [];
+        return Task.CompletedTask;
+    }
+
+    private Task DistrictChangedAsync(int? districtId)
+    {
+        form.DistrictId = districtId;
+        form.SubdistrictId = null;
+        subdistricts = districtId.HasValue
+            ? AddressCatalog.GetSubdistricts(districtId.Value)
+            : [];
+        return Task.CompletedTask;
+    }
+
+    private async Task SubmitAsync()
+    {
+        busy = true;
+        error = null;
+        try
+        {
+            var transaction = await Sender.Send(new CreateBuyerOfferCommand(
+                buyerId,
+                form.SellerPhoneNumber,
+                form.FulfillmentType,
+                form.ProductName,
+                form.ProposedDescription,
+                form.Condition,
+                form.KnownDefects,
+                form.PhotoUrl,
+                MoneyParser.ToSatang(form.PriceBaht),
+                !IsDigital &&
+                savedAddress is not null &&
+                form.UseSavedAddress,
+                IsDigital ||
+                (savedAddress is not null &&
+                 form.UseSavedAddress)
+                    ? null
+                    : new OfferDeliveryAddressInput(
+                        form.AddressLine,
+                        form.ProvinceId!.Value,
+                        form.DistrictId!.Value,
+                        form.SubdistrictId!.Value),
+                !IsDigital &&
+                (savedAddress is null ||
+                 !form.UseSavedAddress) &&
+                form.RememberAddress));
+            Navigation.NavigateTo($"/buyer/{transaction.BuyerAccessToken}");
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

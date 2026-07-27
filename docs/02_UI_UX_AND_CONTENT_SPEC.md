@@ -3,89 +3,217 @@
 ## Design direction
 
 - Mobile first.
-- White and pale-blue surfaces.
+- White surfaces with pale-blue buyer accents and pale-purple seller accents.
 - Soft radial spotlight in the hero.
 - Rounded cards and restrained glass effects.
 - Friendly Thai copy with precise money and deadline language.
 - Product animation shown inside one mobile device, not a complex desktop dashboard.
 - One primary action per transaction state.
+- Keep buyer and seller transaction-detail screens visibly distinct: blue for
+  `ซื้อ`, purple for `ขาย`, plus explicit role labels and role-specific status
+  copy. Never rely on color alone.
+- In the three-step progress card, completed steps are green across icon,
+  outline, marker, and label; all incomplete steps are gray. The main status
+  card communicates the current state.
 
 ## Landing page information architecture
 
 1. **Hero**
-   - Positioning: payment link for deals originating from Facebook, Marketplace, or chat.
-   - Primary buyer CTA: `สร้างข้อเสนอซื้อ`.
-   - Seller CTA: `สร้างลิงก์ข้อตกลง`.
-   - Secondary CTA: play the mobile walkthrough.
+   - Seller-led positioning: help an honest seller close a deal with a new
+     customer without checking slips manually.
+   - Headline: `ลูกค้าไม่กล้าโอน ก็ปิดการขายได้`.
+   - Explain the buyer-first truth: the buyer creates the offer, the seller
+     confirms it, and fulfillment appears only after provider-confirmed payment.
+   - Single primary CTA: `สร้างข้อเสนอซื้อ`.
+   - Secondary CTA: jump to seller value; the header may separately play the
+     mobile walkthrough.
    - Animated mobile UI with four scenes.
 2. **Trust strip**
-   - Provider-confirmed payment before shipping.
-   - Tracking as the shared physical-delivery record; explicit confirmation/manual review for digital handoff.
-   - Dispute blocks payout.
-3. **Seller and buyer simplicity**
-   - Seller: create a link or accept a buyer offer, fulfill, receive payout.
-   - Buyer: create an offer or review/pay a seller link, track or review handoff, confirm/report.
-4. **Four-step flow**
-   - Create link → Pay → Fulfill → Confirm/payout.
-5. **Behind-the-scenes record**
+   - No manual slip checking.
+   - Fulfill only after provider-confirmed payment.
+   - Agreed details, timestamps, and tracking in one transaction.
+3. **Seller value**
+   - Help hesitant customers proceed.
+   - Reduce payment and follow-up work.
+   - Preserve evidence for both parties.
+   - Clearly show why money is waiting and when payout can start.
+4. **Seller and buyer simplicity**
+   - Seller: accept a buyer offer, fulfill, receive payout.
+   - Buyer: create an offer, review/pay after acceptance, track or review handoff, confirm/report.
+5. **Four-step flow**
+   - Buyer proposes / seller confirms → Pay → Fulfill → Confirm/payout.
+6. **Behind-the-scenes record**
    - Explain that transaction terms are recorded without a visible contract-signing step.
-6. **Focused use cases**
+7. **Focused use cases**
    - Used goods, community/group sales, private chat deals.
-7. **Protection rules**
-   - Exact start/end of seven-day window.
+8. **Protection rules**
+   - Exact start/end of the 72-hour physical inspection and payout-hold window.
    - Reminder before payout.
    - Dispute pause.
-8. **FAQ**
+9. **FAQ**
    - Not a marketplace.
    - Payout timing.
    - Missed shipment deadline.
    - Item not as described.
    - No separate contract signing step.
    - Unsupported goods.
-9. **Final CTA**
+10. **Final CTA**
+
+Do not present Trust Profile, verified payout-account name, video-before-pack,
+shipping compensation, or automated bank payout as live capabilities until
+their respective provider, operations, privacy, and implementation work is
+complete. The complete seller positioning and roadmap are in
+`docs/11_SELLER_VALUE_PROPOSITION_TH.md`.
 
 ## Hero mobile animation
 
-### Scene 1 — Buyer creates an offer / seller accepts
+The landing-page animation must be a compact representation of the current
+`Toklong.Mobile` buyer-first flow, copy, role colors, and available actions. It
+must not show an invented seller-first link flow or controls that the mobile app
+does not provide. Use a physical-item example in the hero because payment,
+shipping, tracking, and payout conditions communicate the end-to-end seller
+value most clearly. The supported digital path remains documented and shown in
+the static product content. The phone chrome must use the same centered Shell
+navigation title and back affordance as the app; do not add a TOKLONG logo bar
+or a role badge that does not exist on these screens.
+
+The visual source of truth for each scene is:
+
+1. `src/Toklong.Mobile/Pages/CreateOfferPage.xaml`
+2. `src/Toklong.Mobile/Pages/SellerOfferPage.xaml`
+3. `src/Toklong.Mobile/Pages/TransactionDetailPage.xaml` in the buyer payment state
+4. `src/Toklong.Mobile/Pages/TransactionDetailPage.xaml` in the seller physical-fulfillment state
+
+On the mobile home screen, `ต้องทำตอนนี้` shows only a transaction whose
+current state requires an action from the signed-in user. It must never fall
+back to an in-progress or completed transaction. When no action is required,
+show the single-line empty state `ยังไม่มีรายการ`; keep completed transactions
+in the status-filtered list below. The empty state reserves the same minimum
+vertical footprint as the populated spotlight card so switching mode or
+refreshing data does not move the filters, while still allowing both states to
+grow for accessibility text sizes.
+
+The animation may crop lower content to fit the device viewport, but it must
+preserve the visible hierarchy, card shapes, field layout, button arrangement,
+role colors, and current consumer copy from those XAML screens.
+
+### Scene 1 — Buyer creates a targeted offer
 
 Show:
 
-- Proposed item, fulfillment type, price, shipping, and fulfillment rule.
-- Primary buyer action `สร้างข้อเสนอซื้อ`.
-- Generated private URL and `คัดลอกแล้ว`.
-- Seller view of the same link with expected net payout, offer-expiry time, and primary action `ยอมรับข้อเสนอ`.
-- Plain-language status `ผู้ซื้อพร้อมชำระเมื่อคุณยอมรับ`; never imply payment is complete.
+- Shell title `สร้างดีล`.
+- Current create-offer heading `สร้างข้อตกลงซื้อขาย` and helper
+  `สร้างดีลผู้ซื้อกับผู้ขาย`.
+- Start directly with that heading without the redundant
+  `ดีลซื้อขายส่วนตัว` badge. Keep the main form on the page background rather
+  than inside one outer bordered card so mobile inputs retain the available
+  width; individual input boundaries and section spacing remain visible.
+- Do not add a separate blue informational card below the form repeating that
+  the buyer reviews again before payment or that fulfillment is due in three
+  days; those rules remain visible in the review and transaction states where
+  they are actionable.
+- Use a Quick Deal form whose default visible inputs are seller phone, product
+  name, item price, an optional compact product-photo action, and—when
+  physical—the delivery address. Label the photo `รูปสินค้า (ไม่บังคับ)` and
+  recommend it for used or condition-sensitive goods. Physical is the default
+  item type and appears as one compact summary row with a link to switch to
+  digital, not two large type cards.
+- Under the physical item-price field, say that shipping will be calculated
+  from the seller's origin and parcel size before the buyer pays. Do not ask the
+  buyer to guess or include shipping in the item price.
+- Keep description and included items behind one optional-details disclosure.
+  AI remains independent from this disclosure and is never required to finish
+  the ordinary form.
+- Primary action `ตรวจข้อมูลก่อนส่ง` opens a review bottom sheet. This is a
+  review-before-submit step, not contract drafting or signing. The sheet shows
+  the entered summary, asks for condition with three compact choices, reveals a
+  defect description only when `มีตำหนิ` is selected, and contains the final
+  action `ส่งข้อเสนอให้ผู้ขาย`.
+- When no optional description is supplied, the transaction record uses the
+  product name as its explicit description. `ใหม่` and `มือสอง สภาพดี` record
+  `ไม่มีตำหนิที่ผู้ซื้อระบุ`; `มีตำหนิ` requires explicit defect text. This
+  keeps the transaction record complete without showing redundant fields in
+  the quick form.
+- The system-fixed physical fulfillment rule, not an editable shipping-duration
+  field.
+- One secondary action `ให้ AI ช่วยกรอก` below the heading. It opens a
+  bottom-sheet overlay only on demand, accepts one image/chat screenshot or
+  pasted chat text, previews the extracted draft, and fills only blank fields
+  after the buyer confirms. Its icon is the TOKLONG `T` inside scan corners
+  with the Mint confirmation dot; do not use a generic sparkle or marketplace
+  icon. The source image is not a product-evidence photo.
+- Plain-language notice that only the account verified with the specified
+  seller phone can respond.
 
-### Scene 2 — Buyer reviews and pays
+The AI helper must remain optional and collapsed by default. It must say that
+the result is a draft requiring buyer review and must not request OTP,
+passwords, card details, bank details, or reusable credentials. An AI source
+image is never promoted to an optional product-evidence photo without the
+buyer's separate selection. Existing buyer-entered values are never overwritten
+by applying an AI draft.
+
+### Scene 2 — Seller reviews and responds
 
 Show:
 
-- Same frozen product details.
-- Seller identity signal.
-- Price breakdown and total.
+- Shell title `ข้อเสนอขาย`.
+- Use the current neutral white/blue `SellerOfferPage` presentation. Do not
+  apply the purple transaction-detail theme to this screen.
+- Current heading `ตรวจข้อเสนอจากผู้ซื้อ`.
+- The same offer as read-only, its exact response deadline, item price,
+  destination province/postal code, fixed fulfillment rule, fee, and expected
+  net.
+- For a physical offer, one `เตรียมค่าจัดส่ง` section before acceptance:
+  saved-origin summary or complete origin editor, `จำต้นทางนี้ไว้`, parcel
+  weight and width/length/height, `ดูค่าจัดส่ง`, selectable quote rows, and the
+  item-price/shipping/buyer-total breakdown. Changing origin or measurements
+  clears the selected quote.
+- Primary action `ยืนยันข้อเสนอ`.
+- Secondary action `ปฏิเสธข้อเสนอ`, placed below the full-width primary action
+  as in the app.
+- If anything is incorrect, instruct the seller to reject it and ask the buyer
+  to create a new offer. Do not imply the seller can edit buyer-entered terms.
+
+### Scene 3 — Buyer reviews and pays
+
+Show:
+
+- Shell title `รายการซื้อ` and the current blue buyer transaction header.
+- Current heading `เช็กให้ครบก่อนจ่าย`.
+- The seller-confirmed product snapshot and a clear statement that paid details
+  cannot be edited.
+- Allowed seller identity signals, the amount breakdown, and the exact payment
+  deadline.
 - Plain-language payout condition.
-- Primary action `ชำระ ฿X`.
+- Primary action `จ่ายเงิน →`.
 
-### Scene 3 — Seller ships
-
-Show:
-
-- Success banner `ผู้ซื้อชำระสำเร็จ`.
-- Plain-language note that money is waiting for release through the payment partner.
-- Exact fulfillment deadline.
-- Two clear examples: physical uses carrier/tracking; digital uses the agreed external channel and never stores credentials.
-- Physical primary action `บันทึกหมายเลขติดตาม`.
-- Digital primary action `แจ้งว่าส่งมอบแล้ว`, with copy that this does not release payout.
-
-### Scene 4 — Buyer inspects / payout
+### Scene 4 — Seller fulfills and tracks payout
 
 Show:
 
-- Physical example: carrier-confirmed delivered timestamp, exact dispute deadline, and countdown.
-- Digital example: no countdown; buyer confirmation or authorized manual review is required.
-- Primary action `ได้รับสินค้าแล้ว` or `ได้รับรายการดิจิทัลแล้ว`.
-- Secondary action `แจ้งปัญหา`.
-- Final success overlay `จ่ายเงินให้ผู้ขายแล้ว`.
+- Shell title `รายการขาย` and the current purple seller transaction header.
+- Provider-confirmed status `ส่งสินค้าได้` plus the guidance
+  `ผู้ซื้อจ่ายแล้ว เปิดใบปะหน้าและส่งกับขนส่งที่เลือกไว้`; never infer
+  payment from a slip or client redirect.
+- Exact ship-by date and time.
+- Read-only selected carrier and the tracking number issued through SHIPPOP.
+- Primary action `เปิดใบปะหน้า`.
+- The transaction detail shows one compact 4×6 label preview. Tapping either
+  the preview or `แตะเพื่อดูใบปะหน้าเต็มจอ` opens a dedicated seller-only
+  viewer. The viewer keeps the screen awake, allows pinch zoom, blocks scripts
+  and top-level navigation from provider HTML, and provides
+  `บันทึกลงเครื่อง` plus `แชร์หรือพิมพ์` through the native file/share sheet.
+- Scan-from-screen guidance is conditional: say
+  `หากจุดบริการรองรับการสแกนจากหน้าจอ`. Do not copy a marketplace counter QR
+  or claim drop-off/pickup behavior unless the selected provider service
+  explicitly supplies that capability.
+- No manual carrier/tracking form for a provider-managed shipment.
+- Next status before the first carrier scan `นำพัสดุส่งภายใน [exact time]`;
+  after the scan, `ขนส่งรับพัสดุแล้ว`.
+- Plain-language payout condition. A presentation-only overlay may show
+  `ครบเงื่อนไขการจ่ายแล้ว` and
+  `ระบบเริ่มจ่ายเงินให้ผู้ขายผ่านพาร์ทเนอร์`; it must not claim payout
+  completion before provider confirmation.
 
 ### Animation behavior
 
@@ -103,67 +231,64 @@ Show:
 
 Primary elements:
 
-- `สร้างลิงก์ข้อตกลง` CTA.
 - Incoming buyer-created offers grouped separately from funded sales.
 - Active sales grouped by state.
 - Clear amount and next action.
 
 Suggested state cards:
 
-- `ข้อเสนอใหม่ · ตอบภายใน 24 ก.ค. 18:00`
-- `รอผู้ซื้อชำระ`
-- `ชำระแล้ว · ส่งภายใน 18 ก.ค. 18:00`
+- `ข้อเสนอใหม่ · รอการตอบรับ`
+- `รอผู้ซื้อจ่ายถึง 18:00`
+- `ผู้ซื้อไม่ได้จ่าย · รายการปิดแล้ว`
+- `จ่ายแล้ว · ส่งภายใน 18 ก.ค. 18:00`
 - `กำลังจัดส่ง`
+- `ขนส่งรับพัสดุทันเวลาแล้ว · กำลังตรวจปัญหาการนำส่ง`
 - `พัสดุถึงแล้ว · จ่ายเงินวันที่ 27 ก.ค. 14:18 หากไม่มีปัญหา`
-- `พักการจ่ายระหว่างตรวจสอบ`
+- `หยุดจ่ายเงินชั่วคราว`
 - `โอนเงินแล้ว`
-
-### Create agreement link
-
-The page must state that it records an agreement already made elsewhere and does not publish a marketplace listing. Keep the main form short:
-
-1. `รายการที่ตกลงซื้อขาย`.
-2. `รูปแบบการส่งมอบ` — physical shipment or supported digital handoff.
-3. `รายละเอียดข้อตกลง` — one combined field for included items/rights, condition, functionality, known defects/limitations, ownership-transfer details, and other material facts.
-4. `รูปประกอบข้อตกลง` — capture or upload directly; never require users to paste a raw image URL.
-5. Price, and shipping fee only for physical goods.
-6. Fulfillment duration.
-7. Saved payout account.
-8. Possession/control, right-to-transfer, prohibited-goods, and terms confirmations.
-
-Category and normalized condition are internal policy/snapshot fields. AI or source-link import may suggest them, but the seller must review all material text. Ask a focused follow-up only when policy classification cannot be completed safely. AI assistance is optional; uploading a photo must work without AI configuration.
-
-Digital copy must explicitly say:
-
-- No tracking or automatic time-based payout applies.
-- The seller's “ส่งมอบแล้ว” action does not release money.
-- The buyer must confirm receipt, otherwise payout remains blocked for authorized manual review.
-- Never ask either party to paste passwords, recovery codes, private keys, or reusable credentials into TOKLONG.
-
-Avoid marketplace language such as `ลงประกาศ`, `ลงสินค้า`, or copy that implies public product discovery. Prefer `สร้างลิงก์ข้อตกลง`, `รายการที่ตกลงซื้อขาย`, `รายละเอียดข้อตกลง`, and `รูปประกอบข้อตกลง`.
 
 ### Seller offer acceptance
 
-Before login, the unguessable link may show the non-sensitive proposed transaction summary. Before acceptance, require authentication and show:
+The unguessable invitation requires seller phone authentication. Show:
 
-- Proposed product and amount.
-- Expected seller net.
-- Exact offer-expiry date/time.
+- Proposed product and item price.
+- For physical goods, seller origin, parcel weight/dimensions, selected carrier
+  service, shipping charge, Buyer Protection fee, and buyer total.
+- Buyer Protection is shown as a separate buyer-paid line item. For
+  `buyer-protection-v2`, seller platform fee is zero and exact seller net is the
+  item price; buyer-paid shipping and protection fee are not seller proceeds.
 - Exact shipping/handoff expectation.
 - Payout trigger and dispute rule.
-- Required seller additions or confirmations.
+- A read-only offer record and required seller confirmations.
 
-Primary action: `ยอมรับข้อเสนอ`. Secondary action: `ปฏิเสธ`. If material details are revised, label them clearly for the buyer's later review.
+Show the buyer-specified material description, condition, item price, and any
+supplied managed product photo as read-only; the selected shipping charge and
+Buyer Protection fee and buyer total are also read-only. When no photo was supplied, use
+the normal item-type placeholder without implying an error. Show the
+system-fixed rule `ส่งภายใน 3 วันหลังยืนยันยอดชำระ`; neither party can edit it.
+Require an owned payout account, transfer-rights/prohibited-goods attestation,
+and seller terms. Primary action: `ยอมรับข้อเสนอ`. Secondary action:
+`ปฏิเสธ`. If anything is incorrect, instruct the seller to decline and ask the
+buyer to create a new offer.
+
+The origin selector mirrors the buyer's saved-address behavior but stores only
+one seller origin: use it by default, allow `เปลี่ยนต้นทาง`, and replace it only
+after explicit `จำต้นทางนี้ไว้`. Parcel measurements remain transaction
+specific and are not silently copied into a later offer.
+
+Digital copy must explicitly say there is no tracking or time-based automatic payout, seller assertion does not release money, and secrets must be sent only through the agreed external channel.
 
 ### Seller transaction detail
 
 Primary action depends on state:
 
-- Unpaid: `คัดลอกลิงก์`.
 - Buyer-created offer awaiting seller: `ยอมรับข้อเสนอ`.
 - Paid: `แจ้งส่งสินค้า`.
 - Digital paid: `แจ้งว่าส่งมอบแล้ว`.
 - Tracking issue: `แก้ไข Tracking`.
+- Provider-managed carrier exception after a timely trusted scan: `ดูสถานะ`;
+  explain that the seller handoff was confirmed, payout remains paused, and
+  Seller Protection does not itself promise payout completion.
 - Disputed: `ส่งหลักฐาน`.
 - Payout processing: no primary destructive action; show expected status.
 
@@ -171,19 +296,97 @@ Primary action depends on state:
 
 ### Create buyer offer
 
-The page must explain that this is a private proposal for a seller already known from another channel, not a public request or marketplace bid. Keep it short:
+An unauthenticated app launch first shows a welcome page with two unambiguous
+actions: `เข้าสู่ระบบ` and `สมัครสมาชิก`. It preserves the existing TOKLONG
+palette and branding and must not advertise social sign-in that is not
+implemented. Returning buyers enter only their registered phone number. First
+and last name plus the receipt/refund contact email are collected only on the
+separate first-time registration screen and are not requested or overwritten
+during later sign-in.
 
-1. `รายการที่ต้องการซื้อ`.
-2. Physical shipment or supported digital handoff.
-3. Proposed agreement description and any seller-provided photos already available.
-4. Price and physical shipping fee.
-5. Expected fulfillment duration.
-6. Buyer email for receipts and PromptPay refund instructions.
-7. Confirmation that the buyer will review the seller-confirmed final terms before payment.
+Both paths continue to a `รหัสยืนยัน 6 หลัก` screen. The six digits appear over
+six underlines but are backed by one numeric input so paste, deletion,
+accessibility, and iOS one-time-code AutoFill continue to work. OTP remains an
+internal technical term and is not used in normal consumer copy. After
+authentication, the create-offer page must explain that this is a private
+proposal for a seller already known from another channel, not a public request
+or marketplace bid. Keep it short:
+
+Phone fields accept only ASCII digits, stop at 10 digits, and display the value
+as `092-103-1202` while the user types. The separators are visual formatting and
+are removed before the API request. The number must begin with `06`, `08`, or
+`09`. Invalid input must be rejected before requesting a verification code, and
+the API must independently enforce the same rule.
+
+The verification screen provides `ขอรหัสใหม่`. A rejected one-time code must
+say that it may be incorrect, already used, or expired and direct the user to
+request another code instead of presenting expiration as the only cause.
+If the user requests another code during the resend cooldown, show the actual
+remaining wait in seconds. Do not describe a normal cooldown as a service
+outage.
+
+1. Compact item-type summary, defaulting to `สินค้าที่จับต้องได้`, with one
+   text action to switch to `สินค้าดิจิทัล`.
+2. Required `เบอร์โทรศัพท์ผู้ขาย`, using the shared Thai phone formatter and
+   server-side validation. Explain that only the account verified with this
+   number can open and respond to the offer.
+3. Required `ชื่อสินค้า` and `ราคาสินค้า`, excluding the shipping charge that
+   the seller will quote before acceptance. Offer one compact
+   `รูปสินค้า (ไม่บังคับ)` action and recommend it for used or
+   condition-sensitive goods.
+4. Optional `รายละเอียดหรือสิ่งที่รวม` disclosure. Do not offer
+   `ตามรายละเอียดที่ตกลง`.
+5. Required complete delivery address for physical fulfillment. When a saved
+   address exists, show its compact summary and one `เปลี่ยน` action.
+6. Primary action `ตรวจข้อมูลก่อนส่ง`. Its bottom sheet contains the exact
+   summary, explicit condition, conditional defect text, and final
+   `ส่งข้อเสนอให้ผู้ขาย`.
+7. Read-only notice that fulfillment is due within 3 days after
+   provider-confirmed payment. Do not render a duration input.
+8. Read-only buyer first/last name, phone, and account email from the
+   authenticated account; no email field during offer creation.
+9. Confirmation that the buyer-specified terms are complete and will be
+   reviewed again before payment.
 
 Success copy:
 
-> สร้างข้อเสนอแล้ว ส่งลิงก์นี้ให้ผู้ขายยืนยัน เมื่อผู้ขายยอมรับ เราจะแจ้งให้คุณตรวจรายละเอียดและชำระ
+> ส่งข้อเสนอให้ผู้ขายแล้ว ระบบจะแจ้งบัญชีที่ยืนยันด้วยเบอร์นี้ เมื่อผู้ขายยอมรับ เราจะแจ้งให้คุณตรวจรายละเอียดและชำระ
+
+The in-app and push notification for the initial invitation uses:
+
+- Title: `ได้รับข้อเสนอซื้อ`
+- Body: `[ชื่อสินค้า] · ฿[ราคาสินค้า]` before a shipping quote exists
+- Tap destination: the intended seller offer.
+
+Never put full addresses, phone numbers, payout details, or other sensitive
+transaction evidence in an OS notification.
+
+The wait page shows `ผู้ขายตอบได้ถึง [exact date/time]` and
+`ยังไม่มีการเก็บเงิน`. It may show an optional invitation URL with
+`คัดลอกลิงก์` and `แชร์ให้ผู้ขาย`, while stating that the system already
+notified the phone-targeted seller. The URL is only a delivery channel;
+authorization still comes from the verified seller phone. The transaction-list
+root does not expose a generic clipboard-open action.
+After seller acceptance, buyer copy says
+`จ่ายภายใน [exact date/time] ไม่เช่นนั้นรายการจะปิด`.
+
+### Transaction list modes
+
+The root `รายการ` screen uses one top-level `ซื้อ | ขาย` switch and does not
+mix both roles in an `ทั้งหมด` view. It remembers the last selected mode.
+Notification/deep-link navigation still opens the exact transaction directly.
+The content starts directly with `รายการของคุณ`; do not place a redundant
+TOKLONG brand badge above the title.
+
+- `ซื้อ`: buyer-only spotlight/list, `+ สร้างดีลซื้อ`, and buyer status
+  filters.
+- `ขาย`: seller-only spotlight/list with `ต้องตอบ`, `ต้องส่ง`, `รอรับเงิน`,
+  and `เสร็จแล้ว` filters. It has no create or clipboard-link action.
+- Blue and purple communicate the role, but visible `ซื้อ` and `ขาย` labels
+  remain required.
+- Within every buyer or seller filter, order transactions by creation time from
+  newest to oldest. Status bucket and action deadline must not move an older
+  transaction above a newer one.
 
 ### Public transaction page
 
@@ -198,16 +401,48 @@ Must show before payment:
 - Release and dispute rule.
 - Prohibited-item/report link.
 
+### Physical address at offer creation
+
+- A physical offer requires province, district, and sub-district before it can
+  be sent to the seller. The seller review shows the resolved destination
+  province and postal code before `ยอมรับข้อเสนอ`; it never shows the full
+  street address at this stage.
+- Delivery address is shown only for physical agreements and separates address line, province, district, and sub-district.
+- Province, district, sub-district, and postal-code options come from the versioned dataset bundled with the server application and loaded once at startup; do not make the buyer's browser download the nationwide dataset.
+- The buyer may check `จำที่อยู่นี้ไว้`. A buyer profile has at most one saved address; a later save replaces it.
+- When a saved address exists, select `ใช้ที่อยู่ที่บันทึกไว้` by default and allow the buyer to switch to an editor.
+- The full address is locked when the offer is created. Changing it requires a
+  new offer.
+
 ### Checkout
 
-- Delivery address.
-- Delivery address is shown only for physical agreements.
+- For a physical agreement, show the complete locked address for review with
+  clear copy that it cannot be changed in checkout.
+- Show separate rows for `ราคาสินค้า`, `ค่าจัดส่ง`, and `ยอดชำระทั้งหมด`, plus
+  the selected carrier service. The payment intent amount equals the displayed
+  total.
+- Do not show an address editor, saved-address selector, or
+  `จำที่อยู่นี้ไว้` control in checkout.
+- The seller may see the complete address only after provider-confirmed payment
+  unlocks fulfillment. Before that, seller surfaces show province and postal
+  code only.
 - Contact verification.
 - Terms acceptance.
 - Approved provider checkout.
 - No hidden fee added after the final review screen.
 - For buyer-created offers, checkout is unavailable until the seller has accepted the final terms.
-- PromptPay checkout requires an email that Stripe can use for refund instructions.
+- The final buyer action is `ยอมรับข้อตกลงและไปชำระเงิน`. It records electronic
+  acceptance of the same agreement-core hash already accepted by the seller;
+  do not label it as a certificate-backed digital signature.
+- PromptPay checkout uses the email already saved on the authenticated buyer
+  profile for receipts and refund instructions.
+- Checkout has no editable email field. Existing pre-migration accounts without
+  an email must add one from the account screen before payment.
+- Evidence remains retained and available through the authenticated export
+  capability, but it is not rendered as a card in the normal transaction
+  screen. A future dedicated export/support surface may expose the download;
+  the everyday screen never renders a raw hash or describes schemas,
+  signatures, or internal verification.
 
 ### Buyer order detail
 
@@ -215,44 +450,76 @@ Primary action depends on state:
 
 - Paid before shipping: no action; show deadline.
 - In transit: `ติดตามพัสดุ`.
-- Delivered window: `ได้รับสินค้าแล้ว` plus visible `แจ้งปัญหา`.
+- Delivered window: `ตรวจแล้ว ทุกอย่างเรียบร้อย` plus visible `แจ้งปัญหา`.
 - Disputed: `เพิ่มหลักฐาน`.
 - Refunded/closed: download summary.
 
+Before accepting `ตรวจแล้ว ทุกอย่างเรียบร้อย`, show:
+
+> คุณตรวจสินค้าแล้วและไม่พบปัญหา เมื่อยืนยัน ระบบจะเริ่มขั้นตอนจ่ายเงินให้ผู้ขาย
+
+Confirmation action: `ยืนยันและเริ่มจ่ายให้ผู้ขาย`. Secondary action:
+`กลับไปตรวจสินค้า`. Do not use a bare `ได้รับสินค้าแล้ว` as the release action,
+because receipt alone does not clearly mean the buyer has inspected and
+accepted the item.
+
 ## Transaction details / terms
 
-Do not create a separate “contract workflow.” Use a compact section called:
-
-- `รายละเอียดรายการ`
-- `ข้อตกลงของรายการ`
-- `ประวัติและหลักฐาน`
+Do not create a separate “contract workflow.” Seller detail keeps one
+single-line `รายละเอียดสินค้า` accordion collapsed until requested, while
+status, amount, deadline, and the current action remain visible. Its title row
+must stay the same visual height as its icon; do not add helper copy below the
+title.
 
 Show:
 
-- Product snapshot.
-- Price and shipping.
-- Buyer and seller identifiers appropriate to privacy policy.
-- Terms version.
-- Acceptance timestamps.
-- Payment reference.
-- Carrier and tracking.
-- Delivery timestamp.
-- Dispute deadline.
-- Payout/refund status.
+- Optional description only when it adds information beyond the product name.
+- Condition in consumer Thai.
+- Defect text only when the item was declared as having a defect.
+- Seller fee and expected net.
+- Consumer fulfillment method and the applicable delivery destination.
+
+Never render raw hashes, schema versions, webhook/provider state, internal
+identifiers, terms-version codes, acceptance audit rows, or certificate
+terminology in the normal consumer view. Preserve those values server-side for
+an authenticated evidence export when required.
 
 ## Notification copy
 
 ### Buyer offer received — seller
 
-> คุณได้รับข้อเสนอซื้อ ฿10,100 ตรวจรายละเอียดและตอบรับภายใน 24 ก.ค. เวลา 18:00 น. ผู้ซื้อจะชำระหลังคุณยอมรับ
+Title:
+
+> ได้รับข้อเสนอซื้อ
+
+Body:
+
+> กล้อง Fujifilm X-T30 II · ฿10,100
+
+The in-app detail may explain that the buyer pays only after seller acceptance;
+keep the lock-screen notification compact and free of sensitive data.
 
 ### Seller accepted — buyer
 
-> ผู้ขายยืนยันข้อเสนอแล้ว กรุณาตรวจรายละเอียดสุดท้ายและชำระภายใน 24 ก.ค. เวลา 18:30 น.
+> ผู้ขายยืนยันข้อเสนอแล้ว กรุณาตรวจรายละเอียดและจ่ายภายใน [exact date/time]
+
+### Seller response expired — buyer
+
+> ผู้ขายไม่ได้ตอบภายในเวลาที่กำหนด ไม่มีการเก็บเงินจากรายการนี้
+
+### Buyer payment expired — both
+
+Buyer:
+
+> หมดเวลาชำระ หากยังต้องการซื้อ ให้ส่งข้อเสนอใหม่
+
+Seller:
+
+> ผู้ซื้อไม่ได้จ่ายภายในเวลา คุณไม่ต้องจองหรือส่งสินค้าให้รายการนี้
 
 ### Payment confirmed — seller
 
-> ผู้ซื้อชำระแล้ว ส่งสินค้าได้ภายใน 18 ก.ค. เวลา 18:00 น. เพิ่มหมายเลขติดตามหลังจัดส่ง
+> ผู้ซื้อชำระแล้ว เปิดใบปะหน้าและส่งพัสดุภายใน 18 ก.ค. เวลา 18:00 น.
 
 ### Tracking added — buyer
 
@@ -260,11 +527,11 @@ Show:
 
 ### Delivered — buyer
 
-> ขนส่งแจ้งว่านำส่งสินค้าแล้ว กรุณาตรวจสินค้าและแจ้งปัญหาภายใน 27 ก.ค. เวลา 14:18 น.
+> ขนส่งแจ้งว่านำส่งสินค้าแล้ว กรุณาตรวจสินค้าและแจ้งปัญหาภายใน 23 ก.ค. เวลา 14:18 น.
 
 ### 24 hours before payout — buyer
 
-> รายการนี้จะเข้าสู่การจ่ายเงินให้ผู้ขายในวันที่ 27 ก.ค. เวลา 14:18 น. หากสินค้ามีปัญหา กรุณาแจ้งก่อนเวลานี้
+> รายการนี้จะเข้าสู่การจ่ายเงินให้ผู้ขายในวันที่ 23 ก.ค. เวลา 14:18 น. หากสินค้ามีปัญหา กรุณาแจ้งก่อนเวลานี้
 
 ### Dispute opened — both
 
@@ -278,11 +545,11 @@ Show:
 
 Use:
 
-- `ชำระผ่านพาร์ทเนอร์`
-- `เงินรอการจ่ายตามเงื่อนไข`
-- `ขนส่งยืนยันการนำส่ง`
-- `พักการจ่ายระหว่างตรวจสอบ`
-- `ผู้ซื้อพร้อมชำระเมื่อคุณยอมรับ`
+- `จ่ายผ่านพาร์ทเนอร์`
+- `เงินจะจ่ายเมื่อครบเงื่อนไข`
+- `บริษัทขนส่งยืนยันว่าส่งถึงแล้ว`
+- `หยุดจ่ายเงินชั่วคราว`
+- `เมื่อคุณตกลง ผู้ซื้อจะจ่ายเงินได้`
 
 Avoid until legally and operationally approved:
 

@@ -3,6 +3,9 @@ namespace Toklong.Domain.Transactions;
 public enum TransactionState
 {
     SellerDraft,
+    BuyerOfferDraft,
+    AwaitingSellerAcceptance,
+    SellerAcceptedAwaitingPayment,
     LinkActive,
     CheckoutStarted,
     PaymentPending,
@@ -26,6 +29,12 @@ public enum TransactionState
     Cancelled
 }
 
+public enum TransactionExpirationReason
+{
+    SellerDidNotRespond,
+    BuyerDidNotPay
+}
+
 public enum FulfillmentType
 {
     PhysicalShipment,
@@ -40,6 +49,12 @@ public enum ActorRole
     CarrierProvider,
     System,
     Reconciliation
+}
+
+public enum InitiatorRole
+{
+    Seller,
+    Buyer
 }
 
 public enum ConditionCode
@@ -59,4 +74,20 @@ public enum DisputeReason
     SuspectedCounterfeit,
     EmptyOrTamperedParcel,
     Other
+}
+
+public enum TrackingVerificationStatus
+{
+    Submitted,
+    VerifiedInTransit,
+    Unverified,
+    Delivered
+}
+
+public enum PayoutReleaseReason
+{
+    BuyerConfirmedAfterInspection,
+    PhysicalInspectionWindowElapsed,
+    DigitalManualReview,
+    DisputeResolvedForSeller
 }

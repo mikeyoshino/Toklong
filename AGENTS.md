@@ -23,14 +23,14 @@ Read these files in order:
 
 1. MVP supports one physical shippable item/bundle or one allow-listed transferable digital item/right. The seller must already possess or control it and have the right to transfer it.
 2. Do not add marketplace discovery, bidding, storefronts, in-app chat, services, milestones, wallets, crypto, stored-value instruments, subscriptions, split fulfillment, or multi-currency.
-3. A paid transaction contains an immutable snapshot of product details, photos, condition, amount, shipping charge, deadline, and terms version.
+3. A paid transaction contains an immutable snapshot of product details, any supplied photos, condition, amount, shipping charge, deadline, and terms version. A product photo is optional; when supplied, it becomes part of the immutable snapshot.
 4. Any material change after payment requires cancellation/refund handling and a new link. Never mutate the paid snapshot.
 5. Monetary values are integer satang plus an ISO currency code. Never use floating-point arithmetic for money.
 6. Never mark payment, refund, or payout success from a client request, redirect, slip, screenshot, or database assumption. Require a verified payment-provider webhook or authorized reconciliation job.
 7. The seller sees the applicable fulfillment action only after provider-confirmed payment.
 8. Physical shipment requires carrier and tracking number. Tracking events must be idempotently ingested and retained.
-9. The dispute deadline is `carrier_confirmed_delivered_at + 168 hours` for the current MVP default.
-10. Do not start the seven-day clock from payment time, shipment creation, seller-entered status, or an unverified tracking event.
+9. The physical inspection and payout-hold deadline is `carrier_confirmed_delivered_at + 72 hours` for the current MVP default.
+10. Do not start the 72-hour clock from payment time, shipment creation, an in-transit status, seller-entered status, or an unverified tracking event.
 11. If delivery cannot be verified, automatic payout is blocked. Require buyer confirmation or authorized manual review.
 11.1. Digital fulfillment never uses a seller-entered delivery claim or elapsed time as automatic payout evidence. It requires explicit buyer confirmation or authorized manual review.
 11.2. Never store account passwords, recovery codes, private keys, wallet secrets, or reusable digital credentials as normal transaction fields or logs.
@@ -48,7 +48,7 @@ Read these files in order:
 
 - Mobile first, one primary action per state.
 - Seller actions: create link, fulfill (ship/add tracking or mark digital handoff), view payout.
-- Buyer actions: review/pay, track or review digital handoff, confirm receipt or report a problem.
+- Buyer actions: review/pay, track or review digital handoff, confirm after inspection or report a problem.
 - Do not add a separate contract drafting/signing step.
 - Keep advanced transaction records under “รายละเอียดรายการ.”
 - Always show an exact date and time for ship-by and dispute deadlines.

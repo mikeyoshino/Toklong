@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Toklong.Mobile.Pages.PayoutSettingsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
+    Title="บัญชีรับเงิน"
+    SafeAreaEdges="Container"
+    Shell.TabBarIsVisible="False">
+    <ScrollView SafeAreaEdges="SoftInput">
+        <VerticalStackLayout Style="{StaticResource RefinedScreenContent}">
+            <VerticalStackLayout Spacing="6">
+                <Label
+                    Style="{StaticResource PageTitle}"
+                    Text="บัญชีรับเงิน" />
+                <Label
+                    Style="{StaticResource RefinedBodyText}"
+                    Text="ใช้บัญชีนี้รับเงินจากรายการขายของคุณ"
+                    TextColor="{StaticResource InkSoft}" />
+            </VerticalStackLayout>
+
+            <Border Style="{StaticResource RefinedFormCard}">
+                <VerticalStackLayout Spacing="{StaticResource SpacingMd}">
+                    <VerticalStackLayout
+                        Style="{StaticResource RefinedFormSection}">
+                        <controls:FormLabelView
+                            IsRequired="True"
+                            Text="ธนาคาร" />
+                        <Border Style="{StaticResource RefinedInputBorder}">
+                            <Picker
+                                Style="{StaticResource RefinedPicker}"
+                                ItemsSource="{Binding Banks}"
+                                SelectedItem="{Binding SelectedBank}"
+                                Title="เลือกธนาคาร" />
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout
+                        Style="{StaticResource RefinedFormSection}">
+                        <controls:FormLabelView
+                            IsRequired="True"
+                            Text="ชื่อบัญชี" />
+                        <Border Style="{StaticResource RefinedInputBorder}">
+                            <Entry
+                                Style="{StaticResource RefinedEntry}"
+                                Placeholder="ชื่อตามบัญชีธนาคาร"
+                                Text="{Binding AccountName}" />
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout
+                        Style="{StaticResource RefinedFormSection}">
+                        <controls:FormLabelView
+                            IsRequired="True"
+                            Text="เลขบัญชี" />
+                        <Label
+                            IsVisible="{Binding HasExistingAccount}"
+                            Style="{StaticResource RefinedHelperText}"
+                            Text="{Binding CurrentMaskedNumber}" />
+                        <Border Style="{StaticResource RefinedInputBorder}">
+                            <Entry
+                                Style="{StaticResource RefinedEntry}"
+                                Keyboard="Numeric"
+                                MaxLength="15"
+                                Placeholder="ตัวเลข 10–15 หลัก"
+                                Text="{Binding AccountNumber}" />
+                        </Border>
+                        <Label
+                            IsVisible="{Binding HasExistingAccount}"
+                            Style="{StaticResource RefinedHelperText}"
+                            Text="ไม่ต้องกรอกเลขใหม่ หากต้องการใช้เลขเดิม" />
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <Button
+                Style="{StaticResource RefinedPrimaryButton}"
+                Command="{Binding SaveCommand}"
+                Text="บันทึกบัญชีรับเงิน" />
+
+            <Border
+                IsVisible="{Binding HasMessage}"
+                Style="{StaticResource RefinedValidationBorder}">
+                <Label
+                    Style="{StaticResource RefinedValidationText}"
+                    Text="{Binding Message}" />
+            </Border>
+            <ActivityIndicator
+                HorizontalOptions="Center"
+                IsRunning="{Binding IsBusy}"
+                IsVisible="{Binding IsBusy}"
+                Color="{StaticResource BrandBlue}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

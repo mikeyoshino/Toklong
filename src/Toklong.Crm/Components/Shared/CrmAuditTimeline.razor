@@ -1,0 +1,76 @@
+<section class="panel audit-panel"
+         aria-labelledby="audit-history-title">
+    <div class="panel-heading-row">
+        <div>
+            <p class="eyebrow">รายการล่าสุดอยู่ด้านบน</p>
+            <h2 id="audit-history-title">ประวัติการดำเนินการ</h2>
+        </div>
+        <span class="history-count">@Items.Count รายการ</span>
+    </div>
+    <p class="section-intro">
+        แสดงเหตุการณ์สำคัญตั้งแต่เริ่มข้อตกลงจนถึงสถานะปัจจุบัน
+    </p>
+
+    @if (Items.Count == 0)
+    {
+        <p class="audit-empty">ยังไม่มีประวัติสำหรับรายการนี้</p>
+    }
+    else
+    {
+        <ol class="audit-timeline">
+            @foreach (var audit in Items)
+            {
+                var display = CrmAuditPresentation.For(audit);
+                <li class="@($"audit-item audit-{display.Tone}")">
+                    <span class="audit-marker" aria-hidden="true"></span>
+                    <article>
+                        <header>
+                            <h3>@display.Title</h3>
+                            <time datetime="@audit.CreatedAt.ToString("O")">
+                                @Bangkok(audit.CreatedAt)
+                            </time>
+                        </header>
+                        <p>@display.Description</p>
+                        <div class="audit-summary">
+                            <span class="audit-actor">
+                                โดย @display.ActorLabel
+                            </span>
+                            @if (audit.FromState != audit.ToState)
+                            {
+                                <span class="audit-transition">
+                                    <span>@display.FromStateLabel</span>
+                                    <b aria-hidden="true">→</b>
+                                    <span>@display.ToStateLabel</span>
+                                </span>
+                            }
+                        </div>
+                        <details class="audit-technical">
+                            <summary>ดูรหัสอ้างอิงสำหรับทีมเทคนิค</summary>
+                            <dl>
+                                <dt>รหัสเหตุการณ์</dt>
+                                <dd>@audit.Name</dd>
+                                <dt>รหัสอ้างอิงผู้ดำเนินการ</dt>
+                                <dd>@audit.ActorReference</dd>
+                                <dt>รหัสอ้างอิงคำขอ</dt>
+                                <dd>@audit.CorrelationId</dd>
+                                <dt>รหัสป้องกันรายการซ้ำ</dt>
+                                <dd>@audit.IdempotencyKey</dd>
+                            </dl>
+                        </details>
+                    </article>
+                </li>
+            }
+        </ol>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<CrmCoreAuditView> Items { get; set; } = [];
+
+    private static string Bangkok(DateTimeOffset value) =>
+        TimeZoneInfo.ConvertTime(
+            value,
+            TimeZoneInfo.FindSystemTimeZoneById("Asia/Bangkok"))
+            .ToString("dd/MM/yyyy HH:mm");
+}

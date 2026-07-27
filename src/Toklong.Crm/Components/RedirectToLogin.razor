@@ -1,0 +1,19 @@
+@inject NavigationManager Navigation
+
+<p role="status">กำลังตรวจสอบสิทธิ์…</p>
+
+@code {
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+        var relative = Navigation.ToBaseRelativePath(
+            Navigation.Uri);
+        var returnUrl = string.IsNullOrWhiteSpace(relative)
+            ? "/"
+            : $"/{relative}";
+        Navigation.NavigateTo(
+            $"/auth/login?returnUrl={Uri.EscapeDataString(returnUrl)}",
+            forceLoad: true);
+    }
+}

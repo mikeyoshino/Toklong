@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Toklong.Mobile.Pages.AccountPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    SafeAreaEdges="Container"
+    Shell.NavBarIsVisible="False">
+    <ContentPage.Background>
+        <RadialGradientBrush Center="0.88,0.02" Radius="0.95">
+            <GradientStop Color="#DCEFFF" Offset="0" />
+            <GradientStop Color="#F6FAFF" Offset="0.34" />
+            <GradientStop Color="#FFFFFF" Offset="0.84" />
+        </RadialGradientBrush>
+    </ContentPage.Background>
+
+    <ScrollView>
+        <VerticalStackLayout
+            Style="{StaticResource RefinedScreenContent}">
+            <Border
+                HorizontalOptions="Start"
+                Padding="11,6"
+                BackgroundColor="#DFFFFFFF"
+                Stroke="#292B7FFF"
+                StrokeShape="RoundRectangle 99">
+                <HorizontalStackLayout Spacing="8">
+                    <BoxView
+                        WidthRequest="7"
+                        HeightRequest="7"
+                        VerticalOptions="Center"
+                        Color="{StaticResource BrandBlue}"
+                        CornerRadius="4" />
+                    <Label Style="{StaticResource Eyebrow}" Text="ข้อมูลของคุณ" />
+                </HorizontalStackLayout>
+            </Border>
+
+            <Label Style="{StaticResource PageTitle}" Text="บัญชี" />
+
+            <Border
+                Padding="18"
+                StrokeThickness="0"
+                StrokeShape="RoundRectangle 24">
+                <Border.Shadow>
+                    <Shadow
+                        Brush="#2B7FFF"
+                        Offset="0,10"
+                        Opacity="0.16"
+                        Radius="24" />
+                </Border.Shadow>
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#3C8AF1" Offset="0" />
+                        <GradientStop Color="#236DCE" Offset="0.64" />
+                        <GradientStop Color="#185CB9" Offset="1" />
+                    </LinearGradientBrush>
+                </Border.Background>
+                <Grid ColumnDefinitions="58,*" ColumnSpacing="14">
+                    <Border
+                        WidthRequest="58"
+                        HeightRequest="58"
+                        BackgroundColor="#F2FFFFFF"
+                        Stroke="#30FFFFFF"
+                        StrokeShape="RoundRectangle 18">
+                        <Label
+                            HorizontalOptions="Center"
+                            VerticalOptions="Center"
+                            FontAttributes="Bold"
+                            FontSize="20"
+                            Text="{Binding Initials}"
+                            TextColor="{StaticResource BrandBlueDeep}" />
+                    </Border>
+                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="5">
+                        <Label
+                            FontAttributes="Bold"
+                            FontSize="19"
+                            Text="{Binding DisplayName}"
+                            TextColor="White" />
+                        <Border
+                            HorizontalOptions="Start"
+                            Padding="9,4"
+                            BackgroundColor="#24FFFFFF"
+                            Stroke="#30FFFFFF"
+                            StrokeShape="RoundRectangle 99">
+                            <Label
+                                FontSize="12"
+                                Text="เบอร์โทรศัพท์ยืนยันแล้ว"
+                                TextColor="#E9F4FF" />
+                        </Border>
+                    </VerticalStackLayout>
+                </Grid>
+            </Border>
+
+            <VerticalStackLayout
+                IsVisible="{Binding CanBuy}"
+                Spacing="10">
+                <Label
+                    Style="{StaticResource SectionTitle}"
+                    Text="อีเมลสำหรับการชำระเงิน" />
+                <Border Style="{StaticResource SurfaceCard}" Padding="17">
+                    <VerticalStackLayout Spacing="10">
+                        <Label
+                            Style="{StaticResource RefinedHelperText}"
+                            Text="ใช้รับใบเสร็จและขั้นตอนคืนเงิน โดยไม่ต้องกรอกซ้ำตอนจ่าย" />
+                        <Border Style="{StaticResource RefinedInputBorder}">
+                            <Entry
+                                Style="{StaticResource RefinedEntry}"
+                                Keyboard="Email"
+                                MaxLength="254"
+                                Placeholder="name@example.com"
+                                SemanticProperties.Description="อีเมลสำหรับการชำระเงินและคืนเงิน"
+                                Text="{Binding Email}" />
+                        </Border>
+                        <Button
+                            Style="{StaticResource RefinedSecondaryActionButton}"
+                            Command="{Binding SaveEmailCommand}"
+                            Text="บันทึกอีเมล" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+
+            <Grid Margin="0,4,0,0" ColumnDefinitions="*,Auto">
+                <Grid.GestureRecognizers>
+                    <TapGestureRecognizer
+                        Command="{Binding OpenPayoutSettingsCommand}" />
+                </Grid.GestureRecognizers>
+                <Label Style="{StaticResource SectionTitle}" Text="การรับเงิน" />
+                <Label
+                    Grid.Column="1"
+                    VerticalOptions="Center"
+                    FontAttributes="Bold"
+                    FontSize="13"
+                    Text="แก้ไข"
+                    TextColor="{StaticResource BrandBlue}" />
+            </Grid>
+            <Border Style="{StaticResource SurfaceCard}" Padding="17">
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer
+                        Command="{Binding OpenPayoutSettingsCommand}" />
+                </Border.GestureRecognizers>
+                <Grid ColumnDefinitions="44,*,Auto" ColumnSpacing="13">
+                    <Border
+                        WidthRequest="44"
+                        HeightRequest="44"
+                        VerticalOptions="Start"
+                        BackgroundColor="#EAF4FF"
+                        StrokeThickness="0"
+                        StrokeShape="RoundRectangle 14">
+                        <Image Margin="9" Source="ui_bank.png" />
+                    </Border>
+                    <VerticalStackLayout Grid.Column="1" Spacing="4">
+                        <Label FontAttributes="Bold" Text="บัญชีรับเงิน" />
+                        <Label Style="{StaticResource MutedText}" Text="{Binding PayoutText}" />
+                        <HorizontalStackLayout Spacing="7">
+                            <BoxView
+                                WidthRequest="7"
+                                HeightRequest="7"
+                                VerticalOptions="Center"
+                                Color="{StaticResource Success}"
+                                CornerRadius="4" />
+                            <Label
+                                FontSize="12"
+                                Text="{Binding PayoutNote}"
+                                TextColor="{StaticResource Success}" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                    <Border
+                        Grid.Column="2"
+                        VerticalOptions="Center"
+                        Padding="9,5"
+                        BackgroundColor="{StaticResource SuccessSoft}"
+                        StrokeThickness="0"
+                        StrokeShape="RoundRectangle 99">
+                        <Label
+                            FontAttributes="Bold"
+                            FontSize="12"
+                            Text="{Binding PayoutStatus}"
+                            TextColor="{StaticResource Success}" />
+                    </Border>
+                </Grid>
+            </Border>
+
+            <Grid Margin="0,4,0,0" ColumnDefinitions="*,Auto">
+                <Label Style="{StaticResource SectionTitle}" Text="ที่อยู่จัดส่ง" />
+                <Label
+                    Grid.Column="1"
+                    VerticalOptions="Center"
+                    FontAttributes="Bold"
+                    FontSize="13"
+                    Text="แก้ไข"
+                    TextColor="{StaticResource BrandBlue}" />
+            </Grid>
+            <Border Style="{StaticResource SurfaceCard}" Padding="17">
+                <Grid ColumnDefinitions="44,*" ColumnSpacing="13">
+                    <Border
+                        WidthRequest="44"
+                        HeightRequest="44"
+                        VerticalOptions="Start"
+                        BackgroundColor="#F1ECFF"
+                        StrokeThickness="0"
+                        StrokeShape="RoundRectangle 14">
+                        <Image Margin="9" Source="ui_location.png" />
+                    </Border>
+                    <VerticalStackLayout Grid.Column="1" Spacing="6">
+                        <Label FontAttributes="Bold" Text="ที่อยู่ที่บันทึกไว้" />
+                        <Label
+                            FontSize="14"
+                            LineHeight="1.4"
+                            Text="{Binding AddressText}"
+                            TextColor="{StaticResource InkSoft}" />
+                        <Label
+                            FontSize="12"
+                            Text="1 ที่อยู่ · เปลี่ยนได้ตลอด"
+                            TextColor="{StaticResource Muted}" />
+                    </VerticalStackLayout>
+                </Grid>
+            </Border>
+
+            <Label
+                Margin="0,4,0,0"
+                Style="{StaticResource SectionTitle}"
+                Text="ช่วยเหลือและความปลอดภัย" />
+            <Border Style="{StaticResource SurfaceCard}" Padding="0">
+                <VerticalStackLayout Spacing="0">
+                    <Grid Padding="17" ColumnDefinitions="32,*,Auto" ColumnSpacing="11">
+                        <Image Source="ui_help.png" />
+                        <Label Grid.Column="1" VerticalOptions="Center" FontAttributes="Bold" Text="ศูนย์ช่วยเหลือ" />
+                        <Label Grid.Column="2" VerticalOptions="Center" FontSize="22" Text="›" TextColor="#98A2B3" />
+                    </Grid>
+                    <BoxView Margin="17,0" HeightRequest="1" Color="{StaticResource Line}" />
+                    <Grid Padding="17" ColumnDefinitions="32,*,Auto" ColumnSpacing="11">
+                        <Image Source="ui_shield.png" />
+                        <Label Grid.Column="1" VerticalOptions="Center" FontAttributes="Bold" Text="ความเป็นส่วนตัวและเงื่อนไข" />
+                        <Label Grid.Column="2" VerticalOptions="Center" FontSize="22" Text="›" TextColor="#98A2B3" />
+                    </Grid>
+                    <BoxView Margin="17,0" HeightRequest="1" Color="{StaticResource Line}" />
+                    <Grid Padding="17" ColumnDefinitions="*,Auto">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding SignOutCommand}" />
+                        </Grid.GestureRecognizers>
+                        <Label FontAttributes="Bold" Text="ออกจากระบบ" TextColor="{StaticResource Danger}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border
+                IsVisible="{Binding HasMessage}"
+                Padding="14"
+                BackgroundColor="#FFF4DC"
+                Stroke="#F3D69A"
+                StrokeShape="RoundRectangle 14">
+                <Label Text="{Binding Message}" TextColor="#8A5100" />
+            </Border>
+
+            <Label
+                HorizontalTextAlignment="Center"
+                Style="{StaticResource MutedText}"
+                Text="TOKLONG Mobile 0.1.0" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

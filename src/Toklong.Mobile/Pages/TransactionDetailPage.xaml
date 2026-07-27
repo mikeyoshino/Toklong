@@ -1,0 +1,963 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Toklong.Mobile.Pages.TransactionDetailPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
+    Title="{Binding DetailHeadline}"
+    SafeAreaEdges="Container"
+    Shell.NavBarIsVisible="True"
+    Shell.TabBarIsVisible="False">
+    <ContentPage.Background>
+        <RadialGradientBrush Center="0.9,0.02" Radius="0.98">
+            <GradientStop
+                Color="{Binding Transaction.RolePageTint, FallbackValue=#DCEFFF, TargetNullValue=#DCEFFF}"
+                Offset="0" />
+            <GradientStop
+                Color="{Binding Transaction.RolePageMiddle, FallbackValue=#F6FAFF, TargetNullValue=#F6FAFF}"
+                Offset="0.34" />
+            <GradientStop Color="#FFFFFF" Offset="0.84" />
+        </RadialGradientBrush>
+    </ContentPage.Background>
+
+    <ScrollView SafeAreaEdges="SoftInput">
+        <VerticalStackLayout
+            MaximumWidthRequest="720"
+            HorizontalOptions="Fill"
+            Padding="{StaticResource RefinedScreenPadding}"
+            Spacing="{StaticResource SpacingLg}">
+            <Border
+                Padding="18"
+                StrokeThickness="0"
+                StrokeShape="RoundRectangle 24">
+                <Border.Shadow>
+                    <Shadow
+                        Brush="{Binding Transaction.RoleColor}"
+                        Offset="0,10"
+                        Opacity="0.18"
+                        Radius="24" />
+                </Border.Shadow>
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop
+                            Color="{Binding Transaction.RoleHeaderStart, FallbackValue=#3C8AF1, TargetNullValue=#3C8AF1}"
+                            Offset="0" />
+                        <GradientStop
+                            Color="{Binding Transaction.RoleHeaderMiddle, FallbackValue=#236DCE, TargetNullValue=#236DCE}"
+                            Offset="0.64" />
+                        <GradientStop
+                            Color="{Binding Transaction.RoleHeaderEnd, FallbackValue=#185CB9, TargetNullValue=#185CB9}"
+                            Offset="1" />
+                    </LinearGradientBrush>
+                </Border.Background>
+                <VerticalStackLayout Spacing="12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <HorizontalStackLayout Spacing="8">
+                            <BoxView
+                                WidthRequest="7"
+                                HeightRequest="7"
+                                VerticalOptions="Center"
+                                Color="{Binding Transaction.RoleDot}"
+                                CornerRadius="4" />
+                            <Label
+                                FontAttributes="Bold"
+                                FontSize="12"
+                                Text="{Binding Transaction.RoleLabel}"
+                                TextColor="#DFFFFFFF" />
+                        </HorizontalStackLayout>
+                        <Border
+                            Grid.Column="1"
+                            Padding="9,5"
+                            BackgroundColor="#24FFFFFF"
+                            Stroke="#30FFFFFF"
+                            StrokeShape="RoundRectangle 99">
+                            <Label
+                                FontAttributes="Bold"
+                                FontSize="12"
+                                Text="{Binding Transaction.StatusLabel}"
+                                TextColor="White" />
+                        </Border>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="56,*" ColumnSpacing="12">
+                        <Border
+                            WidthRequest="56"
+                            HeightRequest="56"
+                            BackgroundColor="#E8FFFFFF"
+                            Stroke="#30FFFFFF"
+                            StrokeShape="RoundRectangle 17">
+                            <Image
+                                Margin="8"
+                                Source="{Binding Transaction.ProductVisual}" />
+                        </Border>
+                        <Label
+                            Grid.Column="1"
+                            VerticalOptions="Center"
+                            FontAttributes="Bold"
+                            FontSize="21"
+                            LineBreakMode="TailTruncation"
+                            MaxLines="2"
+                            Text="{Binding Transaction.ProductName}"
+                            TextColor="White" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,Auto">
+                        <VerticalStackLayout Spacing="2">
+                            <Label
+                                FontSize="12"
+                                Text="ยอดรวม"
+                                TextColor="{Binding Transaction.RoleHeaderSecondary}" />
+                            <Label
+                                FontAttributes="Bold"
+                                FontSize="27"
+                                CharacterSpacing="-0.5"
+                                Text="{Binding Transaction.FormattedAmount}"
+                                TextColor="White" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout
+                            Grid.Column="1"
+                            VerticalOptions="End"
+                            HorizontalOptions="End"
+                            Spacing="2">
+                            <Label
+                                HorizontalTextAlignment="End"
+                                FontSize="12"
+                                Text="{Binding Transaction.CounterpartyLabel}"
+                                TextColor="{Binding Transaction.RoleHeaderSecondary}" />
+                            <Label
+                                HorizontalTextAlignment="End"
+                                FontSize="12"
+                                Text="{Binding Transaction.DeadlineText}"
+                                TextColor="{Binding Transaction.RoleHeaderSecondary}" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border
+                Style="{StaticResource SurfaceCard}"
+                Padding="18">
+                <VerticalStackLayout Spacing="11">
+                    <Grid
+                        AutomationId="SellerAgreementDetailsDisclosure"
+                        ColumnDefinitions="36,*,Auto"
+                        ColumnSpacing="10">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer
+                                Command="{Binding ToggleAgreementDetailsCommand}" />
+                        </Grid.GestureRecognizers>
+                        <Border
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            BackgroundColor="#F1ECFF"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 11">
+                            <Image Margin="8" Source="ui_note.png" />
+                        </Border>
+                        <Label
+                            Grid.Column="1"
+                            VerticalOptions="Center"
+                            Style="{StaticResource SectionTitle}"
+                            FontSize="17"
+                            Text="รายละเอียดสินค้า" />
+                        <Label
+                            Grid.Column="2"
+                            IsVisible="{Binding IsSellerDetail}"
+                            MinimumWidthRequest="28"
+                            VerticalOptions="Center"
+                            HorizontalTextAlignment="Center"
+                            FontAttributes="Bold"
+                            FontSize="17"
+                            Text="{Binding AgreementDetailsChevron}"
+                            TextColor="{StaticResource BrandBlueDeep}" />
+                    </Grid>
+                    <VerticalStackLayout
+                        IsVisible="{Binding ShowAgreementDetailsContent}"
+                        Spacing="11">
+                        <VerticalStackLayout
+                            IsVisible="{Binding Transaction.HasAdditionalAgreementDetails}"
+                            Spacing="3">
+                            <Label
+                                FontSize="12"
+                                Text="รายละเอียด"
+                                TextColor="{StaticResource Muted}" />
+                            <Label
+                                FontSize="14"
+                                LineHeight="1.4"
+                                Text="{Binding Transaction.DisplayAgreementDetails}"
+                                TextColor="{StaticResource InkSoft}" />
+                        </VerticalStackLayout>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label
+                                FontSize="13"
+                                Text="สภาพสินค้า"
+                                TextColor="{StaticResource Muted}" />
+                            <Label
+                                Grid.Column="1"
+                                FontAttributes="Bold"
+                                FontSize="13"
+                                Text="{Binding Transaction.ConditionLabel}" />
+                        </Grid>
+                        <VerticalStackLayout
+                            IsVisible="{Binding Transaction.HasKnownDefects}"
+                            Spacing="3">
+                            <Label
+                                FontSize="12"
+                                Text="ตำหนิที่แจ้งไว้"
+                                TextColor="{StaticResource Muted}" />
+                            <Label
+                                FontSize="13"
+                                LineHeight="1.35"
+                                Text="{Binding Transaction.KnownDefects}"
+                                TextColor="{StaticResource InkSoft}" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout
+                            IsVisible="{Binding Transaction.IsSellerRole}"
+                            Spacing="7">
+                            <BoxView HeightRequest="1" Color="{StaticResource Line}" />
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label
+                                    FontSize="13"
+                                    Text="ค่าคุ้มครองผู้ซื้อ"
+                                    TextColor="{StaticResource Muted}" />
+                                <Label
+                                    Grid.Column="1"
+                                    FontSize="13"
+                                    Text="{Binding Transaction.FeeText}"
+                                    TextColor="{StaticResource InkSoft}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label
+                                    FontAttributes="Bold"
+                                    FontSize="14"
+                                    Text="ยอดที่คุณจะได้รับ" />
+                                <Label
+                                    Grid.Column="1"
+                                    FontAttributes="Bold"
+                                    FontSize="14"
+                                Text="{Binding Transaction.SellerNetText}"
+                                TextColor="{StaticResource Success}" />
+                            </Grid>
+                        </VerticalStackLayout>
+                        <BoxView HeightRequest="1" Color="{StaticResource Line}" />
+                        <VerticalStackLayout
+                            IsVisible="{Binding Transaction.HasShippingFee}"
+                            Spacing="7">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label
+                                    FontSize="13"
+                                    Text="ราคาสินค้า"
+                                    TextColor="{StaticResource Muted}" />
+                                <Label
+                                    Grid.Column="1"
+                                    FontSize="13"
+                                    Text="{Binding Transaction.ItemPriceText}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label
+                                    FontSize="13"
+                                    Text="ค่าจัดส่ง"
+                                    TextColor="{StaticResource Muted}" />
+                                <Label
+                                    Grid.Column="1"
+                                    FontSize="13"
+                                    Text="{Binding Transaction.ShippingFeeText}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label
+                                    FontAttributes="Bold"
+                                    FontSize="14"
+                                    Text="ยอดชำระทั้งหมด" />
+                                <Label
+                                    Grid.Column="1"
+                                    FontAttributes="Bold"
+                                    FontSize="14"
+                                    Text="{Binding Transaction.FormattedAmount}"
+                                    TextColor="{StaticResource BrandBlueDeep}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label
+                                    FontSize="13"
+                                    Text="ขนส่ง"
+                                    TextColor="{StaticResource Muted}" />
+                                <Label
+                                    Grid.Column="1"
+                                    FontAttributes="Bold"
+                                    FontSize="13"
+                                    Text="{Binding Transaction.ShippingServiceText}" />
+                            </Grid>
+                            <BoxView HeightRequest="1" Color="{StaticResource Line}" />
+                        </VerticalStackLayout>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label
+                                FontSize="13"
+                                Text="วิธีส่งมอบ"
+                                TextColor="{StaticResource Muted}" />
+                            <Label
+                                Grid.Column="1"
+                                FontAttributes="Bold"
+                                FontSize="13"
+                                Text="{Binding Transaction.FulfillmentConsumerLabel}" />
+                        </Grid>
+                        <Grid
+                            IsVisible="{Binding Transaction.HasDeliveryRegion}"
+                            ColumnDefinitions="*,Auto">
+                            <Label
+                                FontSize="13"
+                                Text="พื้นที่จัดส่งที่ตกลง"
+                                TextColor="{StaticResource Muted}" />
+                            <Label
+                                Grid.Column="1"
+                                FontAttributes="Bold"
+                                FontSize="13"
+                                Text="{Binding Transaction.DeliveryRegionText}" />
+                        </Grid>
+                        <VerticalStackLayout
+                            IsVisible="{Binding Transaction.HasDeliveryAddress}"
+                            Spacing="3">
+                            <Label
+                                FontSize="13"
+                                Text="ที่อยู่จัดส่ง"
+                                TextColor="{StaticResource Muted}" />
+                            <Label
+                                FontAttributes="Bold"
+                                FontSize="13"
+                                LineBreakMode="WordWrap"
+                                Text="{Binding Transaction.DeliveryAddressText}" />
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border
+                AutomationId="SellerInvitationCard"
+                IsVisible="{Binding ShowSellerInvitation}"
+                Style="{StaticResource SurfaceCard}"
+                Padding="18">
+                <VerticalStackLayout Spacing="12">
+                    <Grid
+                        ColumnDefinitions="40,*"
+                        ColumnSpacing="11">
+                        <Border
+                            WidthRequest="40"
+                            HeightRequest="40"
+                            BackgroundColor="#EAF4FF"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 13">
+                            <Image Margin="9" Source="ui_offer.png" />
+                        </Border>
+                        <Label
+                            Grid.Column="1"
+                            VerticalOptions="Center"
+                            Style="{StaticResource SectionTitle}"
+                            FontSize="18"
+                            Text="แชร์ข้อเสนอ" />
+                    </Grid>
+
+                    <Label
+                        Style="{StaticResource RefinedHelperText}"
+                        Text="ระบบแจ้งผู้ขายจากเบอร์แล้ว คุณส่งลิงก์นี้ซ้ำได้" />
+
+                    <Border
+                        Padding="12,10"
+                        BackgroundColor="{StaticResource SurfaceBlue}"
+                        Stroke="#CFE5FF"
+                        StrokeShape="RoundRectangle 12">
+                        <Label
+                            FontSize="12"
+                            LineBreakMode="TailTruncation"
+                            MaxLines="2"
+                            Text="{Binding SellerInvitationUrl}"
+                            TextColor="{StaticResource BrandBlueDeep}" />
+                    </Border>
+
+                    <Grid
+                        ColumnDefinitions="*,*"
+                        ColumnSpacing="9">
+                        <Button
+                            AutomationId="CopySellerInvitationLinkButton"
+                            Style="{StaticResource RefinedSecondaryActionButton}"
+                            Command="{Binding CopyInvitationLinkCommand}"
+                            SemanticProperties.Description="คัดลอกลิงก์ข้อเสนอ"
+                            Text="คัดลอกลิงก์" />
+                        <Button
+                            AutomationId="ShareSellerInvitationLinkButton"
+                            Grid.Column="1"
+                            Style="{StaticResource RefinedPrimaryButton}"
+                            BackgroundColor="{Binding Transaction.RoleColor}"
+                            Command="{Binding ShareInvitationLinkCommand}"
+                            SemanticProperties.Description="แชร์ข้อเสนอให้ผู้ขาย"
+                            Text="แชร์ให้ผู้ขาย" />
+                    </Grid>
+
+                    <Label
+                        IsVisible="{Binding HasInvitationFeedback}"
+                        Style="{StaticResource RefinedHelperText}"
+                        Text="{Binding InvitationFeedback}"
+                        TextColor="{StaticResource Success}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border
+                IsVisible="{Binding IsPaymentAction}"
+                Style="{StaticResource SurfaceCard}"
+                Padding="18">
+                <VerticalStackLayout Spacing="13">
+                    <Grid ColumnDefinitions="40,*" ColumnSpacing="10">
+                        <Border
+                            WidthRequest="40"
+                            HeightRequest="40"
+                            BackgroundColor="#F1ECFF"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 13">
+                            <Image Margin="9" Source="ui_shield.png" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                            <Label Style="{StaticResource SectionTitle}" FontSize="18" Text="เช็กให้ครบก่อนจ่าย" />
+                            <Label
+                                Style="{StaticResource MutedText}"
+                                LineHeight="1.3"
+                                Text="ระบบใช้อีเมลจากบัญชีของคุณส่งใบเสร็จและขั้นตอนคืนเงิน" />
+                        </VerticalStackLayout>
+                    </Grid>
+                    <VerticalStackLayout
+                        IsVisible="{Binding Transaction.HasDeliveryAddress}"
+                        Spacing="{StaticResource SpacingMd}">
+                        <Label
+                            Style="{StaticResource RefinedFormLabel}"
+                            Text="ที่อยู่จัดส่งที่ล็อกกับดีล" />
+                        <Border
+                            Padding="12"
+                            BackgroundColor="#EAF4FF"
+                            Stroke="#CFE5FF"
+                            StrokeShape="RoundRectangle 14">
+                            <VerticalStackLayout Spacing="3">
+                                <Label
+                                    FontAttributes="Bold"
+                                    FontSize="13"
+                                    LineBreakMode="WordWrap"
+                                    Text="{Binding Transaction.DeliveryAddressText}" />
+                                <Label
+                                    Style="{StaticResource RefinedHelperText}"
+                                    Text="ที่อยู่นี้เลือกไว้ตั้งแต่สร้างดีลและแก้ในขั้นชำระไม่ได้ หากไม่ถูกต้องให้สร้างข้อเสนอใหม่" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </VerticalStackLayout>
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="9">
+                        <CheckBox
+                            VerticalOptions="Start"
+                            MinimumWidthRequest="{StaticResource CompactControlMinimumHeight}"
+                            MinimumHeightRequest="{StaticResource CompactControlMinimumHeight}"
+                            Color="{StaticResource BrandBlue}"
+                            IsChecked="{Binding AcceptedTerms}"
+                            SemanticProperties.Description="ยืนยันว่าได้ตรวจรายละเอียดและเงื่อนไขแล้ว" />
+                        <Label
+                            Grid.Column="1"
+                            VerticalOptions="Center"
+                            FontSize="13"
+                            LineBreakMode="WordWrap"
+                            Text="ฉันตรวจสินค้า ราคา กำหนดส่ง 3 วัน และเวลาแจ้งปัญหา 3 วันแล้ว" />
+                    </Grid>
+                    <Button
+                        Style="{StaticResource RefinedPrimaryButton}"
+                        BackgroundColor="{Binding Transaction.RoleColor}"
+                        Command="{Binding PrimaryActionCommand}"
+                        SemanticProperties.Description="เปิดหน้าจ่ายเงินในแอป"
+                        Text="ยอมรับข้อตกลงและจ่ายเงิน  →" />
+                    <Label
+                        HorizontalTextAlignment="Center"
+                        Style="{StaticResource MutedText}"
+                        Text="หน้าจ่ายเงินจะเปิดในแอป และข้อมูลบัตรส่งตรงไปยัง Stripe" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border
+                IsVisible="{Binding IsFulfillmentAction}"
+                Padding="14"
+                BackgroundColor="{StaticResource SuccessSoft}"
+                Stroke="#C5EFE5"
+                StrokeShape="RoundRectangle 16">
+                <Grid ColumnDefinitions="38,*" ColumnSpacing="10">
+                    <Border
+                        WidthRequest="38"
+                        HeightRequest="38"
+                        VerticalOptions="Start"
+                        BackgroundColor="White"
+                        StrokeThickness="0"
+                        StrokeShape="RoundRectangle 12">
+                        <Image Margin="8" Source="{Binding Transaction.FulfillmentIcon}" />
+                    </Border>
+                    <Label
+                        Grid.Column="1"
+                        VerticalOptions="Center"
+                        FontSize="13"
+                        LineHeight="1.35"
+                        Text="ผู้ซื้อจ่ายแล้ว เพิ่มข้อมูลการส่งของได้เลย"
+                        TextColor="{StaticResource Success}" />
+                </Grid>
+            </Border>
+
+            <Border
+                IsVisible="{Binding IsStatusOnly}"
+                Padding="14"
+                BackgroundColor="{Binding Transaction.StatusGuidanceBackground}"
+                StrokeThickness="0"
+                StrokeShape="RoundRectangle 16">
+                <VerticalStackLayout Spacing="12">
+                    <Grid ColumnDefinitions="38,*" ColumnSpacing="10">
+                        <Border
+                            WidthRequest="38"
+                            HeightRequest="38"
+                            VerticalOptions="Start"
+                            BackgroundColor="White"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 12">
+                            <Image Margin="8" Source="{Binding Transaction.StatusGuidanceIcon}" />
+                        </Border>
+                        <Label
+                            Grid.Column="1"
+                            VerticalOptions="Center"
+                            FontSize="13"
+                            LineHeight="1.35"
+                            Text="{Binding Transaction.StatusGuidance}"
+                            TextColor="{Binding Transaction.StatusGuidanceColor}" />
+                    </Grid>
+                    <VerticalStackLayout
+                        IsVisible="{Binding CanDownloadShippingLabel}"
+                        Spacing="12">
+                        <BoxView
+                            HeightRequest="1"
+                            Color="#26000000" />
+                        <Grid
+                            ColumnDefinitions="*,*"
+                            ColumnSpacing="12">
+                            <VerticalStackLayout Spacing="2">
+                                <Label
+                                    FontSize="12"
+                                    Text="ขนส่ง"
+                                    TextColor="{StaticResource Muted}" />
+                                <Label
+                                    FontSize="15"
+                                    Text="{Binding Transaction.ShippingServiceText}"
+                                    TextColor="{StaticResource Ink}" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout
+                                Grid.Column="1"
+                                Spacing="2">
+                                <Label
+                                    FontSize="12"
+                                    Text="เลขพัสดุ"
+                                    TextColor="{StaticResource Muted}" />
+                                <Label
+                                    FontSize="15"
+                                    LineBreakMode="TailTruncation"
+                                    Text="{Binding Transaction.TrackingNumberText}"
+                                    TextColor="{StaticResource Ink}" />
+                            </VerticalStackLayout>
+                        </Grid>
+                        <Border
+                            AutomationId="ManagedShippingLabelCard"
+                            Padding="14"
+                            BackgroundColor="White"
+                            Stroke="#D8D1F5"
+                            StrokeShape="RoundRectangle 14">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding OpenShippingLabelCommand}" />
+                            </Border.GestureRecognizers>
+                            <Grid
+                                ColumnDefinitions="42,*,Auto"
+                                ColumnSpacing="11">
+                                <Border
+                                    WidthRequest="42"
+                                    HeightRequest="42"
+                                    BackgroundColor="#F1ECFF"
+                                    StrokeThickness="0"
+                                    StrokeShape="RoundRectangle 12">
+                                    <Image
+                                        Margin="8"
+                                        Source="ui_shipping_label.png" />
+                                </Border>
+                                <VerticalStackLayout
+                                    Grid.Column="1"
+                                    VerticalOptions="Center"
+                                    Spacing="2">
+                                    <Label
+                                        FontSize="16"
+                                        Text="ใบปะหน้า 4 × 6 นิ้ว" />
+                                    <Label
+                                        Style="{StaticResource RefinedHelperText}"
+                                        Text="ตรวจชื่อและที่อยู่ก่อนพิมพ์" />
+                                </VerticalStackLayout>
+                                <Label
+                                    Grid.Column="2"
+                                    VerticalOptions="Center"
+                                    FontSize="22"
+                                    Text="›"
+                                    TextColor="#6548C7" />
+                            </Grid>
+                        </Border>
+                        <Button
+                            AutomationId="OpenFullShippingLabelButton"
+                            Style="{StaticResource RefinedInlineButton}"
+                            Command="{Binding OpenShippingLabelCommand}"
+                            Text="แตะเพื่อดูใบปะหน้าเต็มจอ"
+                            TextColor="#6548C7" />
+                    </VerticalStackLayout>
+                    <Label
+                        IsVisible="{Binding Transaction.HasTrackingNumber}"
+                        FontSize="14"
+                        Text="{Binding Transaction.TrackingNumberText, StringFormat='เลขพัสดุ {0}'}"
+                        TextColor="{Binding Transaction.StatusGuidanceColor}">
+                        <Label.Triggers>
+                            <DataTrigger
+                                Binding="{Binding CanDownloadShippingLabel}"
+                                TargetType="Label"
+                                Value="True">
+                                <Setter Property="IsVisible" Value="False" />
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border
+                IsVisible="{Binding IsPhysicalFulfillmentAction}"
+                Style="{StaticResource SurfaceCard}"
+                Padding="18">
+                <VerticalStackLayout Spacing="12">
+                    <Label
+                        Style="{StaticResource SectionTitle}"
+                        FontSize="18"
+                        Text="เพิ่มเลขพัสดุ" />
+                    <Label
+                        Style="{StaticResource MutedText}"
+                        Text="กรอกหลังส่งสินค้าแล้ว เราจะตรวจรูปแบบก่อนรอข้อมูลจริงจากบริษัทขนส่ง" />
+                    <VerticalStackLayout Style="{StaticResource RefinedFormSection}">
+                        <controls:FormLabelView
+                            IsRequired="True"
+                            Text="บริษัทขนส่ง" />
+                        <Border Style="{StaticResource RefinedInputBorder}">
+                            <Picker
+                                Style="{StaticResource RefinedPicker}"
+                                ItemsSource="{Binding Carriers}"
+                                SelectedItem="{Binding SelectedCarrier}"
+                                ItemDisplayBinding="{Binding DisplayName}"
+                                SemanticProperties.Description="เลือกบริษัทขนส่ง"
+                                Title="เลือกบริษัทขนส่ง" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Style="{StaticResource RefinedFormSection}">
+                        <controls:FormLabelView
+                            IsRequired="True"
+                            Text="หมายเลขพัสดุ" />
+                        <Border Style="{StaticResource RefinedInputBorder}">
+                            <Entry
+                                Style="{StaticResource RefinedEntry}"
+                                Text="{Binding TrackingNumber}"
+                                IsTextPredictionEnabled="False"
+                                IsSpellCheckEnabled="False"
+                                SemanticProperties.Description="หมายเลขติดตามพัสดุ"
+                                Placeholder="{Binding TrackingPlaceholder}" />
+                        </Border>
+                        <Label
+                            IsVisible="{Binding HasTrackingHint}"
+                            Style="{StaticResource RefinedHelperText}"
+                            Text="{Binding TrackingHint}" />
+                        <Label
+                            IsVisible="{Binding HasTrackingValidationMessage}"
+                            Style="{StaticResource RefinedValidationText}"
+                            Text="{Binding TrackingValidationMessage}" />
+                    </VerticalStackLayout>
+                    <Button
+                        Style="{StaticResource RefinedPrimaryButton}"
+                        BackgroundColor="{Binding Transaction.RoleColor}"
+                        Command="{Binding PrimaryActionCommand}"
+                        IsEnabled="{Binding CanSubmitTracking}"
+                        Text="บันทึกเลขพัสดุ" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border
+                IsVisible="{Binding IsDigitalFulfillmentAction}"
+                Style="{StaticResource SurfaceCard}"
+                Padding="18">
+                <VerticalStackLayout Spacing="12">
+                    <Label
+                        Style="{StaticResource SectionTitle}"
+                        FontSize="18"
+                        Text="แจ้งว่าส่งของดิจิทัลแล้ว" />
+                    <Label
+                        Style="{StaticResource MutedText}"
+                        Text="บอกเฉพาะช่องทางและเวลาที่ส่ง ห้ามใส่รหัสผ่าน รหัสกู้คืน private key หรือข้อมูลลับ" />
+                    <Border Style="{StaticResource RefinedEditorBorder}">
+                        <Editor
+                            Style="{StaticResource RefinedEditor}"
+                            AutoSize="TextChanges"
+                            SemanticProperties.Description="รายละเอียดช่องทางและเวลาที่ส่งสินค้าดิจิทัล ห้ามใส่ข้อมูลลับ"
+                            Text="{Binding DigitalHandoffStatement}"
+                            Placeholder="เช่น ส่งไฟล์ให้ทางแชตที่ตกลงกันแล้ว เวลา 14:20 น." />
+                    </Border>
+                    <Button
+                        Style="{StaticResource RefinedPrimaryButton}"
+                        BackgroundColor="{Binding Transaction.RoleColor}"
+                        Command="{Binding PrimaryActionCommand}"
+                        Text="บันทึกการส่งมอบ" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border
+                IsVisible="{Binding IsBuyerConfirmationAction}"
+                Style="{StaticResource SurfaceCard}"
+                Padding="18">
+                <VerticalStackLayout Spacing="12">
+                    <Label
+                        Style="{StaticResource SectionTitle}"
+                        FontSize="18"
+                        Text="ตรวจของที่ได้รับ" />
+                    <Label
+                        Style="{StaticResource MutedText}"
+                        Text="ตรวจสินค้าให้ครบก่อนยืนยัน หากยืนยัน ระบบจะเริ่มขั้นตอนจ่ายเงินให้ผู้ขาย หากมีปัญหาให้แจ้งก่อนหมดเวลา" />
+                    <Button
+                        Style="{StaticResource RefinedPrimaryButton}"
+                        BackgroundColor="{Binding Transaction.RoleColor}"
+                        Command="{Binding ConfirmReceiptCommand}"
+                        Text="ตรวจแล้ว ทุกอย่างเรียบร้อย" />
+                    <BoxView HeightRequest="1" Color="{StaticResource Line}" />
+                    <Label
+                        Style="{StaticResource RefinedFormLabel}"
+                        Text="มีปัญหา" />
+                    <Border Style="{StaticResource RefinedInputBorder}">
+                        <Picker
+                            Style="{StaticResource RefinedPicker}"
+                            ItemDisplayBinding="{Binding Label}"
+                            ItemsSource="{Binding DisputeReasons}"
+                            SemanticProperties.Description="เลือกประเภทปัญหาที่พบ"
+                            SelectedItem="{Binding SelectedDisputeReason}"
+                            Title="เลือกปัญหาที่พบ" />
+                    </Border>
+                    <Border Style="{StaticResource RefinedEditorBorder}">
+                        <Editor
+                            Style="{StaticResource RefinedEditor}"
+                            AutoSize="TextChanges"
+                            SemanticProperties.Description="อธิบายปัญหาที่พบโดยไม่ใส่ข้อมูลลับ"
+                            Text="{Binding DisputeStatement}"
+                            Placeholder="อธิบายว่าเกิดอะไรขึ้น โดยไม่ใส่รหัสผ่านหรือข้อมูลลับ" />
+                    </Border>
+                    <Button
+                        Style="{StaticResource SecondaryButton}"
+                        Command="{Binding ReportProblemCommand}"
+                        Text="แจ้งปัญหา"
+                        TextColor="{StaticResource Danger}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border
+                IsVisible="{Binding CanManageDisputeEvidence}"
+                Style="{StaticResource SurfaceCard}"
+                Padding="18">
+                <VerticalStackLayout Spacing="12">
+                    <Label
+                        Style="{StaticResource SectionTitle}"
+                        FontSize="18"
+                        Text="เพิ่มรูปหลักฐาน" />
+                    <Label
+                        Style="{StaticResource MutedText}"
+                        Text="ส่งได้ฝ่ายละไม่เกิน 10 รูป รูปจะถูกลบ metadata แปลงเป็น JPEG และเข้ารหัสก่อนจัดเก็บ" />
+                    <Label
+                        Style="{StaticResource MutedText}"
+                        Text="ปิดข้อมูลส่วนตัวที่ไม่จำเป็น และห้ามส่งรหัสผ่าน รหัสกู้คืน private key หรือ seed phrase" />
+                    <Border Style="{StaticResource RefinedInputBorder}">
+                        <Picker
+                            Style="{StaticResource RefinedPicker}"
+                            ItemDisplayBinding="{Binding Label}"
+                            ItemsSource="{Binding EvidenceTypes}"
+                            SelectedItem="{Binding SelectedEvidenceType}"
+                            SemanticProperties.Description="เลือกประเภทของรูปหลักฐาน"
+                            Title="ประเภทหลักฐาน" />
+                    </Border>
+                    <Border Style="{StaticResource RefinedEditorBorder}">
+                        <Editor
+                            Style="{StaticResource RefinedEditor}"
+                            AutoSize="TextChanges"
+                            MaxLength="1000"
+                            SemanticProperties.Description="อธิบายว่ารูปหลักฐานแสดงอะไร โดยไม่ใส่ข้อมูลลับ"
+                            Text="{Binding EvidenceDescription}"
+                            Placeholder="เช่น ภาพรอยแตกด้านซ้ายและกล่องด้านที่บุบ" />
+                    </Border>
+                    <Button
+                        Style="{StaticResource SecondaryButton}"
+                        Command="{Binding AddDisputeEvidenceCommand}"
+                        Text="เลือกรูปและส่งหลักฐาน" />
+                    <VerticalStackLayout
+                        BindableLayout.ItemsSource="{Binding DisputeEvidence}"
+                        IsVisible="{Binding HasDisputeEvidence}"
+                        Spacing="8">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <Border
+                                    Padding="12"
+                                    BackgroundColor="{StaticResource SurfaceBlue}"
+                                    Stroke="#CFE5FF"
+                                    StrokeShape="RoundRectangle 12">
+                                    <VerticalStackLayout Spacing="3">
+                                        <Label
+                                            FontAttributes="Bold"
+                                            FontSize="13"
+                                            Text="{Binding EvidenceTypeLabel}" />
+                                        <Label
+                                            FontSize="13"
+                                            Text="{Binding Description}" />
+                                        <Label
+                                            Style="{StaticResource MutedText}"
+                                            FontSize="11"
+                                            Text="{Binding SubmittedAt, StringFormat='ส่งเมื่อ {0:dd/MM/yyyy HH:mm}'}" />
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border
+                IsVisible="{Binding HasMessage}"
+                Padding="14"
+                BackgroundColor="{StaticResource SurfaceBlue}"
+                Stroke="#CFE5FF"
+                StrokeShape="RoundRectangle 14">
+                <Label FontSize="13" Text="{Binding Message}" TextColor="{StaticResource BrandBlueDeep}" />
+            </Border>
+
+            <Border
+                Style="{StaticResource SurfaceCard}"
+                Padding="17">
+                <VerticalStackLayout Spacing="14">
+                    <Label Style="{StaticResource SectionTitle}" FontSize="17" Text="ตอนนี้ถึงขั้นไหน" />
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                        <VerticalStackLayout Spacing="7">
+                            <Border
+                                HorizontalOptions="Center"
+                                WidthRequest="46"
+                                HeightRequest="46"
+                                BackgroundColor="White"
+                                Stroke="{Binding Transaction.ProgressOneBackground}"
+                                StrokeThickness="2"
+                                StrokeShape="RoundRectangle 14">
+                                <Grid>
+                                    <Image
+                                        WidthRequest="30"
+                                        HeightRequest="30"
+                                        Source="{Binding Transaction.ProgressOneIcon}" />
+                                    <Border
+                                        HorizontalOptions="End"
+                                        VerticalOptions="Start"
+                                        WidthRequest="16"
+                                        HeightRequest="16"
+                                        Margin="0"
+                                        BackgroundColor="{Binding Transaction.ProgressOneBackground}"
+                                        Stroke="White"
+                                        StrokeShape="RoundRectangle 8">
+                                        <Label
+                                            HorizontalOptions="Center"
+                                            VerticalOptions="Center"
+                                            FontAttributes="Bold"
+                                            FontSize="7"
+                                            Text="{Binding Transaction.ProgressOneMarker}"
+                                            TextColor="{Binding Transaction.ProgressOneForeground}" />
+                                    </Border>
+                                </Grid>
+                            </Border>
+                            <Label
+                                HorizontalTextAlignment="Center"
+                                FontSize="12"
+                                MaxLines="2"
+                                Text="{Binding Transaction.ProgressOneLabel}"
+                                TextColor="{Binding Transaction.ProgressOneLabelColor}" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="1" Spacing="7">
+                            <Border
+                                HorizontalOptions="Center"
+                                WidthRequest="46"
+                                HeightRequest="46"
+                                BackgroundColor="White"
+                                Stroke="{Binding Transaction.ProgressTwoBackground}"
+                                StrokeThickness="2"
+                                StrokeShape="RoundRectangle 14">
+                                <Grid>
+                                    <Image
+                                        WidthRequest="30"
+                                        HeightRequest="30"
+                                        Source="{Binding Transaction.ProgressTwoIcon}" />
+                                    <Border
+                                        HorizontalOptions="End"
+                                        VerticalOptions="Start"
+                                        WidthRequest="16"
+                                        HeightRequest="16"
+                                        Margin="0"
+                                        BackgroundColor="{Binding Transaction.ProgressTwoBackground}"
+                                        Stroke="White"
+                                        StrokeShape="RoundRectangle 8">
+                                        <Label
+                                            HorizontalOptions="Center"
+                                            VerticalOptions="Center"
+                                            FontAttributes="Bold"
+                                            FontSize="7"
+                                            Text="{Binding Transaction.ProgressTwoMarker}"
+                                            TextColor="{Binding Transaction.ProgressTwoForeground}" />
+                                    </Border>
+                                </Grid>
+                            </Border>
+                            <Label
+                                HorizontalTextAlignment="Center"
+                                FontSize="12"
+                                MaxLines="2"
+                                Text="{Binding Transaction.ProgressTwoLabel}"
+                                TextColor="{Binding Transaction.ProgressTwoLabelColor}" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="2" Spacing="7">
+                            <Border
+                                HorizontalOptions="Center"
+                                WidthRequest="46"
+                                HeightRequest="46"
+                                BackgroundColor="White"
+                                Stroke="{Binding Transaction.ProgressThreeBackground}"
+                                StrokeThickness="2"
+                                StrokeShape="RoundRectangle 14">
+                                <Grid>
+                                    <Image
+                                        WidthRequest="30"
+                                        HeightRequest="30"
+                                        Source="{Binding Transaction.ProgressThreeIcon}" />
+                                    <Border
+                                        HorizontalOptions="End"
+                                        VerticalOptions="Start"
+                                        WidthRequest="16"
+                                        HeightRequest="16"
+                                        Margin="0"
+                                        BackgroundColor="{Binding Transaction.ProgressThreeBackground}"
+                                        Stroke="White"
+                                        StrokeShape="RoundRectangle 8">
+                                        <Label
+                                            HorizontalOptions="Center"
+                                            VerticalOptions="Center"
+                                            FontAttributes="Bold"
+                                            FontSize="7"
+                                            Text="{Binding Transaction.ProgressThreeMarker}"
+                                            TextColor="{Binding Transaction.ProgressThreeForeground}" />
+                                    </Border>
+                                </Grid>
+                            </Border>
+                            <Label
+                                HorizontalTextAlignment="Center"
+                                FontSize="12"
+                                MaxLines="2"
+                                Text="{Binding Transaction.ProgressThreeLabel}"
+                                TextColor="{Binding Transaction.ProgressThreeLabelColor}" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

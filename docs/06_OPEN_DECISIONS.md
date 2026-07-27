@@ -19,33 +19,178 @@ Items below require explicit product, operations, legal, payment-provider, logis
 - Payout timing and bank cutoff behavior.
 - Approved legal/product language; whether any escrow terminology is permitted.
 - Selected payout bank/API, beneficiary-name verification, idempotency mechanism, completion-status source, rejected-transfer handling, and reconciliation SLA.
+- Decided implementation baseline: Thai mobile OTP uses ThaibulkSMS OTP v2
+  directly through the production adapter. Public pricing currently starts at
+  0.15 THB per SMS; the actual contracted tier, sender approval, throughput,
+  delivery SLA, PDPA/DPA terms, and production credentials remain go-live
+  gates. Sources checked 2026-07-27:
+  https://www.thaibulksms.com/pricing-b/ and
+  https://developer.thaibulksms.com/
+- Bank payout remains behind the provider-neutral HTTPS API boundary with a
+  stable idempotency key and signed completion reconciliation. Selecting the
+  bank/bulk-transfer product, exact contract, credentials, beneficiary-name
+  verification, fees, rejection mapping, and certification remains open; no
+  bank-specific completion is inferred from an accepted instruction.
+- Decided commercial Pilot baseline: `buyer-protection-v2` is buyer-funded and
+  uses marginal tiers: first 5,000 THB at 4%, the portion through 15,000 THB at
+  3.5%, and the portion through 30,000 THB at 3%, with a 59 THB minimum and no
+  separate fee cap. The active range is 1,000–30,000 THB; the domain technical
+  maximum is 999,999 THB and is not an active or legal-safe-harbor limit.
+  Shipping is exact pass-through and the seller receives the full item price.
+  The complete business and technical rule is in
+  `docs/17_PRICING_AND_TRANSACTION_LIMITS.md`. Revalidate the schedule against
+  actual loss ratio, chargebacks, bank payout fees, support cost, VAT
+  treatment, and provider approval before live activation.
+- Select and approve the production mobile push topology. iOS requires an
+  Apple Push Notification service key/certificate, production app identifier,
+  and signed push entitlement; Android requires a Firebase project, app
+  configuration, and service-account-backed FCM sender. The code exposes a
+  reusable device-registration and notification-gateway boundary and registers
+  iOS APNs tokens, but no real remote push may be claimed until those external
+  credentials and the Android Firebase client configuration are supplied and
+  real-device delivery is verified.
 - Required operating reserve and Stripe-balance process for PromptPay refunds after Stripe has settled funds to TOKLONG's bank.
+- Complete one real Stripe Test Mode PromptPay payment/refund ceremony using an
+  email address eligible to receive sandbox mail, then submit Stripe's approved
+  test bank details through Stripe's hosted instruction flow. Automated tests
+  already cover signed `requires_action → pending → requires_action →
+  succeeded` events and reconciliation, but they do not claim that a synthetic
+  webhook proves email delivery or the hosted bank form.
+- Production approval and supply-chain review for the third-party
+  `XDev.Stripe.PaymentSheets` MAUI bindings, because Stripe does not publish an
+  official .NET MAUI SDK. Keep the wrapper and native Stripe artifacts pinned
+  until that review is complete.
+- The pinned wrapper compiles for the iOS simulator but currently produces
+  duplicate bundle-resource warnings. Its Android dependency graph also resolves
+  newer AndroidX packages outside several declared version ranges under .NET 10
+  MAUI. Resolve these warnings and complete real-device payment tests before any
+  store release.
+- App Store and Play policy treatment for every allow-listed digital item.
+  Do not enable in-app Stripe payment for a digital category until the applicable
+  platform policy and legal review explicitly permit it.
 
 ## Transaction initiation
 
-- Recommended direction: support both seller-created agreement links and buyer-created offer links; both converge before checkout.
-- Buyer-created MVP sequence: buyer proposes and shares → seller authenticates/completes seller facts/accepts → buyer reviews final terms and pays → seller fulfills.
-- Confirm seller acceptance deadline; international comparators commonly use a short explicit offer window such as 24 hours.
-- Confirm buyer payment deadline after seller acceptance.
+- Decided for MVP: buyer-first only. Buyer supplies first/last name once during registration, later signs in with only the registered phone and verification code → buyer proposes and shares → seller authenticates and accepts or declines without editing → buyer reviews final terms and pays → seller fulfills.
+- Decided for MVP: both parties use electronic click acceptance backed by their
+  verified-phone sessions and append-only evidence referencing one shared
+  agreement-core hash. This is not presented as a certificate-backed digital
+  signature.
+- Decided for MVP: either transaction party can download hashed JSON evidence
+  with server acceptance times and a readable HTML version for printing.
+- Decided for MVP: physical agreement core shows and locks destination province
+  and postal code before seller acceptance; the private full-address
+  fulfillment annex is selected and locked at offer creation, reviewed without
+  editing at checkout, and disclosed to the seller only after confirmed
+  payment.
+- Decided for MVP: do not persist IP addresses, device fingerprints,
+  advertising IDs, hardware IDs, or precise location as agreement evidence or
+  separate security evidence. Transient OTP rate limiting uses only a
+  per-process HMAC partition key and never logs or stores the raw address.
+- Decided for MVP: retain the transaction agreement, acceptance, fulfillment,
+  payment-state, audit, and dispute evidence for five years from the latest
+  terminal transaction or final dispute-closure time. An authorized legal hold
+  pauses deletion only for the affected record. Accounting/tax records follow
+  their separately approved schedule, up to seven years where required.
+- Implemented: terminal transitions calculate the five-year expiry; the Worker
+  purges due transaction aggregates and later removes minimized financial
+  tombstones at year seven. Signed internal operations support preview and
+  audited legal-hold placement/release. Remote deletion execution is not
+  exposed.
+- Decided for MVP: seller acceptance expires exactly 24 hours after offer
+  activation.
+- Decided for MVP: provider-confirmed buyer payment is due exactly one hour
+  after seller acceptance.
 - Decide whether the seller may revise a buyer proposal in-product or must decline and ask for a new offer. The MVP must not become bidding or in-app negotiation.
-- Decide which entry CTA leads the landing page experiment: `สร้างข้อเสนอซื้อ` or `สร้างลิงก์ข้อตกลง`.
+- The single MVP entry CTA is `สร้างข้อเสนอซื้อ`.
 
 ## Fees and taxes
 
-- Buyer fee, seller fee, or mixed fee model.
+- Implemented working rule: for physical offers the buyer pays item price plus
+  the shipping charge selected before seller acceptance; seller expected net is
+  item price minus the disclosed platform fee. Legal, tax, provider, and final
+  commercial approval of this allocation remains required.
+- Buyer fee, seller fee, or mixed fee model beyond that working shipping
+  allocation.
 - VAT treatment and invoicing party.
 - Withholding-tax workflow, if relevant.
 - Refund of platform/payment fees.
-- Minimum and maximum transaction amounts.
+- Rates and activation gates above the decided 30,000 THB Pilot maximum; no
+  higher-value rate may be extrapolated from the Pilot tiers.
 
 ## Shipping
 
-- Supported carriers and tracking aggregator.
-- Definition of trusted delivery event for each carrier.
+- Implemented: SHIPPOP is the production adapter boundary. The seller supplies
+  one saved-or-new Thai origin and
+  transaction-specific parcel weight/dimensions, requests a quote, and locks one
+  carrier/service before accepting. The transaction freezes separate item
+  price, shipping charge, buyer total, seller origin, package, and quote
+  metadata. Quote validation is server-side and the paid tracking carrier
+  cannot silently change.
+- Implemented: seller acceptance creates an unconfirmed SHIPPOP booking;
+  verified payment confirms that purchase, allocates tracking, and enables a
+  4×6 label. The Worker polls tracking and maps SHIPPOP `shipping` to in-transit
+  and `complete`/POD to delivered. Provider-managed transactions have no manual
+  tracking entry.
+- Implemented security decision: do not consume SHIPPOP callbacks because the
+  documented webhook payload has no verifiable signature. Use server-side
+  polling until SHIPPOP supplies and contractually documents an authenticated,
+  replay-safe callback.
+- Implemented refund ordering: an unused confirmed shipment is cancelled before
+  the Stripe refund is created; a discovered carrier scan is audited and routed
+  as an operational exception.
+- Development uses a deterministic implementation of the same quote,
+  reservation, confirmation, label, tracking, and cancellation interfaces. It
+  is not SHIPPOP and is unavailable by default outside Development.
+- The implementation allow-lists `THAIPOST`, `FLASH`, and `KERRY` for SHIPPOP
+  service codes `EMST`, `FLE`, `KRYX`, and `KRYS`.
+- Still required before live launch: execute the commercial SHIPPOP contract,
+  provision/fund the production account, obtain live credentials, validate the
+  enabled service codes and billable-weight/pricing behavior against that
+  account, and run provider sandbox/live certification.
+- Confirm whether SHIPPOP offers an idempotency guarantee for `booking`,
+  `confirm`, and `cancel`; the current Worker retries safely against stored
+  references but the public contract does not state a provider idempotency key.
+- Decide who absorbs any post-scan weight, remote-area, fuel, or other surcharge
+  reported after the buyer already paid the locked quote; the paid buyer and
+  seller amounts must not be silently mutated.
+- Contractually approve which provider status and POD detail constitutes
+  trusted delivery for each enabled carrier.
+- Confirm which enabled SHIPPOP service is drop-off, pickup, or supports both;
+  the current transaction record stores carrier/service but does not invent a
+  handoff mode.
+- Confirm per carrier whether a counter may scan the provider barcode directly
+  from a phone screen, whether a printed 4×6 label remains mandatory, and
+  whether SHIPPOP exposes an authenticated counter QR or branch-locator
+  capability. Until confirmed, mobile guidance is conditional and renders only
+  the provider-issued label/barcode.
 - Handling of pickup points, locker delivery, recipient refusal, failed delivery, return-to-sender, and carrier status correction.
-- Ship-by default: 48, 72, or other hours.
+- Decided for MVP: ship-by is fixed at 72 hours after provider-confirmed payment and is not user-configurable.
 - Whether same-day/local courier deliveries are supported.
 - Insurance and declared-value policy.
+
+### Seller Protection and failed delivery
+
+- Decided for the implementation boundary: for provider-managed physical
+  shipments, only a matching trusted carrier acceptance scan at or before
+  `ship_by_at` proves timely seller handoff. Label allocation, a tracking
+  number, seller statement, receipt image, or client event does not.
+- Decided safety behavior: if a timely scan is discovered while cancelling an
+  apparently unscanned shipment, stop the automatic missed-shipment refund
+  before provider instruction and route to payout-blocked tracking review.
+- Open: carrier status taxonomy for lost, delayed, failed delivery,
+  recipient-refused, wrong-address, return-to-sender, and delivered-but-denied
+  for each enabled service.
+- Open: who funds seller compensation after a covered carrier loss or damage,
+  the maximum protected item value, evidence requirements, exclusions,
+  deductible, and claim SLA.
+- Open: allocation of outbound and return shipping when failure is caused by
+  buyer-supplied address, buyer absence/refusal, carrier fault, or seller
+  packaging.
+- Until those commercial/provider decisions are approved, Seller Protection
+  means protection from an incorrect automatic “seller did not ship”
+  classification. It does not promise seller payout or buyer refund in every
+  carrier exception.
 
 ## Digital fulfillment
 
@@ -56,10 +201,10 @@ Items below require explicit product, operations, legal, payment-provider, logis
 - Digital dispute/evidence requirements, account-recovery risk, and post-confirmation exception policy.
 - Whether any provider supports this fund flow and category risk.
 
-## Seven-day window
+## 72-hour physical inspection window
 
-- Confirm fixed 168 hours versus calendar days.
-- International benchmark observed on 2026-07-23: Trustap 24 hours, Vinted 48 hours, Wallapop 48 hours, and Mercari 72 hours after confirmed delivery. The current TOKLONG MVP remains 168 hours until product, risk, legal, and operations explicitly approve a change.
+- Decided for MVP on 2026-07-25: fixed 72 elapsed hours after trusted carrier-confirmed delivery, not three calendar days.
+- International benchmark observed on 2026-07-23: Trustap 24 hours, Vinted 48 hours, Wallapop 48 hours, and Mercari 72 hours after confirmed delivery. TOKLONG selected 72 hours to give buyers time to inspect while bounding the seller's wait.
 - Timezone behavior.
 - Whether seller/category risk can extend the window.
 - Required reminder schedule.
@@ -68,19 +213,50 @@ Items below require explicit product, operations, legal, payment-provider, logis
 
 ## Dispute operations
 
-- Supported reason codes.
-- Required evidence by category.
-- Human reviewer roles and service-level targets.
-- Seller response deadline.
+- Decided CRM baseline: workforce authentication uses Microsoft Entra ID Free
+  with Security Defaults for development and the internal pilot. Entra ID P1
+  plus CRM-specific Conditional Access is a production gate before CRM may
+  execute real refund or payout decisions.
+- Decided CRM baseline: application roles are `Admin` and `SuperAdmin`;
+  consumer Buyer/Seller identity never grants CRM access.
+- Decided CRM baseline: every financial dispute resolution requires an Admin
+  recommendation and approval by a different SuperAdmin, regardless of amount.
+- Proposed pending operations approval: assignment within four business hours,
+  first human review within one business day, a 48-elapsed-hour evidence
+  deadline, Admin recommendation within one business day after evidence closes,
+  and SuperAdmin approval/return within two business days after the case is
+  ready for approval.
+- Proposed reason/evidence baseline is documented in
+  `docs/13_CRM_DISPUTE_OPERATIONS.md`; operations, legal, privacy, and provider
+  owners must approve it before production.
 - Return shipping responsibility and label generation.
 - Authenticity checks for branded/luxury goods.
-- Whether partial resolutions are allowed.
+- Decided MVP baseline: partial resolutions remain disabled. Supported binding
+  financial outcomes are full refund or full payout.
 - Appeal process.
+- Number and named owners of the initial independent SuperAdmin accounts.
+- Enhanced high-risk review ownership for counterfeit, prohibited-goods,
+  carrier-conflict, fraud, and legal-hold cases.
+
+## CRM architecture and access
+
+- Decided MVP baseline: `Toklong.Crm` is a separately deployed Blazor
+  Interactive Server application.
+- Decided MVP baseline: CRM uses the existing PostgreSQL database with a
+  separate `crm` schema, `CrmDbContext`, migration history, cookie, Data
+  Protection application name, and database principal.
+- Decided MVP baseline: CRM workflow never replaces `TransactionState`, and
+  financial state changes use authorized domain commands rather than direct
+  database edits.
+- Decided production gate: at least one Admin and two independent SuperAdmins
+  must exist before CRM financial approval is enabled.
+- Open: production hostname, network-access boundary, Entra tenant/application
+  identifiers, database grants, and incident-alerting channel.
 
 ## Identity and trust
 
 - Minimum seller identity verification.
-- Buyer verification threshold.
+- Decided MVP baseline: buyer phone verification plus first and last name before offer creation. Higher-value KYC thresholds remain open.
 - Displayed identity signals and privacy limits.
 - Account age, transaction limits, velocity limits, and risk scoring.
 - High-value review thresholds.
@@ -98,7 +274,6 @@ Items below require explicit product, operations, legal, payment-provider, logis
 - Final terms of service and transaction terms.
 - Cancellation/refund terms.
 - Complaint and dispute channels.
-- Data retention and deletion schedules.
 - Digital-platform-service notification and reporting obligations.
 - Consumer-protection disclosures.
 

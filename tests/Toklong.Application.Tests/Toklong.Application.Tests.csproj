@@ -21,6 +21,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Toklong.Application\Toklong.Application.csproj" />
     <ProjectReference Include="..\..\src\Toklong.Infrastructure\Toklong.Infrastructure.csproj" />
+    <Compile Include="..\TestSupport\TestTransactionFactory.cs"
+             Link="TestSupport\TestTransactionFactory.cs" />
   </ItemGroup>
 
   <ItemGroup>

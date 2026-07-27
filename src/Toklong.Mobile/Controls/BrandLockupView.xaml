@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Toklong.Mobile.Controls.BrandLockupView"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+    <Grid
+        ColumnDefinitions="52,Auto"
+        ColumnSpacing="12"
+        HorizontalOptions="Start">
+        <Border
+            WidthRequest="52"
+            HeightRequest="52"
+            Stroke="#32FFFFFF"
+            StrokeThickness="1"
+            StrokeShape="RoundRectangle 17">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#3C8AF1" Offset="0" />
+                    <GradientStop Color="#216ACB" Offset="0.72" />
+                    <GradientStop Color="#5D43C4" Offset="1" />
+                </LinearGradientBrush>
+            </Border.Background>
+            <Image
+                Margin="10"
+                Source="brand_mark.png"
+                SemanticProperties.Description="โลโก้ TOKLONG" />
+        </Border>
+        <VerticalStackLayout
+            Grid.Column="1"
+            VerticalOptions="Center"
+            Spacing="0">
+            <Label
+                FontAttributes="Bold"
+                FontSize="18"
+                CharacterSpacing="1.1"
+                Text="TOKLONG"
+                TextColor="{StaticResource Ink}" />
+            <Label
+                FontSize="11"
+                Text="มั่นใจทุกดีล ใช้ TOKLONG"
+                TextColor="{StaticResource Muted}" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentView>

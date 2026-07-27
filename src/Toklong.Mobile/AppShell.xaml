@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="Toklong.Mobile.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:pages="clr-namespace:Toklong.Mobile.Pages"
+    FlyoutBehavior="Disabled"
+    Shell.BackgroundColor="White"
+    Shell.ForegroundColor="#2B7FFF"
+    Shell.NavBarHasShadow="False"
+    Shell.TabBarBackgroundColor="White"
+    Shell.TabBarForegroundColor="#2B7FFF"
+    Shell.TabBarTitleColor="#2B7FFF"
+    Shell.TabBarUnselectedColor="#667085"
+    Shell.TitleColor="#101828">
+    <ShellContent
+        Route="welcome"
+        Shell.NavBarIsVisible="False"
+        ContentTemplate="{DataTemplate pages:WelcomePage}"
+        Shell.FlyoutItemIsVisible="False" />
+    <ShellContent
+        Route="signin"
+        Shell.NavBarIsVisible="False"
+        ContentTemplate="{DataTemplate pages:SignInPage}"
+        Shell.FlyoutItemIsVisible="False" />
+    <TabBar Route="main">
+        <ShellContent
+            Title="รายการ"
+            Icon="nav_transactions.png"
+            Route="transactions"
+            Shell.NavBarIsVisible="False"
+            ContentTemplate="{DataTemplate pages:TransactionsPage}" />
+        <ShellContent
+            Title="กิจกรรม"
+            Icon="nav_activity.png"
+            Route="activity"
+            Shell.NavBarIsVisible="False"
+            ContentTemplate="{DataTemplate pages:ActivityPage}" />
+        <ShellContent
+            Title="บัญชี"
+            Icon="nav_account.png"
+            Route="account"
+            Shell.NavBarIsVisible="False"
+            ContentTemplate="{DataTemplate pages:AccountPage}" />
+    </TabBar>
+</Shell>

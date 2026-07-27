@@ -7,4 +7,11 @@ obj/
 .vscode/
 TestResults/
 appsettings.Local.json
+.env
+.env.production
+.env.*.local
+deploy/secrets/
 App_Data/
+*.tmp
+.superdesign/tmp/
+.superpowers/

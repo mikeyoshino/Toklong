@@ -1,0 +1,539 @@
+@page "/offer/{Token}"
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Seller")]
+@using Toklong.Application.Abstractions
+@using Toklong.Application.Pricing
+@using Toklong.Application.Features.Offers.RespondToBuyerOffer
+@using Toklong.Application.Features.Sellers
+@using Toklong.Application.Features.Shipping.GetShippingQuotes
+@using Toklong.Application.Features.Transactions.GetTransaction
+@using Toklong.Application.Transactions
+@using Toklong.Domain.Transactions
+@using Toklong.Web.Models
+@inject Toklong.Web.Services.ApplicationRequestSender Sender
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+@inject IPaymentFeePolicy FeePolicy
+@inject IThaiAddressCatalog AddressCatalog
+
+<PageTitle>ตรวจข้อเสนอซื้อ — TOKLONG</PageTitle>
+<AppHeader BackHref="/" BackLabel="กลับหน้าแรก" />
+
+<main class="page-shell narrow create-page">
+    @if (loading)
+    {
+        <div class="loading-state">กำลังเปิดข้อเสนอ…</div>
+    }
+    else if (transaction is null)
+    {
+        <AlertMessage Message="@error" Danger />
+    }
+    else if (transaction.State != TransactionState.AwaitingSellerAcceptance)
+    {
+        <div class="page-heading">
+            <span class="eyebrow"><span class="eyebrow-dot"></span>ข้อเสนอซื้อ</span>
+            <h1>@transaction.StateLabel</h1>
+        </div>
+        <TransactionSummary Transaction="transaction" />
+        <AlertMessage Message="ข้อเสนอนี้ได้รับการตอบแล้ว จึงไม่สามารถแก้หรือยืนยันซ้ำได้" />
+    }
+    else
+    {
+        <div class="page-heading create-heading">
+            <span class="eyebrow"><span class="eyebrow-dot"></span>ผู้ขาย · ยืนยันก่อนผู้ซื้อชำระ</span>
+            <h1>ตรวจและยอมรับข้อเสนอ</h1>
+            <p>ผู้ซื้อเป็นผู้ระบุรายละเอียดทั้งหมด คุณยืนยันหรือปฏิเสธได้ แต่แก้ไขข้อเสนอไม่ได้</p>
+            <p><strong>ตอบรับได้ถึง @ThaiDate(transaction.SellerAcceptanceDeadlineAt)</strong> หากหมดเวลา ผู้ซื้อต้องส่งข้อเสนอใหม่</p>
+        </div>
+
+        <TransactionSummary Transaction="transaction" />
+
+        <AlertMessage Message="@error" Danger />
+
+        <EditForm Model="form" OnValidSubmit="AcceptAsync" FormName="seller-accept-offer"
+                  class="create-window">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="validation-summary" />
+
+            <section class="form-card">
+                <div class="form-section-heading">
+                    <span>1</span>
+                    <div><h2>ยืนยันข้อเสนอจากผู้ซื้อ</h2><p>รูป รายละเอียด ยอด และกำหนดส่งเป็นแบบอ่านอย่างเดียว</p></div>
+                </div>
+                <div class="bank-card">
+                    <div><span>ราคาสินค้า</span><strong>@Money(transaction.PriceSatang)</strong></div>
+                    @if (SelectedQuote is not null)
+                    {
+                        <div><span>ค่าจัดส่งที่ผู้ซื้อจ่าย</span><strong>@Money(SelectedQuote.FeeSatang)</strong></div>
+                        <div><span>ยอดที่ผู้ซื้อชำระ</span><strong>@Money(transaction.PriceSatang + SelectedQuote.FeeSatang + feeDisclosure.BuyerProtectionFeeSatang)</strong></div>
+                    }
+                    else
+                    {
+                        <div><span>ยอดที่ผู้ซื้อชำระ</span><strong>@Money(transaction.PriceSatang + feeDisclosure.BuyerProtectionFeeSatang)</strong></div>
+                    }
+                    <div><span>ค่าคุ้มครองที่ผู้ซื้อจ่าย</span><strong>@Money(feeDisclosure.BuyerProtectionFeeSatang)</strong></div>
+                    @if (feeDisclosure.PlatformFeeSatang > 0)
+                    {
+                        <div><span>ค่าบริการที่หักจากผู้ขาย</span><strong>@Money(feeDisclosure.PlatformFeeSatang)</strong></div>
+                    }
+                    <div><span>ยอดที่คุณจะได้รับ</span><strong>@Money(feeDisclosure.SellerExpectedNetSatang)</strong></div>
+                    <div><span>กำหนดส่งหลังยืนยันยอดชำระ</span><strong>ภายใน 3 วัน</strong></div>
+                    @if (transaction.FulfillmentType ==
+                         FulfillmentType.PhysicalShipment)
+                    {
+                        <div>
+                            <span>พื้นที่จัดส่ง</span>
+                            <strong>@transaction.DeliveryProvinceName @transaction.DeliveryPostalCode</strong>
+                        </div>
+                    }
+                </div>
+                @if (transaction.FulfillmentType ==
+                     FulfillmentType.PhysicalShipment)
+                {
+                    <div class="address-section">
+                        <h3>ต้นทางและขนาดพัสดุ <span aria-hidden="true">*</span></h3>
+                        <p>ระบบใช้ข้อมูลนี้คำนวณค่าจัดส่งให้ผู้ซื้อชำระพร้อมราคาสินค้า</p>
+                        @if (profile?.SavedShippingOrigin is not null)
+                        {
+                            <CheckboxField Id="seller-use-saved-origin"
+                                           Label="ใช้ต้นทางที่บันทึกไว้"
+                                           Hint="@profile.SavedShippingOrigin.DisplayText"
+                                           @bind-Value="form.UseSavedOrigin" />
+                        }
+                        @if (profile?.SavedShippingOrigin is null ||
+                             !form.UseSavedOrigin)
+                        {
+                            <TextAreaField Id="seller-origin-address"
+                                           Label="บ้านเลขที่ อาคาร ถนน และรายละเอียดต้นทาง"
+                                           Required
+                                           @bind-Value="form.OriginAddressLine" />
+                            <SelectField TValue="int?"
+                                         Id="seller-origin-province"
+                                         Label="จังหวัดต้นทาง"
+                                         DisplayText="@OriginProvinceLabel"
+                                         Required
+                                         Value="@form.OriginProvinceId"
+                                         ValueChanged="OriginProvinceChangedAsync"
+                                         ValueExpression="@(() => form.OriginProvinceId)">
+                                <option value="">กรุณาเลือกจังหวัด</option>
+                                @foreach (var province in AddressCatalog.Provinces)
+                                {
+                                    <option value="@province.Id">@province.Name</option>
+                                }
+                            </SelectField>
+                            <SelectField TValue="int?"
+                                         Id="seller-origin-district"
+                                         Label="อำเภอ / เขตต้นทาง"
+                                         DisplayText="@OriginDistrictLabel"
+                                         Required
+                                         Value="@form.OriginDistrictId"
+                                         ValueChanged="OriginDistrictChangedAsync"
+                                         ValueExpression="@(() => form.OriginDistrictId)">
+                                <option value="">กรุณาเลือกอำเภอหรือเขต</option>
+                                @foreach (var district in originDistricts)
+                                {
+                                    <option value="@district.Id">@district.Name</option>
+                                }
+                            </SelectField>
+                            <SelectField TValue="int?"
+                                         Id="seller-origin-subdistrict"
+                                         Label="ตำบล / แขวงต้นทาง"
+                                         DisplayText="@OriginSubdistrictLabel"
+                                         Required
+                                         @bind-Value="form.OriginSubdistrictId">
+                                <option value="">กรุณาเลือกตำบลหรือแขวง</option>
+                                @foreach (var subdistrict in originSubdistricts)
+                                {
+                                    <option value="@subdistrict.Id">@subdistrict.Name · @subdistrict.PostalCode</option>
+                                }
+                            </SelectField>
+                            <CheckboxField Id="seller-remember-origin"
+                                           Label="จำต้นทางนี้ไว้สำหรับดีลถัดไป"
+                                           Hint="TOKLONG เก็บได้หนึ่งต้นทาง การบันทึกครั้งใหม่จะแทนที่เดิม"
+                                           @bind-Value="form.RememberOrigin" />
+                        }
+                        <TextField Id="seller-package-weight"
+                                   Label="น้ำหนักพัสดุ (กรัม)"
+                                   InputMode="numeric"
+                                   Placeholder="เช่น 1200"
+                                   Required
+                                   @bind-Value="form.WeightGrams" />
+                        <TextField Id="seller-package-width"
+                                   Label="กว้าง (ซม.)"
+                                   InputMode="numeric"
+                                   Required
+                                   @bind-Value="form.WidthCentimeters" />
+                        <TextField Id="seller-package-length"
+                                   Label="ยาว (ซม.)"
+                                   InputMode="numeric"
+                                   Required
+                                   @bind-Value="form.LengthCentimeters" />
+                        <TextField Id="seller-package-height"
+                                   Label="สูง (ซม.)"
+                                   InputMode="numeric"
+                                   Required
+                                   @bind-Value="form.HeightCentimeters" />
+                        <button type="button"
+                                class="button button-secondary"
+                                disabled="@busy"
+                                @onclick="LoadShippingQuotesAsync">
+                            ดูค่าจัดส่ง
+                        </button>
+                        @if (shippingQuotes.Count > 0)
+                        {
+                            <SelectField TValue="string"
+                                         Id="seller-shipping-quote"
+                                         Label="บริษัทและบริการขนส่ง"
+                                         DisplayText="@SelectedQuoteLabel"
+                                         Required
+                                         @bind-Value="form.QuoteReference">
+                                @foreach (var quote in shippingQuotes)
+                                {
+                                    <option value="@quote.QuoteReference">@quote.ServiceName · @Money(quote.FeeSatang)</option>
+                                }
+                            </SelectField>
+                        }
+                    </div>
+                }
+                @if (feeDisclosure.PolicyVersion == "payments-disabled")
+                {
+                    <div class="notice">ขณะนี้ยังไม่เปิดรับชำระเงินจริง เมื่อเปิดใช้งาน ยอดสุทธิและนโยบายค่าบริการต้องแสดงให้คุณยืนยันใหม่ก่อนผู้ซื้อจ่าย</div>
+                }
+                <div class="notice">หากข้อมูลใดไม่ตรง กรุณาปฏิเสธและให้ผู้ซื้อสร้างข้อเสนอใหม่</div>
+            </section>
+
+            <section class="form-card">
+                <div class="form-section-heading">
+                    <span>2</span>
+                    <div><h2>บัญชีรับเงินและคำยืนยัน</h2><p>เมื่อคุณยอมรับ ผู้ซื้อมีเวลาชำระ 1 ชั่วโมง ระหว่างนี้ยังไม่ต้องส่งสินค้า</p></div>
+                </div>
+                @if (profile is not null)
+                {
+                    <SelectField TValue="Guid?" Id="seller-offer-payout"
+                                 Label="บัญชีรับเงิน" DisplayText="@SelectedPayoutLabel"
+                                 Required @bind-Value="form.PayoutAccountId">
+                        @foreach (var account in profile.PayoutAccounts)
+                        {
+                            <option value="@account.Id">@account.AccountName · @account.MaskedNumber</option>
+                        }
+                    </SelectField>
+                }
+                <CheckboxField Id="seller-offer-rights"
+                               Label="ฉันครอบครองรายการนี้ มีสิทธิ์โอน และไม่ใช่รายการต้องห้าม"
+                               @bind-Value="form.TransferRightsAttested" />
+                <CheckboxField Id="seller-offer-terms"
+                               Label="ฉันยอมรับข้อตกลงทางอิเล็กทรอนิกส์เวอร์ชัน mvp-th-2026-07"
+                               Hint="รายละเอียด ต้นทาง ขนาดพัสดุ ค่าจัดส่ง และยอดทั้งหมดจะถูกล็อก"
+                               @bind-Value="form.AcceptedTerms" />
+            </section>
+
+            <div class="create-window-actions">
+                <PrimaryButton Busy="busy" Disabled="busy"
+                               BusyText="กำลังยืนยัน…">
+                    ยอมรับข้อเสนอ
+                </PrimaryButton>
+                <button type="button" class="button button-secondary"
+                        disabled="@busy" @onclick="DeclineAsync">
+                    ปฏิเสธข้อเสนอ
+                </button>
+            </div>
+        </EditForm>
+    }
+</main>
+
+@code {
+    [Parameter] public string Token { get; set; } = "";
+    private readonly SellerOfferAcceptanceForm form = new();
+    private TransactionView? transaction;
+    private SellerProfile? profile;
+    private Guid sellerId;
+    private bool loading = true;
+    private bool busy;
+    private string? error;
+    private IReadOnlyList<ThaiDistrictOption> originDistricts = [];
+    private IReadOnlyList<ThaiSubdistrictOption> originSubdistricts = [];
+    private IReadOnlyList<ShippingQuoteOption> shippingQuotes = [];
+    private PaymentFeeBreakdown feeDisclosure =
+        new(0, 0, 0, "payments-disabled");
+    private string SelectedPayoutLabel =>
+        profile?.PayoutAccounts.FirstOrDefault(x => x.Id == form.PayoutAccountId)
+            is { } account
+            ? $"{account.AccountName} · {account.MaskedNumber}"
+            : "เลือกบัญชีรับเงิน";
+    private ShippingQuoteOption? SelectedQuote =>
+        shippingQuotes.FirstOrDefault(
+            item => item.QuoteReference == form.QuoteReference);
+    private string SelectedQuoteLabel => SelectedQuote is { } quote
+        ? $"{quote.ServiceName} · {Money(quote.FeeSatang)}"
+        : "เลือกบริษัทและบริการขนส่ง";
+    private string OriginProvinceLabel =>
+        AddressCatalog.Provinces.FirstOrDefault(
+            item => item.Id == form.OriginProvinceId)?.Name ??
+        "กรุณาเลือกจังหวัด";
+    private string OriginDistrictLabel =>
+        originDistricts.FirstOrDefault(
+            item => item.Id == form.OriginDistrictId)?.Name ??
+        "กรุณาเลือกอำเภอหรือเขต";
+    private string OriginSubdistrictLabel =>
+        originSubdistricts.FirstOrDefault(
+            item => item.Id == form.OriginSubdistrictId)?.Name ??
+        "กรุณาเลือกตำบลหรือแขวง";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authentication =
+                await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            Guid.TryParse(authentication.User.FindFirst(
+                System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out sellerId);
+            transaction = await Sender.Send(new GetPublicTransactionQuery(Token));
+            profile = await Sender.Send(new GetSellerProfileQuery(sellerId));
+            if (!string.Equals(
+                    transaction.SellerContact,
+                    profile.PhoneNumber,
+                    StringComparison.Ordinal))
+                throw new Toklong.Domain.Common.DomainException(
+                    "ข้อเสนอนี้ส่งให้ผู้ขายหมายเลขอื่น");
+            feeDisclosure = FeePolicy.GetDisclosure(
+                transaction.PriceSatang);
+            if (profile.PayoutAccounts.Count == 0)
+            {
+                var returnUrl = Uri.EscapeDataString($"/offer/{Token}");
+                Navigation.NavigateTo(
+                    $"/seller/settings/payouts?returnUrl={returnUrl}",
+                    forceLoad: true);
+                return;
+            }
+
+            form.PayoutAccountId = profile.PayoutAccounts
+                .FirstOrDefault(x => x.IsDefault)?.Id
+                ?? profile.PayoutAccounts[0].Id;
+            form.UseSavedOrigin =
+                profile.SavedShippingOrigin is not null;
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task AcceptAsync()
+    {
+        busy = true;
+        error = null;
+        try
+        {
+            transaction = await Sender.Send(new AcceptBuyerOfferCommand(
+                Token,
+                sellerId,
+                form.PayoutAccountId
+                    ?? throw new InvalidOperationException("กรุณาเลือกบัญชีรับเงิน"),
+                form.TransferRightsAttested,
+                form.AcceptedTerms,
+                feeDisclosure.BuyerProtectionFeeSatang,
+                feeDisclosure.PlatformFeeSatang,
+                feeDisclosure.SellerExpectedNetSatang,
+                feeDisclosure.PolicyVersion,
+                transaction?.FulfillmentType ==
+                    FulfillmentType.PhysicalShipment
+                        ? BuildShippingSelection()
+                        : null));
+            Navigation.NavigateTo($"/seller/{transaction.SellerAccessToken}");
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task LoadShippingQuotesAsync()
+    {
+        busy = true;
+        error = null;
+        try
+        {
+            if (!TryGetPackage(
+                    out var weight,
+                    out var width,
+                    out var length,
+                    out var height))
+                throw new InvalidOperationException(
+                    "กรอกน้ำหนักและขนาดพัสดุให้ครบ");
+            if (!form.UseSavedOrigin &&
+                (string.IsNullOrWhiteSpace(
+                     form.OriginAddressLine) ||
+                 !form.OriginProvinceId.HasValue ||
+                 !form.OriginDistrictId.HasValue ||
+                 !form.OriginSubdistrictId.HasValue))
+                throw new InvalidOperationException(
+                    "กรอกที่อยู่ต้นทางให้ครบ");
+
+            shippingQuotes = await Sender.Send(
+                new GetShippingQuotesQuery(
+                    Token,
+                    sellerId,
+                    form.UseSavedOrigin,
+                    form.UseSavedOrigin
+                        ? null
+                        : form.OriginAddressLine,
+                    form.UseSavedOrigin
+                        ? null
+                        : form.OriginProvinceId,
+                    form.UseSavedOrigin
+                        ? null
+                        : form.OriginDistrictId,
+                    form.UseSavedOrigin
+                        ? null
+                        : form.OriginSubdistrictId,
+                    weight,
+                    width,
+                    length,
+                    height));
+            form.QuoteReference =
+                shippingQuotes.FirstOrDefault()
+                    ?.QuoteReference ?? "";
+            if (shippingQuotes.Count == 0)
+                error =
+                    "ยังไม่พบตัวเลือกจัดส่งสำหรับพัสดุนี้";
+        }
+        catch (Exception exception)
+        {
+            shippingQuotes = [];
+            form.QuoteReference = "";
+            error = exception.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private SellerShippingSelectionInput
+        BuildShippingSelection()
+    {
+        if (!TryGetPackage(
+                out var weight,
+                out var width,
+                out var length,
+                out var height))
+            throw new InvalidOperationException(
+                "กรอกน้ำหนักและขนาดพัสดุให้ครบ");
+        var quote = SelectedQuote ??
+            throw new InvalidOperationException(
+                "กรุณาดูราคาและเลือกค่าจัดส่ง");
+        return new SellerShippingSelectionInput(
+            form.UseSavedOrigin,
+            form.UseSavedOrigin
+                ? null
+                : form.OriginAddressLine,
+            form.UseSavedOrigin
+                ? null
+                : form.OriginProvinceId,
+            form.UseSavedOrigin
+                ? null
+                : form.OriginDistrictId,
+            form.UseSavedOrigin
+                ? null
+                : form.OriginSubdistrictId,
+            form.RememberOrigin,
+            weight,
+            width,
+            length,
+            height,
+            quote.QuoteReference,
+            quote.FeeSatang);
+    }
+
+    private bool TryGetPackage(
+        out int weight,
+        out int width,
+        out int length,
+        out int height)
+    {
+        var weightValid =
+            int.TryParse(form.WeightGrams, out weight);
+        var widthValid =
+            int.TryParse(form.WidthCentimeters, out width);
+        var lengthValid =
+            int.TryParse(form.LengthCentimeters, out length);
+        var heightValid =
+            int.TryParse(form.HeightCentimeters, out height);
+        return weightValid &&
+               widthValid &&
+               lengthValid &&
+               heightValid &&
+               weight is >= 1 and <= 30_000 &&
+               width is >= 1 and <= 200 &&
+               length is >= 1 and <= 200 &&
+               height is >= 1 and <= 200;
+    }
+
+    private Task OriginProvinceChangedAsync(
+        int? provinceId)
+    {
+        form.OriginProvinceId = provinceId;
+        form.OriginDistrictId = null;
+        form.OriginSubdistrictId = null;
+        originDistricts = provinceId.HasValue
+            ? AddressCatalog.GetDistricts(
+                provinceId.Value)
+            : [];
+        originSubdistricts = [];
+        ClearShippingQuote();
+        return Task.CompletedTask;
+    }
+
+    private Task OriginDistrictChangedAsync(
+        int? districtId)
+    {
+        form.OriginDistrictId = districtId;
+        form.OriginSubdistrictId = null;
+        originSubdistricts = districtId.HasValue
+            ? AddressCatalog.GetSubdistricts(
+                districtId.Value)
+            : [];
+        ClearShippingQuote();
+        return Task.CompletedTask;
+    }
+
+    private void ClearShippingQuote()
+    {
+        shippingQuotes = [];
+        form.QuoteReference = "";
+    }
+
+    private async Task DeclineAsync()
+    {
+        busy = true;
+        error = null;
+        try
+        {
+            transaction = await Sender.Send(
+                new DeclineBuyerOfferCommand(Token, sellerId));
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private static string Money(long satang) => $"฿{satang / 100m:N2}";
+
+    private static string ThaiDate(DateTimeOffset value) =>
+        value.ToLocalTime().ToString(
+            "d MMM yyyy เวลา HH:mm น.",
+            System.Globalization.CultureInfo.GetCultureInfo("th-TH"));
+}

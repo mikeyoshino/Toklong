@@ -1,0 +1,18 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$TOKLONG_WEB_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:8080
+}
+
+{$TOKLONG_API_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy api:8080
+}
+
+{$TOKLONG_CRM_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy crm:8080
+}

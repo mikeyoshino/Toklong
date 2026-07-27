@@ -11,7 +11,7 @@ public sealed class EvaluateDuePayoutsHandler(
     IUnitOfWork unitOfWork,
     IClock clock,
     TransactionTransitionService transitions,
-    IManualPayoutProvider payoutProvider) : IRequestHandler<EvaluateDuePayoutsCommand, int>
+    IPayoutProvider payoutProvider) : IRequestHandler<EvaluateDuePayoutsCommand, int>
 {
     public async Task<int> Handle(EvaluateDuePayoutsCommand request, CancellationToken cancellationToken)
     {
@@ -21,7 +21,21 @@ public sealed class EvaluateDuePayoutsHandler(
         {
             transaction.EvaluateDeadline(now, transitions);
             if (transaction.State == TransactionState.PayoutEligible)
-                transaction.StartPayout(payoutProvider.CreateInstructionReference(transaction.Id), now, transitions);
+            {
+                var payout = await payoutProvider.CreateInstructionAsync(
+                    transaction.Id,
+                    transaction.SellerExpectedNetSatang,
+                    transaction.Currency,
+                    transaction.PayoutBankCode,
+                    transaction.PayoutAccountName,
+                    transaction.PayoutAccountNumber,
+                    cancellationToken);
+                transaction.StartPayout(
+                    payout.ProviderReference,
+                    now,
+                    transitions,
+                    payout.Provider);
+            }
         }
 
         if (due.Count > 0)

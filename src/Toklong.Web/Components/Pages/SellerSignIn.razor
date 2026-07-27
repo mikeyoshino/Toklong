@@ -7,8 +7,8 @@
     <section class="auth-card">
         <div class="auth-icon" aria-hidden="true">◎</div>
         <span class="eyebrow"><span class="eyebrow-dot"></span>สำหรับผู้ขาย</span>
-        <h1>ยืนยันเบอร์ก่อนเริ่มขาย</h1>
-        <p>ใช้ OTP เพียงครั้งแรก แล้วครั้งถัดไปสร้างลิงก์ได้ทันที</p>
+        <h1>เข้าสู่ระบบด้วยเบอร์โทรศัพท์</h1>
+        <p>ใช้เบอร์โทรศัพท์เพื่อเปิดข้อเสนอและติดตามสถานะการขาย</p>
 
         @if (!string.IsNullOrWhiteSpace(Error))
         {
@@ -23,7 +23,7 @@
                    type="tel" inputmode="tel" autocomplete="tel"
                    placeholder="08X XXX XXXX" required />
             <button class="button button-primary" type="submit">
-                รับรหัส OTP
+                รับรหัสยืนยัน
             </button>
         </form>
 
@@ -42,5 +42,5 @@
         !string.IsNullOrWhiteSpace(ReturnUrl) && ReturnUrl.StartsWith('/')
             && !ReturnUrl.StartsWith("//", StringComparison.Ordinal)
                 ? ReturnUrl
-                : "/sales/create";
+                : "/";
 }

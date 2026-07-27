@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using Microsoft.Extensions.Hosting;
 using Toklong.Application.Abstractions;
+using Toklong.Application.Common;
 
 namespace Toklong.Infrastructure.Services;
 
@@ -25,8 +26,15 @@ public sealed class DevelopmentOtpVerificationProvider(IHostEnvironment environm
         var now = DateTimeOffset.UtcNow;
         if (LastRequests.TryGetValue(normalized, out var last) &&
             now - last < ResendDelay)
-            throw new InvalidOperationException(
-                "กรุณารอ 60 วินาทีก่อนขอรหัสใหม่");
+        {
+            var retryAfter = ResendDelay - (now - last);
+            var seconds = Math.Max(
+                1,
+                (int)Math.Ceiling(retryAfter.TotalSeconds));
+            throw new RequestCooldownException(
+                $"กรุณารออีก {seconds} วินาทีก่อนขอรหัสใหม่",
+                retryAfter);
+        }
 
         var challengeId = Convert.ToHexString(
             RandomNumberGenerator.GetBytes(24)).ToLowerInvariant();
@@ -69,14 +77,7 @@ public sealed class DevelopmentOtpVerificationProvider(IHostEnvironment environm
     }
 
     public static string NormalizeThaiPhone(string value)
-    {
-        var digits = new string(value.Where(char.IsDigit).ToArray());
-        if (digits.Length == 10 && digits[0] == '0')
-            return $"+66{digits[1..]}";
-        if (digits.Length == 11 && digits.StartsWith("66", StringComparison.Ordinal))
-            return $"+{digits}";
-        throw new ArgumentException("กรุณากรอกเบอร์มือถือไทย 10 หลัก");
-    }
+        => ThaiMobilePhone.Normalize(value);
 
     private static string Mask(string phone) =>
         $"0••-•••-{phone[^4..]}";

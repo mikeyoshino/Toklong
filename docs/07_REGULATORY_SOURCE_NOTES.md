@@ -52,10 +52,44 @@ The Bank of Thailand describes its role in supervising payment systems, reducing
 Product implication:
 
 - Provider selection, security, fraud controls, customer disclosures, and reconciliation are first-class product requirements, not implementation details.
+- The supervised designated-payment-service categories include electronic
+  acceptance of payment on behalf of sellers/service providers/creditors and
+  electronic money transfer. The final TOKLONG custody, settlement, delayed
+  payout, and third-party-seller structure therefore requires written provider
+  confirmation and qualified Thai legal review; describing a value as a
+  product limit does not resolve the fund-flow question.
 
 Official source:
 
 - Bank of Thailand, About payment systems: https://www.bot.or.th/th/our-roles/payment-systems/about-payment-systems.html
+- Bank of Thailand, Payment Systems Act oversight:
+  https://www.bot.or.th/th/our-roles/payment-systems/payment-act-oversight.html
+- Bank of Thailand, Payment Systems Act:
+  https://www.bot.or.th/th/laws-and-rules/bot-takes-responsibilities-and-other-relevant-laws-and-regulations/law04.html
+
+## Transaction amount boundaries
+
+The official sources reviewed for this product-scoping note do not establish
+30,000 THB as a statutory maximum for TOKLONG and do not establish 999,999 THB
+as an automatically permitted or exempt amount. PromptPay transfer limits are
+also subject to the participating bank, service, and customer-configured
+limits.
+
+Product implication:
+
+- 30,000 THB is documented as the initial TOKLONG Pilot risk limit.
+- 999,999 THB is only the absolute technical boundary in the current domain
+  model.
+- Neither value may be marketed as a legal safe harbor.
+- Raising the active limit still requires provider limits, KYC/AML, fraud,
+  insured-shipping, reserve, tax, legal, risk, and operations review.
+- Do not select a value immediately below a round threshold as a method of
+  avoiding monitoring, reporting, or provider controls.
+
+Official source:
+
+- Bank of Thailand, PromptPay:
+  https://www.bot.or.th/th/financial-innovation/digital-finance/digital-payment/promptpay.html
 
 ## Required pre-launch reviews
 

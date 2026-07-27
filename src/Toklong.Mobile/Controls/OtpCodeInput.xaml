@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Toklong.Mobile.Controls.OtpCodeInput"
+    x:Name="Root"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+    <Grid HeightRequest="64">
+        <Grid
+            x:Name="DigitsLayout"
+            ColumnDefinitions="*,*,*,*,*,*"
+            ColumnSpacing="10"
+            InputTransparent="True">
+            <Grid RowDefinitions="48,3" RowSpacing="3">
+                <Label x:Name="DigitOne" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
+                <BoxView x:Name="LineOne" Grid.Row="1" CornerRadius="2" />
+            </Grid>
+            <Grid Grid.Column="1" RowDefinitions="48,3" RowSpacing="3">
+                <Label x:Name="DigitTwo" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
+                <BoxView x:Name="LineTwo" Grid.Row="1" CornerRadius="2" />
+            </Grid>
+            <Grid Grid.Column="2" RowDefinitions="48,3" RowSpacing="3">
+                <Label x:Name="DigitThree" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
+                <BoxView x:Name="LineThree" Grid.Row="1" CornerRadius="2" />
+            </Grid>
+            <Grid Grid.Column="3" RowDefinitions="48,3" RowSpacing="3">
+                <Label x:Name="DigitFour" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
+                <BoxView x:Name="LineFour" Grid.Row="1" CornerRadius="2" />
+            </Grid>
+            <Grid Grid.Column="4" RowDefinitions="48,3" RowSpacing="3">
+                <Label x:Name="DigitFive" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
+                <BoxView x:Name="LineFive" Grid.Row="1" CornerRadius="2" />
+            </Grid>
+            <Grid Grid.Column="5" RowDefinitions="48,3" RowSpacing="3">
+                <Label x:Name="DigitSix" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
+                <BoxView x:Name="LineSix" Grid.Row="1" CornerRadius="2" />
+            </Grid>
+        </Grid>
+        <Entry
+            x:Name="CodeEntry"
+            Style="{StaticResource RefinedEntry}"
+            AutomationId="OtpCodeEntry"
+            BackgroundColor="Transparent"
+            CursorPosition="0"
+            HorizontalTextAlignment="Center"
+            IsSpellCheckEnabled="False"
+            IsTextPredictionEnabled="False"
+            Keyboard="Numeric"
+            MaxLength="6"
+            Opacity="0.01"
+            SemanticProperties.Description="รหัสยืนยัน 6 หลัก"
+            TextChanged="OnCodeEntryTextChanged"
+            HandlerChanged="OnCodeEntryHandlerChanged"
+            TextColor="Transparent" />
+    </Grid>
+</ContentView>

@@ -1,12 +1,24 @@
 @using Toklong.Application.Transactions
 
 <article class="product-card">
-    <img src="@Transaction.PhotoUrl" alt="รูปประกอบรายการ @Transaction.ProductName" />
+    @if (!string.IsNullOrWhiteSpace(Transaction.PhotoUrl))
+    {
+        <img src="@Transaction.PhotoUrl" alt="รูปประกอบรายการ @Transaction.ProductName" />
+    }
+    else
+    {
+        <div class="product-image-placeholder" role="img"
+             aria-label="ข้อเสนอนี้ไม่มีรูปสินค้า">
+            <span aria-hidden="true">▧</span>
+            <small>ข้อเสนอนี้ไม่มีรูป</small>
+        </div>
+    }
     <div>
         <div class="product-meta">
+            @ConditionLabel ·
             @(Transaction.FulfillmentType == Toklong.Domain.Transactions.FulfillmentType.DigitalHandoff
-                ? "สินค้าดิจิทัล · ผู้ซื้อยืนยันรับ"
-                : "สินค้าจัดส่ง · ใช้ Tracking")
+                ? "สินค้าดิจิทัล"
+                : "สินค้าที่จับต้องได้")
         </div>
         <h2>@Transaction.ProductName</h2>
         <p>@Transaction.Description</p>
@@ -18,12 +30,16 @@
 </article>
 
 <section class="summary-card" aria-label="สรุปยอดชำระ">
-    <div><span>ยอดรายการ</span><strong>@Money(Transaction.PriceSatang)</strong></div>
-    @if (Transaction.FulfillmentType == Toklong.Domain.Transactions.FulfillmentType.PhysicalShipment)
+    @if (Transaction.ShippingFeeSatang > 0)
     {
+        <div><span>ราคาสินค้า</span><strong>@Money(Transaction.PriceSatang)</strong></div>
         <div><span>ค่าจัดส่ง</span><strong>@Money(Transaction.ShippingFeeSatang)</strong></div>
     }
-    <div class="total"><span>ยอดรวม</span><strong>@Money(Transaction.BuyerTotalSatang)</strong></div>
+    @if (Transaction.BuyerProtectionFeeSatang > 0)
+    {
+        <div><span>ค่าคุ้มครองผู้ซื้อ</span><strong>@Money(Transaction.BuyerProtectionFeeSatang)</strong></div>
+    }
+    <div class="total"><span>ยอดชำระทั้งหมด</span><strong>@Money(Transaction.BuyerTotalSatang)</strong></div>
 </section>
 
 @code {
@@ -34,7 +50,7 @@
         Toklong.Domain.Transactions.ConditionCode.New => "สินค้าใหม่",
         Toklong.Domain.Transactions.ConditionCode.UsedDefects => "มือสอง · มีตำหนิ",
         Toklong.Domain.Transactions.ConditionCode.UsedGood => "มือสอง · สภาพดี",
-        _ => "ตามรายละเอียดข้อตกลง"
+        _ => "ไม่ระบุสภาพ"
     };
 
     private static string Money(long satang) => $"฿{satang / 100m:N2}";

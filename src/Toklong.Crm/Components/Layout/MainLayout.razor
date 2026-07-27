@@ -1,0 +1,59 @@
+@inherits LayoutComponentBase
+
+<div class="shell">
+    <header class="topbar">
+        <div class="topbar-inner">
+            <a class="brand" href="/" aria-label="TOKLONG CRM หน้าแรก">
+                <span class="brand-mark" aria-hidden="true">
+                    <svg width="21" height="21" viewBox="0 0 24 24" fill="none">
+                        <path d="M6.5 7.5h11v9h-11z"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linejoin="round" />
+                        <path d="M9 12l2 2 4-4"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round" />
+                    </svg>
+                </span>
+                <span>TOKLONG</span>
+                <span class="product-tag">CRM</span>
+            </a>
+            <nav aria-label="เมนูหลัก">
+                <NavLink class="nav-link"
+                         href="/"
+                         Match="NavLinkMatch.All">
+                    ข้อโต้แย้ง
+                </NavLink>
+                <AuthorizeView Policy="@CrmPolicies.CrmAccountAdministrator">
+                    <NavLink class="nav-link" href="/accounts">
+                        บัญชีทีมงาน
+                    </NavLink>
+                </AuthorizeView>
+            </nav>
+            <AuthorizeView>
+                <Authorized Context="auth">
+                    <div class="account">
+                        <span>@auth.User.Identity?.Name</span>
+                        <form method="post" action="/auth/logout">
+                            <AntiforgeryToken />
+                            <button class="link-button" type="submit">
+                                ออกจากระบบ
+                            </button>
+                        </form>
+                    </div>
+                </Authorized>
+            </AuthorizeView>
+        </div>
+    </header>
+
+    <main class="content">
+        @Body
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    เกิดข้อผิดพลาดที่ไม่คาดคิด
+    <a href="." class="reload">โหลดใหม่</a>
+</div>

@@ -4,44 +4,195 @@
 
 1. Use an approved payment partner integration appropriate to the final business model.
 2. Payment status is confirmed only by verified provider events or authorized reconciliation.
-3. A browser redirect or client callback may display “กำลังตรวจสอบการชำระ” but cannot mark the transaction paid.
+3. A browser redirect or client callback may display “กำลังเช็กการจ่ายเงิน” but cannot mark the transaction paid.
 4. The seller is instructed to fulfill only after the applicable provider-confirmed paid state is reached.
 5. Fees, taxes, buyer total, and seller expected net must be calculated server-side and displayed before payment.
 6. Provider references and event IDs must be retained for reconciliation.
 7. Payment retries must not create duplicate paid transactions.
 8. A buyer-created offer is not payable until the authenticated seller accepts the complete final agreement and passes the required policy/eligibility checks.
-9. PromptPay checkout must collect a verified or deliverable buyer email for receipts and provider refund instructions.
+9. Registration must collect a syntactically valid buyer payment-contact email
+   for receipts and provider refund instructions. PromptPay checkout reads it
+   server-side from the authenticated buyer profile and never accepts an email
+   override from the checkout client.
 10. The current Stripe PromptPay flow has no manual capture. Do not describe an unpaid proposal as reserved, authorized, funded, or paid.
+11. The seller-response deadline is 24 hours after offer activation. The buyer
+    payment deadline is one hour after authenticated seller acceptance.
+12. The server rejects seller acceptance and new/retried checkout after the
+    applicable deadline; a client clock is never authoritative.
+13. A verified provider payment confirmed at or before the payment deadline is
+    valid even when its webhook arrives later. Payment confirmed after the
+    deadline must not expose fulfillment and enters the idempotent refund path.
+14. Authorized Stripe reconciliation must read the matching PaymentIntent and
+    paid Charge with the expected integer-satang amount and currency. The Charge
+    timestamp, not the later observation time, is used for deadline evaluation.
+15. Buyer Protection fee policy version `buyer-protection-v2` is buyer-funded
+    and uses marginal tiers: the first 5,000 THB at 4%, the portion above
+    5,000 through 15,000 THB at 3.5%, and the portion above 15,000 through
+    30,000 THB at 3%. The minimum fee is 59 THB and there is no separate fee
+    cap. The weighted tier result is rounded up once to one satang. All
+    arithmetic uses integer satang and basis points.
+16. The domain absolute technical item-price maximum is 999,999 THB. The
+    active `buyer-protection-v2` Pilot range remains 1,000–30,000 THB. The
+    Pilot maximum is a TOKLONG risk limit, not a claimed Thai statutory limit.
+    No rate above 30,000 THB is approved; the application rejects that range
+    until a new versioned policy and the required provider, KYC, shipping,
+    reserve, legal, risk, and operations gates are approved. See
+    `docs/17_PRICING_AND_TRANSACTION_LIMITS.md`.
+17. `buyer_total_satang = item_price_satang + shipping_fee_satang +
+    buyer_protection_fee_satang`. Provider payment, full refund, evidence, and
+    reconciliation use that exact buyer total. The seller-funded platform fee
+    is zero for new `buyer-protection-v2` transactions, so
+    `seller_expected_net_satang = item_price_satang`; buyer-paid shipping and
+    Buyer Protection fee are not added to seller proceeds.
+18. The exact Buyer Protection fee, item price, shipping charge, buyer total,
+    seller expected net, and policy version are frozen before checkout. A
+    policy change requires the unpaid offer to end and be recreated.
 
 ## Product snapshot and acceptance
 
-Before payment, the buyer must be shown and accept the final agreement record created by the seller or completed and accepted by the seller from a buyer-created proposal:
+Before payment, the buyer must be shown and accept the complete agreement record the buyer created and the seller accepted unchanged:
 
-- Agreed item identity and agreement photos.
+- Agreed item identity and any supplied agreement photos.
 - The frozen agreement description, including represented condition, included items, functionality, and known defects.
-- Price and applicable shipping fee.
+- Item price, shipping charge, Buyer Protection fee, and buyer total as
+  separate integer-satang values.
 - Physical ship-by or digital handoff deadline.
 - Supported delivery method.
-- Physical seven-day dispute rule or digital no-auto-release rule.
+- For physical goods, destination province and postal code visible to the
+  seller before acceptance.
+- For physical goods, seller-origin province/postal code, parcel weight and
+  dimensions, selected carrier/service, quote reference/expiry, and shipping
+  charge. Full origin and destination street addresses remain private
+  fulfillment data.
+- Physical 72-hour inspection and payout-hold rule or digital no-auto-release rule.
 - The exact payout condition for the fulfillment type.
 - Prohibited-item and problem-reporting policy.
 - Applicable terms version.
 
+Seller acceptance creates an immutable agreement-core hash and one append-only
+acceptance record tied to the authenticated seller account. Buyer checkout must
+recompute and validate that core, then append the buyer's acceptance of the same
+hash before creating a payment intent. Actor identity, verified-phone
+authentication method, terms hash/version, and server acceptance time are
+retained; OTP values are not.
+
+For a physical item, destination province and postal code are part of the
+agreement core seen by the seller. The buyer supplies the full delivery address
+when creating the offer; the server resolves and stores it as a private
+fulfillment annex and derives the province/postal values in that core. Checkout
+shows this locked address for review and never accepts replacement address
+fields. The UI must make the disclosure boundary visible: the seller sees only
+province/postal before payment and the full address after provider-confirmed
+payment unlocks fulfillment. Any address correction requires the unpaid offer
+to end and a new offer, or cancellation/refund handling after payment.
+
+After both acceptances exist, either authenticated party may download the same
+hashed JSON evidence and a readable HTML copy with server acceptance times.
+These are described as records of `การยอมรับข้อตกลงทางอิเล็กทรอนิกส์`, not as a
+certificate-backed digital signature.
+
 After confirmed payment, material changes require a new transaction. Do not silently edit the paid snapshot.
 
-Before payment, a seller may complete or correct a buyer-created proposal. Any material difference must be shown prominently to the buyer at final review. The buyer's act of creating the proposal is not acceptance of later seller changes.
+Before payment, the seller may only accept or decline a buyer-created offer. Any correction requires the seller to decline and the buyer to create a new offer.
 
-Combining condition and defects into one seller-facing agreement-details field does not remove them from the material record. The text and normalized snapshot must preserve what the seller represented and what the buyer accepted.
+The text and normalized snapshot must preserve what the buyer specified and the seller accepted.
 
 ## Shipment rules
 
-1. Seller must submit a supported carrier and tracking number by `ship_by_at`.
-2. Tracking format validation is necessary but not sufficient; the system should verify the tracking number with the carrier/aggregator.
-3. A seller-entered “delivered” status is never authoritative.
-4. Carrier events are stored idempotently in original order where possible.
-5. The app should display the carrier event timestamp and the app ingestion timestamp separately when relevant.
-6. If tracking belongs to another transaction, is reused, or shows suspicious prior delivery, block normal auto-release and route to review.
-7. If the seller misses the deadline, notify both parties and enter the approved cancellation/refund process.
+1. Before accepting a physical offer, the seller must supply a complete Thai
+   shipping origin plus parcel weight and width/length/height. The backend
+   derives postal codes, requests quotes through the configured shipping
+   provider boundary, and independently validates the selected quote at
+   acceptance.
+2. A seller may keep exactly one saved origin. Explicitly saving a new origin
+   replaces the prior value; the transaction always retains its own immutable
+   origin snapshot. Package measurements are transaction-specific.
+3. A quote must match origin postal code, destination postal code, weight,
+   dimensions, disclosed fee, and provider reference. It must remain valid
+   through the one-hour buyer payment window. Any change or expiry requires a
+   new quote.
+4. Seller acceptance of a production SHIPPOP quote creates a booking using
+   `force_confirm=0`. The returned purchase reference, SHIPPOP tracking
+   reference, any courier tracking reference, exact fee, and reservation time
+   are locked into snapshot schema version 7. A returned fee or
+   carrier/service mismatch rejects acceptance.
+5. The unconfirmed booking does not prove buyer payment and does not authorize
+   shipment. After a verified Stripe payment for
+   `item_price_satang + shipping_fee_satang +
+   buyer_protection_fee_satang`, the Worker confirms that exact
+   SHIPPOP purchase. The resulting shipping charge is paid from the
+   buyer-funded shipping allocation and is never added to seller proceeds.
+6. SHIPPOP supplies the courier tracking number and 4×6 HTML label. The seller
+   may open, zoom, save, share, or print the label only after authenticated
+   authorization and provider confirmation. The in-app preview disables
+   JavaScript and external top-level navigation; save/share uses the unchanged
+   provider HTML. A provider-managed transaction rejects manual carrier or
+   tracking replacement. Showing the barcode on a phone does not by itself
+   prove that a selected counter accepts screen scanning.
+7. `ship_by_at` is fixed at provider-confirmed payment time plus 72 hours for
+   the MVP. No buyer, seller, form, or client command may supply a different
+   duration. Merely allocating a label or tracking number does not satisfy this
+   deadline; the managed path requires a first carrier scan.
+8. The Worker polls SHIPPOP tracking every 15 seconds while a parcel is active.
+   Repeated unchanged statuses are safe and database heartbeat writes are
+   throttled. `shipping` maps to verified in-transit, `complete` maps to
+   delivered, and problem/invalid/return states block normal release as
+   unverified. Carrier event IDs are deterministic and replay-safe.
+9. The SHIPPOP webhook contract documented for this integration does not
+   provide a verifiable signature field. TOKLONG therefore does not expose an
+   unsigned SHIPPOP webhook endpoint; authenticated server-to-provider polling
+   is the authoritative production reconciliation boundary.
+10. A seller-entered “delivered” status is never authoritative. The app should
+    display the carrier event timestamp and app ingestion timestamp separately
+    when relevant.
+11. If tracking belongs to another transaction, is reused, has a mismatched
+    carrier, or shows suspicious prior delivery, block normal auto-release and
+    route to review.
+12. If there is no carrier scan by `ship_by_at`, notify both parties and enter
+    the full-refund path. Before creating the Stripe refund, the Worker cancels
+    a confirmed but unscanned SHIPPOP shipment. If the provider already shows a
+    carrier scan, cancellation is skipped and the fact is audited.
+13. The first trusted carrier acceptance scan is the responsibility boundary
+    for a provider-managed shipment:
+    - no trusted scan by `ship_by_at` means seller non-fulfillment for the
+      automatic missed-shipment path;
+    - a trusted scan occurring at or before `ship_by_at` means the seller
+      handed the parcel to the locked carrier on time;
+    - a label, tracking allocation, seller statement, receipt image, or
+      client-supplied event does not satisfy this boundary.
+14. A timely acceptance scan does not prove delivery or release payout. A
+    subsequent delay, loss, failed delivery, return-to-sender, or delivery
+    conflict blocks automatic payout and enters carrier-exception review.
+15. If reconciliation discovers a timely trusted scan while TOKLONG is trying
+    to cancel an apparently unscanned shipment, the system must stop the
+    automatic refund before provider instruction and return the transaction to
+    payout-blocked tracking review. A scan after `ship_by_at` is not timely
+    Seller Protection and follows the approved late-shipment exception policy.
+16. Seller Protection is eligibility for a carrier-failure remedy, not a
+    promise of payout from buyer funds. Seller compensation requires an
+    approved carrier insurance, declared-value, or TOKLONG protection funding
+    policy. Buyer refund and seller compensation are separate obligations.
+
+The Development provider uses the same reserve, confirm, label, tracking, and
+cancel boundary with deterministic local data. It is not SHIPPOP pricing and
+must never be enabled or described as production shipping. Production selects
+`ShippingQuotes:Provider=Shippop`, requires HTTPS plus server-only SHIPPOP
+credentials and a quote-signing secret, and fails startup when those settings
+are incomplete.
+
+Local testing must not add a client flag that can mark delivery. A developer may
+submit an HMAC-signed, fresh, replay-safe carrier event through the internal API
+using `scripts/simulate-carrier-event.sh`. Production requires its own
+non-development reconciliation secret. An unsigned request, stale request, or
+seller/client request cannot move the shipment state.
+
+For interactive demos, an explicitly enabled Development-only backend worker
+may submit the same idempotent carrier and manual-bank reconciliation commands.
+It advances one step per configured interval, never accepts a mobile-client
+bypass, and must fail startup if enabled outside the Development environment.
+The buyer must still explicitly confirm receipt in the app before payout can
+start; demo automation may only confirm the already-created manual-bank payout
+after that authorization.
 
 ## Digital fulfillment rules
 
@@ -53,21 +204,29 @@ Combining condition and defects into one seller-facing agreement-details field d
 6. If the buyer does nothing, payout remains blocked for manual review.
 7. Buyer confirmation must clearly explain that it can begin the seller-payout process.
 
-## Seven-day dispute window
+## 72-hour physical inspection and payout-hold window
 
 Current MVP default:
 
 ```text
-window_duration_hours = 168
+window_duration_hours = 72
 window_starts_at = carrier_confirmed_delivered_at
-window_ends_at = window_starts_at + 168 hours
+window_ends_at = window_starts_at + 72 hours
 ```
 
-Display the exact local date/time and timezone. Avoid only saying “เหลือ 7 วัน.”
+Display the exact local date/time and timezone. Avoid only saying “เหลือ 3 วัน.”
+Payment time, shipment creation, shipped/in-transit status, seller-entered
+delivery, and unverified tracking events never start this window.
+
+This is a TOKLONG payout-hold rule, not a statement that either party's legal
+rights expire after 72 hours. Applicable statutory, contractual, warranty, and
+post-payout complaint rights remain separate.
 
 ### Early release
 
-Buyer may press `ได้รับสินค้าแล้ว` after delivery. This may transition to payout eligibility only when:
+After inspecting the item, the buyer may press `ตรวจแล้ว ทุกอย่างเรียบร้อย`.
+Before confirmation, explain that this action can begin the seller-payout
+process. It may transition to payout eligibility only when:
 
 - Payment remains valid and unreversed.
 - No dispute is open.
@@ -99,6 +258,9 @@ Do not auto-release. Options:
 
 At minimum:
 
+- Intended seller receives an in-app invitation when a buyer creates an offer.
+  When a registered push device and provider are available, it also receives
+  `ได้รับข้อเสนอซื้อ` with product name and total, linked to the same offer.
 - Seller payment confirmation and ship-by deadline.
 - Buyer tracking submitted.
 - Buyer carrier-confirmed delivery and exact dispute deadline.
@@ -108,6 +270,9 @@ At minimum:
 - Buyer when refund starts and when provider confirms refund.
 
 Notification delivery failure should be logged and retried according to channel policy, but does not silently change the legal/product deadline unless the approved terms require successful notice.
+OS notification content must avoid phone numbers, addresses, bank details,
+payment credentials, evidence, and other sensitive data. Opening any
+notification still requires an authenticated, authorized API request.
 
 ## Dispute opening
 
@@ -181,11 +346,45 @@ Every resolution requires:
 5. For Stripe PromptPay, the refund may enter `requires_action` while Stripe asks the buyer by email for the bank account used to make the payment. Consumer copy must tell the buyer to check that email.
 6. Do not store the buyer's refund bank-account number as a normal TOKLONG transaction field when Stripe can collect it directly.
 7. PromptPay refund completion requires the verified Stripe refund status `succeeded`; creating the refund or sending instructions is not completion.
+8. The refund Worker obtains the instruction email from the immutable Stripe
+   PaymentIntent created at checkout, not from a later client request or a
+   potentially changed account-profile value.
+   It sends Stripe's `instructions_email` parameter only when the
+   provider-confirmed charge payment-method type is `promptpay`; card refunds
+   must not receive that method-specific parameter.
+9. Persist only the current provider status and action/instruction timestamps.
+   Do not persist `next_action` URLs, bank-account data, or an extra copy of the
+   instruction email.
+10. A signed webhook or authorized reconciliation may record
+    `requires_action`, `pending`, and `succeeded`. Only `succeeded` moves the
+    transaction to `REFUNDED`.
+11. Notify the Buyer when the refund first enters `requires_action`, and again
+    only if it leaves that status and later re-enters it. Replayed events and
+    repeated reconciliation while the status is unchanged must not send
+    duplicate instructions.
+12. Consumer copy directs the Buyer to the email from Stripe and says to submit
+    the account used for payment directly to Stripe. TOKLONG support and CRM
+    must never request that account number in chat, notes, evidence, or the app.
+
+Implementation note: the refund worker creates one full Stripe refund using a
+transaction-derived idempotency key. The stored state remains `REFUND_PENDING`
+until a verified Stripe refund event or authorized server-to-provider
+reconciliation matches the transaction metadata, PaymentIntent, refund
+reference, full integer-satang amount, currency, and `succeeded` status. A late
+payment or a missed 72-hour fulfillment deadline enters this same path.
+The same validation applies before recording non-terminal refund progress.
+When Stripe does not expose the exact refund status-transition timestamp, an
+authorized reconciliation records the server observation time rather than
+misrepresenting the earlier refund-request creation time as completion time.
 
 ## Operational safety rules
 
 - Keep settlement funds and their transaction ledger operationally separate from TOKLONG operating expenses, subject to the final bank, accounting, and legal structure.
 - Reconcile provider-confirmed payments and refunds, Stripe settlement references, settlement-bank movements, seller-payable liabilities, and bank-confirmed payouts. Ledger corrections are append-only.
+
+The current provider-neutral bank adapter may create an instruction only after
+release eligibility. Provider acceptance is `PAYOUT_PENDING`; a signed bank
+completion result is required for `PAID_OUT`.
 - The internal seller-payable ledger is not a customer wallet and must not be presented as spendable or withdrawable stored value.
 - Do not allow ordinary support agents to change transaction states directly in the database.
 - Use authorized commands with required reason and audit trail.

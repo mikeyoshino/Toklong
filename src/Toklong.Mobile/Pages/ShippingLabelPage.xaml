@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Toklong.Mobile.Pages.ShippingLabelPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="ใบปะหน้า"
+    SafeAreaEdges="Container"
+    Shell.NavBarIsVisible="True"
+    Shell.TabBarIsVisible="False">
+    <Grid
+        Padding="20,14,20,20"
+        RowDefinitions="Auto,*,Auto,Auto"
+        RowSpacing="12">
+        <Border
+            Padding="12,10"
+            BackgroundColor="{StaticResource SuccessSoft}"
+            StrokeThickness="0"
+            StrokeShape="RoundRectangle 12">
+            <Grid ColumnDefinitions="24,*" ColumnSpacing="10">
+                <Label
+                    HorizontalOptions="Center"
+                    VerticalOptions="Start"
+                    FontSize="16"
+                    Text="✓"
+                    TextColor="{StaticResource Success}" />
+                <Label
+                    Grid.Column="1"
+                    Style="{StaticResource RefinedHelperText}"
+                    Text="หากจุดบริการรองรับการสแกนจากหน้าจอ ให้เพิ่มความสว่างแล้วแสดงบาร์โค้ดนี้ หรือเลือกพิมพ์ใบปะหน้า"
+                    TextColor="{StaticResource Success}" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1">
+            <Border
+                AutomationId="ShippingLabelViewer"
+                BackgroundColor="White"
+                Stroke="{StaticResource Line}"
+                StrokeShape="RoundRectangle 12">
+                <WebView
+                    x:Name="LabelWebView"
+                    AutomationId="ShippingLabelWebView"
+                    Navigating="OnLabelNavigating"
+                    Source="{Binding LabelSource}" />
+            </Border>
+            <ActivityIndicator
+                HorizontalOptions="Center"
+                VerticalOptions="Center"
+                Color="{StaticResource BrandBlue}"
+                IsRunning="{Binding IsBusy}"
+                IsVisible="{Binding IsBusy}" />
+            <VerticalStackLayout
+                HorizontalOptions="Center"
+                VerticalOptions="Center"
+                IsVisible="{Binding HasMessage}"
+                MaximumWidthRequest="320"
+                Spacing="12">
+                <Label
+                    HorizontalTextAlignment="Center"
+                    Style="{StaticResource RefinedValidationText}"
+                    Text="{Binding Message}" />
+                <Button
+                    AutomationId="RetryShippingLabelButton"
+                    Style="{StaticResource RefinedSecondaryActionButton}"
+                    Command="{Binding RetryCommand}"
+                    Text="ลองอีกครั้ง" />
+            </VerticalStackLayout>
+        </Grid>
+
+        <Label
+            Grid.Row="2"
+            HorizontalTextAlignment="Center"
+            Style="{StaticResource RefinedHelperText}"
+            Text="ใช้นิ้วซูมเพื่อดูรายละเอียดและบาร์โค้ด" />
+
+        <Grid
+            Grid.Row="3"
+            ColumnDefinitions="*,*"
+            ColumnSpacing="10">
+            <Button
+                AutomationId="SaveShippingLabelButton"
+                Style="{StaticResource RefinedSecondaryActionButton}"
+                BackgroundColor="White"
+                BorderColor="#8E7BDA"
+                Command="{Binding SaveCommand}"
+                IsEnabled="{Binding CanUseLabel}"
+                Text="บันทึกลงเครื่อง"
+                TextColor="#6548C7" />
+            <Button
+                Grid.Column="1"
+                AutomationId="ShareOrPrintShippingLabelButton"
+                Style="{StaticResource RefinedPrimaryButton}"
+                BackgroundColor="#6548C7"
+                Command="{Binding ShareOrPrintCommand}"
+                IsEnabled="{Binding CanUseLabel}"
+                Text="แชร์หรือพิมพ์" />
+        </Grid>
+    </Grid>
+</ContentPage>

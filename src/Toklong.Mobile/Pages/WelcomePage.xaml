@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Toklong.Mobile.Pages.WelcomePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
+    SafeAreaEdges="Container"
+    Shell.NavBarIsVisible="False"
+    Shell.TabBarIsVisible="False">
+    <ContentPage.Background>
+        <RadialGradientBrush Center="0.86,0.03" Radius="0.98">
+            <GradientStop Color="#DCEFFF" Offset="0" />
+            <GradientStop Color="#F4F8FF" Offset="0.38" />
+            <GradientStop Color="#FFFFFF" Offset="0.88" />
+        </RadialGradientBrush>
+    </ContentPage.Background>
+    <ScrollView>
+        <VerticalStackLayout
+            MaximumWidthRequest="520"
+            Padding="{StaticResource AuthScreenPadding}"
+            Spacing="22">
+            <controls:BrandLockupView />
+
+            <Grid
+                HeightRequest="286"
+                RowDefinitions="Auto,*,Auto">
+                <HorizontalStackLayout
+                    HorizontalOptions="Start"
+                    Spacing="7">
+                    <BoxView
+                        WidthRequest="7"
+                        HeightRequest="7"
+                        VerticalOptions="Center"
+                        Color="{StaticResource BrandBlue}"
+                        CornerRadius="4" />
+                    <Label
+                        FontAttributes="Bold"
+                        FontSize="12"
+                        Text="ซื้อ · ขาย"
+                        TextColor="{StaticResource BrandBlueDeep}" />
+                </HorizontalStackLayout>
+
+                <Grid Grid.Row="1">
+                    <Image
+                        WidthRequest="104"
+                        HeightRequest="104"
+                        HorizontalOptions="Center"
+                        VerticalOptions="Center"
+                        Source="ui_shield.png" />
+                    <Border
+                        Margin="0,22,4,0"
+                        HorizontalOptions="End"
+                        VerticalOptions="Start"
+                        Padding="10,7"
+                        BackgroundColor="White"
+                        Stroke="#D9E7F6"
+                        StrokeShape="RoundRectangle 13">
+                        <HorizontalStackLayout Spacing="6">
+                            <BoxView
+                                WidthRequest="7"
+                                HeightRequest="7"
+                                VerticalOptions="Center"
+                                Color="{StaticResource Mint}"
+                                CornerRadius="4" />
+                            <Label
+                                FontAttributes="Bold"
+                                FontSize="11"
+                                Text="จ่ายแล้ว"
+                                TextColor="{StaticResource BrandBlueDeep}" />
+                        </HorizontalStackLayout>
+                    </Border>
+                    <Border
+                        Margin="4,0,0,20"
+                        HorizontalOptions="Start"
+                        VerticalOptions="End"
+                        Padding="10,7"
+                        BackgroundColor="White"
+                        Stroke="#D9E7F6"
+                        StrokeShape="RoundRectangle 13">
+                        <HorizontalStackLayout Spacing="6">
+                            <Image
+                                WidthRequest="18"
+                                HeightRequest="18"
+                                Source="ui_truck.png" />
+                            <Label
+                                FontAttributes="Bold"
+                                FontSize="11"
+                                Text="ติดตามการส่ง"
+                                TextColor="{StaticResource BrandBlueDeep}" />
+                        </HorizontalStackLayout>
+                    </Border>
+                </Grid>
+
+                <Grid
+                    Grid.Row="2"
+                    ColumnDefinitions="*,Auto,*"
+                    ColumnSpacing="9"
+                    Padding="13,10">
+                    <Label
+                        HorizontalTextAlignment="End"
+                        FontAttributes="Bold"
+                        FontSize="12"
+                        Text="ตกลง"
+                        TextColor="{StaticResource BrandBlueDeep}" />
+                    <BoxView
+                        Grid.Column="1"
+                        WidthRequest="26"
+                        HeightRequest="2"
+                        VerticalOptions="Center"
+                        Color="#8CB9EB"
+                        CornerRadius="1" />
+                    <Label
+                        Grid.Column="2"
+                        FontAttributes="Bold"
+                        FontSize="12"
+                        Text="จ่าย · ส่ง · รับ"
+                        TextColor="#6548C7" />
+                </Grid>
+            </Grid>
+
+            <VerticalStackLayout Spacing="8">
+                <Label
+                    HorizontalTextAlignment="Center"
+                    Style="{StaticResource AuthTitle}"
+                    Text="ซื้อขายออนไลน์ มั่นใจกว่าเดิม" />
+                <Label
+                    HorizontalTextAlignment="Center"
+                    Style="{StaticResource RefinedBodyText}"
+                    LineHeight="1.45"
+                    Text="จ่าย ติดตาม ตรวจรับในที่เดียว ลดเสี่ยงโอนตรง ของไม่ตรงปก"
+                    TextColor="{StaticResource InkSoft}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="10">
+                <Button
+                    Style="{StaticResource RefinedPrimaryButton}"
+                    Clicked="OnSignInClicked"
+                    Text="เข้าสู่ระบบ" />
+                <Button
+                    Style="{StaticResource AuthSecondaryButton}"
+                    Clicked="OnSignUpClicked"
+                    Text="สมัครสมาชิก" />
+            </VerticalStackLayout>
+
+            <Label
+                HorizontalTextAlignment="Center"
+                Style="{StaticResource RefinedHelperText}"
+                Text="ใช้เบอร์โทรศัพท์เพื่อยืนยันบัญชี ไม่ต้องตั้งรหัสผ่าน"
+                TextColor="{StaticResource Muted}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

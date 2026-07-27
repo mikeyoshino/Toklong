@@ -1,163 +1,282 @@
 # 01 — User Flows and State Machine
 
-## User-facing flow
+## MVP entry model
 
-The UI presents four stages:
+TOKLONG MVP is buyer-first only. The buyer and seller already found each other and negotiated in an external chat. TOKLONG does not provide discovery, bidding, negotiation, or in-app chat.
 
-1. **สร้าง / รับลิงก์ข้อตกลง**
-2. **ผู้ซื้อชำระ**
-3. **ส่งมอบ**
-4. **ยืนยันรับ / รับเงิน**
+The buyer creates one complete private offer for an intended seller's Thai
+mobile number. The system also creates an unguessable seller link for routing
+and sharing, but link possession never grants seller authority. Only an
+authenticated account whose normalized phone matches the intended seller may
+read, accept, or decline the offer. The seller cannot edit any offer field. The
+buyer can pay only after that seller accepts and the buyer reviews the same
+unchanged terms.
 
-The backend uses more states to make payment, shipment, disputes, refunds, and payout reliable.
+PromptPay is never collected before seller acceptance. The selected Stripe PromptPay flow has no manual capture, and refunding an offer that was never accepted creates unnecessary buyer action.
 
-## Initiation modes
+## Four user-facing stages
 
-TOKLONG supports two private, non-discovery entry paths that converge before checkout:
+1. **ตกลงในแชต**
+2. **สร้างและยืนยันดีล**
+3. **ชำระและส่งสินค้า**
+4. **ตรวจรับและรับเงิน**
 
-1. **Seller initiated:** the seller creates and shares the final agreement link; the buyer reviews and pays.
-2. **Buyer initiated:** the buyer creates a proposed offer and shares its unguessable link; the seller joins, completes or confirms the material representations, accepts the final terms, and only then may the buyer pay.
-
-The buyer-initiated path is modeled on the standalone transaction-link pattern used by Trustap, while the accept-before-charge and delivery-confirmed inspection pattern is also common to Mercari, Vinted, and Wallapop. It is not bidding: there is one buyer, one seller, one item/bundle, one active set of terms, and no public discovery.
-
-For PromptPay, the MVP must not collect payment merely because the buyer created an offer. PromptPay does not provide manual capture in the selected Stripe flow, and refunding an unaccepted offer requires additional buyer action. Seller acceptance therefore precedes payment.
-
-## Seller journey
-
-### S1 — Onboard once
-
-- Verify mobile number.
-- Complete identity and payout onboarding required by the selected payment partner.
-- Accept seller terms and prohibited-goods policy.
-
-### S2 — Create agreement link
-
-The seller and buyer have already found each other and negotiated elsewhere. The visible form records the material agreement; it is not a marketplace listing form.
-
-Required visible fields:
-
-- Fulfillment type: physical shipment or supported digital handoff.
-- Agreed item or bundle name.
-- One combined agreement description that states included items, condition, functionality, known defects, and other material representations.
-- At least one agreement photo uploaded or captured directly; recommended minimum four for used goods.
-- Price.
-- Shipping fee for physical goods; digital goods must use zero shipping.
-- Fulfillment duration or exact deadline.
-- Confirmation that the seller possesses/controls the item or right, may transfer it, and it is not prohibited.
-
-The normal flow must not require a category dropdown, separate condition dropdown, separate defects field, or a raw photo URL. The system may classify category and condition behind the scenes for policy and snapshot normalization, but it must ask a focused follow-up when the agreement text is insufficient rather than silently inventing a material fact.
-
-The system validates the agreement, stores a draft, then creates a shareable link.
-
-### S2B — Join a buyer-created offer
-
-- Open the unguessable offer link and view the proposed item, amount, shipping, expected net payout, fulfillment deadline, offer-expiry time, and payout trigger.
-- Verify mobile number and complete the required identity/bank onboarding.
-- Provide or confirm the agreement photos, condition, known defects, possession/control, right to transfer, and prohibited-goods attestation.
-- Accept or decline. The MVP does not provide bidding or in-app negotiation.
-- If material terms need to change, the seller completes the revised final agreement before payment and the buyer must review that final version at checkout.
-
-Until seller acceptance, consumer copy must say `ผู้ซื้อสร้างข้อเสนอแล้ว` or `ผู้ซื้อพร้อมชำระเมื่อคุณยอมรับ`, never `ผู้ซื้อชำระแล้ว`.
-
-### S3 — Wait for payment
-
-The seller sees one of:
-
-- “รอผู้ซื้อชำระ”
-- “การชำระไม่สำเร็จ”
-- “ชำระแล้ว · ส่งสินค้าได้” for physical goods.
-- “ชำระแล้ว · ส่งมอบข้อมูลได้” for digital goods.
-
-Only the verified provider event changes the transaction to a funded/paid state.
-
-### S4 — Fulfill
-
-- Physical: seller selects a supported carrier, enters tracking, and sees the ship-by countdown.
-- Digital: seller completes the handoff through the agreed external channel, then records a non-secret handoff note. Do not store passwords, recovery codes, private keys, or reusable credentials.
-- A seller-entered digital handoff never releases payout.
-
-### S5 — View release countdown and payout
-
-- Carrier-confirmed `DELIVERED` starts the dispute window.
-- Digital fulfillment has no automatic deadline release; buyer confirmation or authorized manual review is required.
-- Seller sees exact release date/time.
-- Early buyer confirmation may move the transaction toward payout.
-- An open dispute changes the seller view to “พักการจ่ายระหว่างตรวจสอบ.”
-- Provider-confirmed transfer changes the transaction to “รับเงินแล้ว.”
+The backend uses more detailed states for reliable payment, fulfillment, disputes, refunds, and payout.
 
 ## Buyer journey
 
-### B0 — Create an offer link
+### B1 — Create a private offer
 
-- Select physical shipment or supported digital handoff.
-- Enter the proposed item/bundle, agreed amount, physical shipping fee if applicable, and expected fulfillment time.
-- Add the seller-provided description/photos already available from the external conversation; mark them as proposed until the seller confirms them.
-- Verify a contact email that Stripe may use for PromptPay refund instructions.
-- Create an unguessable private offer link and share it with the seller.
-- Wait for the seller to accept or decline. No payment is collected in this state.
+Without a valid mobile session, the app first shows a welcome screen with
+separate `เข้าสู่ระบบ` and `สมัครสมาชิก` actions. A new buyer registers with
+first and last name, payment-contact email, phone number, and the six-digit
+verification step.
+Returning buyers sign in with only their registered phone number and
+verification code; sign-in must not ask for or overwrite their name. The
+verification UI shows six underlined digit positions backed by one focusable
+numeric input so paste, deletion, accessibility, and iOS one-time-code AutoFill
+remain reliable. Consumer copy says `เข้าสู่ระบบด้วยเบอร์โทรศัพท์` and
+`รหัสยืนยัน 6 หลัก`; OTP remains an internal technical term.
 
-### B1 — Open link
+The buyer records:
 
-No marketplace account is required to browse the transaction page. Before payment, show:
+- One physical item/bundle or one allow-listed transferable digital item/right.
+- A short required product name.
+- An optional managed product photo, plus explicit condition, defects, included
+  items, and all details already agreed in chat. If supplied, the photo becomes
+  part of the same immutable agreement snapshot; AI source screenshots never
+  become product evidence automatically.
+- The intended seller's valid 10-digit Thai mobile number. It must differ from
+  the buyer's verified phone.
+- One agreed item price. For a physical item, the seller's selected shipping
+  quote is added later; the buyer sees item price, shipping charge, and buyer
+  total before accepting and paying.
+- For a physical item, one complete Thai delivery address selected from the
+  server-owned hierarchy or the buyer's single saved address. The transaction
+  stores a private address snapshot immediately; only its province and postal
+  code are disclosed to the seller before payment.
+- A fixed fulfillment deadline of 72 hours after provider-confirmed payment; the buyer does not choose this value.
+- Buyer identity and phone come from the authenticated buyer account, not editable offer fields.
+- Confirmation that the buyer-specified record is complete and will be reviewed again before payment.
 
-- Agreement photos and frozen description, including the represented condition and known defects.
-- Seller identity signals permitted by policy.
-- Price, shipping, fees, and total.
-- Applicable physical-shipping or digital-handoff deadline.
-- Payout trigger.
-- Physical seven-day dispute rule, or the digital no-auto-release rule.
-- Problem-reporting and prohibited-item information.
-
-For a buyer-created offer, B1 occurs after the seller has accepted the final material terms. The buyer must see any seller additions or corrections before accepting checkout terms.
-
-### B2 — Verify and pay
-
-- Verify phone number and/or email as required.
-- Enter delivery address for physical goods only.
-- Accept the transaction terms version.
-- Pay through provider-hosted or approved checkout.
-
-Browser success redirect is informational only. The app waits for verified provider confirmation.
-
-### B3 — Track shipment
-
-- Receive notification when seller submits verified tracking.
-- View carrier and timeline.
-- Receive delivery notification when carrier confirms delivery.
-
-For digital agreements:
-
-- Review that the seller marked the handoff complete.
-- Confirm only after independently receiving and checking the agreed digital item/right.
-- Report a problem instead of confirming when access, ownership, or details are incorrect.
-
-### B4 — Inspect and decide
-
-Buyer actions during the window:
-
-- “ได้รับสินค้าแล้ว” — confirms early release eligibility.
-- “แจ้งปัญหา” — creates a dispute and blocks payout.
-- No action — payout becomes eligible after the exact deadline if no dispute is open.
-
-For digital agreements there is no countdown-based release. No action leaves payout blocked for manual review.
-
-## Primary happy path
+The result is:
 
 ```text
-SELLER_DRAFT
-  → LINK_ACTIVE
-  → CHECKOUT_STARTED
-  → PAYMENT_PENDING
-  → PAID_AWAITING_SHIPMENT
-  → TRACKING_SUBMITTED
-  → IN_TRANSIT
-  → DELIVERED_DISPUTE_WINDOW
-  → PAYOUT_ELIGIBLE
-  → PAYOUT_PENDING
-  → PAID_OUT
+BUYER_OFFER_DRAFT
+  → AWAITING_SELLER_ACCEPTANCE
 ```
 
-## Buyer-initiated happy path
+The buyer receives a private transaction record. The server retains an
+unguessable seller-routing token, but normal mobile UX does not ask either
+party to copy, paste, or resend it. The durable notification outbox records one
+`buyer_offer_received` notification addressed only to the normalized intended
+seller phone. No checkout, payment, refund, or payout instruction exists yet.
+
+The seller-response deadline is fixed server-side at 24 hours after activation.
+It is stored on the transaction and shown as an exact local date and time;
+clients must not derive or extend it independently.
+
+The buyer wait page refreshes state while open. It must also remain usable after
+closing and reopening. The intended seller sees the notification in the app
+when authenticated, and the same pending offer appears as an action-required
+sale in the seller's transaction list by matching the verified phone before a
+seller ID is bound. An OS push is attempted only for a registered device and
+configured notification provider; the UI must not falsely claim external
+delivery merely because an outbox record exists.
+
+### B2 — Wait for seller
+
+The buyer sees:
+
+- `รอผู้ขายยืนยัน`
+- Confirmation that the offer was routed to the account verified with the
+  seller phone entered at creation.
+- An optional invitation card with the same URL, `คัดลอกลิงก์`, and
+  `แชร์ให้ผู้ขาย`. Sharing is a delivery convenience, not authorization:
+  opening or accepting still requires the exact verified seller phone.
+- Clear copy that no payment has been collected.
+- A final-review action only after seller acceptance.
+
+If the seller declines:
+
+```text
+AWAITING_SELLER_ACCEPTANCE → CANCELLED
+```
+
+If the seller does not respond by the exact deadline:
+
+```text
+AWAITING_SELLER_ACCEPTANCE → EXPIRED
+expiration_reason = SELLER_DID_NOT_RESPOND
+```
+
+No payment exists. The buyer may share the same invitation again while active
+or create a new offer after expiry. An expired invitation cannot be accepted or
+silently reactivated.
+
+### B3 — Review final terms and pay
+
+After seller acceptance, the buyer sees the same buyer-specified description,
+condition, defects, any supplied photos, item price, selected shipping service
+and charge, Buyer Protection fee, buyer total, fulfillment deadline, payout trigger, and dispute
+rule. Seller acceptance must not mutate the buyer-authored item fields.
+
+Seller acceptance creates a fixed one-hour payment deadline. The seller sees
+that the item is reserved only until that exact time and must not fulfill before
+provider-confirmed payment.
+
+At seller acceptance, the backend creates the normalized agreement-core and
+terms snapshots, computes their SHA-256 hashes, and appends a seller-acceptance
+record tied to the authenticated phone account. The buyer's final-review action
+must validate that core unchanged and append a buyer-acceptance record pointing
+to the exact same agreement-core hash. Neither acceptance stores an OTP code.
+For physical goods, the seller must first select a valid shipping quote using
+the destination region, a complete seller origin, and parcel weight and
+dimensions. The core includes the destination province/postal code, seller
+origin province/postal code, parcel measurements, selected service, shipping
+charge, Buyer Protection fee, and buyer total. Full street addresses remain
+private fulfillment data.
+
+```text
+SELLER_ACCEPTED_AWAITING_PAYMENT
+  → CHECKOUT_STARTED
+  → PAYMENT_PENDING
+```
+
+For physical goods, checkout shows the complete delivery address already locked
+when the buyer created the offer. It has no address editor. If the address is
+missing or needs correction, the buyer must create a new offer; the accepted
+offer is never silently changed. The buyer accepts the final transaction terms
+and uses provider-hosted or approved checkout. A redirect is informational
+only. Payment success requires a verified provider webhook or authorized
+reconciliation.
+
+If provider-confirmed payment has not occurred by the deadline, the unpaid
+offer becomes `EXPIRED` with reason `BUYER_DID_NOT_PAY`. A provider event whose
+authoritative confirmation time is at or before the deadline remains valid even
+if its webhook arrives later. Payment confirmed after the deadline must not
+expose fulfillment and enters `REFUND_PENDING`.
+
+### B4 — Track, inspect, and decide
+
+Physical:
+
+- View supported carrier and tracking.
+- Trusted carrier-confirmed delivery starts the exact 72-hour inspection and payout-hold window.
+- After inspecting the item, confirm that everything is satisfactory to release early, or report a problem.
+
+Digital:
+
+- Review the seller's non-secret handoff statement.
+- Confirm only after receiving and checking the transferable item/right.
+- Report a problem instead of confirming when incorrect.
+- Elapsed time and seller assertion never auto-release payout.
+
+## Seller journey
+
+### S1 — Open and authenticate
+
+The seller may tap the notification or open the pending offer in the app's
+`ขาย` mode. The seller signs in with a phone number and six-digit verification
+code. Before any offer details are disclosed,
+the server requires the normalized authenticated phone to match the intended
+seller phone stored by the buyer. A forwarded link opened by another account
+must return forbidden without disclosing the offer. The seller sets up a payout
+bank account if none exists. The current implementation verifies the phone and
+saves the bank account; real identity/KYC and beneficiary-name verification
+remain provider capabilities that must not be claimed before integration.
+
+The opaque routing token remains server-controlled and may be used by an owned
+notification deep link or the optional buyer-shared URL, but the mobile list is
+the normal entry point. The session gains seller rights only after the same
+verified phone owns the seller profile, and the same phone account cannot
+accept its own buyer offer.
+
+### S2 — Review and respond
+
+The seller sees:
+
+- Proposed item, item price, and destination province/postal code.
+- Expected fulfillment rule.
+- Payout trigger and dispute rule.
+- Plain-language status `เมื่อคุณตกลง ผู้ซื้อจะจ่ายเงินได้`.
+
+For a physical offer, the seller also:
+
+- Uses the single saved shipping origin by default, or enters a new complete
+  Thai origin and may select `จำต้นทางนี้ไว้`; saving replaces the previous
+  origin rather than creating an address book.
+- Enters actual parcel weight in grams and width, length, and height in
+  centimeters.
+- Requests available shipping quotes, selects one service, and reviews item
+  price, shipping charge, buyer-funded Buyer Protection fee, buyer total, zero
+  seller platform fee, and expected seller net.
+- Requests a new quote after the origin, measurements, or selected quote
+  expires. The seller cannot accept using client-supplied or stale pricing.
+- Accepting a production SHIPPOP quote creates an unconfirmed provider booking
+  for that exact transaction, carrier/service, addresses, parcel, and fee. This
+  does not tell the seller that the buyer has paid or permit fulfillment.
+
+Before acceptance the seller must confirm:
+
+- The buyer-specified item, description, condition, defects, included items,
+  functionality, any supplied managed photo, item price, selected physical
+  shipping service and charge where applicable, Buyer Protection fee, buyer
+  total, plus the
+  system-fixed 72-hour fulfillment rule.
+- Possession/control, right-to-transfer, prohibited-goods, and seller-terms attestations.
+- Owned payout account.
+
+The seller cannot edit the proposal. If any field is wrong, the seller declines and the buyer creates a new offer. MVP has no counteroffer or in-app negotiation.
+
+The `ยอมรับข้อเสนอ` action is the seller's electronic acceptance of the
+displayed agreement core. It creates an append-only acceptance record containing
+the authenticated seller ID, verified-phone authentication method, shared
+agreement-core hash, terms hash/version, and server timestamp.
+
+```text
+AWAITING_SELLER_ACCEPTANCE
+  → SELLER_ACCEPTED_AWAITING_PAYMENT
+```
+
+Until verified payment, seller copy must never say `ผู้ซื้อชำระแล้ว`.
+The buyer has one hour after acceptance to obtain provider-confirmed payment.
+Until then seller copy says `รอผู้ซื้อจ่ายถึง [exact time] ยังไม่ต้องส่งสินค้า`.
+
+### S3 — Fulfill only after confirmed payment
+
+```text
+PAYMENT_PENDING
+  → PAID_AWAITING_SHIPMENT
+  or PAID_AWAITING_DIGITAL_DELIVERY
+```
+
+- Physical with managed SHIPPOP shipping: the background worker confirms the
+  pre-payment reservation only after provider-confirmed buyer payment. SHIPPOP
+  supplies the carrier tracking number and printable 4×6 label; the seller
+  opens the label full-screen, may zoom it, and may save, share, or print the
+  original provider HTML before handing the parcel to the selected carrier by
+  `ship_by_at`. The seller does not type or replace tracking. Consumer copy
+  must not claim that every service is drop-off or that every counter scans a
+  phone screen; those instructions depend on the selected provider service.
+- A carrier scan, not merely allocation of a label/tracking number, satisfies
+  the managed-shipment deadline. If no scan occurs by `ship_by_at`, the
+  shipment enters cancellation/refund handling.
+- Digital: deliver through the agreed external channel and store only a non-secret handoff statement.
+- Seller-entered delivery or a slip never authorizes payout.
+
+### S4 — View payout status
+
+- Trusted physical carrier-confirmed delivery starts the 72-hour inspection and payout-hold window.
+- Digital has no time-based automatic payout.
+- Buyer confirmation may create payout eligibility early.
+- Any open dispute blocks payout.
+- `PAYOUT_PENDING` is not completed transfer.
+- `PAID_OUT` requires authenticated bank/provider completion or authorized reconciliation.
+
+## Happy paths
+
+### Physical
 
 ```text
 BUYER_OFFER_DRAFT
@@ -174,9 +293,7 @@ BUYER_OFFER_DRAFT
   → PAID_OUT
 ```
 
-The buyer-created offer may instead move from `AWAITING_SELLER_ACCEPTANCE` to `CANCELLED` when declined or `EXPIRED` when its exact acceptance deadline passes.
-
-## Early confirmation path
+Early confirmation:
 
 ```text
 DELIVERED_DISPUTE_WINDOW
@@ -186,10 +303,12 @@ DELIVERED_DISPUTE_WINDOW
   → PAID_OUT
 ```
 
-## Digital fulfillment path
+### Digital
 
 ```text
-PAYMENT_PENDING
+SELLER_ACCEPTED_AWAITING_PAYMENT
+  → CHECKOUT_STARTED
+  → PAYMENT_PENDING
   → PAID_AWAITING_DIGITAL_DELIVERY
   → DIGITAL_DELIVERY_SUBMITTED
   → one of:
@@ -198,34 +317,52 @@ PAYMENT_PENDING
       authorized manual review → PAYOUT_ELIGIBLE or REFUND_PENDING
 ```
 
-Elapsed time and a seller-entered handoff are never sufficient for digital payout eligibility.
+## Exception paths
 
-## Dispute path
+Payment failure or expiry:
 
 ```text
-DELIVERED_DISPUTE_WINDOW
-  → DISPUTED
-  → RESOLUTION_PENDING
-  → one of:
-      REFUND_PENDING → REFUNDED
-      RETURN_REQUIRED → RETURN_IN_TRANSIT → REFUND_PENDING → REFUNDED
-      PAYOUT_ELIGIBLE → PAYOUT_PENDING → PAID_OUT
-      PARTIAL_RESOLUTION (future; disabled in MVP)
+SELLER_ACCEPTED_AWAITING_PAYMENT
+  → CHECKOUT_STARTED
+  → PAYMENT_FAILED or PAYMENT_EXPIRED
+  → SELLER_ACCEPTED_AWAITING_PAYMENT or EXPIRED
 ```
 
-## Seller misses shipment deadline
+Seller-response and buyer-payment expiry:
+
+```text
+AWAITING_SELLER_ACCEPTANCE
+  → EXPIRED (SELLER_DID_NOT_RESPOND)
+
+SELLER_ACCEPTED_AWAITING_PAYMENT or PAYMENT_PENDING
+  → EXPIRED (BUYER_DID_NOT_PAY)
+```
+
+Missed physical shipment:
 
 ```text
 PAID_AWAITING_SHIPMENT
-  → SHIPMENT_OVERDUE
-  → CANCELLATION_REVIEW or AUTO_CANCEL_ELIGIBLE
-  → REFUND_PENDING
-  → REFUNDED
+or managed TRACKING_SUBMITTED / TRACKING_UNVERIFIED with no carrier scan
+  → at ship_by_at reconcile the provider before assigning responsibility
+  → no trusted carrier acceptance scan
+      → SHIPMENT_OVERDUE
+      → cancel the unused provider shipment when still cancellable
+      → REFUND_PENDING
+      → REFUNDED
+  → trusted acceptance scan occurred at or before ship_by_at
+      → carrier-custody exception review
+      → payout remains blocked; do not auto-refund as seller non-fulfillment
 ```
 
-Automatic cancellation behavior depends on the payment partner and approved policy. The MVP must never silently leave a paid transaction without a next action.
+For a provider-managed physical shipment, the first trusted carrier acceptance
+scan is the responsibility boundary. A label, tracking allocation, seller
+statement, or drop-off photo alone does not cross it. A timely trusted scan
+records that the seller handed the parcel to the locked carrier; it does not
+prove delivery or make payout eligible. Carrier delay, loss, failed delivery,
+return-to-sender, or delivery conflict after that scan remains blocked from
+automatic payout and follows the carrier-exception policy.
 
-## Unsupported or unverifiable tracking
+Unverified tracking:
 
 ```text
 TRACKING_SUBMITTED
@@ -233,77 +370,70 @@ TRACKING_SUBMITTED
   → MANUAL_TRACKING_REVIEW
 ```
 
-Rules:
+This never starts the dispute clock or automatic payout.
 
-- Do not start the seven-day window.
-- Do not auto-release payout.
-- Allow the seller to correct the carrier or tracking number before deadline where safe.
-- Buyer confirmation can still make the transaction eligible for authorized payout, subject to fraud checks.
-
-## Payment failure or expiry
+Dispute:
 
 ```text
-LINK_ACTIVE or SELLER_ACCEPTED_AWAITING_PAYMENT
-  → CHECKOUT_STARTED
-  → PAYMENT_FAILED or PAYMENT_EXPIRED
-  → LINK_ACTIVE or SELLER_ACCEPTED_AWAITING_PAYMENT or EXPIRED
+DELIVERED_DISPUTE_WINDOW or DIGITAL_DELIVERY_SUBMITTED
+  → DISPUTED
+  → RESOLUTION_PENDING
+  → REFUND_PENDING → REFUNDED
+  or PAYOUT_ELIGIBLE → PAYOUT_PENDING → PAID_OUT
 ```
 
-The seller must not see a paid state.
-
-## Cancellation before payment
-
-- Seller may deactivate an unpaid link.
-- Buyer may deactivate a proposed offer before seller acceptance.
-- Seller may decline a buyer-created offer.
-- Buyer opening a deactivated link sees a clear unavailable message.
-- No refund flow is needed because payment was never confirmed.
-
-## Cancellation after payment
-
-- Not a simple client-side action.
-- Requires policy checks, provider refund capability, shipment state checks, and immutable audit events.
-- A refund must not be marked complete until provider-confirmed.
+AI may assist with evidence but cannot select the binding outcome.
 
 ## State definitions
 
-| State | Meaning | Primary actor action |
+| State | Meaning | Primary action |
 |---|---|---|
-| `SELLER_DRAFT` | Seller is preparing product details | Complete and activate link |
-| `BUYER_OFFER_DRAFT` | Buyer is preparing a private proposed offer | Complete and invite seller |
-| `AWAITING_SELLER_ACCEPTANCE` | Buyer offer exists but seller has not accepted final terms | Seller joins, completes seller facts, accepts or declines |
-| `SELLER_ACCEPTED_AWAITING_PAYMENT` | Seller accepted the final terms; no payment is confirmed | Buyer reviews final terms and pays before expiry |
-| `LINK_ACTIVE` | Link can be opened and paid | Buyer reviews/pays; seller may deactivate if unpaid |
-| `CHECKOUT_STARTED` | Buyer entered checkout | Complete payment |
-| `PAYMENT_PENDING` | Provider has not yet confirmed final payment | Wait/reconcile |
-| `PAID_AWAITING_SHIPMENT` | Provider-confirmed payment; seller may ship | Add supported tracking |
-| `PAID_AWAITING_DIGITAL_DELIVERY` | Provider-confirmed payment; seller may complete digital handoff | Deliver through agreed channel and record handoff |
-| `DIGITAL_DELIVERY_SUBMITTED` | Seller recorded digital handoff; payout remains blocked | Buyer confirms or reports a problem; otherwise manual review |
-| `TRACKING_SUBMITTED` | Tracking recorded and verification initiated | Wait for carrier events |
-| `TRACKING_UNVERIFIED` | Tracking cannot be verified | Correct or manual review |
-| `IN_TRANSIT` | Carrier confirms movement | Wait for delivery |
-| `DELIVERED_DISPUTE_WINDOW` | Verified delivery; deadline is active | Buyer confirms or reports problem |
-| `BUYER_CONFIRMED_RECEIPT` | Buyer confirmed receipt | Evaluate payout eligibility |
-| `DISPUTED` | Buyer opened a dispute before deadline | Evidence and resolution flow |
-| `PAYOUT_ELIGIBLE` | All release conditions passed | Create payout instruction |
-| `PAYOUT_PENDING` | Provider processing transfer | Wait/reconcile |
-| `PAID_OUT` | Provider confirms seller transfer | Closed |
-| `SHIPMENT_OVERDUE` | Seller missed ship-by deadline | Cancel/refund review |
-| `REFUND_PENDING` | Provider processing refund | Wait/reconcile |
-| `REFUNDED` | Provider confirms refund | Closed |
-| `EXPIRED` | Unpaid link/payment window expired | Seller may create new link |
-| `CANCELLED` | Transaction cancelled according to policy | Closed |
+| `BUYER_OFFER_DRAFT` | Buyer is preparing one private offer | Create invitation |
+| `AWAITING_SELLER_ACCEPTANCE` | Seller has not accepted final terms | Seller authenticates and responds |
+| `SELLER_ACCEPTED_AWAITING_PAYMENT` | Seller accepted; payment is not confirmed | Buyer reviews and pays |
+| `CHECKOUT_STARTED` | Buyer accepted final terms | Complete provider checkout |
+| `PAYMENT_PENDING` | Provider has not confirmed payment | Wait/reconcile |
+| `PAID_AWAITING_SHIPMENT` | Confirmed payment; managed shipment is awaiting provider confirmation | System confirms booking, then seller downloads label |
+| `PAID_AWAITING_DIGITAL_DELIVERY` | Confirmed payment for digital item/right | Seller completes handoff |
+| `DIGITAL_DELIVERY_SUBMITTED` | Seller asserted handoff; payout blocked | Buyer confirms/reports or manual review |
+| `TRACKING_SUBMITTED` | Tracking recorded | Wait for carrier |
+| `TRACKING_UNVERIFIED` | Tracking not trusted | Correct/manual review |
+| `IN_TRANSIT` | Carrier confirms movement | Wait |
+| `DELIVERED_DISPUTE_WINDOW` | Trusted delivery starts deadline | Confirm after inspection or report |
+| `BUYER_CONFIRMED_RECEIPT` | Buyer confirmed receipt | Evaluate payout |
+| `DISPUTED` / `RESOLUTION_PENDING` | Payout is blocked | Human-controlled resolution |
+| `PAYOUT_ELIGIBLE` | Release conditions passed | Create payout instruction |
+| `PAYOUT_PENDING` | Transfer is processing | Reconcile |
+| `PAID_OUT` | Transfer completion confirmed | Closed |
+| `SHIPMENT_OVERDUE` | Ship-by missed | Cancellation/refund review |
+| `REFUND_PENDING` / `REFUNDED` | Refund processing/completed | Wait/closed |
+| `EXPIRED` / `CANCELLED` | Unpaid offer ended | Closed |
+
+`SELLER_DRAFT` and `LINK_ACTIVE` may remain in storage code only for historical records created before the buyer-first decision. No MVP command, route, CTA, or acceptance test may create a new seller-first transaction.
 
 ## Transition invariants
 
-- `SELLER_ACCEPTED_AWAITING_PAYMENT` requires an authenticated eligible seller, seller acceptance timestamp, possession/right-to-transfer attestations, policy approval, and a complete final agreement record.
-- A buyer-created offer cannot enter `CHECKOUT_STARTED` before `SELLER_ACCEPTED_AWAITING_PAYMENT`.
-- A material seller revision before payment requires the buyer to review and accept the revised final record; no prior buyer proposal acceptance is treated as acceptance of changed terms.
-- `PAID_AWAITING_SHIPMENT` requires provider-confirmed payment.
-- `PAID_AWAITING_DIGITAL_DELIVERY` requires provider-confirmed payment and a digital fulfillment type.
-- `DIGITAL_DELIVERY_SUBMITTED` requires seller authorization and a non-secret handoff statement; it cannot automatically become payout eligible.
-- `DELIVERED_DISPUTE_WINDOW` requires a trusted carrier-delivered event and a recorded `delivered_at`.
-- `PAYOUT_ELIGIBLE` requires no open dispute or refund. Physical goods may qualify through buyer confirmation or an expired carrier-verified dispute deadline. Digital goods require buyer confirmation or authorized manual review.
-- `PAYOUT_PENDING` requires an idempotent payout instruction.
-- `PAID_OUT`, `REFUNDED`, and provider-money failures require verified provider events or authorized reconciliation.
-- Closed states cannot be reopened by normal users.
+- Every transition uses the allow-listed domain transition service, role authorization, and immutable audit event.
+- Buyer-offer creation creates no payment/refund/payout object.
+- Checkout is rejected before `SELLER_ACCEPTED_AWAITING_PAYMENT`.
+- Seller acceptance is rejected at or after
+  `seller_acceptance_deadline_at`.
+- Checkout creation/retry is rejected at or after
+  `buyer_payment_deadline_at`.
+- A payment confirmed by the provider after the buyer-payment deadline never
+  exposes fulfillment and requires refund handling.
+- Offer creation requires an authenticated buyer account with phone verification and first/last name.
+- Seller acceptance requires authenticated seller identity, an owned payout account, attestations, and policy approval.
+- Seller and buyer electronic acceptances must reference the same valid
+  agreement-core hash; actor IDs and server timestamps must match the
+  transaction parties and acceptance times.
+- Offer details are buyer-authored and read-only for the seller; any correction requires decline and a new offer.
+- Seller acceptance creates the immutable agreement core; buyer acceptance
+  references the private physical delivery-address annex locked at offer
+  creation and creates the checkout snapshot; provider-confirmed payment seals
+  it and is the only path exposing the full address for fulfillment.
+- Trusted carrier delivery is the only default source of the physical 72-hour clock; shipped or in-transit status never starts it.
+- Digital handoff never becomes payout eligible from seller assertion or time.
+- Any dispute/refund/hold blocks payout.
+- `PAID_OUT` and `REFUNDED` require verified external completion or authorized reconciliation.
+- Closed states cannot be reopened by ordinary users.

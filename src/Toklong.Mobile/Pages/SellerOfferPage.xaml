@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Toklong.Mobile.Pages.SellerOfferPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
+    Title="ข้อเสนอขาย"
+    SafeAreaEdges="Container"
+    Shell.TabBarIsVisible="False">
+    <ScrollView SafeAreaEdges="SoftInput">
+        <VerticalStackLayout Style="{StaticResource RefinedScreenContent}">
+            <VerticalStackLayout Spacing="6">
+                <Label Style="{StaticResource PageTitle}" Text="ตรวจข้อเสนอจากผู้ซื้อ" />
+                <Label
+                    Style="{StaticResource RefinedBodyText}"
+                    Text="ตรวจรายละเอียดทั้งหมดก่อนเลือกยืนยันหรือปฏิเสธ"
+                    TextColor="{StaticResource InkSoft}" />
+            </VerticalStackLayout>
+
+            <Border Style="{StaticResource SurfaceCard}" Padding="17">
+                <Grid ColumnDefinitions="76,*" ColumnSpacing="14">
+                    <Border
+                        WidthRequest="76"
+                        HeightRequest="76"
+                        BackgroundColor="{StaticResource SurfaceBlue}"
+                        StrokeThickness="0"
+                        StrokeShape="RoundRectangle 18">
+                        <Image Margin="8" Source="{Binding PhotoUrl}" />
+                    </Border>
+                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="5">
+                        <Label
+                            FontAttributes="Bold"
+                            FontSize="17"
+                            MaxLines="2"
+                            Text="{Binding ProductName}" />
+                        <Label
+                            FontAttributes="Bold"
+                            FontSize="23"
+                            Text="{Binding AmountText}"
+                            TextColor="{StaticResource BrandBlueDeep}" />
+                        <Label
+                            FontSize="12"
+                            Text="{Binding DeadlineText}"
+                            TextColor="{StaticResource Muted}" />
+                    </VerticalStackLayout>
+                </Grid>
+            </Border>
+
+            <Border Style="{StaticResource RefinedFormCard}">
+                <VerticalStackLayout Spacing="{StaticResource SpacingMd}">
+                    <Label Style="{StaticResource SectionTitle}" Text="สิ่งที่ผู้ซื้อระบุ" />
+                    <Label
+                        FontSize="15"
+                        LineHeight="1.45"
+                        Text="{Binding AgreementDetails}"
+                        TextColor="{StaticResource InkSoft}" />
+                    <Grid
+                        IsVisible="{Binding HasDeliveryRegion}"
+                        ColumnDefinitions="*,Auto">
+                        <Label
+                            Text="พื้นที่จัดส่ง"
+                            TextColor="{StaticResource Muted}" />
+                        <Label
+                            Grid.Column="1"
+                            FontAttributes="Bold"
+                            Text="{Binding DeliveryRegionText}" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="ค่าคุ้มครองที่ผู้ซื้อจ่าย" TextColor="{StaticResource Muted}" />
+                        <Label Grid.Column="1" Text="{Binding FeeText}" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label FontAttributes="Bold" Text="ยอดที่คาดว่าจะได้รับ" />
+                        <Label
+                            Grid.Column="1"
+                            FontAttributes="Bold"
+                            Text="{Binding NetText}"
+                            TextColor="{StaticResource Success}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border
+                IsVisible="{Binding IsPhysical}"
+                Style="{StaticResource RefinedFormCard}">
+                <VerticalStackLayout Spacing="{StaticResource SpacingMd}">
+                    <VerticalStackLayout Spacing="3">
+                        <Label
+                            Style="{StaticResource SectionTitle}"
+                            Text="เตรียมค่าจัดส่ง" />
+                        <Label
+                            Style="{StaticResource RefinedHelperText}"
+                            Text="ระบุต้นทางและขนาดพัสดุ ระบบจะแสดงค่าจัดส่งที่ผู้ซื้อต้องจ่าย" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Style="{StaticResource RefinedFormSection}">
+                        <controls:FormLabelView
+                            IsRequired="True"
+                            Text="ที่อยู่ต้นทาง" />
+                        <Border
+                            IsVisible="{Binding ShowSavedOrigin}"
+                            Padding="12"
+                            BackgroundColor="#EAF4FF"
+                            Stroke="#CFE5FF"
+                            StrokeShape="RoundRectangle 14">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="9">
+                                <Label
+                                    VerticalOptions="Center"
+                                    FontSize="12"
+                                    LineHeight="1.3"
+                                    Text="{Binding SavedOrigin}" />
+                                <Button
+                                    Grid.Column="1"
+                                    Padding="10,4"
+                                    VerticalOptions="Center"
+                                    BackgroundColor="Transparent"
+                                    BorderWidth="0"
+                                    Command="{Binding EditOriginCommand}"
+                                    Text="เปลี่ยน"
+                                    TextColor="{StaticResource BrandBlueDeep}" />
+                            </Grid>
+                        </Border>
+
+                        <VerticalStackLayout
+                            IsVisible="{Binding ShowOriginEditor}"
+                            Spacing="{StaticResource SpacingSm}">
+                            <Button
+                                IsVisible="{Binding HasSavedOrigin}"
+                                Style="{StaticResource RefinedSecondaryActionButton}"
+                                Command="{Binding UseSavedOriginCommand}"
+                                Text="ใช้ต้นทางที่บันทึกไว้" />
+                            <Border Style="{StaticResource RefinedInputBorder}">
+                                <Entry
+                                    Style="{StaticResource RefinedEntry}"
+                                    MaxLength="500"
+                                    Placeholder="บ้านเลขที่ ถนน อาคาร หรือหมู่บ้าน"
+                                    Text="{Binding OriginAddressLine}" />
+                            </Border>
+                            <Border Style="{StaticResource RefinedInputBorder}">
+                                <Picker
+                                    Style="{StaticResource RefinedPicker}"
+                                    ItemDisplayBinding="{Binding Name}"
+                                    ItemsSource="{Binding OriginProvinces}"
+                                    SelectedItem="{Binding SelectedOriginProvince}"
+                                    Title="เลือกจังหวัดต้นทาง" />
+                            </Border>
+                            <Border Style="{StaticResource RefinedInputBorder}">
+                                <Picker
+                                    Style="{StaticResource RefinedPicker}"
+                                    ItemDisplayBinding="{Binding Name}"
+                                    ItemsSource="{Binding OriginDistricts}"
+                                    SelectedItem="{Binding SelectedOriginDistrict}"
+                                    Title="เลือกอำเภอหรือเขต" />
+                            </Border>
+                            <Border Style="{StaticResource RefinedInputBorder}">
+                                <Picker
+                                    Style="{StaticResource RefinedPicker}"
+                                    ItemDisplayBinding="{Binding Name}"
+                                    ItemsSource="{Binding OriginSubdistricts}"
+                                    SelectedItem="{Binding SelectedOriginSubdistrict}"
+                                    Title="เลือกตำบลหรือแขวง" />
+                            </Border>
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                                <CheckBox
+                                    MinimumWidthRequest="44"
+                                    MinimumHeightRequest="44"
+                                    IsChecked="{Binding RememberOrigin}" />
+                                <Label
+                                    Grid.Column="1"
+                                    VerticalOptions="Center"
+                                    FontSize="12"
+                                    Text="จำต้นทางนี้ไว้สำหรับดีลถัดไป" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Style="{StaticResource RefinedFormSection}">
+                        <controls:FormLabelView
+                            IsRequired="True"
+                            Text="น้ำหนักพัสดุ" />
+                        <Border Style="{StaticResource RefinedInputBorder}">
+                            <Entry
+                                Style="{StaticResource RefinedEntry}"
+                                Keyboard="Numeric"
+                                MaxLength="5"
+                                Placeholder="เช่น 1200 กรัม"
+                                Text="{Binding WeightGrams}" />
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Style="{StaticResource RefinedFormSection}">
+                        <controls:FormLabelView
+                            IsRequired="True"
+                            Text="ขนาดพัสดุ (ซม.)" />
+                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                            <Border Style="{StaticResource RefinedInputBorder}">
+                                <Entry
+                                    Style="{StaticResource RefinedEntry}"
+                                    Keyboard="Numeric"
+                                    MaxLength="3"
+                                    Placeholder="กว้าง"
+                                    Text="{Binding WidthCentimeters}" />
+                            </Border>
+                            <Border
+                                Grid.Column="1"
+                                Style="{StaticResource RefinedInputBorder}">
+                                <Entry
+                                    Style="{StaticResource RefinedEntry}"
+                                    Keyboard="Numeric"
+                                    MaxLength="3"
+                                    Placeholder="ยาว"
+                                    Text="{Binding LengthCentimeters}" />
+                            </Border>
+                            <Border
+                                Grid.Column="2"
+                                Style="{StaticResource RefinedInputBorder}">
+                                <Entry
+                                    Style="{StaticResource RefinedEntry}"
+                                    Keyboard="Numeric"
+                                    MaxLength="3"
+                                    Placeholder="สูง"
+                                    Text="{Binding HeightCentimeters}" />
+                            </Border>
+                        </Grid>
+                    </VerticalStackLayout>
+
+                    <Button
+                        Style="{StaticResource RefinedSecondaryActionButton}"
+                        Command="{Binding LoadShippingQuotesCommand}"
+                        Text="ดูค่าจัดส่ง" />
+
+                    <VerticalStackLayout
+                        IsVisible="{Binding HasShippingQuotes}"
+                        Spacing="{StaticResource SpacingSm}">
+                        <Border Style="{StaticResource RefinedInputBorder}">
+                            <Picker
+                                Style="{StaticResource RefinedPicker}"
+                                ItemDisplayBinding="{Binding DisplayText}"
+                                ItemsSource="{Binding ShippingQuotes}"
+                                SelectedItem="{Binding SelectedShippingQuote}"
+                                Title="เลือกบริษัทขนส่ง" />
+                        </Border>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label
+                                Text="ราคาสินค้า"
+                                TextColor="{StaticResource Muted}" />
+                            <Label
+                                Grid.Column="1"
+                                Text="{Binding Transaction.ItemPriceText}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label
+                                Text="ค่าจัดส่งที่ผู้ซื้อจ่าย"
+                                TextColor="{StaticResource Muted}" />
+                            <Label
+                                Grid.Column="1"
+                                Text="{Binding ShippingFeeText}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label
+                                FontAttributes="Bold"
+                                Text="ยอดที่ผู้ซื้อชำระ" />
+                            <Label
+                                Grid.Column="1"
+                                FontAttributes="Bold"
+                                Text="{Binding BuyerTotalText}"
+                                TextColor="{StaticResource BrandBlueDeep}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border
+                IsVisible="{Binding HasPayoutAccounts}"
+                Style="{StaticResource RefinedFormCard}">
+                <VerticalStackLayout Spacing="{StaticResource SpacingSm}">
+                    <Label Style="{StaticResource SectionTitle}" Text="บัญชีรับเงิน" />
+                    <Border Style="{StaticResource RefinedInputBorder}">
+                        <Picker
+                            Style="{StaticResource RefinedPicker}"
+                            ItemsSource="{Binding PayoutAccounts}"
+                            ItemDisplayBinding="{Binding MaskedNumber}"
+                            SelectedItem="{Binding SelectedPayoutAccount}"
+                            Title="เลือกบัญชีรับเงิน" />
+                    </Border>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border
+                IsVisible="{Binding NeedsPayoutAccount}"
+                Style="{StaticResource RefinedFormCard}">
+                <VerticalStackLayout Spacing="{StaticResource SpacingMd}">
+                    <Label Style="{StaticResource SectionTitle}" Text="เพิ่มบัญชีรับเงิน" />
+                    <VerticalStackLayout Style="{StaticResource RefinedFormSection}">
+                        <controls:FormLabelView IsRequired="True" Text="ธนาคาร" />
+                        <Border Style="{StaticResource RefinedInputBorder}">
+                            <Picker
+                                Style="{StaticResource RefinedPicker}"
+                                ItemsSource="{Binding Banks}"
+                                SelectedItem="{Binding SelectedBank}"
+                                Title="เลือกธนาคาร" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Style="{StaticResource RefinedFormSection}">
+                        <controls:FormLabelView IsRequired="True" Text="ชื่อบัญชี" />
+                        <Border Style="{StaticResource RefinedInputBorder}">
+                            <Entry
+                                Style="{StaticResource RefinedEntry}"
+                                Placeholder="ชื่อตามบัญชีธนาคาร"
+                                Text="{Binding AccountName}" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Style="{StaticResource RefinedFormSection}">
+                        <controls:FormLabelView IsRequired="True" Text="เลขบัญชี" />
+                        <Border Style="{StaticResource RefinedInputBorder}">
+                            <Entry
+                                Style="{StaticResource RefinedEntry}"
+                                Keyboard="Numeric"
+                                MaxLength="15"
+                                Placeholder="ตัวเลข 10–15 หลัก"
+                                Text="{Binding AccountNumber}" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <Button
+                        Style="{StaticResource RefinedSecondaryActionButton}"
+                        Command="{Binding SavePayoutCommand}"
+                        Text="บันทึกบัญชีรับเงิน" />
+                </VerticalStackLayout>
+            </Border>
+
+            <VerticalStackLayout Spacing="{StaticResource SpacingSm}">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <CheckBox
+                        MinimumWidthRequest="44"
+                        MinimumHeightRequest="44"
+                        IsChecked="{Binding TransferRightsAttested}" />
+                    <Label
+                        Grid.Column="1"
+                        VerticalOptions="Center"
+                        Text="ฉันครอบครอง มีสิทธิ์โอน และรายการนี้ไม่ใช่สินค้าต้องห้าม" />
+                </Grid>
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <CheckBox
+                        MinimumWidthRequest="44"
+                        MinimumHeightRequest="44"
+                        IsChecked="{Binding AcceptedTerms}" />
+                    <Label
+                        Grid.Column="1"
+                        VerticalOptions="Center"
+                        Text="ฉันยอมรับข้อตกลงทางอิเล็กทรอนิกส์ รายละเอียด ต้นทาง ขนาดพัสดุ ค่าจัดส่ง ค่าบริการ และกำหนดส่งแล้ว" />
+                </Grid>
+            </VerticalStackLayout>
+
+            <Button
+                Style="{StaticResource RefinedPrimaryButton}"
+                Command="{Binding AcceptCommand}"
+                Text="ยืนยันข้อเสนอ" />
+            <Button
+                Style="{StaticResource RefinedSecondaryActionButton}"
+                Command="{Binding DeclineCommand}"
+                Text="ปฏิเสธข้อเสนอ" />
+
+            <Border
+                IsVisible="{Binding HasMessage}"
+                Style="{StaticResource RefinedValidationBorder}">
+                <Label
+                    Style="{StaticResource RefinedValidationText}"
+                    Text="{Binding Message}" />
+            </Border>
+            <ActivityIndicator
+                HorizontalOptions="Center"
+                IsRunning="{Binding IsBusy}"
+                IsVisible="{Binding IsBusy}"
+                Color="{StaticResource BrandBlue}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

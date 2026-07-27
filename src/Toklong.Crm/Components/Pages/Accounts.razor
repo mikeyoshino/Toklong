@@ -1,0 +1,246 @@
+@page "/accounts"
+@attribute [Authorize(Policy = CrmPolicies.CrmAccountAdministrator)]
+@rendermode InteractiveServer
+@inject CrmAccountOperations Operations
+@inject WorkforceIdentityOptions Workforce
+
+<PageTitle>บัญชีทีมงาน | TOKLONG CRM</PageTitle>
+
+<div class="page-heading">
+    <p class="eyebrow">WORKFORCE ACCESS</p>
+    <h1>บัญชีทีมงาน CRM</h1>
+    <p>
+        สร้างเป็น Admin ก่อนเสมอ การเพิ่ม Super Admin
+        ต้องให้ Super Admin คนที่สองอนุมัติ
+    </p>
+</div>
+
+@if (_message is not null)
+{
+    <div class="alert" role="status">@_message</div>
+}
+@if (_error is not null)
+{
+    <div class="alert alert-error" role="alert">@_error</div>
+}
+
+<section class="panel">
+    <h2>เพิ่ม Admin จาก Microsoft Entra ID</h2>
+    <EditForm Model="_create" OnValidSubmit="CreateAsync">
+        <label>
+            Tenant ID
+            <InputText @bind-Value="_create.TenantId" />
+        </label>
+        <label>
+            Object ID
+            <InputText @bind-Value="_create.ObjectId" />
+        </label>
+        <label>
+            อีเมล
+            <InputText type="email" @bind-Value="_create.Email" />
+        </label>
+        <label>
+            ชื่อที่แสดง
+            <InputText @bind-Value="_create.DisplayName" />
+        </label>
+        <button class="primary-button" type="submit">สร้าง Admin</button>
+    </EditForm>
+</section>
+
+@if (_pending.Count > 0)
+{
+    <section class="panel">
+        <h2>คำขอ Super Admin ที่รออนุมัติ</h2>
+        @foreach (var request in _pending)
+        {
+            var target = _accounts.FirstOrDefault(
+                item => item.Id == request.TargetUserId);
+            <div class="account-row">
+                <span>
+                    <strong>@(target?.DisplayName ?? request.TargetUserId.ToString())</strong><br />
+                    ขอเมื่อ @Bangkok(request.RequestedAt)
+                </span>
+                <button class="danger-button"
+                        @onclick="() => ApproveAsync(request.Id)">
+                    อนุมัติเป็น Super Admin
+                </button>
+            </div>
+        }
+    </section>
+}
+
+<section class="panel">
+    <h2>บัญชีทั้งหมด</h2>
+    @if (_loading)
+    {
+        <p role="status">กำลังโหลด…</p>
+    }
+    @foreach (var account in _accounts)
+    {
+        <div class="account-row">
+            <div>
+                <strong>@account.DisplayName</strong>
+                <p>@account.Email</p>
+                <small>@string.Join(", ", account.Roles) · @account.Status</small>
+            </div>
+            @if (account.Status == CrmUserStatus.Active)
+            {
+                <div class="row-actions">
+                    @if (!account.Roles.Contains(CrmRoles.SuperAdmin))
+                    {
+                        <button class="secondary-button"
+                                @onclick="() => RequestSuperAsync(account.Id)">
+                            ขอเพิ่ม Super Admin
+                        </button>
+                    }
+                    @if (_disableConfirmationId == account.Id)
+                    {
+                        <div class="confirmation-box"
+                             role="alert">
+                            <strong>ยืนยันปิดบัญชี @account.DisplayName</strong>
+                            <p>Session ที่ใช้งานอยู่ทั้งหมดจะถูกยกเลิกทันที</p>
+                            <div class="row-actions">
+                                <button class="danger-button"
+                                        @onclick="() => DisableAsync(account.Id)">
+                                    ยืนยันปิดบัญชี
+                                </button>
+                                <button class="secondary-button"
+                                        @onclick="CancelDisable">
+                                    ย้อนกลับ
+                                </button>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <button class="danger-button"
+                                @onclick="() => BeginDisable(account.Id)">
+                            ตรวจสอบก่อนปิดบัญชี
+                        </button>
+                    }
+                </div>
+            }
+            else
+            {
+                <button class="secondary-button"
+                        @onclick="() => ReactivateAsync(account.Id)">
+                    เปิดใช้งานอีกครั้ง
+                </button>
+            }
+        </div>
+    }
+</section>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask
+        { get; set; } = default!;
+
+    private IReadOnlyList<CrmAccountListItem> _accounts = [];
+    private IReadOnlyList<CrmRoleChangeRequest> _pending = [];
+    private CreateAccountForm _create = new();
+    private string? _message;
+    private string? _error;
+    private bool _loading = true;
+    private Guid? _disableConfirmationId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _create.TenantId = Workforce.TenantId;
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        try
+        {
+            var state = await AuthenticationStateTask;
+            _accounts = await Operations.ListAsync(
+                state.User, CancellationToken.None);
+            _pending = await Operations.PendingRequestsAsync(
+                state.User, CancellationToken.None);
+            _error = null;
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task RunAsync(Func<ClaimsPrincipal, Task> action)
+    {
+        try
+        {
+            _message = null;
+            _error = null;
+            var state = await AuthenticationStateTask;
+            await action(state.User);
+            _message = "บันทึกสำเร็จ";
+            await ReloadAsync();
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+        }
+    }
+
+    private Task CreateAsync() =>
+        RunAsync(async user =>
+        {
+            await Operations.CreateAdminAsync(
+                _create.TenantId,
+                _create.ObjectId,
+                _create.Email,
+                _create.DisplayName,
+                user,
+                CancellationToken.None);
+            _create = new CreateAccountForm
+            {
+                TenantId = Workforce.TenantId
+            };
+        });
+
+    private Task RequestSuperAsync(Guid userId) =>
+        RunAsync(user => Operations.RequestSuperAdminAsync(
+            userId, user, CancellationToken.None));
+
+    private Task ApproveAsync(Guid requestId) =>
+        RunAsync(user => Operations.ApproveSuperAdminAsync(
+            requestId, user, CancellationToken.None));
+
+    private Task DisableAsync(Guid userId) =>
+        RunAsync(async user =>
+        {
+            await Operations.DisableAsync(
+                userId, user, CancellationToken.None);
+            _disableConfirmationId = null;
+        });
+
+    private Task ReactivateAsync(Guid userId) =>
+        RunAsync(user => Operations.ReactivateAsync(
+            userId, user, CancellationToken.None));
+
+    private void BeginDisable(Guid userId) =>
+        _disableConfirmationId = userId;
+
+    private void CancelDisable() =>
+        _disableConfirmationId = null;
+
+    private static string Bangkok(DateTimeOffset value) =>
+        TimeZoneInfo.ConvertTime(
+            value,
+            TimeZoneInfo.FindSystemTimeZoneById("Asia/Bangkok"))
+            .ToString("dd/MM/yyyy HH:mm");
+
+    private sealed class CreateAccountForm
+    {
+        public string TenantId { get; set; } = "";
+        public string ObjectId { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string DisplayName { get; set; } = "";
+    }
+}

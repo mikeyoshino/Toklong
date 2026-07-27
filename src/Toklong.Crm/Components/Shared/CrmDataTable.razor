@@ -1,0 +1,145 @@
+@typeparam TItem
+
+<section class="data-table-shell" aria-label="@AriaLabel">
+    @if (Toolbar is not null)
+    {
+        <div class="data-table-toolbar">
+            @Toolbar
+        </div>
+    }
+
+    @if (Items.Count == 0)
+    {
+        <div class="table-empty" role="status">
+            <strong>@EmptyTitle</strong>
+            <span>@EmptyDescription</span>
+        </div>
+    }
+    else
+    {
+        <div class="table-scroll">
+            <table class="data-table">
+                <caption class="visually-hidden">@AriaLabel</caption>
+                <thead>
+                    @HeaderTemplate
+                </thead>
+                <tbody>
+                    @foreach (var item in Items)
+                    {
+                        @RowTemplate(item)
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <footer class="table-footer">
+        <p>
+            แสดง @FirstVisible–@LastVisible จาก @TotalCount เคส
+        </p>
+        @if (TotalPages > 1)
+        {
+            <nav class="pagination" aria-label="เปลี่ยนหน้ารายการเคส">
+                <button type="button"
+                        disabled="@(Page <= 1)"
+                        aria-label="หน้าก่อนหน้า"
+                        @onclick="() => ChangePageAsync(Page - 1)">
+                    ←
+                </button>
+                @foreach (var pageNumber in VisiblePages())
+                {
+                    @if (pageNumber == 0)
+                    {
+                        <span aria-hidden="true">…</span>
+                    }
+                    else
+                    {
+                        <button type="button"
+                                class="@(pageNumber == Page ? "current" : null)"
+                                aria-current="@(pageNumber == Page ? "page" : null)"
+                                aria-label="@($"หน้า {pageNumber}")"
+                                @onclick="() => ChangePageAsync(pageNumber)">
+                            @pageNumber
+                        </button>
+                    }
+                }
+                <button type="button"
+                        disabled="@(Page >= TotalPages)"
+                        aria-label="หน้าถัดไป"
+                        @onclick="() => ChangePageAsync(Page + 1)">
+                    →
+                </button>
+            </nav>
+        }
+    </footer>
+</section>
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<TItem> Items { get; set; } = [];
+
+    [Parameter, EditorRequired]
+    public RenderFragment HeaderTemplate { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public RenderFragment<TItem> RowTemplate { get; set; } = default!;
+
+    [Parameter]
+    public RenderFragment? Toolbar { get; set; }
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "ตารางข้อมูล";
+
+    [Parameter]
+    public string EmptyTitle { get; set; } = "ไม่พบข้อมูล";
+
+    [Parameter]
+    public string EmptyDescription { get; set; } =
+        "ลองเปลี่ยนตัวกรองแล้วค้นหาอีกครั้ง";
+
+    [Parameter]
+    public int TotalCount { get; set; }
+
+    [Parameter]
+    public int Page { get; set; } = 1;
+
+    [Parameter]
+    public int PageSize { get; set; } = 20;
+
+    [Parameter]
+    public EventCallback<int> PageChanged { get; set; }
+
+    private int TotalPages => Math.Max(
+        1,
+        (int)Math.Ceiling(TotalCount / (double)PageSize));
+
+    private int FirstVisible =>
+        TotalCount == 0 ? 0 : (Page - 1) * PageSize + 1;
+
+    private int LastVisible =>
+        Math.Min(Page * PageSize, TotalCount);
+
+    private async Task ChangePageAsync(int page)
+    {
+        if (page < 1 || page > TotalPages || page == Page)
+            return;
+        await PageChanged.InvokeAsync(page);
+    }
+
+    private IReadOnlyList<int> VisiblePages()
+    {
+        if (TotalPages <= 7)
+            return Enumerable.Range(1, TotalPages).ToArray();
+        var pages = new List<int> { 1 };
+        if (Page > 4)
+            pages.Add(0);
+        var start = Math.Max(2, Page - 1);
+        var end = Math.Min(TotalPages - 1, Page + 1);
+        for (var page = start; page <= end; page++)
+            pages.Add(page);
+        if (Page < TotalPages - 3)
+            pages.Add(0);
+        pages.Add(TotalPages);
+        return pages;
+    }
+}

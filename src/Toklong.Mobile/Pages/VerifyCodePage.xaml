@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Toklong.Mobile.Pages.VerifyCodePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
+    SafeAreaEdges="Container"
+    Shell.NavBarIsVisible="False"
+    Shell.TabBarIsVisible="False">
+    <ContentPage.Background>
+        <RadialGradientBrush Center="0.84,0.03" Radius="0.98">
+            <GradientStop Color="#DCEFFF" Offset="0" />
+            <GradientStop Color="#F6FAFF" Offset="0.38" />
+            <GradientStop Color="#FFFFFF" Offset="0.9" />
+        </RadialGradientBrush>
+    </ContentPage.Background>
+    <ScrollView SafeAreaEdges="SoftInput">
+        <VerticalStackLayout
+            MaximumWidthRequest="520"
+            Padding="{StaticResource AuthScreenPadding}"
+            Spacing="24">
+            <Grid ColumnDefinitions="44,*" ColumnSpacing="14">
+                <Button
+                    Style="{StaticResource AuthBackButton}"
+                    Clicked="OnBackClicked"
+                    SemanticProperties.Description="ย้อนกลับไปแก้เบอร์โทรศัพท์"
+                    Text="‹" />
+                <controls:BrandLockupView
+                    Grid.Column="1"
+                    VerticalOptions="Center" />
+            </Grid>
+
+            <Border
+                WidthRequest="64"
+                HeightRequest="64"
+                HorizontalOptions="Start"
+                BackgroundColor="#EAF4FF"
+                StrokeThickness="0"
+                StrokeShape="RoundRectangle 21">
+                <Image Margin="15" Source="ui_shield.png" />
+            </Border>
+
+            <VerticalStackLayout Spacing="8">
+                <Label
+                    Style="{StaticResource AuthTitle}"
+                    Text="ใส่รหัส 6 หลัก" />
+                <Label
+                    Style="{StaticResource RefinedBodyText}"
+                    Text="{Binding MaskedPhoneNumber, StringFormat='เราส่งรหัสไปที่ {0}'}"
+                    TextColor="{StaticResource InkSoft}" />
+            </VerticalStackLayout>
+
+            <Border Style="{StaticResource AuthFormCard}">
+                <VerticalStackLayout Spacing="20">
+                    <controls:OtpCodeInput
+                        x:Name="OtpInput"
+                        Code="{Binding Code, Mode=TwoWay}" />
+
+                    <Border
+                        IsVisible="{Binding HasDevelopmentHint}"
+                        Padding="12"
+                        BackgroundColor="#EAF4FF"
+                        StrokeThickness="0"
+                        StrokeShape="RoundRectangle 12">
+                        <Label
+                            HorizontalTextAlignment="Center"
+                            Style="{StaticResource RefinedHelperText}"
+                            Text="{Binding DevelopmentHint}"
+                            TextColor="{StaticResource BrandBlueDeep}" />
+                    </Border>
+
+                    <Button
+                        Style="{StaticResource RefinedPrimaryButton}"
+                        Command="{Binding ConfirmCommand}"
+                        Text="ยืนยัน">
+                        <Button.Triggers>
+                            <DataTrigger TargetType="Button" Binding="{Binding IsBusy}" Value="True">
+                                <Setter Property="IsEnabled" Value="False" />
+                                <Setter Property="Text" Value="กำลังยืนยัน..." />
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+                </VerticalStackLayout>
+            </Border>
+
+            <HorizontalStackLayout HorizontalOptions="Center" Spacing="4">
+                <Label
+                    VerticalOptions="Center"
+                    Text="ยังไม่ได้รับรหัส?"
+                    TextColor="{StaticResource Muted}" />
+                <Button
+                    Style="{StaticResource RefinedInlineButton}"
+                    Command="{Binding ResendCommand}"
+                    Text="ขอรหัสใหม่" />
+            </HorizontalStackLayout>
+
+            <ActivityIndicator
+                HorizontalOptions="Center"
+                IsRunning="{Binding IsBusy}"
+                IsVisible="{Binding IsBusy}"
+                Color="{StaticResource BrandBlue}" />
+
+            <Border
+                IsVisible="{Binding HasMessage}"
+                Style="{StaticResource RefinedValidationBorder}">
+                <Label
+                    Style="{StaticResource RefinedValidationText}"
+                    Text="{Binding Message}" />
+            </Border>
+
+            <Label
+                HorizontalTextAlignment="Center"
+                Style="{StaticResource RefinedHelperText}"
+                Text="รหัสใช้ได้ครั้งเดียวและมีเวลาจำกัด อย่าส่งรหัสนี้ให้ผู้อื่น"
+                TextColor="{StaticResource Muted}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

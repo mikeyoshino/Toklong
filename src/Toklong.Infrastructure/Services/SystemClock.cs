@@ -7,8 +7,19 @@ public sealed class SystemClock : IClock
     public DateTimeOffset UtcNow => DateTimeOffset.UtcNow;
 }
 
-public sealed class ManualPayoutProvider : IManualPayoutProvider
+public sealed class ManualPayoutProvider : IPayoutProvider
 {
-    public string CreateInstructionReference(Guid transactionId) =>
-        $"PAYOUT-{DateTime.UtcNow:yyMMdd}-{transactionId.ToString("N")[..8].ToUpperInvariant()}";
+    public Task<PayoutInstructionPreparation> CreateInstructionAsync(
+        Guid transactionId,
+        long amountSatang,
+        string currency,
+        string bankCode,
+        string accountName,
+        string accountNumber,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(new PayoutInstructionPreparation(
+            "manual-bank",
+            $"PAYOUT-{DateTime.UtcNow:yyMMdd}-" +
+            transactionId.ToString("N")[..8].ToUpperInvariant(),
+            "accepted"));
 }

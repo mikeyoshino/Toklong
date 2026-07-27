@@ -20,6 +20,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Toklong.Domain\Toklong.Domain.csproj" />
+    <Compile Include="..\TestSupport\TestTransactionFactory.cs"
+             Link="TestSupport\TestTransactionFactory.cs" />
   </ItemGroup>
 
 </Project>

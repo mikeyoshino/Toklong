@@ -1,5 +1,8 @@
 @page "/buyer/{Token}"
 @rendermode InteractiveServer
+@attribute [Authorize(Roles = "Buyer")]
+@implements IAsyncDisposable
+@using Toklong.Application.Features.Checkout.BeginCheckout
 @using Toklong.Application.Features.Disputes.OpenDispute
 @using Toklong.Application.Features.Payouts.ConfirmReceipt
 @using Toklong.Application.Features.Transactions.GetTransaction
@@ -7,7 +10,9 @@
 @using Toklong.Domain.Transactions
 @using Toklong.Web.Models
 @inject Toklong.Web.Services.ApplicationRequestSender Sender
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IConfiguration Configuration
+@inject NavigationManager Navigation
 
 <PageTitle>รายการผู้ซื้อ — TOKLONG</PageTitle>
 
@@ -26,7 +31,9 @@
     {
         <div class="transaction-heading">
             <div><span class="eyebrow"><span class="eyebrow-dot"></span>มุมมองผู้ซื้อ</span><h1>@transaction.ProductName</h1></div>
-            <StatusBadge State="transaction.State" Label="transaction.StateLabel" />
+            <span aria-live="polite" aria-atomic="true">
+                <StatusBadge State="transaction.State" Label="@transaction.StateLabel" />
+            </span>
         </div>
 
         <AlertMessage Message="@success" />
@@ -74,7 +81,84 @@
                 <TransactionDetails Transaction="transaction" />
             </div>
             <aside>
-                @if (transaction.State == TransactionState.PaymentPending)
+                @if (transaction.State == TransactionState.AwaitingSellerAcceptance)
+                {
+                    <section class="action-card sticky-card">
+                        @if (string.IsNullOrWhiteSpace(transaction.PhotoUrl))
+                        {
+                            <div class="step-label">ข้อเสนอเดิมไม่มีรูป</div>
+                            <h2>สร้างข้อเสนอใหม่พร้อมรูป</h2>
+                            <p>ข้อเสนอนี้สร้างก่อนเปลี่ยน flow จึงไม่มีรูปสินค้า ผู้ขายแก้หรือเพิ่มรูปแทนไม่ได้</p>
+                            <a class="button button-primary" href="/offers/create">สร้างข้อเสนอใหม่</a>
+                            <div class="notice">ข้อเสนอใหม่ต้องมีรูปและรายละเอียดจากผู้ซื้อก่อนส่งให้ผู้ขายยืนยัน</div>
+                        }
+                        else
+                        {
+                            <div class="step-label">ขั้นที่ 2 · รอผู้ขายยืนยัน</div>
+                            <h2>ส่งลิงก์นี้ให้ผู้ขาย</h2>
+                            <div class="copy-value">@SellerOfferUrl</div>
+                            <p>ผู้ขายตอบได้ถึง <strong>@ThaiDate(transaction.SellerAcceptanceDeadlineAt)</strong> และต้องเข้าสู่ระบบด้วยเบอร์โทรศัพท์ก่อนยืนยันหรือปฏิเสธ คุณยังไม่ต้องชำระเงิน</p>
+                            <a class="button button-primary" href="@SellerOfferUrl">เปิดลิงก์ที่ผู้ขายเห็น</a>
+                            <div class="notice">หน้านี้ตรวจสถานะใหม่อัตโนมัติ คุณปิดหน้าและกลับมาด้วยลิงก์ส่วนตัวนี้ได้</div>
+                        }
+                    </section>
+                }
+                else if (transaction.State == TransactionState.SellerAcceptedAwaitingPayment)
+                {
+                    <EditForm Model="checkoutForm" OnValidSubmit="BeginCheckoutAsync"
+                              FormName="buyer-offer-checkout"
+                              class="form-card sticky-card">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="validation-summary" />
+                        <div class="step-label success-text">ผู้ขายยืนยันแล้ว</div>
+                        <h2>ตรวจฉบับสุดท้ายก่อนชำระ</h2>
+                        <div class="notice">ชำระภายใน <strong>@ThaiDate(transaction.BuyerPaymentDeadlineAt)</strong> ไม่เช่นนั้นรายการจะปิดและผู้ขายไม่ต้องจองสินค้าไว้</div>
+                        <p>รายละเอียด รูป ราคาสินค้า ค่าจัดส่ง ยอดชำระ และกำหนดส่งด้านซ้ายถูกล็อกแล้ว กรุณาตรวจอีกครั้งก่อนชำระ</p>
+                        @if (transaction.FulfillmentType == FulfillmentType.PhysicalShipment)
+                        {
+                            <div class="address-section">
+                                <h3>ที่อยู่จัดส่งที่ล็อกกับดีล</h3>
+                                @if (!string.IsNullOrWhiteSpace(
+                                         transaction.DeliveryAddress))
+                                {
+                                    <div class="notice">
+                                        <strong>@transaction.DeliveryAddress</strong>
+                                        <br />
+                                        ที่อยู่นี้เลือกไว้ตั้งแต่สร้างดีลและแก้ในขั้นชำระไม่ได้
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="notice danger">
+                                        ข้อเสนอเดิมนี้ไม่มีที่อยู่เต็ม จึงชำระต่อไม่ได้ กรุณาสร้างข้อเสนอใหม่
+                                    </div>
+                                }
+                            </div>
+                        }
+                        <CheckboxField Id="buyer-offer-final-terms"
+                                       Label="ฉันตรวจและยอมรับรายละเอียดฉบับสุดท้าย"
+                                       Hint="รวมรูป สภาพ ตำหนิ ราคาสินค้า ค่าจัดส่ง ยอดชำระ กำหนดส่ง และเงื่อนไขการจ่ายให้ผู้ขาย"
+                                       @bind-Value="checkoutForm.AcceptedTerms" />
+                        @if (transaction.FulfillmentType ==
+                                 FulfillmentType.DigitalHandoff ||
+                             !string.IsNullOrWhiteSpace(
+                                 transaction.DeliveryAddress))
+                        {
+                            <PrimaryButton Busy="busy" Disabled="busy"
+                                           BusyText="กำลังเริ่มชำระ…">
+                                ยอมรับข้อตกลงและชำระ @Money(transaction.BuyerTotalSatang)
+                            </PrimaryButton>
+                        }
+                        else
+                        {
+                            <a class="button button-primary"
+                               href="/offers/create">
+                                สร้างข้อเสนอใหม่
+                            </a>
+                        }
+                    </EditForm>
+                }
+                else if (transaction.State == TransactionState.PaymentPending)
                 {
                     <section class="action-card sticky-card">
                         <div class="step-label">ขั้นที่ 2 จาก 4 · ชำระเงิน</div>
@@ -86,10 +170,32 @@
                             <div><span>ยอดที่ต้องโอน</span><strong>@Money(transaction.BuyerTotalSatang)</strong></div>
                             <div><span>เลขอ้างอิง</span><strong>@transaction.PaymentReference</strong></div>
                         </div>
+                        <div class="deadline-box">
+                            <span>ระบบต้องได้รับการยืนยันการจ่ายภายใน</span>
+                            <strong>@ThaiDate(transaction.BuyerPaymentDeadlineAt)</strong>
+                        </div>
                         <div class="notice">
                             หลังโอน ระบบจะแสดง “กำลังตรวจสอบการชำระ” จนกว่ารายการเดินบัญชีจะได้รับการตรวจสอบ
                             สลิปอย่างเดียวไม่ทำให้ผู้ขายเห็นว่าส่งสินค้าได้
                         </div>
+                    </section>
+                }
+                else if (transaction.State == TransactionState.Expired)
+                {
+                    <section class="action-card sticky-card">
+                        <div class="step-label">รายการปิดแล้ว</div>
+                        @if (transaction.ExpirationReason ==
+                             TransactionExpirationReason.SellerDidNotRespond)
+                        {
+                            <h2>ผู้ขายไม่ได้ตอบภายในเวลา</h2>
+                            <p>ไม่มีการเก็บเงินจากรายการนี้ หากยังต้องการซื้อ สามารถใช้รายละเอียดเดิมเป็นแนวทางแล้วส่งข้อเสนอใหม่ให้ผู้ขาย</p>
+                        }
+                        else
+                        {
+                            <h2>หมดเวลาชำระ</h2>
+                            <p>ผู้ขายไม่ต้องจองสินค้าไว้แล้ว หากยังต้องการซื้อ ต้องส่งข้อเสนอใหม่และให้ผู้ขายยืนยันอีกครั้ง</p>
+                        }
+                        <a class="button button-primary" href="/offers/create">สร้างข้อเสนอใหม่</a>
                     </section>
                 }
                 else if (transaction.State == TransactionState.PaidAwaitingShipment)
@@ -119,7 +225,7 @@
                             <div><span>ขนส่ง</span><strong>@transaction.CarrierCode</strong></div>
                             <div><span>Tracking</span><strong>@transaction.TrackingNumber</strong></div>
                         </div>
-                        <p>ยังไม่เริ่มนับ 168 ชั่วโมงจนกว่าขนส่งยืนยันการนำส่ง</p>
+                        <p>ยังไม่เริ่มนับ 72 ชั่วโมงจนกว่าขนส่งยืนยันการนำส่งสำเร็จ</p>
                     </section>
                 }
                 else if (transaction.State == TransactionState.DeliveredDisputeWindow)
@@ -128,9 +234,9 @@
                         <div class="step-label">ขั้นที่ 4 จาก 4 · ตรวจสินค้า</div>
                         <h2>ขนส่งยืนยันการนำส่งแล้ว</h2>
                         <div class="deadline-box"><span>แจ้งปัญหาได้ถึง</span><strong>@ThaiDate(transaction.DisputeWindowEndsAt)</strong></div>
-                        <p>กรุณาตรวจสินค้า รูป อุปกรณ์ สภาพ และตำหนิ ก่อนยืนยันรับ</p>
+                        <p>กรุณาตรวจสินค้า รูป อุปกรณ์ สภาพ และตำหนิ ก่อนยืนยัน การยืนยันจะเริ่มขั้นตอนจ่ายเงินให้ผู้ขาย</p>
                         <PrimaryButton Type="button" Busy="busy" Disabled="busy" @onclick="ConfirmReceiptAsync">
-                            ได้รับสินค้าแล้ว
+                            ตรวจแล้ว ทุกอย่างเรียบร้อย
                         </PrimaryButton>
                     </section>
 
@@ -191,6 +297,8 @@
 @code {
     [Parameter] public string Token { get; set; } = "";
     private readonly DisputeForm disputeForm = new();
+    private readonly BuyerOfferCheckoutForm checkoutForm = new();
+    private Guid buyerId;
     private TransactionView? transaction;
     private bool loading = true;
     private bool busy;
@@ -199,12 +307,35 @@
     private string BankName => Configuration["ManualBank:BankName"] ?? "กรุณาตั้งค่า";
     private string AccountName => Configuration["ManualBank:AccountName"] ?? "กรุณาตั้งค่า";
     private string AccountNumber => Configuration["ManualBank:AccountNumber"] ?? "กรุณาตั้งค่า";
+    private readonly CancellationTokenSource refreshCancellation = new();
+    private Task? refreshTask;
+    private string SellerOfferUrl =>
+        $"{Navigation.BaseUri.TrimEnd('/')}/offer/{transaction?.PublicToken}";
 
     protected override async Task OnParametersSetAsync()
+    {
+        var authentication =
+            await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        Guid.TryParse(
+            authentication.User.FindFirst(
+                System.Security.Claims.ClaimTypes.NameIdentifier)?.Value,
+            out buyerId);
+        await RefreshAsync();
+        refreshTask ??= RefreshLoopAsync(refreshCancellation.Token);
+    }
+
+    private async Task RefreshAsync()
     {
         try
         {
             transaction = await Sender.Send(new GetBuyerTransactionQuery(Token));
+            if (buyerId == Guid.Empty || transaction.BuyerId != buyerId)
+            {
+                transaction = null;
+                throw new UnauthorizedAccessException(
+                    "บัญชีผู้ซื้อนี้ไม่มีสิทธิ์เปิดรายการ");
+            }
+            error = null;
         }
         catch (Exception exception)
         {
@@ -213,6 +344,48 @@
         finally
         {
             loading = false;
+        }
+    }
+
+    private async Task RefreshLoopAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await InvokeAsync(async () =>
+                {
+                    await RefreshAsync();
+                    StateHasChanged();
+                });
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task BeginCheckoutAsync()
+    {
+        busy = true;
+        error = null;
+        try
+        {
+            transaction = await Sender.Send(
+                new BeginBuyerOfferCheckoutCommand(
+                    Token,
+                    buyerId,
+                    checkoutForm.AcceptedTerms));
+            success = "เริ่มขั้นตอนชำระแล้ว กรุณาชำระตามข้อมูลด้านล่าง";
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+        }
+        finally
+        {
+            busy = false;
         }
     }
 
@@ -296,4 +469,20 @@
         TransactionState.DigitalDeliverySubmitted => "ตรวจผ่านช่องทางที่ตกลงกันก่อนยืนยัน เพราะไม่มีการจ่ายอัตโนมัติ",
         _ => "ดูยอด สถานะ และขั้นตอนถัดไปของรายการนี้"
     };
+
+    public async ValueTask DisposeAsync()
+    {
+        await refreshCancellation.CancelAsync();
+        if (refreshTask is not null)
+        {
+            try
+            {
+                await refreshTask;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+        refreshCancellation.Dispose();
+    }
 }

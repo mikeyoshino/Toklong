@@ -1,12 +1,19 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Toklong.Application/Toklong.Application.csproj" />
+    <Project Path="src/Toklong.Api/Toklong.Api.csproj" />
+    <Project Path="src/Toklong.Crm/Toklong.Crm.csproj" />
     <Project Path="src/Toklong.Domain/Toklong.Domain.csproj" />
     <Project Path="src/Toklong.Infrastructure/Toklong.Infrastructure.csproj" />
+    <Project Path="src/Toklong.Mobile/Toklong.Mobile.csproj" />
     <Project Path="src/Toklong.Web/Toklong.Web.csproj" />
+    <Project Path="src/Toklong.Worker/Toklong.Worker.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Toklong.Api.Tests/Toklong.Api.Tests.csproj" />
     <Project Path="tests/Toklong.Application.Tests/Toklong.Application.Tests.csproj" />
+    <Project Path="tests/Toklong.Crm.Tests/Toklong.Crm.Tests.csproj" />
     <Project Path="tests/Toklong.Domain.Tests/Toklong.Domain.Tests.csproj" />
+    <Project Path="tests/Toklong.Mobile.Core.Tests/Toklong.Mobile.Core.Tests.csproj" />
   </Folder>
 </Solution>

@@ -26,7 +26,7 @@
     {
         <div class="transaction-heading">
             <div><span class="eyebrow"><span class="eyebrow-dot"></span>มุมมองผู้ขาย</span><h1>@transaction.ProductName</h1></div>
-            <StatusBadge State="transaction.State" Label="transaction.StateLabel" />
+            <StatusBadge State="transaction.State" Label="@transaction.StateLabel" />
         </div>
 
         <AlertMessage Message="@success" />
@@ -48,7 +48,7 @@
                         </span>
                         <span><strong>ผู้ซื้อชำระสำเร็จ</strong><small>เลขอ้างอิง @transaction.PaymentReference</small></span>
                     </div>
-                    <div class="success-amount">@Money(transaction.BuyerTotalSatang)</div>
+                    <div class="success-amount">@Money(transaction.SellerExpectedNetSatang)</div>
                     <div class="success-caption">ยอดรอการจ่ายตามเงื่อนไขผ่านผู้ให้บริการ</div>
                 </div>
             }
@@ -64,14 +64,16 @@
                 <TransactionDetails Transaction="transaction" />
             </div>
             <aside>
-                @if (transaction.State == TransactionState.LinkActive)
+                @if (transaction.State == TransactionState.SellerAcceptedAwaitingPayment)
                 {
                     <section class="action-card sticky-card">
-                        <div class="step-label">ขั้นถัดไป · รอผู้ซื้อ</div>
-                        <h2>ส่งลิงก์นี้กลับไปในแชต</h2>
-                        <div class="copy-value">@PublicUrl</div>
-                        <p>อย่าส่งมอบจนกว่าสถานะจะยืนยันยอดและแสดงขั้นตอนส่งมอบสำหรับรายการนี้</p>
-                        <a class="button button-primary" href="@($"/p/{transaction.PublicToken}")">เปิดหน้าที่ผู้ซื้อเห็น</a>
+                        <div class="step-label">รอผู้ซื้อจ่ายเงิน</div>
+                        <h2>ยังไม่ต้องส่งสินค้า</h2>
+                        <div class="deadline-box">
+                            <span>จองสินค้าให้ผู้ซื้อถึง</span>
+                            <strong>@ThaiDate(transaction.BuyerPaymentDeadlineAt)</strong>
+                        </div>
+                        <p>หากผู้ซื้อไม่จ่ายภายในกำหนด รายการจะปิดและคุณสามารถขายให้คนอื่นได้</p>
                     </section>
                 }
                 else if (transaction.State is TransactionState.CheckoutStarted or TransactionState.PaymentPending)
@@ -79,29 +81,65 @@
                     <section class="action-card sticky-card">
                         <div class="step-label">กำลังตรวจสอบ</div>
                         <h2>ยังไม่ควรส่งมอบ</h2>
+                        <div class="deadline-box">
+                            <span>ระบบต้องได้รับการยืนยันการจ่ายภายใน</span>
+                            <strong>@ThaiDate(transaction.BuyerPaymentDeadlineAt)</strong>
+                        </div>
                         <p>ผู้ซื้อเริ่มขั้นตอนชำระแล้ว แต่ระบบยังไม่ได้รับการยืนยันยอดจากแหล่งที่ได้รับสิทธิ์ สลิปและข้อความจากผู้ซื้อไม่ใช่หลักฐานยืนยันสถานะ</p>
+                    </section>
+                }
+                else if (transaction.State == TransactionState.Expired &&
+                         transaction.ExpirationReason ==
+                         TransactionExpirationReason.BuyerDidNotPay)
+                {
+                    <section class="action-card sticky-card">
+                        <div class="step-label">รายการปิดแล้ว</div>
+                        <h2>ผู้ซื้อไม่ได้จ่ายภายในเวลา</h2>
+                        <p>คุณไม่ต้องจองหรือส่งสินค้าให้รายการนี้ หากผู้ซื้อยังต้องการซื้อ ต้องส่งข้อเสนอใหม่ให้คุณยืนยันอีกครั้ง</p>
                     </section>
                 }
                 else if (transaction.State == TransactionState.PaidAwaitingShipment)
                 {
-                    <EditForm Model="trackingForm" OnValidSubmit="SubmitTrackingAsync" FormName="seller-tracking" class="form-card sticky-card mobile-shipping-card">
-                        <DataAnnotationsValidator />
-                        <ValidationSummary class="validation-summary" />
-                        <div class="step-label">ยอดชำระได้รับการยืนยันแล้ว</div>
-                        <h2>แจ้งส่งสินค้า</h2>
-                        <div class="deadline-box">
-                            <span>ส่งและกรอก Tracking ภายใน</span>
-                            <strong>@ThaiDate(transaction.ShipByAt)</strong>
-                        </div>
-                        <SelectField TValue="string" Id="carrier" Label="บริษัทขนส่ง" DisplayText="@CarrierLabel(trackingForm.CarrierCode)" Required @bind-Value="trackingForm.CarrierCode">
-                            <option value="THAIPOST">ไปรษณีย์ไทย</option>
-                            <option value="FLASH">Flash Express</option>
-                            <option value="KERRY">Kerry Express</option>
-                            <option value="JNT">J&amp;T Express</option>
-                        </SelectField>
-                        <TextField Id="tracking" Label="หมายเลขติดตาม" Required @bind-Value="trackingForm.TrackingNumber" />
-                        <PrimaryButton Busy="busy" Disabled="busy">บันทึกหมายเลขติดตาม</PrimaryButton>
-                    </EditForm>
+                    @if (transaction.IsProviderManagedShipment)
+                    {
+                        <section class="action-card sticky-card">
+                            <div class="step-label">ยอดชำระได้รับการยืนยันแล้ว</div>
+                            <h2>กำลังออกเลขพัสดุ</h2>
+                            <div class="notice">
+                                <strong>บริการที่เลือก</strong><br />
+                                @transaction.ShippingServiceName
+                            </div>
+                            <div class="deadline-box">
+                                <span>ส่งสินค้าภายใน</span>
+                                <strong>@ThaiDate(transaction.ShipByAt)</strong>
+                            </div>
+                            <p>ระบบจะยืนยันค่าจัดส่งและออกเลขพัสดุให้อัตโนมัติ ไม่ต้องกรอก Tracking เอง</p>
+                        </section>
+                    }
+                    else
+                    {
+                        <EditForm Model="trackingForm" OnValidSubmit="SubmitTrackingAsync" FormName="seller-tracking" class="form-card sticky-card mobile-shipping-card">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary class="validation-summary" />
+                            <div class="step-label">ยอดชำระได้รับการยืนยันแล้ว</div>
+                            <h2>แจ้งส่งสินค้า</h2>
+                            <div class="notice">
+                                <strong>ที่อยู่จัดส่ง</strong><br />
+                                @transaction.DeliveryAddress
+                            </div>
+                            <div class="deadline-box">
+                                <span>ส่งและกรอก Tracking ภายใน</span>
+                                <strong>@ThaiDate(transaction.ShipByAt)</strong>
+                            </div>
+                            <SelectField TValue="string" Id="carrier" Label="บริษัทขนส่ง" DisplayText="@CarrierLabel(trackingForm.CarrierCode)" Required @bind-Value="trackingForm.CarrierCode">
+                                <option value="THAIPOST">ไปรษณีย์ไทย</option>
+                                <option value="FLASH">Flash Express</option>
+                                <option value="KERRY">KEX Express</option>
+                            </SelectField>
+                            <TextField Id="tracking" Label="หมายเลขติดตาม" Required @bind-Value="trackingForm.TrackingNumber" />
+                            <PrimaryButton Busy="busy" Disabled="busy">บันทึกหมายเลขติดตาม</PrimaryButton>
+                        </EditForm>
+                    }
                 }
                 else if (transaction.State == TransactionState.PaidAwaitingDigitalDelivery)
                 {
@@ -144,13 +182,16 @@
     private bool busy;
     private string? error;
     private string? success;
-    private string PublicUrl => $"{Navigation.BaseUri.TrimEnd('/')}/p/{transaction?.PublicToken}";
 
     protected override async Task OnParametersSetAsync()
     {
         try
         {
             transaction = await Sender.Send(new GetSellerTransactionQuery(Token));
+            if (!string.IsNullOrWhiteSpace(
+                    transaction.CarrierCode))
+                trackingForm.CarrierCode =
+                    transaction.CarrierCode;
         }
         catch (Exception exception)
         {

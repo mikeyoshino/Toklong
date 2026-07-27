@@ -1,0 +1,374 @@
+@page "/"
+@attribute [Authorize(Policy = CrmPolicies.DisputeReader)]
+@rendermode InteractiveServer
+@inject CrmDisputeOperations Operations
+
+<PageTitle>ข้อโต้แย้ง | TOKLONG CRM</PageTitle>
+
+<div class="page-heading queue-heading">
+    <p class="eyebrow">DISPUTE OPERATIONS</p>
+    <h1>รายการข้อโต้แย้ง</h1>
+    <p>
+        จัดลำดับตาม SLA ที่ใกล้ถึงก่อน การแจ้งปัญหาจะหยุดการจ่ายเงินทันที
+    </p>
+</div>
+
+@if (_loading)
+{
+    <p class="loading-state" role="status">กำลังโหลดเคส…</p>
+}
+else if (_error is not null)
+{
+    <div class="alert alert-error" role="alert">@_error</div>
+}
+else
+{
+    <CrmDataTable TItem="CrmDisputeQueueItem"
+                  Items="_view.Items"
+                  TotalCount="_view.TotalCount"
+                  Page="_view.Page"
+                  PageSize="_view.PageSize"
+                  PageChanged="ChangePage"
+                  AriaLabel="รายการข้อโต้แย้ง"
+                  EmptyTitle="ไม่พบเคสตามตัวกรอง"
+                  EmptyDescription="ลองล้างคำค้นหาหรือเปลี่ยนสถานะที่เลือก">
+        <Toolbar>
+            <div class="queue-filter-grid">
+                <label class="filter-search">
+                    <span>ค้นหา</span>
+                    <input value="@_search"
+                           @oninput="SearchChanged"
+                           type="search"
+                           placeholder="เลขเคส สินค้า เหตุผล หรือผู้รับเคส" />
+                </label>
+                <CrmSelect TValue="string"
+                           Label="สถานะ"
+                           Value="_status"
+                           ValueChanged="StatusChanged"
+                           Options="StatusOptions" />
+                <CrmSelect TValue="string"
+                           Label="ผู้รับผิดชอบ"
+                           Value="_ownership"
+                           ValueChanged="OwnershipChanged"
+                           Options="OwnershipOptions" />
+                <CrmSelect TValue="string"
+                           Label="เรียงตาม"
+                           Value="_sort"
+                           ValueChanged="SortChanged"
+                           Options="SortOptions" />
+                <CrmSelect TValue="int"
+                           Label="ต่อหน้า"
+                           Value="_pageSize"
+                           ValueChanged="PageSizeChanged"
+                           Options="PageSizeOptions" />
+            </div>
+            <div class="filter-options">
+                <label class="filter-check">
+                    <input type="checkbox"
+                           @bind="_overdueOnly"
+                           @bind:after="FiltersChanged" />
+                    <span>เฉพาะเคสเกิน SLA</span>
+                </label>
+                @if (HasActiveFilters)
+                {
+                    <button class="clear-filter"
+                            type="button"
+                            @onclick="ResetFilters">
+                        ล้างตัวกรอง
+                    </button>
+                }
+            </div>
+        </Toolbar>
+        <HeaderTemplate>
+            <tr>
+                <th scope="col">เคส</th>
+                <th scope="col">ปัญหา</th>
+                <th scope="col">ยอดรวม</th>
+                <th scope="col">สถานะ</th>
+                <th scope="col">ผู้รับผิดชอบ</th>
+                <th scope="col">SLA ถัดไป</th>
+                <th scope="col"><span class="visually-hidden">เปิดเคส</span></th>
+            </tr>
+        </HeaderTemplate>
+        <RowTemplate Context="item">
+            <tr class="@(CrmQueueTable.IsOverdue(item, _now) ? "row-overdue" : null)">
+                <td data-label="เคส">
+                    <a class="case-link"
+                       href="@($"/disputes/{item.CaseId}")">
+                        @item.CaseNumber
+                    </a>
+                    <small>เปิด @Bangkok(item.OpenedAt)</small>
+                </td>
+                <td data-label="ปัญหา">
+                    <strong>@item.ProductName</strong>
+                    <small>@ReasonLabel(item.Reason)</small>
+                </td>
+                <td data-label="ยอดรวม" class="money-cell">
+                    @Money(item.AmountSatang, item.Currency)
+                </td>
+                <td data-label="สถานะ">
+                    <span class="@StatusClass(item.Status)">
+                        @StatusLabel(item.Status)
+                    </span>
+                </td>
+                <td data-label="ผู้รับผิดชอบ">
+                    @(item.AssignedDisplayName ?? "ยังไม่มีผู้รับเคส")
+                </td>
+                <td data-label="SLA ถัดไป"
+                    class="@(CrmQueueTable.IsOverdue(item, _now) ? "sla-overdue" : null)">
+                    @Bangkok(CrmQueueTable.NextDueAt(item))
+                    @if (CrmQueueTable.IsOverdue(item, _now))
+                    {
+                        <small>เกินกำหนด</small>
+                    }
+                </td>
+                <td class="open-cell">
+                    <a href="@($"/disputes/{item.CaseId}")"
+                       aria-label="@($"เปิดเคส {item.CaseNumber}")">
+                        →
+                    </a>
+                </td>
+            </tr>
+        </RowTemplate>
+    </CrmDataTable>
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask
+        { get; set; } = default!;
+
+    private IReadOnlyList<CrmDisputeQueueItem> _items = [];
+    private CrmQueueTablePage _view = new([], 0, 1, 20);
+    private bool _loading = true;
+    private string? _error;
+    private string _search = "";
+    private string _status = "";
+    private string _ownership = "all";
+    private string _sort = "priority";
+    private bool _overdueOnly;
+    private int _page = 1;
+    private int _pageSize = 20;
+    private Guid? _currentUserId;
+    private DateTimeOffset _now = DateTimeOffset.UtcNow;
+
+    private static readonly IReadOnlyList<
+        CrmSelectOption<string>> StatusOptions =
+    [
+        new("", "ทุกสถานะ"),
+        new(
+            CrmDisputeCaseStatus.Open.ToString(),
+            "ยังไม่มีผู้รับเคส"),
+        new(
+            CrmDisputeCaseStatus.InReview.ToString(),
+            "กำลังตรวจ"),
+        new(
+            CrmDisputeCaseStatus.AwaitingEvidence.ToString(),
+            "รอหลักฐาน"),
+        new(
+            CrmDisputeCaseStatus.ReadyForApproval.ToString(),
+            "รออนุมัติ"),
+        new(
+            CrmDisputeCaseStatus.Approved.ToString(),
+            "อนุมัติแล้ว")
+    ];
+
+    private static readonly IReadOnlyList<
+        CrmSelectOption<string>> OwnershipOptions =
+    [
+        new("all", "ทั้งหมด"),
+        new("unassigned", "ยังไม่มีผู้รับ"),
+        new("mine", "เคสของฉัน")
+    ];
+
+    private static readonly IReadOnlyList<
+        CrmSelectOption<string>> SortOptions =
+    [
+        new("priority", "SLA ใกล้ถึงก่อน"),
+        new("oldest", "เปิดก่อน"),
+        new("newest", "เปิดล่าสุด")
+    ];
+
+    private static readonly IReadOnlyList<
+        CrmSelectOption<int>> PageSizeOptions =
+    [
+        new(10, "10 เคส"),
+        new(20, "20 เคส"),
+        new(50, "50 เคส")
+    ];
+
+    private bool HasActiveFilters =>
+        _search.Length > 0 ||
+        _status.Length > 0 ||
+        _ownership != "all" ||
+        _sort != "priority" ||
+        _overdueOnly ||
+        _pageSize != 20;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var state = await AuthenticationStateTask;
+            _currentUserId = Guid.TryParse(
+                state.User.FindFirstValue(
+                    CrmAuthenticationDefaults.UserIdClaim),
+                out var userId)
+                ? userId
+                : null;
+            _items = await Operations.GetQueueAsync(
+                state.User,
+                CancellationToken.None);
+            ApplyFilters();
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ApplyFilters()
+    {
+        _now = DateTimeOffset.UtcNow;
+        _view = CrmQueueTable.Apply(
+            _items,
+            new CrmQueueTableQuery(
+                _search,
+                Enum.TryParse<CrmDisputeCaseStatus>(
+                    _status,
+                    out var status)
+                    ? status
+                    : null,
+                _ownership switch
+                {
+                    "unassigned" =>
+                        CrmQueueOwnership.Unassigned,
+                    "mine" => CrmQueueOwnership.Mine,
+                    _ => CrmQueueOwnership.All
+                },
+                _overdueOnly,
+                _sort switch
+                {
+                    "oldest" => CrmQueueSort.Oldest,
+                    "newest" => CrmQueueSort.Newest,
+                    _ => CrmQueueSort.Priority
+                },
+                _page,
+                _pageSize,
+                _currentUserId,
+                _now));
+        _page = _view.Page;
+    }
+
+    private void SearchChanged(ChangeEventArgs args)
+    {
+        _search = args.Value?.ToString() ?? "";
+        FiltersChanged();
+    }
+
+    private void StatusChanged(string value)
+    {
+        _status = value;
+        FiltersChanged();
+    }
+
+    private void OwnershipChanged(string value)
+    {
+        _ownership = value;
+        FiltersChanged();
+    }
+
+    private void SortChanged(string value)
+    {
+        _sort = value;
+        FiltersChanged();
+    }
+
+    private void PageSizeChanged(int value)
+    {
+        _pageSize = value;
+        FiltersChanged();
+    }
+
+    private void FiltersChanged()
+    {
+        _page = 1;
+        ApplyFilters();
+    }
+
+    private void ChangePage(int page)
+    {
+        _page = page;
+        ApplyFilters();
+    }
+
+    private void ResetFilters()
+    {
+        _search = "";
+        _status = "";
+        _ownership = "all";
+        _sort = "priority";
+        _overdueOnly = false;
+        _pageSize = 20;
+        FiltersChanged();
+    }
+
+    private static string Money(long satang, string currency) =>
+        $"{satang / 100m:N2} {currency}";
+
+    private static string Bangkok(DateTimeOffset value) =>
+        TimeZoneInfo.ConvertTime(
+            value,
+            TimeZoneInfo.FindSystemTimeZoneById("Asia/Bangkok"))
+            .ToString("dd/MM/yyyy HH:mm");
+
+    private static string StatusLabel(CrmDisputeCaseStatus status) =>
+        status switch
+        {
+            CrmDisputeCaseStatus.Open => "ยังไม่มีผู้รับเคส",
+            CrmDisputeCaseStatus.InReview => "กำลังตรวจ",
+            CrmDisputeCaseStatus.AwaitingEvidence => "รอหลักฐาน",
+            CrmDisputeCaseStatus.ReadyForApproval => "รออนุมัติ",
+            CrmDisputeCaseStatus.Approved => "อนุมัติแล้ว",
+            _ => "ปิดเคส"
+        };
+
+    private static string StatusClass(
+        CrmDisputeCaseStatus status) =>
+        status switch
+        {
+            CrmDisputeCaseStatus.Open =>
+                "status status-action",
+            CrmDisputeCaseStatus.InReview =>
+                "status status-info",
+            CrmDisputeCaseStatus.AwaitingEvidence =>
+                "status status-action",
+            CrmDisputeCaseStatus.ReadyForApproval =>
+                "status status-danger",
+            CrmDisputeCaseStatus.Approved =>
+                "status status-success",
+            _ => "status"
+        };
+
+    private static string ReasonLabel(DisputeReason? reason) =>
+        reason switch
+        {
+            DisputeReason.NotReceived =>
+                "ไม่ได้รับสินค้า",
+            DisputeReason.WrongItem =>
+                "ได้รับสินค้าผิดชิ้น",
+            DisputeReason.NotAsDescribed =>
+                "สินค้าไม่ตรงรายละเอียด",
+            DisputeReason.UndisclosedDamage =>
+                "สินค้าเสียหาย",
+            DisputeReason.SuspectedCounterfeit =>
+                "สงสัยว่าสินค้าปลอม",
+            DisputeReason.EmptyOrTamperedParcel =>
+                "พัสดุว่างหรือถูกเปิด",
+            _ => "ไม่ระบุเหตุผล"
+        };
+}

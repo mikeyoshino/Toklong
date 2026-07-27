@@ -1,6 +1,6 @@
 @page "/seller/verify-otp"
 
-<PageTitle>กรอกรหัส OTP — TOKLONG</PageTitle>
+<PageTitle>กรอกรหัสยืนยัน — TOKLONG</PageTitle>
 <AppHeader BackHref="/seller/sign-in" BackLabel="เปลี่ยนเบอร์" />
 
 <main class="auth-shell">
@@ -17,7 +17,7 @@
         @if (!string.IsNullOrWhiteSpace(DevCode))
         {
             <div class="dev-otp-note" role="status">
-                โหมดทดสอบบนเครื่อง · รหัส OTP คือ <strong>@DevCode</strong>
+                โหมดทดสอบบนเครื่อง · รหัสยืนยันคือ <strong>@DevCode</strong>
             </div>
         }
 
@@ -26,7 +26,7 @@
             <input type="hidden" name="challengeId" value="@ChallengeId" />
             <input type="hidden" name="devCode" value="@DevCode" />
             <input type="hidden" name="returnUrl" value="@SafeReturnUrl" />
-            <label class="form-label" for="code">รหัส OTP</label>
+            <label class="form-label" for="code">รหัสยืนยัน</label>
             <input class="form-control otp-control" id="code" name="code"
                    type="text" inputmode="numeric" autocomplete="one-time-code"
                    pattern="[0-9]{6}" maxlength="6" placeholder="— — — — — —"
@@ -51,5 +51,5 @@
         !string.IsNullOrWhiteSpace(ReturnUrl) && ReturnUrl.StartsWith('/')
             && !ReturnUrl.StartsWith("//", StringComparison.Ordinal)
                 ? ReturnUrl
-                : "/sales/create";
+                : "/";
 }

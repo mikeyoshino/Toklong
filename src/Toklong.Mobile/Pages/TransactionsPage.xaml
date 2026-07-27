@@ -1,0 +1,557 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Toklong.Mobile.Pages.TransactionsPage"
+    x:Name="RootPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:core="clr-namespace:Toklong.Mobile.Core"
+    SafeAreaEdges="Container"
+    Shell.NavBarIsVisible="False">
+    <ContentPage.Background>
+        <RadialGradientBrush Center="0.86,0.02" Radius="0.94">
+            <GradientStop Color="#DCEFFF" Offset="0.0" />
+            <GradientStop Color="#F6FAFF" Offset="0.34" />
+            <GradientStop Color="#FFFFFF" Offset="0.82" />
+        </RadialGradientBrush>
+    </ContentPage.Background>
+
+    <Grid>
+        <RefreshView
+            MaximumWidthRequest="720"
+            HorizontalOptions="Fill"
+            Command="{Binding RefreshCommand}"
+            IsRefreshing="{Binding IsRefreshing, Mode=TwoWay}">
+            <CollectionView
+                ItemsUpdatingScrollMode="KeepScrollOffset"
+                ItemsSource="{Binding Transactions}"
+                SelectionMode="None">
+                <CollectionView.Header>
+                    <VerticalStackLayout Padding="20,18,20,12" Spacing="15">
+                        <VerticalStackLayout Spacing="8">
+                            <Label
+                                AutomationId="TransactionsPageTitle"
+                                FontAttributes="Bold"
+                                FontSize="29"
+                                LineHeight="1.02"
+                                Text="รายการของคุณ" />
+                            <Label
+                                FontSize="13"
+                                LineHeight="1.45"
+                                Text="แยกรายการซื้อและขายให้ดูง่ายในที่เดียว"
+                                TextColor="{StaticResource InkSoft}" />
+                        </VerticalStackLayout>
+
+                        <Border
+                            AutomationId="TransactionRoleModeSwitch"
+                            Padding="4"
+                            BackgroundColor="#EAF0F6"
+                            Stroke="#080F172A"
+                            StrokeShape="RoundRectangle 16">
+                            <Grid
+                                ColumnDefinitions="*,*"
+                                ColumnSpacing="4">
+                                <Button
+                                    MinimumHeightRequest="{StaticResource CompactControlMinimumHeight}"
+                                    BackgroundColor="Transparent"
+                                    Command="{Binding SelectBuyingCommand}"
+                                    CornerRadius="12"
+                                    FontAttributes="Bold"
+                                    FontSize="14"
+                                    SemanticProperties.Description="แสดงรายการที่คุณเป็นผู้ซื้อ"
+                                    Text="ซื้อ"
+                                    TextColor="{StaticResource Muted}">
+                                    <Button.Triggers>
+                                        <DataTrigger
+                                            TargetType="Button"
+                                            Binding="{Binding IsBuying}"
+                                            Value="True">
+                                            <Setter Property="BackgroundColor" Value="White" />
+                                            <Setter Property="TextColor" Value="#145FC7" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                                <Button
+                                    Grid.Column="1"
+                                    MinimumHeightRequest="{StaticResource CompactControlMinimumHeight}"
+                                    BackgroundColor="Transparent"
+                                    Command="{Binding SelectSellingCommand}"
+                                    CornerRadius="12"
+                                    FontAttributes="Bold"
+                                    FontSize="14"
+                                    SemanticProperties.Description="แสดงรายการที่คุณเป็นผู้ขาย"
+                                    Text="ขาย"
+                                    TextColor="{StaticResource Muted}">
+                                    <Button.Triggers>
+                                        <DataTrigger
+                                            TargetType="Button"
+                                            Binding="{Binding IsSelling}"
+                                            Value="True">
+                                            <Setter Property="BackgroundColor" Value="White" />
+                                            <Setter Property="TextColor" Value="#6548C7" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                            </Grid>
+                        </Border>
+
+                        <Grid
+                            ColumnDefinitions="*,Auto"
+                            ColumnSpacing="12">
+                            <VerticalStackLayout Spacing="3">
+                                <Label
+                                    FontAttributes="Bold"
+                                    FontSize="24"
+                                    Text="{Binding ModeTitle}" />
+                                <Label
+                                    FontSize="13"
+                                    Text="{Binding ModeSubtitle}"
+                                    TextColor="{StaticResource Muted}" />
+                            </VerticalStackLayout>
+                            <Button
+                                Grid.Column="1"
+                                IsVisible="{Binding IsBuying}"
+                                MinimumHeightRequest="{StaticResource CompactControlMinimumHeight}"
+                                Padding="14,0"
+                                VerticalOptions="Center"
+                                BackgroundColor="{StaticResource BrandBlue}"
+                                Command="{Binding CreateOfferCommand}"
+                                CornerRadius="14"
+                                FontAttributes="Bold"
+                                FontSize="12"
+                                SemanticProperties.Description="สร้างข้อตกลงซื้อขาย"
+                                Text="+ สร้างดีลซื้อ"
+                                TextColor="White" />
+                        </Grid>
+
+                        <Border
+                            IsVisible="{Binding HasError}"
+                            Padding="14"
+                            BackgroundColor="#FFF4DC"
+                            Stroke="#F2C66D"
+                            StrokeShape="RoundRectangle 16">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <Label
+                                    VerticalOptions="Center"
+                                    FontSize="13"
+                                    Text="{Binding ErrorText}"
+                                    TextColor="#7A4A00" />
+                                <Button
+                                    Grid.Column="1"
+                                    HeightRequest="44"
+                                    Padding="16,0"
+                                    BackgroundColor="#8A5100"
+                                    Command="{Binding RefreshCommand}"
+                                    CornerRadius="12"
+                                    FontAttributes="Bold"
+                                    FontSize="12"
+                                    Text="ลองอีกครั้ง"
+                                    TextColor="White" />
+                            </Grid>
+                        </Border>
+
+                        <Border
+                            AutomationId="ActionSpotlightCard"
+                            IsVisible="{Binding HasSpotlight}"
+                            MinimumHeightRequest="236"
+                            Padding="18"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 24">
+                            <Border.Shadow>
+                                <Shadow
+                                    Brush="#2B7FFF"
+                                    Offset="0,10"
+                                    Opacity="0.18"
+                                    Radius="24" />
+                            </Border.Shadow>
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="#3C8AF1" Offset="0" />
+                                    <GradientStop Color="#236DCE" Offset="0.64" />
+                                    <GradientStop Color="#185CB9" Offset="1" />
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="11">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <Label
+                                        VerticalOptions="Center"
+                                        FontSize="12">
+                                        <Label.FormattedText>
+                                            <FormattedString>
+                                                <Span
+                                                    FontAttributes="Bold"
+                                                    Text="●"
+                                                    TextColor="#9CEBD9" />
+                                                <Span
+                                                    FontAttributes="Bold"
+                                                    Text="  ต้องทำตอนนี้"
+                                                    TextColor="#DFFFFFFF" />
+                                            </FormattedString>
+                                        </Label.FormattedText>
+                                    </Label>
+                                    <Border
+                                        Grid.Column="1"
+                                        Padding="9,5"
+                                        BackgroundColor="#24FFFFFF"
+                                        Stroke="#30FFFFFF"
+                                        StrokeShape="RoundRectangle 99">
+                                        <Label
+                                            FontAttributes="Bold"
+                                            FontSize="12"
+                                            Text="{Binding SpotlightTransaction.RoleLabel}"
+                                            TextColor="White" />
+                                    </Border>
+                                </Grid>
+
+                                <Grid
+                                    Grid.Row="1"
+                                    ColumnDefinitions="54,*"
+                                    ColumnSpacing="12">
+                                    <Border
+                                        WidthRequest="54"
+                                        HeightRequest="54"
+                                        BackgroundColor="#E8FFFFFF"
+                                        Stroke="#30FFFFFF"
+                                        StrokeShape="RoundRectangle 16">
+                                        <Image
+                                            Margin="8"
+                                            Source="{Binding SpotlightTransaction.ProductVisual}" />
+                                    </Border>
+                                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="4">
+                                        <Label
+                                            FontAttributes="Bold"
+                                            FontSize="17"
+                                            LineBreakMode="TailTruncation"
+                                            MaxLines="2"
+                                            Text="{Binding SpotlightTransaction.ProductName}"
+                                            TextColor="White" />
+                                        <Label
+                                            FontSize="12"
+                                            Text="{Binding SpotlightTransaction.CounterpartyLabel}"
+                                            TextColor="#CFE1FF" />
+                                    </VerticalStackLayout>
+                                </Grid>
+
+                                <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+                                    <VerticalStackLayout Spacing="2">
+                                        <Label
+                                            FontSize="12"
+                                            Text="{Binding SpotlightTransaction.StatusLabel}"
+                                            TextColor="#CFE1FF" />
+                                        <Label
+                                            FontAttributes="Bold"
+                                            FontSize="25"
+                                            CharacterSpacing="-0.5"
+                                            Text="{Binding SpotlightTransaction.FormattedAmount}"
+                                            TextColor="White" />
+                                    </VerticalStackLayout>
+                                    <Label
+                                        Grid.Column="1"
+                                        VerticalOptions="End"
+                                        FontSize="12"
+                                        Text="{Binding SpotlightTransaction.DeadlineText}"
+                                        TextColor="#D8E7FF" />
+                                </Grid>
+
+                                <Button
+                                    Grid.Row="3"
+                                    MinimumHeightRequest="{StaticResource SecondaryButtonMinimumHeight}"
+                                    BackgroundColor="White"
+                                    CornerRadius="14"
+                                    Command="{Binding OpenTransactionCommand}"
+                                    CommandParameter="{Binding SpotlightTransaction}"
+                                    FontAttributes="Bold"
+                                    FontSize="13"
+                                    Text="{Binding SpotlightTransaction.PrimaryActionLabel, StringFormat='{0}  →'}"
+                                    TextColor="#145FC7" />
+                            </Grid>
+                        </Border>
+
+                        <Grid
+                            AutomationId="ActionSpotlightEmptyState"
+                            IsVisible="{Binding HasNoSpotlight}"
+                            MinimumHeightRequest="236"
+                            Padding="20,22">
+                            <Label
+                                VerticalOptions="Center"
+                                HorizontalTextAlignment="Center"
+                                FontAttributes="Bold"
+                                FontSize="17"
+                                Text="ยังไม่มีรายการ" />
+                        </Grid>
+
+                        <VerticalStackLayout Spacing="10">
+                            <ScrollView
+                                AutomationId="BuyerStatusFilters"
+                                IsVisible="{Binding IsBuying}"
+                                Orientation="Horizontal"
+                                HorizontalScrollBarVisibility="Never">
+                                <HorizontalStackLayout Spacing="8">
+                                    <Button
+                                        Style="{StaticResource HomeStatusFilter}"
+                                        Command="{Binding SelectAllBucketsCommand}"
+                                        Text="ทุกสถานะ">
+                                        <Button.Triggers>
+                                            <DataTrigger TargetType="Button" Binding="{Binding IsAllBuckets}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="{StaticResource BrandBlue}" />
+                                                <Setter Property="BorderColor" Value="{StaticResource BrandBlue}" />
+                                                <Setter Property="TextColor" Value="White" />
+                                            </DataTrigger>
+                                        </Button.Triggers>
+                                    </Button>
+                                    <Button
+                                        Style="{StaticResource HomeStatusFilter}"
+                                        Command="{Binding SelectActionCommand}"
+                                        Text="ต้องทำ">
+                                        <Button.Triggers>
+                                            <DataTrigger TargetType="Button" Binding="{Binding IsActionRequired}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="{StaticResource BrandBlue}" />
+                                                <Setter Property="BorderColor" Value="{StaticResource BrandBlue}" />
+                                                <Setter Property="TextColor" Value="White" />
+                                            </DataTrigger>
+                                        </Button.Triggers>
+                                    </Button>
+                                    <Button
+                                        Style="{StaticResource HomeStatusFilter}"
+                                        Command="{Binding SelectProgressCommand}"
+                                        Text="กำลังดำเนินการ">
+                                        <Button.Triggers>
+                                            <DataTrigger TargetType="Button" Binding="{Binding IsInProgress}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="{StaticResource BrandBlue}" />
+                                                <Setter Property="BorderColor" Value="{StaticResource BrandBlue}" />
+                                                <Setter Property="TextColor" Value="White" />
+                                            </DataTrigger>
+                                        </Button.Triggers>
+                                    </Button>
+                                    <Button
+                                        Style="{StaticResource HomeStatusFilter}"
+                                        Command="{Binding SelectCompletedCommand}"
+                                        Text="เสร็จแล้ว">
+                                        <Button.Triggers>
+                                            <DataTrigger TargetType="Button" Binding="{Binding IsCompleted}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="{StaticResource BrandBlue}" />
+                                                <Setter Property="BorderColor" Value="{StaticResource BrandBlue}" />
+                                                <Setter Property="TextColor" Value="White" />
+                                            </DataTrigger>
+                                        </Button.Triggers>
+                                    </Button>
+                                </HorizontalStackLayout>
+                            </ScrollView>
+
+                            <ScrollView
+                                AutomationId="SellerStatusFilters"
+                                IsVisible="{Binding IsSelling}"
+                                Orientation="Horizontal"
+                                HorizontalScrollBarVisibility="Never">
+                                <HorizontalStackLayout Spacing="8">
+                                    <Button
+                                        Style="{StaticResource HomeStatusFilter}"
+                                        Command="{Binding SelectAllBucketsCommand}"
+                                        Text="ทุกสถานะ">
+                                        <Button.Triggers>
+                                            <DataTrigger TargetType="Button" Binding="{Binding IsAllBuckets}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="#6548C7" />
+                                                <Setter Property="BorderColor" Value="#6548C7" />
+                                                <Setter Property="TextColor" Value="White" />
+                                            </DataTrigger>
+                                        </Button.Triggers>
+                                    </Button>
+                                    <Button
+                                        Style="{StaticResource HomeStatusFilter}"
+                                        Command="{Binding SelectSellerReviewCommand}"
+                                        Text="ต้องตอบ">
+                                        <Button.Triggers>
+                                            <DataTrigger TargetType="Button" Binding="{Binding IsSellerReview}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="#6548C7" />
+                                                <Setter Property="BorderColor" Value="#6548C7" />
+                                                <Setter Property="TextColor" Value="White" />
+                                            </DataTrigger>
+                                        </Button.Triggers>
+                                    </Button>
+                                    <Button
+                                        Style="{StaticResource HomeStatusFilter}"
+                                        Command="{Binding SelectSellerFulfillmentCommand}"
+                                        Text="ต้องส่ง">
+                                        <Button.Triggers>
+                                            <DataTrigger TargetType="Button" Binding="{Binding IsSellerFulfillment}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="#6548C7" />
+                                                <Setter Property="BorderColor" Value="#6548C7" />
+                                                <Setter Property="TextColor" Value="White" />
+                                            </DataTrigger>
+                                        </Button.Triggers>
+                                    </Button>
+                                    <Button
+                                        Style="{StaticResource HomeStatusFilter}"
+                                        Command="{Binding SelectSellerPayoutCommand}"
+                                        Text="รอรับเงิน">
+                                        <Button.Triggers>
+                                            <DataTrigger TargetType="Button" Binding="{Binding IsSellerPayout}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="#6548C7" />
+                                                <Setter Property="BorderColor" Value="#6548C7" />
+                                                <Setter Property="TextColor" Value="White" />
+                                            </DataTrigger>
+                                        </Button.Triggers>
+                                    </Button>
+                                    <Button
+                                        Style="{StaticResource HomeStatusFilter}"
+                                        Command="{Binding SelectCompletedCommand}"
+                                        Text="เสร็จแล้ว">
+                                        <Button.Triggers>
+                                            <DataTrigger TargetType="Button" Binding="{Binding IsCompleted}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="#6548C7" />
+                                                <Setter Property="BorderColor" Value="#6548C7" />
+                                                <Setter Property="TextColor" Value="White" />
+                                            </DataTrigger>
+                                        </Button.Triggers>
+                                    </Button>
+                                </HorizontalStackLayout>
+                            </ScrollView>
+                        </VerticalStackLayout>
+
+                        <Grid Margin="0,4,0,0" ColumnDefinitions="*,Auto">
+                            <Label
+                                Style="{StaticResource SectionTitle}"
+                                FontSize="18"
+                                Text="{Binding ModeSectionTitle}" />
+                            <Label
+                                Grid.Column="1"
+                                VerticalOptions="Center"
+                                FontSize="12"
+                                Text="ใหม่สุดก่อน"
+                                TextColor="{StaticResource Muted}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </CollectionView.Header>
+
+                <CollectionView.EmptyView>
+                    <VerticalStackLayout Padding="30,26,30,48" Spacing="7">
+                        <Label
+                            HorizontalTextAlignment="Center"
+                            FontAttributes="Bold"
+                            FontSize="14"
+                            Text="{Binding EmptyText}" />
+                        <Label
+                            HorizontalTextAlignment="Center"
+                            FontSize="12"
+                            Text="ลองเลือกสถานะอื่น"
+                            TextColor="{StaticResource Muted}" />
+                    </VerticalStackLayout>
+                </CollectionView.EmptyView>
+
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="core:AppTransaction">
+                        <Border
+                            Margin="20,0,20,12"
+                            Padding="15"
+                            BackgroundColor="#F7FFFFFF"
+                            Stroke="#110F172A"
+                            StrokeShape="RoundRectangle 20">
+                            <Border.Shadow>
+                                <Shadow
+                                    Brush="#1F476F9D"
+                                    Offset="0,7"
+                                    Opacity="0.12"
+                                    Radius="18" />
+                            </Border.Shadow>
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.OpenTransactionCommand}"
+                                    CommandParameter="{Binding .}" />
+                            </Border.GestureRecognizers>
+
+                            <Grid
+                                ColumnDefinitions="64,*,Auto"
+                                RowDefinitions="Auto,Auto"
+                                ColumnSpacing="13"
+                                RowSpacing="11">
+                                <Border
+                                    Grid.RowSpan="2"
+                                    WidthRequest="64"
+                                    HeightRequest="64"
+                                    VerticalOptions="Start"
+                                    BackgroundColor="#EEF6FF"
+                                    StrokeThickness="0"
+                                    StrokeShape="RoundRectangle 17">
+                                    <Image Margin="7" Source="{Binding ProductVisual}" />
+                                </Border>
+
+                                <VerticalStackLayout Grid.Column="1" Spacing="3">
+                                    <HorizontalStackLayout Spacing="6">
+                                        <BoxView
+                                            WidthRequest="6"
+                                            HeightRequest="6"
+                                            VerticalOptions="Center"
+                                            Color="{Binding RoleColor}"
+                                            CornerRadius="3" />
+                                        <Label
+                                            FontAttributes="Bold"
+                                            FontSize="12"
+                                            Text="{Binding RoleLabel}"
+                                            TextColor="{Binding RoleColor}" />
+                                    </HorizontalStackLayout>
+                                    <Label
+                                        FontAttributes="Bold"
+                                        FontSize="14"
+                                        LineBreakMode="TailTruncation"
+                                        MaxLines="2"
+                                        Text="{Binding ProductName}" />
+                                    <Label
+                                        FontSize="12"
+                                        Text="{Binding CounterpartyLabel}"
+                                        TextColor="{StaticResource Muted}" />
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout Grid.Column="2" HorizontalOptions="End" Spacing="2">
+                                    <Label
+                                        HorizontalTextAlignment="End"
+                                        FontAttributes="Bold"
+                                        FontSize="15"
+                                        Text="{Binding FormattedAmount}" />
+                                    <Label
+                                        HorizontalTextAlignment="End"
+                                        FontSize="16"
+                                        Text="›"
+                                        TextColor="#8BA0B8" />
+                                </VerticalStackLayout>
+
+                                <Grid Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                    <VerticalStackLayout Spacing="2">
+                                        <HorizontalStackLayout Spacing="6">
+                                            <BoxView
+                                                WidthRequest="6"
+                                                HeightRequest="6"
+                                                VerticalOptions="Center"
+                                                Color="{Binding StatusColor}"
+                                                CornerRadius="3" />
+                                            <Label
+                                                VerticalOptions="Center"
+                                                FontAttributes="Bold"
+                                                FontSize="12"
+                                                Text="{Binding StatusLabel}"
+                                                TextColor="{Binding StatusColor}" />
+                                        </HorizontalStackLayout>
+                                        <Label
+                                            FontSize="12"
+                                            LineBreakMode="TailTruncation"
+                                            MaxLines="1"
+                                            Text="{Binding DeadlineText}"
+                                            TextColor="{StaticResource Muted}" />
+                                    </VerticalStackLayout>
+                                    <Label
+                                        Grid.Column="1"
+                                        VerticalOptions="Center"
+                                        FontAttributes="Bold"
+                                        FontSize="12"
+                                        Text="{Binding PrimaryActionLabel}"
+                                        TextColor="{StaticResource BrandBlue}" />
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+                <CollectionView.Footer>
+                    <BoxView HeightRequest="28" Color="Transparent" />
+                </CollectionView.Footer>
+            </CollectionView>
+        </RefreshView>
+    </Grid>
+</ContentPage>

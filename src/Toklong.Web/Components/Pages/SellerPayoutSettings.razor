@@ -1,6 +1,6 @@
 @page "/seller/settings/payouts"
 @rendermode InteractiveServer
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Seller")]
 @using Toklong.Application.Features.Sellers
 @using Toklong.Web.Models
 @inject Toklong.Web.Services.ApplicationRequestSender Sender
@@ -14,7 +14,7 @@
     <div class="page-heading">
         <span class="eyebrow"><span class="eyebrow-dot"></span>ตั้งค่าผู้ขาย</span>
         <h1>บัญชีสำหรับรับเงิน</h1>
-        <p>ตั้งค่าครั้งเดียว แล้วเลือกใช้ตอนสร้างลิงก์ข้อตกลงได้ทันที</p>
+        <p>ตั้งค่าครั้งเดียว แล้วเลือกใช้ตอนยืนยันข้อเสนอซื้อได้ทันที</p>
     </div>
 
     @if (profile is null)
@@ -91,7 +91,7 @@
         !string.IsNullOrWhiteSpace(ReturnUrl) && ReturnUrl.StartsWith('/')
             && !ReturnUrl.StartsWith("//", StringComparison.Ordinal)
                 ? ReturnUrl
-                : "/sales/create";
+                : "/";
 
     protected override async Task OnInitializedAsync()
     {

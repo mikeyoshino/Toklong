@@ -4,17 +4,12 @@
 
 ## Decision summary
 
-TOKLONG should support two private initiation paths:
-
-1. Seller creates an agreement link and shares it with the buyer.
-2. Buyer creates a proposed offer link and shares it with the seller.
-
-For the buyer-initiated path, use the Trustap-style ordering:
+TOKLONG MVP uses one private buyer-first initiation path. Use the Trustap-style ordering:
 
 ```text
 buyer creates proposed transaction
 → seller joins, completes seller facts, and accepts
-→ buyer reviews the seller-confirmed final terms and pays
+→ buyer reviews the unchanged seller-accepted terms and pays
 → verified payment enables fulfillment
 → tracked delivery starts the inspection window
 → buyer confirms early or reports a problem
@@ -49,32 +44,40 @@ They also make early buyer confirmation the seller's fastest path to payment, wh
 
 ### Buyer creates
 
-Collect only the proposed item, fulfillment type, agreement details already available from the external conversation, price, physical shipping fee, expected fulfillment time, and buyer contact email.
+Require buyer phone sign-in plus first/last name and a payment-contact email at
+registration, then collect fulfillment type, an optional managed photo,
+agreement details from the external conversation, one agreed total, and
+expected fulfillment time. Checkout reuses the account email without another
+field.
 
 Success copy:
 
-> สร้างข้อเสนอแล้ว ส่งลิงก์นี้ให้ผู้ขายยืนยัน เมื่อผู้ขายยอมรับ เราจะแจ้งให้คุณตรวจรายละเอียดและชำระ
+> ส่งข้อเสนอให้ผู้ขายแล้ว ระบบจะแจ้งบัญชีที่ยืนยันด้วยเบอร์นี้ เมื่อผู้ขายยอมรับ เราจะแจ้งให้คุณตรวจรายละเอียดและชำระ
 
 ### Seller accepts
 
 Show before acceptance:
 
 - Proposed item and amount.
-- Exact expected net payout.
-- Exact offer-expiry date/time.
+- Proposed total, plus exact expected net before real payment once the fee policy is approved.
+- Offer-expiry date/time only after the open deadline policy is approved and implemented.
 - Fulfillment deadline.
 - Release and dispute conditions.
-- Required photos, condition/defect facts, possession/right-to-transfer, prohibited-goods, identity, and bank-account steps.
+- Optional photos plus required condition/defect facts,
+  possession/right-to-transfer, prohibited-goods, identity, and bank-account
+  steps.
 
 Copy:
 
-> ผู้ซื้อพร้อมชำระเมื่อคุณยอมรับ
+> เมื่อคุณตกลง ผู้ซื้อจะจ่ายเงินได้
 
 Do not say `ผู้ซื้อชำระแล้ว` until Stripe confirms payment through a verified event.
 
 ### Buyer pays
 
-After seller acceptance, show every seller-confirmed material term and any changes from the buyer proposal. Require buyer acceptance of the final record and collect the email Stripe needs for PromptPay refund instructions.
+After seller acceptance, show every unchanged buyer-specified material term.
+Require buyer acceptance of that record and use the authenticated buyer profile
+email for Stripe PromptPay receipts and refund instructions.
 
 ### Seller fulfills and gets paid
 
@@ -84,14 +87,18 @@ TOKLONG does not create a user wallet. After release eligibility, it initiates a
 
 ## Inspection-window decision
 
-The comparator range is 24–72 hours, materially shorter than TOKLONG's current 168-hour MVP default:
+The comparator range is 24–72 hours:
 
 - Trustap: 24 hours.
 - Vinted: 48 hours.
 - Wallapop: 48 hours.
 - Mercari: 72 hours.
 
-TOKLONG retains 168 hours until an explicit product, risk, legal, and operations decision changes the binding rule. A future experiment may evaluate 72 hours for approved lower-risk physical categories, but it must not be introduced silently or applied to digital fulfillment.
+TOKLONG selected a fixed 72 elapsed hours for the physical MVP on 2026-07-25.
+The clock begins only at trusted carrier-confirmed delivery, and a shipped or
+in-transit status does not start it. This choice bounds the seller's wait while
+giving the buyer three days to inspect. It does not apply to digital
+fulfillment, which never auto-releases from elapsed time.
 
 ## Sources
 

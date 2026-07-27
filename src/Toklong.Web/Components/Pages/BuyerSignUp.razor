@@ -1,0 +1,55 @@
+@page "/buyer/sign-up"
+
+<PageTitle>สมัครสมาชิกผู้ซื้อ — TOKLONG</PageTitle>
+<AppHeader BackHref="/" BackLabel="กลับหน้าแรก" />
+
+<main class="auth-shell">
+    <section class="auth-card">
+        <div class="auth-icon" aria-hidden="true">◎</div>
+        <span class="eyebrow"><span class="eyebrow-dot"></span>สมัครครั้งแรก</span>
+        <h1>สมัครด้วยเบอร์โทรศัพท์</h1>
+        <p>กรอกชื่อและอีเมลครั้งเดียวเพื่อสร้างบัญชีผู้ซื้อ</p>
+
+        @if (!string.IsNullOrWhiteSpace(Error))
+        {
+            <AlertMessage Message="@Error" Danger />
+        }
+
+        <form method="post" action="/auth/buyer/otp/request" class="auth-form">
+            <AntiforgeryToken />
+            <input type="hidden" name="mode" value="sign-up" />
+            <input type="hidden" name="returnUrl" value="@SafeReturnUrl" />
+            <label class="form-label" for="fullName">ชื่อและนามสกุล</label>
+            <input class="form-control" id="fullName" name="fullName"
+                   type="text" autocomplete="name" maxlength="120"
+                   placeholder="ชื่อ นามสกุล" required />
+            <label class="form-label" for="email">อีเมล</label>
+            <input class="form-control" id="email" name="email"
+                   type="email" inputmode="email" autocomplete="email"
+                   maxlength="254" placeholder="name@example.com" required />
+            <label class="form-label" for="phone">เบอร์มือถือ</label>
+            <input class="form-control" id="phone" name="phone"
+                   type="tel" inputmode="tel" autocomplete="tel"
+                   placeholder="08X XXX XXXX" required />
+            <button class="button button-primary" type="submit">
+                รับรหัสยืนยัน
+            </button>
+        </form>
+
+        <a class="auth-secondary"
+           href="@($"/buyer/sign-in?returnUrl={Uri.EscapeDataString(SafeReturnUrl)}")">
+            มีบัญชีแล้ว? เข้าสู่ระบบ
+        </a>
+    </section>
+</main>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+
+    private string SafeReturnUrl =>
+        !string.IsNullOrWhiteSpace(ReturnUrl) && ReturnUrl.StartsWith('/')
+            && !ReturnUrl.StartsWith("//", StringComparison.Ordinal)
+                ? ReturnUrl
+                : "/offers/create";
+}

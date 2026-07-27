@@ -10,7 +10,7 @@ public static class ProductPolicy
         "ของสะสม",
         "อิเล็กทรอนิกส์",
         "งานอดิเรกและของใช้",
-        "สินค้าดิจิทัลที่โอนได้"
+        "สินค้าดิจิทัล"
     ];
 
     private static readonly string[] ProhibitedTerms =
@@ -30,10 +30,10 @@ public static class ProductPolicy
         if (!AllowedCategories.Contains(category.Trim()))
             return new(false, "unsupported_category", "หมวดสินค้านี้ยังไม่รองรับใน MVP");
         if (fulfillmentType == FulfillmentType.DigitalHandoff &&
-            !string.Equals(category.Trim(), "สินค้าดิจิทัลที่โอนได้", StringComparison.Ordinal))
-            return new(false, "unsupported_digital_category", "กรุณาใช้ประเภทสินค้าดิจิทัลที่โอนได้");
+            !string.Equals(category.Trim(), "สินค้าดิจิทัล", StringComparison.Ordinal))
+            return new(false, "unsupported_digital_category", "กรุณาใช้ประเภทสินค้าดิจิทัล");
         if (fulfillmentType == FulfillmentType.PhysicalShipment &&
-            string.Equals(category.Trim(), "สินค้าดิจิทัลที่โอนได้", StringComparison.Ordinal))
+            string.Equals(category.Trim(), "สินค้าดิจิทัล", StringComparison.Ordinal))
             return new(false, "fulfillment_category_mismatch", "ประเภทการส่งมอบไม่ตรงกับรายการ");
 
         var content = $"{productName} {description}";

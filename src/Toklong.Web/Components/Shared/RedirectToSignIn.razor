@@ -8,8 +8,12 @@
         if (!firstRender)
             return;
         var relative = "/" + Navigation.ToBaseRelativePath(Navigation.Uri);
+        var signInPath = relative.StartsWith(
+            "/offers/create", StringComparison.OrdinalIgnoreCase)
+            ? "/buyer/sign-in"
+            : "/seller/sign-in";
         Navigation.NavigateTo(
-            $"/seller/sign-in?returnUrl={Uri.EscapeDataString(relative)}",
+            $"{signInPath}?returnUrl={Uri.EscapeDataString(relative)}",
             forceLoad: true);
     }
 }

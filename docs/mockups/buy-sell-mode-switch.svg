@@ -1,0 +1,178 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1120" viewBox="0 0 1080 1120">
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#EEF6FF"/>
+      <stop offset="0.52" stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#F3EEFF"/>
+    </linearGradient>
+    <linearGradient id="buyerHero" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3C8AF1"/>
+      <stop offset="1" stop-color="#185CB9"/>
+    </linearGradient>
+    <linearGradient id="sellerHero" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8067DE"/>
+      <stop offset="1" stop-color="#4930A7"/>
+    </linearGradient>
+    <filter id="phoneShadow" x="-30%" y="-20%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#1D3553" flood-opacity="0.16"/>
+    </filter>
+    <filter id="cardShadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#31577F" flood-opacity="0.12"/>
+    </filter>
+    <clipPath id="buyerScreen">
+      <rect x="79" y="178" width="410" height="844" rx="45"/>
+    </clipPath>
+    <clipPath id="sellerScreen">
+      <rect x="591" y="178" width="410" height="844" rx="45"/>
+    </clipPath>
+  </defs>
+
+  <rect width="1080" height="1120" fill="url(#page)"/>
+  <text x="540" y="62" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Noto Sans Thai', sans-serif" font-size="28" font-weight="800" fill="#101828">แยกบริบทซื้อ–ขาย แต่ยังสลับได้ในหน้าเดียว</text>
+  <text x="540" y="98" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Noto Sans Thai', sans-serif" font-size="16" fill="#667085">Top-level mode switch · จำโหมดล่าสุด · แต่ละโหมดมี action และสถานะของตัวเอง</text>
+
+  <g filter="url(#phoneShadow)">
+    <rect x="65" y="164" width="438" height="872" rx="58" fill="#111827"/>
+    <rect x="79" y="178" width="410" height="844" rx="45" fill="#FFFFFF"/>
+    <rect x="577" y="164" width="438" height="872" rx="58" fill="#111827"/>
+    <rect x="591" y="178" width="410" height="844" rx="45" fill="#FFFFFF"/>
+  </g>
+
+  <g clip-path="url(#buyerScreen)" font-family="-apple-system, BlinkMacSystemFont, 'Noto Sans Thai', sans-serif">
+    <rect x="79" y="178" width="410" height="844" fill="#FFFFFF"/>
+    <circle cx="446" cy="238" r="150" fill="#E6F3FF"/>
+    <rect x="209" y="191" width="150" height="31" rx="16" fill="#101828"/>
+    <text x="104" y="217" font-size="14" font-weight="700" fill="#101828">9:41</text>
+    <circle cx="447" cy="210" r="5" fill="#101828"/>
+    <rect x="456" y="204" width="18" height="12" rx="3" fill="none" stroke="#101828" stroke-width="2"/>
+    <rect x="459" y="207" width="11" height="6" rx="1.5" fill="#101828"/>
+
+    <text x="107" y="267" font-size="13" font-weight="800" fill="#145FC7">TOKLONG</text>
+    <text x="107" y="300" font-size="27" font-weight="800" fill="#101828">รายการของคุณ</text>
+
+    <rect x="107" y="322" width="354" height="54" rx="17" fill="#EAF0F6"/>
+    <rect x="111" y="326" width="171" height="46" rx="14" fill="#FFFFFF"/>
+    <text x="196" y="355" text-anchor="middle" font-size="14" font-weight="800" fill="#145FC7">ซื้อ</text>
+    <text x="372" y="355" text-anchor="middle" font-size="14" font-weight="700" fill="#667085">ขาย</text>
+
+    <text x="107" y="416" font-size="24" font-weight="800" fill="#101828">รายการซื้อ</text>
+    <text x="107" y="441" font-size="13" fill="#667085">ดีลที่คุณเป็นผู้ซื้อ</text>
+    <rect x="319" y="397" width="142" height="45" rx="14" fill="#2B7FFF"/>
+    <text x="390" y="425" text-anchor="middle" font-size="12" font-weight="800" fill="#FFFFFF">+ สร้างดีลซื้อ</text>
+
+    <g filter="url(#cardShadow)">
+      <rect x="107" y="468" width="354" height="236" rx="25" fill="url(#buyerHero)"/>
+    </g>
+    <circle cx="126" cy="493" r="4" fill="#9CEBD9"/>
+    <text x="139" y="498" font-size="12" font-weight="800" fill="#FFFFFF">ต้องทำตอนนี้</text>
+    <rect x="371" y="482" width="72" height="26" rx="13" fill="#2AFFFFFF" stroke="#35FFFFFF"/>
+    <text x="407" y="500" text-anchor="middle" font-size="11" font-weight="700" fill="#FFFFFF">ผู้ซื้อ</text>
+    <rect x="126" y="528" width="58" height="58" rx="16" fill="#E8FFFFFF"/>
+    <rect x="140" y="545" width="31" height="22" rx="5" fill="#294667"/>
+    <circle cx="156" cy="556" r="8" fill="#BFE2FF"/>
+    <text x="199" y="549" font-size="15" font-weight="800" fill="#FFFFFF">กล้อง Fujifilm X-T30 II</text>
+    <text x="199" y="573" font-size="12" fill="#D8E7FF">ผู้ขาย · นัท</text>
+    <text x="126" y="620" font-size="12" fill="#D8E7FF">ผู้ขายยืนยันแล้ว · รอคุณจ่าย</text>
+    <text x="126" y="651" font-size="25" font-weight="800" fill="#FFFFFF">฿4,500</text>
+    <rect x="126" y="666" width="316" height="46" rx="14" fill="#FFFFFF"/>
+    <text x="284" y="695" text-anchor="middle" font-size="13" font-weight="800" fill="#145FC7">ดูรายละเอียดแล้วจ่าย  →</text>
+
+    <text x="107" y="747" font-size="17" font-weight="800" fill="#101828">รายการซื้อทั้งหมด</text>
+    <rect x="107" y="765" width="77" height="34" rx="17" fill="#145FC7"/>
+    <text x="145.5" y="787" text-anchor="middle" font-size="11" font-weight="700" fill="#FFFFFF">ต้องทำ 1</text>
+    <rect x="192" y="765" width="94" height="34" rx="17" fill="#FFFFFF" stroke="#C9D7E6"/>
+    <text x="239" y="787" text-anchor="middle" font-size="11" font-weight="700" fill="#667085">กำลังจัดส่ง</text>
+    <rect x="294" y="765" width="76" height="34" rx="17" fill="#FFFFFF" stroke="#C9D7E6"/>
+    <text x="332" y="787" text-anchor="middle" font-size="11" font-weight="700" fill="#667085">เสร็จแล้ว</text>
+
+    <rect x="107" y="819" width="354" height="106" rx="20" fill="#FFFFFF" stroke="#E3EAF2"/>
+    <circle cx="140" cy="850" r="18" fill="#EEF6FF"/>
+    <path d="M130 850h20M140 840v20" stroke="#2B7FFF" stroke-width="3" stroke-linecap="round"/>
+    <text x="170" y="848" font-size="14" font-weight="800" fill="#101828">หูฟัง Sony WH-1000XM5</text>
+    <text x="170" y="871" font-size="12" fill="#667085">กำลังจัดส่ง · Flash Express</text>
+    <text x="440" y="849" text-anchor="end" font-size="14" font-weight="800" fill="#101828">฿6,900</text>
+    <text x="440" y="890" text-anchor="end" font-size="20" fill="#8BA0B8">›</text>
+
+    <rect x="79" y="946" width="410" height="76" fill="#FFFFFF"/>
+    <line x1="79" y1="946" x2="489" y2="946" stroke="#E8EDF3"/>
+    <circle cx="151" cy="973" r="12" fill="#EAF4FF"/>
+    <path d="M145 968h12v10h-12z" fill="none" stroke="#2B7FFF" stroke-width="2"/>
+    <text x="151" y="1005" text-anchor="middle" font-size="10" font-weight="700" fill="#2B7FFF">รายการ</text>
+    <circle cx="284" cy="973" r="5" fill="#98A2B3"/>
+    <text x="284" y="1005" text-anchor="middle" font-size="10" fill="#667085">กิจกรรม</text>
+    <circle cx="417" cy="973" r="10" fill="none" stroke="#98A2B3" stroke-width="2"/>
+    <text x="417" y="1005" text-anchor="middle" font-size="10" fill="#667085">บัญชี</text>
+  </g>
+
+  <g clip-path="url(#sellerScreen)" font-family="-apple-system, BlinkMacSystemFont, 'Noto Sans Thai', sans-serif">
+    <rect x="591" y="178" width="410" height="844" fill="#FFFFFF"/>
+    <circle cx="958" cy="238" r="150" fill="#F0EBFF"/>
+    <rect x="721" y="191" width="150" height="31" rx="16" fill="#101828"/>
+    <text x="616" y="217" font-size="14" font-weight="700" fill="#101828">9:41</text>
+    <circle cx="959" cy="210" r="5" fill="#101828"/>
+    <rect x="968" y="204" width="18" height="12" rx="3" fill="none" stroke="#101828" stroke-width="2"/>
+    <rect x="971" y="207" width="11" height="6" rx="1.5" fill="#101828"/>
+
+    <text x="619" y="267" font-size="13" font-weight="800" fill="#6548C7">TOKLONG</text>
+    <text x="619" y="300" font-size="27" font-weight="800" fill="#101828">รายการของคุณ</text>
+
+    <rect x="619" y="322" width="354" height="54" rx="17" fill="#EAF0F6"/>
+    <text x="708" y="355" text-anchor="middle" font-size="14" font-weight="700" fill="#667085">ซื้อ</text>
+    <rect x="798" y="326" width="171" height="46" rx="14" fill="#FFFFFF"/>
+    <text x="883" y="355" text-anchor="middle" font-size="14" font-weight="800" fill="#6548C7">ขาย</text>
+
+    <text x="619" y="416" font-size="24" font-weight="800" fill="#101828">รายการขาย</text>
+    <text x="619" y="441" font-size="13" fill="#667085">ข้อเสนอและยอดขายของคุณ</text>
+
+    <g filter="url(#cardShadow)">
+      <rect x="619" y="468" width="354" height="236" rx="25" fill="url(#sellerHero)"/>
+    </g>
+    <circle cx="638" cy="493" r="4" fill="#D7CBFF"/>
+    <text x="651" y="498" font-size="12" font-weight="800" fill="#FFFFFF">ต้องทำตอนนี้</text>
+    <rect x="883" y="482" width="72" height="26" rx="13" fill="#2AFFFFFF" stroke="#35FFFFFF"/>
+    <text x="919" y="500" text-anchor="middle" font-size="11" font-weight="700" fill="#FFFFFF">ผู้ขาย</text>
+    <rect x="638" y="528" width="58" height="58" rx="16" fill="#E8FFFFFF"/>
+    <rect x="652" y="545" width="31" height="22" rx="5" fill="#294667"/>
+    <circle cx="668" cy="556" r="8" fill="#D7CBFF"/>
+    <text x="711" y="549" font-size="15" font-weight="800" fill="#FFFFFF">กล้อง Fujifilm X-T30 II</text>
+    <text x="711" y="573" font-size="12" fill="#E3DDFF">ผู้ซื้อ · เมย์</text>
+    <text x="638" y="620" font-size="12" fill="#E3DDFF">ข้อเสนอใหม่ · ตอบภายใน 18:00</text>
+    <text x="638" y="651" font-size="25" font-weight="800" fill="#FFFFFF">฿4,500</text>
+    <rect x="638" y="666" width="316" height="46" rx="14" fill="#FFFFFF"/>
+    <text x="796" y="695" text-anchor="middle" font-size="13" font-weight="800" fill="#6548C7">ตรวจข้อเสนอ  →</text>
+
+    <text x="619" y="747" font-size="17" font-weight="800" fill="#101828">รายการขายทั้งหมด</text>
+    <rect x="619" y="765" width="73" height="34" rx="17" fill="#6548C7"/>
+    <text x="655.5" y="787" text-anchor="middle" font-size="11" font-weight="700" fill="#FFFFFF">ต้องตอบ 1</text>
+    <rect x="700" y="765" width="68" height="34" rx="17" fill="#FFFFFF" stroke="#D8CFF3"/>
+    <text x="734" y="787" text-anchor="middle" font-size="11" font-weight="700" fill="#667085">ต้องส่ง</text>
+    <rect x="776" y="765" width="84" height="34" rx="17" fill="#FFFFFF" stroke="#D8CFF3"/>
+    <text x="818" y="787" text-anchor="middle" font-size="11" font-weight="700" fill="#667085">รอรับเงิน</text>
+    <rect x="868" y="765" width="76" height="34" rx="17" fill="#FFFFFF" stroke="#D8CFF3"/>
+    <text x="906" y="787" text-anchor="middle" font-size="11" font-weight="700" fill="#667085">เสร็จแล้ว</text>
+
+    <rect x="619" y="819" width="354" height="106" rx="20" fill="#FFFFFF" stroke="#E7E1F5"/>
+    <circle cx="652" cy="850" r="18" fill="#F1ECFF"/>
+    <path d="M642 850h20M652 840v20" stroke="#6548C7" stroke-width="3" stroke-linecap="round"/>
+    <text x="682" y="848" font-size="14" font-weight="800" fill="#101828">หูฟัง Sony WH-1000XM5</text>
+    <text x="682" y="871" font-size="12" fill="#667085">รอผู้ซื้อชำระเงิน</text>
+    <text x="952" y="849" text-anchor="end" font-size="14" font-weight="800" fill="#101828">฿6,900</text>
+    <text x="952" y="890" text-anchor="end" font-size="20" fill="#8BA0B8">›</text>
+
+    <rect x="591" y="946" width="410" height="76" fill="#FFFFFF"/>
+    <line x1="591" y1="946" x2="1001" y2="946" stroke="#E8EDF3"/>
+    <circle cx="663" cy="973" r="12" fill="#F1ECFF"/>
+    <path d="M657 968h12v10h-12z" fill="none" stroke="#6548C7" stroke-width="2"/>
+    <text x="663" y="1005" text-anchor="middle" font-size="10" font-weight="700" fill="#6548C7">รายการ</text>
+    <circle cx="796" cy="973" r="5" fill="#98A2B3"/>
+    <text x="796" y="1005" text-anchor="middle" font-size="10" fill="#667085">กิจกรรม</text>
+    <circle cx="929" cy="973" r="10" fill="none" stroke="#98A2B3" stroke-width="2"/>
+    <text x="929" y="1005" text-anchor="middle" font-size="10" fill="#667085">บัญชี</text>
+  </g>
+
+  <rect x="65" y="164" width="438" height="872" rx="58" fill="none" stroke="#0F172A" stroke-width="4"/>
+  <rect x="577" y="164" width="438" height="872" rx="58" fill="none" stroke="#0F172A" stroke-width="4"/>
+  <rect x="122" y="1057" width="824" height="44" rx="22" fill="#FFFFFF" stroke="#DCE5EF"/>
+  <circle cx="151" cy="1079" r="6" fill="#65D6BF"/>
+  <text x="174" y="1085" font-family="-apple-system, BlinkMacSystemFont, 'Noto Sans Thai', sans-serif" font-size="14" font-weight="700" fill="#344054">แนะนำ: ไม่มีโหมด “ทั้งหมด” · ลดความปนกันของสถานะและคำสั่งซื้อ/ขาย</text>
+</svg>

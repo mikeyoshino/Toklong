@@ -1,0 +1,14 @@
+.git
+.gitignore
+global.json
+.env
+.env.*
+!.env.example
+**/bin
+**/obj
+**/App_Data
+TestResults
+.DS_Store
+*.user
+*.suo
+landing-*-preview.png

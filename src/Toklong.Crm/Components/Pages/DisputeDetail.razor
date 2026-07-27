@@ -1,0 +1,517 @@
+@page "/disputes/{CaseId:guid}"
+@attribute [Authorize(Policy = CrmPolicies.DisputeReader)]
+@rendermode InteractiveServer
+@inject CrmDisputeOperations Operations
+@inject WorkforceIdentityOptions Workforce
+
+<PageTitle>รายละเอียดข้อโต้แย้ง | TOKLONG CRM</PageTitle>
+
+@if (_detail is null)
+{
+    <p role="status">@(_error ?? "กำลังโหลดเคส…")</p>
+}
+else
+{
+    <div class="page-heading">
+        <a href="/">← กลับรายการเคส</a>
+        <p class="eyebrow">DISPUTE CASE</p>
+        <h1>@_detail.Case.CaseNumber</h1>
+        <p>@_detail.Transaction.ProductName · @_detail.Transaction.StateLabel</p>
+    </div>
+
+    @if (_message is not null)
+    {
+        <div class="alert" role="status">@_message</div>
+    }
+    @if (_error is not null)
+    {
+        <div class="alert alert-error" role="alert">@_error</div>
+    }
+
+    <div class="detail-grid">
+        <section class="panel" aria-labelledby="issue-title">
+            <h2 id="issue-title">ปัญหาที่ผู้ซื้อแจ้ง</h2>
+            <dl>
+                <dt>เหตุผล</dt>
+                <dd>@(_detail.Transaction.DisputeReason?.ToString() ?? "ไม่ระบุ")</dd>
+                <dt>รายละเอียด</dt>
+                <dd>@_detail.Transaction.DisputeStatement</dd>
+                <dt>ยอดรวม</dt>
+                <dd>@Money(_detail.Transaction.BuyerTotalSatang, _detail.Transaction.Currency)</dd>
+                <dt>เปิดเคส</dt>
+                <dd>@Bangkok(_detail.Case.OpenedAt)</dd>
+                <dt>สถานะ</dt>
+                <dd>@_detail.Case.Status</dd>
+                @if (_detail.Case.ApprovalDueAt is { } approvalDueAt)
+                {
+                    <dt>อนุมัติภายใน</dt>
+                    <dd>@Bangkok(approvalDueAt)</dd>
+                }
+            </dl>
+            <button class="secondary-button" @onclick="ClaimAsync">
+                รับเคสนี้
+            </button>
+        </section>
+
+        <section class="panel" aria-labelledby="snapshot-title">
+            <h2 id="snapshot-title">ข้อมูลข้อตกลง ณ เวลาชำระ</h2>
+            <dl>
+                <dt>สินค้า</dt>
+                <dd>@_detail.Transaction.ProductName</dd>
+                <dt>หมวด</dt>
+                <dd>@_detail.Transaction.Category</dd>
+                <dt>สภาพ/ตำหนิ</dt>
+                <dd>@_detail.Transaction.Condition · @_detail.Transaction.KnownDefects</dd>
+                <dt>การส่งมอบ</dt>
+                <dd>@_detail.Transaction.FulfillmentType</dd>
+                <dt>Tracking</dt>
+                <dd>@(_detail.Transaction.TrackingNumber ?? "ไม่มี")</dd>
+                <dt>ขนส่งรับพัสดุ</dt>
+                <dd>@(_detail.Transaction.FirstCarrierScanAt is null ? "ยังไม่มีข้อมูลยืนยัน" : Bangkok(_detail.Transaction.FirstCarrierScanAt.Value))</dd>
+                <dt>ส่งภายในกำหนด</dt>
+                <dd>@(_detail.Transaction.HasTimelyTrustedCarrierAcceptance ? "ยืนยันแล้ว · ควรตรวจเป็นปัญหาหลังขนส่งรับพัสดุ" : "ยังไม่เข้าเงื่อนไขคุ้มครองผู้ขาย")</dd>
+                <dt>ถึงผู้ซื้อ</dt>
+                <dd>@(_detail.Transaction.DeliveredAt is null ? "ยังไม่ยืนยัน" : Bangkok(_detail.Transaction.DeliveredAt.Value))</dd>
+            </dl>
+        </section>
+    </div>
+
+    <section class="panel">
+        <h2>หลักฐานที่ Buyer/Seller ส่ง</h2>
+        @if (_detail.PartyEvidence.Count == 0)
+        {
+            <p>ยังไม่มีรูปหลักฐานที่ส่งผ่านระบบ</p>
+        }
+        else
+        {
+            <div class="evidence-grid">
+                @foreach (var evidence in _detail.PartyEvidence)
+                {
+                    <figure class="evidence-card">
+                        <a href="@($"/evidence/{CaseId}/{evidence.Id}")"
+                           target="_blank"
+                           rel="noopener">
+                            <img src="@($"/evidence/{CaseId}/{evidence.Id}")"
+                                 alt="@($"หลักฐาน {evidence.EvidenceType} จาก {evidence.Party}: {evidence.Description}")"
+                                 loading="lazy" />
+                        </a>
+                        <figcaption>
+                            <strong>@evidence.Party · @evidence.EvidenceType</strong><br />
+                            @evidence.Description<br />
+                            <small>
+                                @Bangkok(evidence.SubmittedAt) ·
+                                @(evidence.LengthBytes / 1024m).ToString("N0") KB ·
+                                SHA-256 @evidence.Sha256[..12]…
+                            </small>
+                        </figcaption>
+                    </figure>
+                }
+            </div>
+        }
+    </section>
+
+    <section class="panel">
+        <h2>หลักฐานขั้นต่ำสำหรับเคสนี้</h2>
+        @{
+            var checklist = CrmEvidencePolicy.For(
+                _detail.Transaction.DisputeReason,
+                _detail.Transaction.FulfillmentType,
+                _detail.Transaction.Category);
+        }
+        <div class="detail-grid">
+            <div>
+                <h3>หลักฐานระบบ</h3>
+                <ul>
+                    @foreach (var item in checklist.SystemEvidence)
+                    {
+                        <li>@item</li>
+                    }
+                </ul>
+            </div>
+            <div>
+                <h3>จากผู้ซื้อ</h3>
+                <ul>
+                    @foreach (var item in checklist.BuyerEvidence)
+                    {
+                        <li>@item</li>
+                    }
+                </ul>
+                <h3>จากผู้ขาย</h3>
+                <ul>
+                    @foreach (var item in checklist.SellerEvidence)
+                    {
+                        <li>@item</li>
+                    }
+                </ul>
+            </div>
+        </div>
+        <h3>เพิ่มเติมตามหมวด</h3>
+        <ul>
+            @foreach (var item in checklist.CategoryEvidence)
+            {
+                <li>@item</li>
+            }
+        </ul>
+    </section>
+
+    <section class="panel">
+        <h2>ขอหลักฐานเพิ่ม</h2>
+        <EditForm Model="_evidence" OnValidSubmit="RequestEvidenceAsync">
+            <DataAnnotationsValidator />
+            <CrmSelect TValue="CrmCaseParty"
+                       Label="ขอจาก"
+                       @bind-Value="_evidence.Party"
+                       Options="EvidencePartyOptions" />
+            <label>
+                หลักฐานที่ต้องการ
+                <InputTextArea @bind-Value="_evidence.RequiredEvidence" />
+            </label>
+            <button class="secondary-button" type="submit">
+                บันทึกคำขอ · กำหนด 48 ชั่วโมง
+            </button>
+        </EditForm>
+        @foreach (var request in _detail.EvidenceRequests)
+        {
+            <p class="timeline-item">
+                <strong>@request.Party</strong> · @request.RequiredEvidence<br />
+                ภายใน @Bangkok(request.DueAt)
+            </p>
+        }
+    </section>
+
+    <section class="panel">
+        <h2>บันทึกภายใน</h2>
+        <EditForm Model="_note" OnValidSubmit="AddNoteAsync">
+            <label>
+                <span class="visually-hidden">บันทึกภายใน</span>
+                <InputTextArea @bind-Value="_note.Body" />
+            </label>
+            <button class="secondary-button" type="submit">เพิ่มบันทึก</button>
+        </EditForm>
+        @foreach (var note in _detail.Notes)
+        {
+            <p class="timeline-item">@note.Body<br /><small>@Bangkok(note.CreatedAt)</small></p>
+        }
+    </section>
+
+    <section class="panel resolution-panel">
+        <h2>คำแนะนำผล</h2>
+        <p>
+            Admin หรือ Super Admin แนะนำผลได้ แต่ Super Admin
+            คนอื่นเท่านั้นที่อนุมัติและส่งเข้ากระบวนการคืน/จ่ายเงิน
+        </p>
+        <EditForm Model="_recommendation" OnValidSubmit="RecommendAsync">
+            <CrmSelect TValue="CrmResolutionOutcome"
+                       Label="ผลที่แนะนำ"
+                       @bind-Value="_recommendation.Outcome"
+                       Options="ResolutionOptions" />
+            <CrmSelect TValue="string"
+                       Label="Reason code"
+                       @bind-Value="_recommendation.ReasonCode"
+                       Options="ReasonCodeOptions" />
+            <label>
+                เหตุผลประกอบการพิจารณา
+                <InputTextArea @bind-Value="_recommendation.Rationale" />
+            </label>
+            <button class="primary-button" type="submit">ส่งให้ Super Admin อนุมัติ</button>
+        </EditForm>
+
+        @foreach (var action in _detail.Resolutions)
+        {
+            <div class="resolution-card">
+                <strong>@action.Outcome · @action.ReasonCode</strong>
+                <p>@action.Rationale</p>
+                <p>สถานะ: @action.Status · อ้างอิง @action.ReviewReference</p>
+                @if (action.Status == CrmResolutionActionStatus.PendingApproval)
+                {
+                    <AuthorizeView Policy="@CrmPolicies.DisputeResolver">
+                        @if (_confirmationActionId == action.Id)
+                        {
+                            <div class="confirmation-box"
+                                 role="alert"
+                                 aria-labelledby="@($"confirm-{action.Id:N}")">
+                                <h3 id="@($"confirm-{action.Id:N}")">
+                                    ยืนยันผล @action.Outcome
+                                </h3>
+                                <p>
+                                    @action.ReasonCode · @action.Rationale
+                                </p>
+                                <p>
+                                    ระบบจะเปลี่ยนรายการเป็น
+                                    @(action.Outcome == CrmResolutionOutcome.FullRefund
+                                        ? "กำลังคืนเงิน"
+                                        : "พร้อมเริ่มจ่ายผู้ขาย")
+                                    แต่จะยังไม่ถือว่า provider ดำเนินการสำเร็จ
+                                </p>
+                                <div class="row-actions">
+                                    <button class="danger-button"
+                                            @onclick="() => ApproveAsync(action.Id)">
+                                        ยืนยันอนุมัติผล
+                                    </button>
+                                    <button class="secondary-button"
+                                            @onclick="CancelConfirmation">
+                                        ย้อนกลับ
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="row-actions">
+                                <button class="danger-button"
+                                        disabled="@(!Workforce.FinancialActionsEnabled)"
+                                        @onclick="() => BeginConfirmation(action.Id)">
+                                    ตรวจสอบก่อนอนุมัติ
+                                </button>
+                                <button class="secondary-button"
+                                        @onclick="() => BeginReturn(action.Id)">
+                                    ส่งกลับให้ตรวจเพิ่ม
+                                </button>
+                            </div>
+                        }
+                        @if (_returnActionId == action.Id)
+                        {
+                            <div class="confirmation-box">
+                                <label>
+                                    เหตุผลที่ส่งกลับ
+                                    <textarea @bind="_returnReason"></textarea>
+                                </label>
+                                <div class="row-actions">
+                                    <button class="primary-button"
+                                            @onclick="() => ReturnAsync(action.Id)">
+                                        ยืนยันส่งกลับ
+                                    </button>
+                                    <button class="secondary-button"
+                                            @onclick="CancelReturn">
+                                        ย้อนกลับ
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                        @if (!Workforce.FinancialActionsEnabled)
+                        {
+                            <p class="gate-note">
+                                ปิดไว้จนกว่า production Conditional Access จะผ่าน
+                            </p>
+                        }
+                    </AuthorizeView>
+                }
+                @if (action.Status == CrmResolutionActionStatus.Returned)
+                {
+                    <p>ส่งกลับเพื่อทำงานเพิ่ม: @action.ReturnedReason</p>
+                }
+            </div>
+        }
+    </section>
+
+    <CrmAuditTimeline Items="_detail.CoreAuditEvents" />
+}
+
+@code {
+    [Parameter] public Guid CaseId { get; set; }
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask
+        { get; set; } = default!;
+
+    private CrmDisputeDetail? _detail;
+    private string? _message;
+    private string? _error;
+    private EvidenceForm _evidence = new();
+    private NoteForm _note = new();
+    private RecommendationForm _recommendation = new();
+    private Guid? _confirmationActionId;
+    private Guid? _returnActionId;
+    private string _returnReason = "";
+
+    private static readonly IReadOnlyList<
+        CrmSelectOption<CrmCaseParty>>
+        EvidencePartyOptions =
+    [
+        new(CrmCaseParty.Buyer, "ผู้ซื้อ"),
+        new(CrmCaseParty.Seller, "ผู้ขาย"),
+        new(CrmCaseParty.Both, "ทั้งสองฝ่าย")
+    ];
+
+    private static readonly IReadOnlyList<
+        CrmSelectOption<CrmResolutionOutcome>>
+        ResolutionOptions =
+    [
+        new(
+            CrmResolutionOutcome.FullRefund,
+            "คืนเงินเต็มจำนวน",
+            "ส่งรายการเข้าสถานะรอ provider คืนเงิน"),
+        new(
+            CrmResolutionOutcome.FullPayout,
+            "จ่ายผู้ขายเต็มจำนวน",
+            "ส่งรายการเข้าสถานะพร้อมเริ่มจ่ายผู้ขาย")
+    ];
+
+    private static readonly IReadOnlyList<
+        CrmSelectOption<string>>
+        ReasonCodeOptions =
+    [
+        new("ITEM_NOT_RECEIVED", "ITEM_NOT_RECEIVED"),
+        new("WRONG_ITEM", "WRONG_ITEM"),
+        new(
+            "MATERIALLY_NOT_AS_DESCRIBED",
+            "MATERIALLY_NOT_AS_DESCRIBED"),
+        new("UNDISCLOSED_DAMAGE", "UNDISCLOSED_DAMAGE"),
+        new("MISSING_PARTS", "MISSING_PARTS"),
+        new(
+            "SUSPECTED_COUNTERFEIT",
+            "SUSPECTED_COUNTERFEIT"),
+        new(
+            "EMPTY_OR_TAMPERED_PARCEL",
+            "EMPTY_OR_TAMPERED_PARCEL"),
+        new(
+            "DIGITAL_NOT_RECEIVED",
+            "DIGITAL_NOT_RECEIVED"),
+        new(
+            "DIGITAL_NOT_TRANSFERABLE",
+            "DIGITAL_NOT_TRANSFERABLE"),
+        new("OTHER", "OTHER")
+    ];
+
+    protected override Task OnParametersSetAsync() => ReloadAsync();
+
+    private async Task ReloadAsync()
+    {
+        try
+        {
+            var state = await AuthenticationStateTask;
+            _detail = await Operations.GetDetailAsync(
+                CaseId,
+                state.User,
+                "ตรวจสอบข้อโต้แย้งและหลักฐานประกอบ",
+                Guid.NewGuid().ToString("N"),
+                CancellationToken.None);
+            _error = null;
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+        }
+    }
+
+    private async Task RunAsync(Func<ClaimsPrincipal, Task> action)
+    {
+        try
+        {
+            _message = null;
+            _error = null;
+            var state = await AuthenticationStateTask;
+            await action(state.User);
+            _message = "บันทึกสำเร็จ";
+            await ReloadAsync();
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+        }
+    }
+
+    private Task ClaimAsync() =>
+        RunAsync(user => Operations.ClaimAsync(
+            CaseId, user, CancellationToken.None));
+
+    private Task AddNoteAsync() =>
+        RunAsync(async user =>
+        {
+            await Operations.AddNoteAsync(
+                CaseId, _note.Body, user, CancellationToken.None);
+            _note = new();
+        });
+
+    private Task RequestEvidenceAsync() =>
+        RunAsync(async user =>
+        {
+            await Operations.RequestEvidenceAsync(
+                CaseId,
+                _evidence.Party,
+                _evidence.RequiredEvidence,
+                user,
+                CancellationToken.None);
+            _evidence = new();
+        });
+
+    private Task RecommendAsync() =>
+        RunAsync(async user =>
+        {
+            await Operations.RecommendAsync(
+                CaseId,
+                _recommendation.Outcome,
+                _recommendation.ReasonCode,
+                _recommendation.Rationale,
+                user,
+                CancellationToken.None);
+            _recommendation = new();
+        });
+
+    private Task ApproveAsync(Guid actionId) =>
+        RunAsync(async user =>
+        {
+            await Operations.ApproveAndApplyAsync(
+                CaseId, actionId, user, CancellationToken.None);
+            _confirmationActionId = null;
+        });
+
+    private void BeginConfirmation(Guid actionId) =>
+        _confirmationActionId = actionId;
+
+    private void CancelConfirmation() =>
+        _confirmationActionId = null;
+
+    private void BeginReturn(Guid actionId)
+    {
+        _returnActionId = actionId;
+        _returnReason = "";
+    }
+
+    private Task ReturnAsync(Guid actionId) =>
+        RunAsync(async user =>
+        {
+            await Operations.ReturnForMoreWorkAsync(
+                CaseId,
+                actionId,
+                _returnReason,
+                user,
+                CancellationToken.None);
+            _returnActionId = null;
+            _returnReason = "";
+        });
+
+    private void CancelReturn()
+    {
+        _returnActionId = null;
+        _returnReason = "";
+    }
+
+    private static string Money(long satang, string currency) =>
+        $"{satang / 100m:N2} {currency}";
+
+    private static string Bangkok(DateTimeOffset value) =>
+        TimeZoneInfo.ConvertTime(
+            value,
+            TimeZoneInfo.FindSystemTimeZoneById("Asia/Bangkok"))
+            .ToString("dd/MM/yyyy HH:mm");
+
+    private sealed class EvidenceForm
+    {
+        public CrmCaseParty Party { get; set; } = CrmCaseParty.Buyer;
+        public string RequiredEvidence { get; set; } = "";
+    }
+
+    private sealed class NoteForm
+    {
+        public string Body { get; set; } = "";
+    }
+
+    private sealed class RecommendationForm
+    {
+        public CrmResolutionOutcome Outcome { get; set; } =
+            CrmResolutionOutcome.FullRefund;
+        public string ReasonCode { get; set; } =
+            "MATERIALLY_NOT_AS_DESCRIBED";
+        public string Rationale { get; set; } = "";
+    }
+}

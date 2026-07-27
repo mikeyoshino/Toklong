@@ -2,7 +2,7 @@
 
 ## Product statement
 
-TOKLONG is a protected agreement-and-payment-link service for a buyer and seller who already found each other elsewhere. Either party may start the transaction record: a seller may create an agreement link, or a buyer may create an offer link for the seller to review. It turns an informal social-commerce conversation into a seller-accepted purchase record, provider-confirmed payment, verified physical shipment or acknowledged digital handoff, and conditional seller payout. It is the transaction trust layer, not a product-listing or discovery marketplace.
+TOKLONG is a buyer-first protected agreement-and-payment-link service for a buyer and seller who already found each other elsewhere. The buyer records a first and last name plus a payment-contact email once when registering, then later signs in with only the registered phone number and verification code before creating one private offer for a named item and the seller's Thai mobile number. The private link routes the intended seller into the app or Web, but the matching authenticated phone—not possession of the link—authorizes review and response. The seller confirms the final item facts, and only then may the buyer review and pay. It turns an informal social-commerce conversation into a seller-accepted purchase record, provider-confirmed payment, verified physical shipment or acknowledged digital handoff, and conditional seller payout. It is the transaction trust layer, not a product-listing or discovery marketplace.
 
 ## Core problem
 
@@ -18,22 +18,34 @@ TOKLONG should solve the **transaction trust layer**, not replace the communitie
 
 ## Primary value proposition
 
+For the seller:
+
+> TOKLONG ช่วยคนขายที่จริงใจขายให้คนแปลกหน้าได้ง่ายขึ้น
+
+For the complete transaction:
+
 > ตกลงกันในแชต แล้วจบดีลผ่านลิงก์เดียว
 
-The parties use a compact `ลิงก์ข้อตกลง` that records what they already discussed. The seller may create it directly, or the buyer may create a proposed offer and invite the seller to complete and accept the final terms. The app must not present either path as publishing a marketplace listing.
+The parties use a compact private offer link that records what they already discussed. The buyer creates the complete proposal and invites the seller to accept or decline it without editing. The app must not present this as publishing a marketplace listing or bidding.
 
-For a buyer-initiated transaction, the seller must join, provide or confirm all material seller representations, and accept the final terms before the buyer is asked to pay. This follows the lower-refund pattern used by comparable international transaction-protection products and avoids charging PromptPay before a willing, eligible seller exists.
+The seller must join, provide or confirm all material seller representations, and accept the final terms before the buyer is asked to pay. This follows the lower-refund pattern used by comparable international transaction-protection products and avoids charging PromptPay before a willing, eligible seller exists.
 
 For the seller:
 
-- Create a clear agreement and payment link in about one minute.
-- Or open a buyer-created offer, see the expected net payout and exact conditions, and accept without re-entering information that is already correct.
+- Help a hesitant customer proceed without asking them to transfer directly.
+- Avoid manual slip checking; fulfill only after provider-confirmed payment.
+- Retain the agreed item record, timestamps, and verified tracking as evidence.
+- Open a buyer-created offer, see the expected net payout and exact conditions, and accept without re-entering information that is already correct.
+- For a physical item, reuse one saved shipping origin, enter the parcel weight
+  and dimensions, compare an authoritative shipping quote, and lock the selected
+  service before accepting.
 - Fulfill only after payment is truly confirmed.
 - Add one tracking number for physical goods, or record a digital handoff without exposing credentials, and see the exact payout condition.
 
 For the buyer:
 
-- Review a frozen description, condition, photos, amount, and deadline before paying.
+- Review a frozen description, condition, any supplied photos, item price,
+  shipping charge, Buyer Protection fee, buyer total, and deadline before paying.
 - Track physical shipment or review a digital handoff from the same transaction page.
 - Confirm receipt/handoff or report a problem before payout.
 
@@ -53,10 +65,28 @@ An authorized human who reviews exceptions and disputes. They need a complete tr
 
 ## MVP goals
 
-1. A seller can create and share a payment link, or accept a valid buyer-created offer, in under two minutes after onboarding.
-2. A buyer can create a proposed offer, then understand the seller-confirmed item, total amount, payout trigger, and dispute deadline before paying.
+The native mobile MVP follows the same buyer-first lifecycle as Web, including
+seller invitation-link claiming, accept/decline, payout-account setup, multiple
+purchase/sale records, native Stripe PaymentSheet, fulfillment, receipt
+confirmation, and dispute initiation. Live OTP, payout, notification, carrier,
+KYC, and beneficiary verification still require approved providers and
+production configuration; code presence must not be presented as provider
+approval.
+
+1. A seller can authenticate, complete, and accept a valid buyer-created offer in under two minutes after onboarding.
+2. A buyer specifies the complete offer and intended seller phone; for physical
+   goods this includes selecting the complete delivery address, which is locked
+   before the seller reviews the offer. Only the authenticated matching seller
+   can confirm or decline it. Before accepting a physical offer, the seller
+   supplies the shipping origin and parcel measurements and selects a quoted
+   service. Acceptance reserves that exact provider shipment without charging
+   it yet. Before paying, the buyer sees the same item, locked address, item
+   price, shipping charge, Buyer Protection fee, buyer total, payout trigger,
+   and dispute deadline.
 3. A seller never receives a “ship now” signal from an unverified payment state.
-4. A verified physical-delivery event starts a clearly displayed seven-day dispute window; digital fulfillment never auto-releases from time alone.
+   After payment confirmation, the system confirms the reserved shipment and
+   gives the seller its carrier tracking number and printable label.
+4. A trusted carrier-confirmed physical-delivery event starts a clearly displayed 72-hour inspection and payout-hold window; digital fulfillment never auto-releases from time alone.
 5. A dispute reliably blocks payout.
 6. Every important state is auditable and explainable to both parties and operations.
 7. The interface feels like four stages, even though the backend has more detailed states.
@@ -75,11 +105,14 @@ An authorized human who reviews exceptions and disputes. They need a complete tr
 
 - One fixed physical item/bundle or one allow-listed transferable digital item/right.
 - Item/right already in the seller's possession or control, with a valid right to transfer.
-- Physical: domestic shipment through a supported carrier with machine-verifiable tracking events.
+- Physical: domestic shipment through a supported carrier with a shipping
+  service selected before seller acceptance and machine-verifiable tracking
+  events. For the production SHIPPOP path, booking confirmation, tracking, and
+  label creation are managed by TOKLONG rather than typed by the seller.
 - Digital: handoff outside secret-bearing transaction fields; payout requires buyer confirmation or authorized manual review and has no time-based auto-release.
 - One payment and one payout.
 - Amount denominated in THB.
-- Fixed seven-day dispute window for the initial launch, configurable only by authorized product configuration.
+- Fixed 72-hour physical inspection and payout-hold window for the initial launch, configurable only by authorized product configuration.
 
 ## Initial category policy
 
@@ -113,21 +146,23 @@ Excluded until explicitly reviewed:
 6. **Immutable paid facts.** The item snapshot at checkout must remain available for later reference.
 7. **Human accountability for disputes.** AI assists, humans decide binding outcomes.
 8. **Acceptance before collection.** A buyer-created proposal is not payable until the authenticated seller has accepted the final material terms and completed the required eligibility checks.
+9. **No indefinite waiting.** The seller has 24 hours to respond. After
+   acceptance, the buyer has one hour to complete provider-confirmed payment.
+   Both screens show the exact deadline, and an unpaid expired offer does not
+   authorize fulfillment.
 
 ## Suggested headline and copy
 
 Hero headline:
 
-> ขายของผ่านแชต ส่งลิงก์เดียว จบดีลอย่างมั่นใจ
+> ลูกค้าไม่กล้าโอน ก็ปิดการขายได้
 
 Hero explanation:
 
-> ผู้ซื้อหรือผู้ขายเริ่มลิงก์ข้อตกลงได้ ผู้ขายยืนยันรายละเอียดก่อนชำระ แล้วจึงส่งมอบเมื่อระบบยืนยันเงิน สินค้าจัดส่งใช้ Tracking ส่วนสินค้าดิจิทัลต้องให้ผู้ซื้อยืนยันหรือผ่านการตรวจสอบก่อนเริ่มจ่ายเงิน
+> ให้ลูกค้าส่งข้อเสนอผ่าน TOKLONG คุณยืนยันรายละเอียด
+> เห็นยอดที่ระบบยืนยันแล้วค่อยส่งของ
+> มี Tracking และหลักฐานสำคัญอยู่ในรายการเดียวจนจบดีล
 
-Primary seller action:
-
-> สร้างลิงก์ข้อตกลง
-
-Primary buyer action:
+Primary action:
 
 > สร้างข้อเสนอซื้อ

@@ -12,14 +12,37 @@
         case TransactionState.TrackingSubmitted:
         case TransactionState.InTransit:
             <div class="step-label">ขั้นที่ 3 จาก 4 · การจัดส่ง</div>
-            <h2>@(Transaction.State == TransactionState.InTransit ? "พัสดุกำลังเดินทาง" : "รอขนส่งตรวจสอบ Tracking")</h2>
+            <h2>@(Transaction.State == TransactionState.InTransit ? "พัสดุกำลังเดินทาง" : Transaction.IsProviderManagedShipment ? "นำพัสดุส่งกับขนส่ง" : "รอขนส่งตรวจสอบ Tracking")</h2>
             <div class="deadline-box"><span>@Transaction.CarrierCode</span><strong>@Transaction.TrackingNumber</strong></div>
-            <p>ช่วงแจ้งปัญหา 168 ชั่วโมงจะยังไม่เริ่มจนกว่าขนส่งยืนยันการนำส่ง</p>
+            @if (Transaction.IsProviderManagedShipment &&
+                 Transaction.State == TransactionState.TrackingSubmitted)
+            {
+                <p>ดาวน์โหลดใบปะหน้าและส่งพัสดุภายใน @ThaiDate(Transaction.ShipByAt) ระบบจะถือว่าส่งแล้วเมื่อขนส่งสแกนรับพัสดุ</p>
+            }
+            else
+            {
+                <p>ช่วงตรวจสินค้า 72 ชั่วโมงจะยังไม่เริ่มจนกว่าขนส่งยืนยันการนำส่งสำเร็จ</p>
+            }
+            @if (Transaction.IsProviderManagedShipment)
+            {
+                <a class="button secondary-button"
+                   href="@($"/seller/{Transaction.SellerAccessToken}/shipping-label")">
+                    ดาวน์โหลดใบปะหน้า
+                </a>
+            }
             break;
         case TransactionState.TrackingUnverified:
             <div class="step-label danger-text">ต้องตรวจสอบเพิ่มเติม</div>
-            <h2>Tracking ยังตรวจสอบไม่ได้</h2>
-            <p>ระบบบล็อกการจ่ายอัตโนมัติไว้ ผู้ซื้ออาจยืนยันรับเอง หรือรายการต้องผ่านการตรวจสอบที่ได้รับสิทธิ์</p>
+            @if (Transaction.HasTimelyTrustedCarrierAcceptance)
+            {
+                <h2>ขนส่งรับพัสดุภายในกำหนดแล้ว</h2>
+                <p>ระบบบันทึกว่าคุณส่งพัสดุทันเวลาและพักการจ่ายไว้ระหว่างตรวจสอบปัญหาขนส่ง สถานะนี้ยังไม่ใช่การยืนยันว่าจะจ่ายเงินสำเร็จ</p>
+            }
+            else
+            {
+                <h2>Tracking ยังตรวจสอบไม่ได้</h2>
+                <p>ระบบบล็อกการจ่ายอัตโนมัติไว้ ผู้ซื้ออาจยืนยันรับเอง หรือรายการต้องผ่านการตรวจสอบที่ได้รับสิทธิ์</p>
+            }
             break;
         case TransactionState.DeliveredDisputeWindow:
             <div class="step-label">ขั้นที่ 4 จาก 4 · ช่วงตรวจสินค้า</div>

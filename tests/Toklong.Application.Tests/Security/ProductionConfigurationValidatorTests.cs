@@ -1,0 +1,199 @@
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
+using Toklong.Infrastructure;
+
+namespace Toklong.Application.Tests.Security;
+
+public sealed class ProductionConfigurationValidatorTests
+{
+    [Fact]
+    public void Unsafe_production_defaults_fail_closed()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(
+                new Dictionary<string, string?>
+                {
+                    ["AllowedHosts"] = "*",
+                    ["ConnectionStrings:ToklongDatabase"] =
+                        "Host=localhost;Password=toklong_dev"
+                })
+            .Build();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(
+                configuration,
+                new TestEnvironment("Production"),
+                requireMobileLinks: true,
+                requirePersistentStorage: true));
+
+        Assert.Contains("Production configuration is unsafe", exception.Message);
+        Assert.Contains("Otp:Provider", exception.Message);
+        Assert.Contains("Notifications", exception.Message);
+        Assert.Contains("AllowedHosts", exception.Message);
+        Assert.Contains("Database:ApplyMigrations", exception.Message);
+        Assert.Contains("DataProtection:KeysPath", exception.Message);
+    }
+
+    [Fact]
+    public void Development_configuration_is_not_forced_to_use_live_providers()
+    {
+        ProductionConfigurationValidator.Validate(
+            new ConfigurationBuilder().Build(),
+            new TestEnvironment("Development"),
+            requireMobileLinks: true,
+            requirePersistentStorage: true);
+    }
+
+    [Fact]
+    public void Production_test_mode_rejects_live_Stripe_keys()
+    {
+        var values = SafeProductionValues();
+        values["Stripe:Enabled"] = "true";
+        values["Stripe:LiveMode"] = "false";
+        values["Stripe:SecretKey"] = "sk_live_not_real";
+        values["Stripe:PublishableKey"] = "pk_live_not_real";
+        values["Stripe:WebhookSecret"] = "whsec_not_real";
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(values)
+            .Build();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(
+                configuration,
+                new TestEnvironment("Production"),
+                requireMobileLinks: false,
+                requirePersistentStorage: true));
+
+        Assert.Contains(
+            "Stripe test mode requires test keys",
+            exception.Message);
+    }
+
+    [Fact]
+    public void Production_rejects_development_shipping_quotes()
+    {
+        var values = SafeProductionValues();
+        values["ShippingQuotes:Provider"] = "Development";
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(values)
+            .Build();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(
+                configuration,
+                new TestEnvironment("Production"),
+                requireMobileLinks: false,
+                requirePersistentStorage: true));
+
+        Assert.Contains(
+            "ShippingQuotes:Provider must be Shippop",
+            exception.Message);
+    }
+
+    [Fact]
+    public void Production_rejects_unknown_shippop_service()
+    {
+        var values = SafeProductionValues();
+        values["Shippop:ServiceCodes:0"] = "UNKNOWN";
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(values)
+            .Build();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(
+                configuration,
+                new TestEnvironment("Production"),
+                requireMobileLinks: false,
+                requirePersistentStorage: true));
+
+        Assert.Contains(
+            "Shippop:ServiceCodes contains an unsupported service",
+            exception.Message);
+    }
+
+    [Fact]
+    public void Safe_single_host_production_shape_is_accepted()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(SafeProductionValues())
+            .Build();
+
+        ProductionConfigurationValidator.Validate(
+            configuration,
+            new TestEnvironment("Production"),
+            requireMobileLinks: false,
+            requirePersistentStorage: true);
+    }
+
+    [Fact]
+    public void Worker_does_not_require_web_file_storage()
+    {
+        var values = SafeProductionValues();
+        values.Remove("DataProtection:KeysPath");
+        values.Remove("ProductImages:StoragePath");
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(values)
+            .Build();
+
+        ProductionConfigurationValidator.Validate(
+            configuration,
+            new TestEnvironment("Production"),
+            requireMobileLinks: false,
+            requirePersistentStorage: false);
+    }
+
+    private static Dictionary<string, string?> SafeProductionValues() =>
+        new()
+        {
+            ["AllowedHosts"] = "api.toklong.co.th",
+            ["ConnectionStrings:ToklongDatabase"] =
+                "Host=db;Database=toklong;Username=app;Password=not-dev",
+            ["Database:ApplyMigrations"] = "false",
+            ["DataProtection:KeysPath"] =
+                "/var/lib/toklong/data-protection",
+            ["ProductImages:StoragePath"] =
+                "/var/lib/toklong/product-images",
+            ["DisputeEvidence:StoragePath"] =
+                "/var/lib/toklong/dispute-evidence",
+            ["DisputeEvidence:EncryptionKeyBase64"] =
+                Convert.ToBase64String(new byte[32]),
+            ["DataProtection:CertificatePath"] =
+                "/run/secrets/data-protection-certificate",
+            ["DataProtection:CertificatePasswordFile"] =
+                "/run/secrets/data-protection-certificate-password",
+            ["Otp:Provider"] = "Http",
+            ["Otp:BaseUrl"] = "https://otp.example.com",
+            ["Otp:ApiKey"] = "otp-key-long-enough",
+            ["Notifications:Enabled"] = "true",
+            ["Notifications:BaseUrl"] =
+                "https://notifications.example.com",
+            ["Notifications:ApiKey"] =
+                "notification-key-long-enough",
+            ["BankPayout:Provider"] = "Manual",
+            ["BankPayout:AllowManualInProduction"] = "true",
+            ["Reconciliation:SigningSecret"] =
+                "reconciliation-secret-at-least-32-characters",
+            ["ShippingQuotes:Provider"] = "Shippop",
+            ["Shippop:BaseUrl"] =
+                "https://mkpservice.shippop.com/",
+            ["Shippop:ApiKey"] =
+                "shippop-api-key-long-enough",
+            ["Shippop:AccountEmail"] =
+                "shipping@toklong.co.th",
+            ["Shippop:QuoteSigningSecret"] =
+                "shippop-quote-signing-secret-at-least-32-characters",
+            ["Shippop:ServiceCodes:0"] = "EMST"
+        };
+
+    private sealed class TestEnvironment(string name)
+        : IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = name;
+        public string ApplicationName { get; set; } = "Tests";
+        public string ContentRootPath { get; set; } =
+            Directory.GetCurrentDirectory();
+        public IFileProvider ContentRootFileProvider { get; set; } =
+            new NullFileProvider();
+    }
+}

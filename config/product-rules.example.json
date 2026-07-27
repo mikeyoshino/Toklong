@@ -18,8 +18,8 @@
     "split_shipments_enabled": false
   },
   "deadlines": {
-    "default_ship_by_hours": 48,
-    "dispute_window_hours": 168,
+    "default_ship_by_hours": 72,
+    "dispute_window_hours": 72,
     "buyer_auto_release_reminder_hours_before": 24
   },
   "release_rules": {
@@ -36,11 +36,36 @@
     "client_redirect_can_mark_paid": false,
     "seller_can_ship_before_confirmed_payment": false,
     "provider_webhook_signature_required": true,
-    "provider_event_idempotency_required": true
+    "provider_event_idempotency_required": true,
+    "buyer_protection_fee": {
+      "minimum_fee_satang": 5900,
+      "minimum_item_price_satang": 100000,
+      "maximum_item_price_satang": 3000000,
+      "absolute_technical_maximum_item_price_satang": 99999900,
+      "policy_version": "buyer-protection-v2",
+      "tiers": [
+        {
+          "up_to_item_price_satang": 500000,
+          "rate_basis_points": 400
+        },
+        {
+          "up_to_item_price_satang": 1500000,
+          "rate_basis_points": 350
+        },
+        {
+          "up_to_item_price_satang": 3000000,
+          "rate_basis_points": 300
+        }
+      ],
+      "seller_platform_fee_satang": 0
+    }
   },
   "shipping_rules": {
     "supported_carrier_required": true,
     "tracking_number_required": true,
+    "provider_managed_tracking": true,
+    "first_carrier_scan_required_by_ship_by": true,
+    "cancel_unscanned_shipment_before_refund": true,
     "seller_entered_delivered_status_trusted": false,
     "carrier_event_idempotency_required": true
   },
@@ -51,10 +76,10 @@
   },
   "open_decisions": {
     "payment_provider": null,
-    "tracking_provider": null,
-    "fee_model": null,
-    "minimum_transaction_satang": null,
-    "maximum_transaction_satang": null,
+    "tracking_provider": "shippop",
+    "fee_model": "buyer-funded-hybrid",
+    "minimum_transaction_satang": 100000,
+    "maximum_transaction_satang": 3000000,
     "initial_category_allowlist": []
   }
 }

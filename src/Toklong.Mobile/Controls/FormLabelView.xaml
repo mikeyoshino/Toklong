@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Toklong.Mobile.Controls.FormLabelView"
+    x:Name="Root"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+    <HorizontalStackLayout Spacing="{StaticResource SpacingXs}">
+        <Label
+            Style="{StaticResource RefinedFormLabel}"
+            Text="{Binding Text, Source={x:Reference Root}}" />
+        <Label
+            IsVisible="{Binding IsRequired, Source={x:Reference Root}}"
+            Style="{StaticResource RefinedRequiredIndicator}"
+            Text="*" />
+    </HorizontalStackLayout>
+</ContentView>

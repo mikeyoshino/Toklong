@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Toklong.Mobile.Pages.SignUpPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
+    SafeAreaEdges="Container"
+    Shell.NavBarIsVisible="False"
+    Shell.TabBarIsVisible="False">
+    <ContentPage.Background>
+        <RadialGradientBrush Center="0.84,0.03" Radius="0.98">
+            <GradientStop Color="#EEE9FF" Offset="0" />
+            <GradientStop Color="#F8F7FF" Offset="0.34" />
+            <GradientStop Color="#FFFFFF" Offset="0.9" />
+        </RadialGradientBrush>
+    </ContentPage.Background>
+    <ScrollView SafeAreaEdges="SoftInput">
+        <VerticalStackLayout
+            MaximumWidthRequest="520"
+            Padding="{StaticResource AuthScreenPadding}"
+            Spacing="22">
+            <Grid ColumnDefinitions="44,*" ColumnSpacing="14">
+                <Button
+                    Style="{StaticResource AuthBackButton}"
+                    Clicked="OnBackClicked"
+                    SemanticProperties.Description="ย้อนกลับ"
+                    Text="‹" />
+                <controls:BrandLockupView
+                    Grid.Column="1"
+                    VerticalOptions="Center" />
+            </Grid>
+
+            <VerticalStackLayout Spacing="8">
+                <Label
+                    Style="{StaticResource AuthTitle}"
+                    Text="สร้างบัญชีของคุณ" />
+                <Label
+                    Style="{StaticResource RefinedBodyText}"
+                    Text="เก็บชื่อและอีเมลไว้กับบัญชี ครั้งต่อไปเข้าสู่ระบบด้วยเบอร์โทรศัพท์ได้เลย"
+                    TextColor="{StaticResource InkSoft}" />
+            </VerticalStackLayout>
+
+            <Border Style="{StaticResource AuthFormCard}">
+                <VerticalStackLayout Spacing="18">
+                    <VerticalStackLayout Style="{StaticResource RefinedFormSection}">
+                        <controls:FormLabelView IsRequired="True" Text="ชื่อและนามสกุล" />
+                        <Border Style="{StaticResource RefinedInputBorder}">
+                            <Entry
+                                Style="{StaticResource RefinedEntry}"
+                                Placeholder="ชื่อ นามสกุล"
+                                SemanticProperties.Description="ชื่อและนามสกุลสำหรับสมัครสมาชิก"
+                                Text="{Binding FullName}" />
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Style="{StaticResource RefinedFormSection}">
+                        <controls:FormLabelView IsRequired="True" Text="อีเมล" />
+                        <Border Style="{StaticResource RefinedInputBorder}">
+                            <Entry
+                                Style="{StaticResource RefinedEntry}"
+                                Keyboard="Email"
+                                MaxLength="254"
+                                Placeholder="name@example.com"
+                                SemanticProperties.Description="อีเมลสำหรับใบเสร็จและขั้นตอนคืนเงิน"
+                                Text="{Binding Email}" />
+                        </Border>
+                        <Label
+                            Style="{StaticResource RefinedHelperText}"
+                            Text="ใช้รับใบเสร็จและขั้นตอนคืนเงินจากผู้ให้บริการชำระเงิน" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Style="{StaticResource RefinedFormSection}">
+                        <controls:FormLabelView IsRequired="True" Text="เบอร์โทรศัพท์" />
+                        <Border Style="{StaticResource RefinedInputBorder}">
+                            <controls:ThaiMobilePhoneEntry
+                                Style="{StaticResource RefinedEntry}"
+                                Placeholder="เช่น 081-234-5678"
+                                SemanticProperties.Description="เบอร์โทรศัพท์สำหรับสมัครสมาชิก"
+                                PhoneNumber="{Binding PhoneNumber}" />
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <Button
+                        Style="{StaticResource RefinedPrimaryButton}"
+                        Command="{Binding ContinueCommand}"
+                        Text="รับรหัสยืนยัน">
+                        <Button.Triggers>
+                            <DataTrigger TargetType="Button" Binding="{Binding IsBusy}" Value="True">
+                                <Setter Property="IsEnabled" Value="False" />
+                                <Setter Property="Text" Value="กำลังส่งรหัส..." />
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+                </VerticalStackLayout>
+            </Border>
+
+            <ActivityIndicator
+                HorizontalOptions="Center"
+                IsRunning="{Binding IsBusy}"
+                IsVisible="{Binding IsBusy}"
+                Color="{StaticResource BrandBlue}" />
+
+            <Border
+                IsVisible="{Binding HasMessage}"
+                Style="{StaticResource RefinedValidationBorder}">
+                <Label
+                    Style="{StaticResource RefinedValidationText}"
+                    Text="{Binding Message}" />
+            </Border>
+
+            <HorizontalStackLayout HorizontalOptions="Center" Spacing="4">
+                <Label
+                    VerticalOptions="Center"
+                    Text="มีบัญชีอยู่แล้ว?"
+                    TextColor="{StaticResource Muted}" />
+                <Button
+                    Style="{StaticResource RefinedInlineButton}"
+                    Clicked="OnOpenSignInClicked"
+                    Text="เข้าสู่ระบบ" />
+            </HorizontalStackLayout>
+
+            <Label
+                HorizontalTextAlignment="Center"
+                Style="{StaticResource RefinedHelperText}"
+                Text="เมื่อสมัคร คุณยอมรับข้อตกลงการใช้บริการและนโยบายความเป็นส่วนตัวของ TOKLONG"
+                TextColor="{StaticResource Muted}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

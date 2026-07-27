@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f8fbff" />
-  <meta name="description" content="TOKLONG — เปลี่ยนข้อตกลงซื้อขายสินค้าจากแชตให้เป็นลิงก์เดียว รองรับทั้งสินค้าจัดส่งและสินค้าดิจิทัลที่โอนได้ พร้อมเงื่อนไขจ่ายเงินที่ชัดเจน" />
-  <title>TOKLONG — ตกลงกันแล้ว ส่งลิงก์เดียว จบดีลอย่างชัดเจน</title>
+  <meta name="description" content="TOKLONG ช่วยให้ผู้ขายปิดดีลกับลูกค้าที่เพิ่งรู้จักได้ง่ายขึ้น ไม่ต้องเช็กสลิป ระบบยืนยันยอดแล้วค่อยส่ง พร้อม Tracking และหลักฐานสำคัญในรายการเดียว" />
+  <title>TOKLONG — ลูกค้าไม่กล้าโอน ก็ปิดการขายได้</title>
   <style>
     :root {
       --ink: #111827;
@@ -285,8 +285,8 @@
     .hero-title {
       margin: 20px 0 22px;
       font-size: clamp(48px, 7vw, 82px);
-      line-height: 1.03;
-      letter-spacing: -0.058em;
+      line-height: 1.24;
+      letter-spacing: -0.038em;
       font-weight: 850;
     }
     .soft-highlight { position: relative; display: inline-block; color: var(--blue-deep); white-space: nowrap; }
@@ -349,98 +349,165 @@
     }
     .phone-top {
       min-height: 65px;
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      padding: 21px 18px 11px;
+      display: grid;
+      grid-template-columns: 34px 1fr 34px;
+      align-items: end;
+      padding: 21px 14px 11px;
       border-bottom: 1px solid rgba(15,23,42,.06);
-      background: rgba(255,255,255,.72);
+      background: rgba(255,255,255,.88);
       backdrop-filter: blur(12px);
     }
-    .phone-brand { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 850; letter-spacing: -.03em; }
-    .phone-brand .brand-mark { width: 25px; height: 25px; border-radius: 8px; }
-    .phone-brand .brand-mark svg { width: 14px; }
-    .role-badge { padding: 4px 8px; border-radius: 999px; color: var(--blue-ink); background: #e8f3ff; font-size: 9px; font-weight: 800; }
-    .phone-stage { position: relative; min-height: 490px; padding: 17px 17px 12px; }
-    .app-scene { animation: scene-in 430ms cubic-bezier(.2,.8,.2,1) both; }
-    .scene-kicker { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; color: var(--muted); font-size: 9px; font-weight: 720; }
-    .scene-kicker strong { color: var(--blue-ink); }
-    .scene-title { margin: 0 0 3px; font-size: 22px; line-height: 1.28; letter-spacing: -.04em; }
-    .scene-subtitle { margin: 0 0 14px; color: var(--muted); font-size: 10px; line-height: 1.5; }
-    .mobile-card { border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,.92); box-shadow: 0 10px 28px rgba(15,23,42,.045); overflow: hidden; }
-    .product-block { display: grid; grid-template-columns: 83px 1fr; gap: 12px; padding: 12px; }
-    .product-visual {
-      min-height: 83px;
+    .phone-nav-back {
+      width: 29px;
+      height: 29px;
       display: grid;
       place-items: center;
-      position: relative;
-      border-radius: 14px;
-      background: linear-gradient(145deg, #edf6ff, #dfeeff);
-      overflow: hidden;
+      align-self: end;
+      border: 1px solid rgba(15,23,42,.06);
+      border-radius: 50%;
+      color: var(--ink);
+      background: rgba(255,255,255,.92);
+      box-shadow: 0 4px 12px rgba(15,23,42,.05);
     }
-    .camera-body { width: 55px; height: 37px; position: relative; border-radius: 9px; background: #25344b; box-shadow: inset 0 -4px 0 rgba(0,0,0,.14), 0 8px 16px rgba(20,40,70,.17); }
-    .camera-body::before { content:""; position:absolute; width:25px; height:25px; left:15px; top:7px; border:5px solid #d4e8ff; border-radius:50%; background:#4b6383; box-shadow: inset 0 0 0 4px #22324a; }
-    .camera-body::after { content:""; position:absolute; width:14px; height:6px; left:8px; top:-5px; border-radius:4px 4px 0 0; background:#354964; }
-    .camera-flash { position:absolute; width:10px; height:7px; right:8px; top:6px; border-radius:3px; background:#bfe4ff; }
-    .product-copy strong { display: block; font-size: 11px; line-height: 1.35; }
-    .product-copy small { display: block; margin-top: 3px; color: var(--muted); font-size: 8.5px; }
-    .condition-pill { display: inline-flex; margin-top: 7px; padding: 4px 6px; border-radius: 999px; color: #72521b; background: #fff4dc; font-size: 7.5px; font-weight: 800; }
-    .form-stack { display: grid; gap: 8px; margin-top: 9px; }
-    .field-mini { padding: 9px 10px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
-    .field-mini label { display:block; margin-bottom:3px; color: var(--muted); font-size: 7.5px; font-weight:720; }
-    .field-mini strong { display:block; font-size: 10px; }
-    .field-row { display:grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .mobile-primary, .mobile-secondary {
-      width: 100%; min-height: 40px; display:flex; align-items:center; justify-content:center; gap:7px; border-radius:12px; font-size:10px; font-weight:820;
+    .phone-nav-back svg { width:15px; height:15px; }
+    .phone-nav-title {
+      align-self:center;
+      padding-top:5px;
+      text-align:center;
+      font-size:13px;
+      letter-spacing:-.02em;
     }
-    .mobile-primary { border:0; color:#fff; background:linear-gradient(135deg,#2b7fff,#1d69df); box-shadow:0 10px 22px rgba(43,127,255,.22); }
-    .mobile-secondary { border:1px solid var(--line); color:var(--ink-soft); background:#fff; }
-    .link-card { display:flex; align-items:center; gap:8px; margin-top:9px; padding:10px; border:1px solid rgba(43,127,255,.14); border-radius:13px; color:var(--blue-ink); background:#eef7ff; }
-    .link-card span:first-child { width:26px; height:26px; display:grid; place-items:center; flex:0 0 auto; border-radius:8px; color:#fff; background:var(--blue); }
-    .link-card strong { display:block; font-size:8.5px; }
-    .link-card small { display:block; color:var(--muted); font-size:7.2px; }
-    .seller-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border-top:1px solid var(--line); }
-    .seller-profile { display:flex; align-items:center; gap:8px; }
-    .mini-avatar { width:28px; height:28px; display:grid; place-items:center; border-radius:50%; color:#14549e; background:#ddecff; font-size:8px; font-weight:850; }
-    .seller-profile strong { display:block; font-size:8.8px; }
-    .seller-profile small { display:block; color:var(--mint-deep); font-size:7px; font-weight:760; }
-    .price-summary { margin-top:9px; padding:12px; border:1px solid var(--line); border-radius:16px; background:#fff; }
-    .price-line { display:flex; justify-content:space-between; gap:12px; margin:4px 0; color:var(--muted); font-size:8.5px; }
-    .price-line.total { margin-top:9px; padding-top:9px; border-top:1px solid var(--line); color:var(--ink); font-size:10px; font-weight:800; }
-    .protection-note { display:flex; gap:8px; margin:9px 0; padding:9px; border-radius:12px; color:#155f4e; background:#e7faf5; font-size:7.5px; line-height:1.45; }
-    .protection-note svg { flex:0 0 auto; margin-top:1px; }
-    .success-card { padding:14px; color:#fff; background:radial-gradient(circle at 90% 5%,rgba(255,255,255,.25),transparent 100px),linear-gradient(145deg,#2b7fff,#1d68dc); border:0; }
-    .success-head { display:flex; align-items:center; gap:10px; }
-    .success-icon { width:36px; height:36px; display:grid; place-items:center; border-radius:12px; background:rgba(255,255,255,.16); }
-    .success-head strong { display:block; font-size:11px; }
-    .success-head small { display:block; color:rgba(255,255,255,.72); font-size:8px; }
-    .success-amount { margin:16px 0 2px; font-size:25px; line-height:1; letter-spacing:-.04em; font-weight:850; }
-    .success-caption { color:rgba(255,255,255,.75); font-size:8px; }
-    .shipping-card { margin-top:9px; padding:12px; }
-    .ship-deadline { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
-    .ship-deadline span:first-child { font-size:9px; font-weight:800; }
-    .ship-pill { padding:4px 7px; border-radius:999px; color:#72521b; background:#fff3d7; font-size:7px; font-weight:800; }
-    .carrier-row { display:grid; grid-template-columns:92px 1fr; gap:7px; }
-    .select-mini, .tracking-mini { min-height:36px; display:flex; align-items:center; padding:0 9px; border:1px solid var(--line); border-radius:10px; background:#fbfdff; font-size:8px; }
-    .tracking-mini { color:var(--ink); font-weight:760; letter-spacing:.02em; }
-    .shipment-timeline { display:grid; gap:9px; margin-top:9px; padding:12px; }
-    .shipment-row { display:grid; grid-template-columns:24px 1fr auto; align-items:center; gap:8px; }
-    .shipment-dot { width:24px; height:24px; display:grid; place-items:center; border-radius:8px; color:var(--blue-deep); background:#e8f3ff; }
-    .shipment-row strong { display:block; font-size:8.5px; }
-    .shipment-row small { display:block; color:var(--muted); font-size:7px; }
-    .shipment-row time { color:var(--muted); font-size:6.8px; }
-    .delivery-card { padding:13px; text-align:center; }
-    .delivery-icon { width:48px; height:48px; display:grid; place-items:center; margin:0 auto 9px; border-radius:16px; color:#14755f; background:#e4f9f3; }
-    .delivery-card h4 { margin:0 0 3px; font-size:13px; }
-    .delivery-card p { margin:0; color:var(--muted); font-size:8px; }
-    .countdown-shell { display:grid; grid-template-columns:78px 1fr; align-items:center; gap:12px; margin-top:11px; padding:11px; border:1px solid var(--line); border-radius:16px; background:#fff; text-align:left; }
-    .countdown-ring { width:70px; height:70px; display:grid; place-items:center; position:relative; border-radius:50%; background:conic-gradient(var(--blue) 0 78%, #e8eef5 78% 100%); }
-    .countdown-ring::after { content:""; position:absolute; inset:7px; border-radius:50%; background:#fff; }
-    .countdown-ring span { position:relative; z-index:1; text-align:center; font-size:8px; color:var(--muted); }
-    .countdown-ring strong { display:block; color:var(--ink); font-size:20px; line-height:1; }
-    .countdown-copy strong { display:block; font-size:9px; }
-    .countdown-copy small { display:block; margin-top:3px; color:var(--muted); font-size:7.3px; }
-    .action-grid { display:grid; grid-template-columns:1.2fr .8fr; gap:7px; margin-top:9px; }
+    .phone-wrap.seller-role .phone-screen {
+      background:
+        radial-gradient(circle at 90% 2%, rgba(128,103,222,.19), transparent 180px),
+        linear-gradient(180deg, #fdfcff, #f8f6ff);
+    }
+    .phone-wrap.seller-role .maui-primary {
+      background:#6548c7;
+      box-shadow:0 8px 18px rgba(99,72,201,.18);
+    }
+    .phone-wrap.seller-role .stage-dot.active { background:#6548c7; }
+    .phone-wrap.seller-role .stage-chip.active { color:#6548c7; background:#f1ecff; }
+    .phone-stage { position:relative; min-height:490px; padding:14px; }
+    .app-scene { display:grid; gap:9px; animation:scene-in 430ms cubic-bezier(.2,.8,.2,1) both; }
+    .maui-eyebrow {
+      width:max-content; display:flex; align-items:center; gap:7px; padding:6px 9px;
+      border:1px solid rgba(43,127,255,.16); border-radius:999px; color:#0e4da5;
+      background:rgba(255,255,255,.88); font-size:8px; font-weight:800;
+    }
+    .maui-eyebrow::before { content:""; width:6px; height:6px; border-radius:50%; background:#2b7fff; }
+    .maui-title-row { display:grid; grid-template-columns:48px 1fr; align-items:center; gap:10px; }
+    .maui-title-icon {
+      width:48px; height:48px; display:grid; place-items:center; border-radius:16px;
+      color:#145fc7; background:#eaf4ff;
+    }
+    .maui-title-icon svg { width:29px; height:29px; }
+    .maui-title-row h3,.maui-page-heading h3 { margin:0; font-size:19px; line-height:1.18; letter-spacing:-.035em; }
+    .maui-title-row p,.maui-page-heading p { margin:3px 0 0; color:#475467; font-size:8.5px; line-height:1.4; }
+    .maui-page-heading { margin-bottom:1px; }
+    .maui-surface {
+      padding:12px; border:1px solid #e4eaf1; border-radius:17px; background:rgba(255,255,255,.96);
+      box-shadow:0 7px 20px rgba(15,23,42,.04);
+    }
+    .maui-form-card { display:grid; gap:8px; }
+    .maui-section-head { display:flex; align-items:center; gap:7px; font-size:9px; font-weight:800; }
+    .maui-small-icon {
+      width:25px; height:25px; display:grid; place-items:center; flex:0 0 auto;
+      border-radius:8px; color:#145fc7; background:#eaf4ff;
+    }
+    .maui-small-icon.note { color:#6548c7; background:#f1ecff; }
+    .maui-small-icon svg { width:16px; height:16px; }
+    .maui-segments { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+    .maui-segment {
+      min-height:31px; display:grid; place-items:center; border:1px solid #e4eaf1;
+      border-radius:11px; color:#475467; background:#fff; font-size:7.5px; font-weight:800;
+    }
+    .maui-segment.active { color:#145fc7; border-color:#9cc9ff; background:#eaf4ff; }
+    .maui-divider { height:1px; background:#e4eaf1; }
+    .maui-label { display:block; margin-bottom:4px; font-size:8px; font-weight:800; }
+    .maui-required { color:#c52f4d; }
+    .maui-field {
+      min-height:35px; display:flex; align-items:center; justify-content:space-between; padding:0 10px;
+      border:1px solid #e4eaf1; border-radius:10px; color:#101828; background:#fff; font-size:9px;
+    }
+    .maui-field.amount { color:#101828; border-color:#b8d9ff; background:#eef7ff; font-size:11px; font-weight:800; }
+    .maui-field .currency { color:#145fc7; font-size:12px; font-weight:850; }
+    .maui-compact-row {
+      min-height:31px; display:flex; align-items:center; justify-content:space-between;
+      padding:0 10px; border:1px solid #d8e4f2; border-radius:10px;
+      color:#101828; background:#f4f8fc; font-size:8px; font-weight:800;
+    }
+    .maui-compact-row span:last-child { color:#145fc7; font-size:7px; }
+    .maui-helper { margin:4px 0 0; color:#667085; font-size:7px; line-height:1.35; }
+    .maui-note {
+      display:grid; grid-template-columns:7px 1fr; gap:9px; padding:10px;
+      border:1px solid #cfe5ff; border-radius:12px; color:#475467; background:#eaf4ff;
+      font-size:7.2px; line-height:1.4;
+    }
+    .maui-note i { width:7px; height:7px; margin-top:2px; border-radius:50%; background:#65d6bf; }
+    .maui-primary,.maui-secondary {
+      width:100%; min-height:37px; display:flex; align-items:center; justify-content:center; gap:7px;
+      border-radius:11px; font-size:8.5px; font-weight:850;
+    }
+    .maui-primary { border:0; color:#fff; background:#2b7fff; box-shadow:0 8px 18px rgba(43,127,255,.18); }
+    .maui-secondary { border:1px solid #b8d9ff; color:#145fc7; background:#eef7ff; }
+    .maui-product-summary { display:grid; grid-template-columns:62px 1fr; gap:11px; align-items:center; }
+    .maui-product-image {
+      width:62px; height:62px; display:grid; place-items:center; border-radius:15px;
+      color:#294667; background:#eef7ff;
+    }
+    .maui-product-image svg { width:42px; height:42px; }
+    .maui-product-copy strong { display:block; font-size:11px; line-height:1.35; }
+    .maui-product-copy .maui-price { display:block; margin-top:3px; color:#145fc7; font-size:17px; font-weight:850; }
+    .maui-product-copy small { display:block; margin-top:2px; color:#667085; font-size:7.2px; }
+    .maui-card-title { margin:0 0 7px; font-size:11px; }
+    .maui-body { margin:0; color:#475467; font-size:8px; line-height:1.45; }
+    .maui-price-row { display:flex; justify-content:space-between; gap:12px; margin-top:7px; font-size:8px; }
+    .maui-price-row.muted { color:#667085; }
+    .maui-price-row.total { font-weight:850; }
+    .maui-price-row.total strong { color:#087c68; }
+    .maui-checks { display:grid; gap:4px; }
+    .maui-check-row { display:grid; grid-template-columns:20px 1fr; align-items:center; gap:6px; color:#475467; font-size:7.1px; line-height:1.3; }
+    .maui-checkbox { width:18px; height:18px; display:grid; place-items:center; border:1px solid #b8d9ff; border-radius:5px; color:#fff; background:#2b7fff; font-size:9px; font-weight:900; }
+    .maui-actions { display:grid; gap:6px; }
+    .maui-role-hero {
+      padding:13px; border-radius:19px; color:#fff;
+      background:linear-gradient(135deg,#3c8af1 0%,#236dce 64%,#185cb9 100%);
+      box-shadow:0 10px 24px rgba(20,95,199,.18);
+    }
+    .maui-role-hero.seller { background:linear-gradient(135deg,#8067de 0%,#6348c9 64%,#4930a7 100%); box-shadow:0 10px 24px rgba(99,72,201,.19); }
+    .maui-role-top { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:7.5px; font-weight:800; }
+    .maui-role-label { display:flex; align-items:center; gap:6px; color:rgba(255,255,255,.86); }
+    .maui-role-label::before { content:""; width:6px; height:6px; border-radius:50%; background:#9cebd9; }
+    .maui-role-hero.seller .maui-role-label::before { background:#d7cbff; }
+    .maui-status-pill { padding:5px 7px; border:1px solid rgba(255,255,255,.19); border-radius:999px; background:rgba(255,255,255,.14); }
+    .maui-role-product { display:grid; grid-template-columns:43px 1fr; align-items:center; gap:9px; margin-top:10px; }
+    .maui-role-product .maui-product-image { width:43px; height:43px; border-radius:12px; background:rgba(255,255,255,.9); }
+    .maui-role-product .maui-product-image svg { width:29px; height:29px; }
+    .maui-role-product strong { font-size:12px; line-height:1.3; }
+    .maui-role-bottom { display:grid; grid-template-columns:1fr auto; align-items:end; gap:8px; margin-top:10px; }
+    .maui-role-amount small,.maui-role-meta small { display:block; color:rgba(255,255,255,.72); font-size:6.8px; }
+    .maui-role-amount strong { display:block; margin-top:1px; font-size:18px; line-height:1; }
+    .maui-role-meta { text-align:right; font-size:7px; }
+    .maui-agreement-head { display:grid; grid-template-columns:29px 1fr auto; align-items:center; gap:8px; }
+    .maui-agreement-head strong { font-size:10px; }
+    .maui-agreement-head span:last-child { color:#667085; font-size:6.8px; }
+    .maui-agreement-text { margin:8px 0; color:#475467; font-size:7.5px; line-height:1.4; }
+    .maui-terms { padding-top:7px; border-top:1px solid #e4eaf1; color:#667085; font-size:7px; }
+    .maui-action-card-head { display:grid; grid-template-columns:31px 1fr; align-items:center; gap:8px; margin-bottom:8px; }
+    .maui-action-card-head strong { display:block; font-size:10.5px; }
+    .maui-action-card-head small { display:block; margin-top:1px; color:#667085; font-size:6.7px; line-height:1.3; }
+    .maui-paid-note {
+      display:grid; grid-template-columns:31px 1fr; align-items:center; gap:8px; padding:9px;
+      border:1px solid #c5efe5; border-radius:12px; color:#087c68; background:#eafbf7; font-size:7.5px;
+    }
+    .maui-paid-note .maui-small-icon { width:31px; height:31px; color:#087c68; background:#fff; }
+    .maui-tracking-fields { display:grid; gap:7px; }
+    .maui-progress { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+    .maui-progress-step { text-align:center; color:#98a2b3; font-size:6.8px; }
+    .maui-progress-icon { width:30px; height:30px; display:grid; place-items:center; margin:0 auto 4px; border:2px solid #e4eaf1; border-radius:9px; background:#fff; }
+    .maui-progress-step.done { color:#087c68; }
+    .maui-progress-step.done .maui-progress-icon { border-color:#087c68; color:#087c68; }
     .payout-overlay {
       position:absolute; inset:0; z-index:5; display:grid; place-items:center; padding:28px; color:#fff;
       background:linear-gradient(160deg,rgba(19,131,108,.97),rgba(39,176,145,.96));
@@ -463,8 +530,8 @@
     .stage-chip { padding:6px 9px; border-radius:10px; color:var(--muted); font-size:8px; font-weight:760; transition:color 180ms ease, background 180ms ease; }
     .stage-chip.active { color:var(--blue-ink); background:#eaf4ff; }
     .floating-card { position:absolute; z-index:5; border:1px solid rgba(255,255,255,.84); background:rgba(255,255,255,.86); box-shadow:var(--shadow-md); backdrop-filter:blur(16px) saturate(1.3); }
-    .floating-card.payment { display:flex; align-items:center; gap:9px; right:-64px; top:92px; padding:11px 13px; border-radius:17px; color:#155f4e; font-size:9px; font-weight:790; animation:float-card 4.8s ease-in-out -2s infinite; }
-    .floating-card.tracking { width:192px; left:-68px; bottom:82px; padding:13px; border-radius:18px; animation:float-card 5.4s ease-in-out -.8s infinite; }
+    .floating-card.payment { display:flex; align-items:center; gap:9px; right:-118px; top:92px; padding:11px 13px; border-radius:17px; color:#155f4e; font-size:9px; font-weight:790; animation:float-card 4.8s ease-in-out -2s infinite; }
+    .floating-card.tracking { width:192px; left:-158px; bottom:82px; padding:13px; border-radius:18px; animation:float-card 5.4s ease-in-out -.8s infinite; }
     .float-icon { width:31px; height:31px; display:grid; place-items:center; flex:0 0 auto; border-radius:10px; color:#14755f; background:#e4fbf4; }
     .tracking strong { display:block; font-size:9px; }
     .tracking small { display:block; color:var(--muted); font-size:7.5px; }
@@ -477,6 +544,72 @@
     .trust-icon { width:42px; height:42px; display:grid; place-items:center; flex:0 0 auto; border-radius:14px; color:var(--blue-deep); background:#edf6ff; }
     .trust-item strong { display:block; font-size:14px; }
     .trust-item small { display:block; color:var(--muted); font-size:12px; }
+
+    /* Seller value */
+    .seller-value-section {
+      background:
+        radial-gradient(circle at 12% 16%, rgba(101,214,191,.12), transparent 25rem),
+        radial-gradient(circle at 88% 72%, rgba(112,200,255,.13), transparent 28rem),
+        linear-gradient(180deg,#fff,#f8fbff);
+    }
+    .seller-value-intro { max-width:820px; margin-inline:auto; text-align:center; }
+    .seller-value-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:18px; margin-top:46px; }
+    .seller-value-card {
+      min-height:230px;
+      display:grid;
+      grid-template-columns:52px 1fr;
+      align-content:start;
+      gap:18px;
+      padding:27px;
+      border:1px solid var(--line);
+      border-radius:25px;
+      background:rgba(255,255,255,.9);
+      box-shadow:0 14px 38px rgba(31,72,125,.055);
+      transition:transform 190ms ease,box-shadow 190ms ease,border-color 190ms ease;
+    }
+    .seller-value-card:hover { transform:translateY(-5px); border-color:rgba(43,127,255,.19); box-shadow:0 22px 52px rgba(31,72,125,.095); }
+    .seller-value-icon {
+      width:52px;
+      height:52px;
+      display:grid;
+      place-items:center;
+      border-radius:17px;
+      color:var(--blue-deep);
+      background:linear-gradient(145deg,#f0f7ff,#dfefff);
+    }
+    .seller-value-card:nth-child(2) .seller-value-icon,
+    .seller-value-card:nth-child(3) .seller-value-icon {
+      color:var(--mint-deep);
+      background:linear-gradient(145deg,#effcf8,#ddf8f0);
+    }
+    .seller-value-card h3 { margin:1px 0 8px; font-size:21px; line-height:1.35; letter-spacing:-.025em; }
+    .seller-value-card p { margin:0; color:var(--ink-soft); font-size:14px; line-height:1.75; }
+    .seller-value-card strong { color:var(--ink); }
+    .seller-equation {
+      display:grid;
+      grid-template-columns:1fr auto 1fr;
+      align-items:center;
+      gap:24px;
+      margin-top:22px;
+      padding:25px 29px;
+      border:1px solid rgba(43,127,255,.12);
+      border-radius:24px;
+      background:linear-gradient(135deg,rgba(234,244,255,.9),rgba(231,250,245,.8));
+    }
+    .seller-equation span { color:var(--ink-soft); font-size:13px; }
+    .seller-equation strong { display:block; margin-bottom:3px; color:var(--ink); font-size:17px; }
+    .seller-equation-mark {
+      width:44px;
+      height:44px;
+      display:grid;
+      place-items:center;
+      border-radius:14px;
+      color:#fff;
+      background:linear-gradient(145deg,#2b7fff,#65d6bf);
+      box-shadow:0 12px 25px rgba(43,127,255,.2);
+      font-size:22px;
+      font-weight:850;
+    }
 
     /* Role simplicity */
     .simple-section { background:linear-gradient(180deg,#fff,#fbfdff); }
@@ -523,7 +656,8 @@
     .backend-head p { margin:3px 0 0; color:var(--muted); font-size:11px; }
     .backend-status { padding:6px 9px; border-radius:999px; color:#14755f; background:#e5faf4; font-size:9px; font-weight:800; }
     .backend-product { position:relative; z-index:1; display:grid; grid-template-columns:72px 1fr auto; align-items:center; gap:12px; padding:14px; border:1px solid var(--line); border-radius:18px; background:#fbfdff; }
-    .backend-product .product-visual { min-height:66px; }
+    .backend-product-visual { width:72px; min-height:66px; display:grid; place-items:center; border-radius:15px; color:#294667; background:linear-gradient(145deg,#edf6ff,#dfeeff); }
+    .backend-product-visual svg { width:45px; height:45px; }
     .backend-product strong { display:block; font-size:12px; }
     .backend-product small { display:block; color:var(--muted); font-size:9px; }
     .backend-price { text-align:right; font-size:15px; font-weight:850; }
@@ -659,6 +793,7 @@
       .hero-copy { max-width:800px; margin-inline:auto; text-align:center; }
       .hero-actions,.hero-note,.source-chips { justify-content:center; }
       .hero-visual { min-height:680px; margin-top:12px; }
+      .seller-value-grid { grid-template-columns:1fr; }
       .simple-grid { grid-template-columns:1fr; }
       .steps-grid { grid-template-columns:repeat(2,1fr); }
       .backoffice-layout { grid-template-columns:1fr; }
@@ -681,24 +816,29 @@
       .hero { min-height:auto; padding:119px 0 70px; }
       .hero-layout,.hero-copy { min-width:0; width:100%; }
       .hero-copy > .eyebrow { max-width:100%; justify-content:center; white-space:normal; font-size:11px; line-height:1.45; text-align:left; }
-      .hero-title { max-width:100%; font-size:clamp(38px,11vw,48px); overflow-wrap:anywhere; }
+      .hero-title { max-width:100%; font-size:clamp(36px,10vw,43px); line-height:1.18; overflow-wrap:anywhere; }
+      .soft-highlight { white-space:normal; }
       .hero-subtitle { max-width:100%; font-size:16px; }
       .hero-actions { display:grid; }
       .hero-actions .button { width:100%; }
-      .hero-note { max-width:100%; gap:8px 14px; font-size:10px; }
+      .hero-note { width:100%; max-width:100%; display:grid; justify-items:center; gap:8px; font-size:10px; }
       .hero-note span { min-width:0; }
-      .source-chips { max-width:100%; }
+      .source-chips { width:100%; max-width:100%; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .source-chip { min-width:0; text-align:center; }
       .hero-visual { min-height:610px; }
       .phone-wrap { width:min(312px,86vw); }
       .phone-screen { min-height:565px; }
       .halo { width:370px; height:370px; }
-      .floating-card.payment { right:-18px; top:72px; }
-      .floating-card.tracking { left:-20px; bottom:66px; }
+      .floating-card.payment,.floating-card.tracking { display:none; }
       .stage-caption { bottom:-46px; gap:3px; padding:6px; }
       .stage-chip { padding:5px 7px; font-size:7px; }
       .trust-shell { grid-template-columns:1fr; }
       .trust-item { min-height:82px; border-right:0; border-bottom:1px solid var(--line); }
       .trust-item:last-child { border-bottom:0; }
+      .seller-value-card { min-height:auto; grid-template-columns:46px 1fr; padding:22px; }
+      .seller-value-icon { width:46px; height:46px; border-radius:15px; }
+      .seller-equation { grid-template-columns:1fr; gap:14px; padding:22px; text-align:center; }
+      .seller-equation-mark { margin-inline:auto; transform:rotate(90deg); }
       .role-card { min-height:auto; padding:27px 22px; }
       .steps-grid { grid-template-columns:1fr; }
       .step-card { min-height:240px; }
@@ -720,12 +860,10 @@
       .brand { font-size:18px; }
       .brand-mark { width:32px; height:32px; }
       .hero-visual { min-height:585px; }
-      .phone-wrap { width:286px; }
+      .phone-wrap { width:286px; transform:none; animation:float-y 6.4s ease-in-out infinite; }
       .phone { border-width:7px; }
       .phone-screen { min-height:537px; }
       .phone-stage { padding-inline:13px; }
-      .floating-card.payment { right:-8px; }
-      .floating-card.tracking { width:170px; left:-7px; bottom:54px; }
       .stage-chip:nth-child(2) { display:none; }
       .backend-window { padding:17px; }
       .backend-product { grid-template-columns:60px 1fr; }
@@ -750,7 +888,7 @@
 
       <nav class="nav-links" id="navLinks" aria-label="เมนูหลัก">
         <span class="nav-spotlight" id="navSpotlight" aria-hidden="true"></span>
-        <a class="nav-link" href="#for-who">สำหรับใคร</a>
+        <a class="nav-link" href="#seller-value">ทำไมผู้ขายใช้</a>
         <a class="nav-link" href="#how-it-works">วิธีใช้งาน</a>
         <a class="nav-link" href="#behind-scenes">ระบบหลังบ้าน</a>
         <a class="nav-link" href="#safety">ความคุ้มครอง</a>
@@ -759,7 +897,7 @@
 
       <div class="nav-actions">
         <button class="button button-ghost button-sm" type="button" data-play-flow>ดูตัวอย่าง</button>
-        <button class="button button-primary button-sm" type="button" data-open-create>สร้างลิงก์ข้อตกลง</button>
+        <button class="button button-primary button-sm" type="button" data-open-create>สร้างข้อเสนอซื้อ</button>
         <button class="menu-toggle" id="menuToggle" type="button" aria-label="เปิดเมนู" aria-expanded="false">
           <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
         </button>
@@ -768,12 +906,12 @@
   </header>
 
   <div class="mobile-panel" id="mobilePanel" aria-hidden="true">
-    <a href="#for-who">สำหรับใคร</a>
+    <a href="#seller-value">ทำไมผู้ขายใช้</a>
     <a href="#how-it-works">วิธีใช้งาน</a>
     <a href="#behind-scenes">ระบบหลังบ้าน</a>
     <a href="#safety">ความคุ้มครอง</a>
     <a href="#faq">คำถามที่พบบ่อย</a>
-    <button class="button button-primary" type="button" data-open-create>สร้างลิงก์ข้อตกลง</button>
+    <button class="button button-primary" type="button" data-open-create>สร้างข้อเสนอซื้อ</button>
   </div>
 
   <main id="top">
@@ -784,26 +922,26 @@
 
       <div class="container hero-layout">
         <div class="hero-copy">
-          <span class="eyebrow"><span class="eyebrow-dot"></span>สำหรับดีลที่ตกลงกันจาก Facebook, Marketplace หรือแชต</span>
+          <span class="eyebrow"><span class="eyebrow-dot"></span>เพิ่มความมั่นใจให้ดีลกับลูกค้าที่เพิ่งรู้จัก</span>
           <h1 class="hero-title" id="heroTitle">
-            ตกลงกันแล้ว<br />ส่งลิงก์เดียว<br /><span class="soft-highlight">จบดีลอย่างชัดเจน</span>
+            ลูกค้าไม่กล้าโอน<br /><span class="soft-highlight">ก็ปิดการขายได้</span>
           </h1>
           <p class="hero-subtitle">
-            รองรับทั้งสินค้าจัดส่งและสินค้าดิจิทัลที่โอนได้ ผู้ซื้อเห็นรายละเอียดชุดเดียวกัน ชำระผ่านพาร์ทเนอร์ แล้วผู้ขายจึงส่งมอบตามเงื่อนไข
+            ให้ลูกค้าส่งข้อเสนอผ่าน TOKLONG คุณยืนยันรายละเอียด เห็นยอดที่ระบบยืนยันแล้วค่อยส่งของ มี Tracking และหลักฐานสำคัญอยู่ในรายการเดียวจนจบดีล
           </p>
           <div class="hero-actions">
             <button class="button button-primary" type="button" data-open-create>
-              สร้างลิงก์ข้อตกลง
+              สร้างข้อเสนอซื้อ
               <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
-            <button class="button button-secondary" type="button" data-play-flow>
-              <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/></svg>
-              ดู Flow บนมือถือ
-            </button>
+            <a class="button button-secondary" href="#seller-value">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3 5 6v5c0 4.6 2.7 8.3 7 10 4.3-1.7 7-5.4 7-10V6l-7-3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              ดูว่าผู้ขายได้อะไร
+            </a>
           </div>
           <div class="hero-note" aria-label="จุดเด่นสำคัญ">
-            <span><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>เริ่มส่งมอบหลังยืนยันยอดชำระ</span>
-            <span><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>สินค้าดิจิทัลไม่มีการจ่ายอัตโนมัติจากเวลา</span>
+            <span><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>ไม่ต้องส่งเลขบัญชีหรือเช็กสลิป</span>
+            <span><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>ระบบยืนยันยอดแล้วค่อยส่ง</span>
           </div>
           <div class="source-chips" aria-label="ตัวอย่างช่องทางที่ใช้ร่วมกันได้">
             <span class="source-chip">Facebook Groups</span>
@@ -813,25 +951,24 @@
           </div>
         </div>
 
-        <div class="hero-visual" id="flowDemo" aria-label="ตัวอย่าง Mobile UI ตั้งแต่ผู้ขายสร้างลิงก์จนผู้ซื้อยืนยันรับ">
+        <div class="hero-visual" id="flowDemo" aria-label="ตัวอย่าง Toklong.Mobile ตั้งแต่ผู้ซื้อสร้างข้อเสนอจนผู้ขายส่งสินค้าและติดตามการรับเงิน">
           <div class="halo" aria-hidden="true"></div>
           <div class="phone-wrap">
             <div class="phone">
               <div class="phone-screen">
                 <div class="phone-top">
-                  <div class="phone-brand">
-                    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M6.5 7.5h11v9h-11z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-                    TOKLONG
-                  </div>
-                  <span class="role-badge" id="phoneRole">ผู้ขาย</span>
+                  <span class="phone-nav-back" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none"><path d="m15 5-7 7 7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </span>
+                  <strong class="phone-nav-title" id="phoneTitle">สร้างดีล</strong>
                 </div>
                 <div class="phone-stage" id="phoneStage"></div>
                 <div class="payout-overlay" id="payoutOverlay" aria-hidden="true">
                   <div class="payout-content">
                     <span class="payout-check"><svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="m5 12 4.3 4.3L19 6.7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-                    <h4>รอผู้ซื้อยืนยันรับ</h4>
-                    <p>ยังไม่ส่งคำสั่งจ่ายเงินให้ผู้ขาย</p>
-                    <strong>ไม่มี Auto-release</strong>
+                    <h4>ครบเงื่อนไขการจ่ายแล้ว</h4>
+                    <p>ระบบเริ่มจ่ายเงินให้ผู้ขายผ่านพาร์ทเนอร์</p>
+                    <strong>กำลังดำเนินการ</strong>
                   </div>
                 </div>
                 <div class="phone-footer">
@@ -852,8 +989,8 @@
               ยืนยันยอดชำระก่อนส่งมอบ
             </div>
             <div class="floating-card tracking" aria-hidden="true">
-              <strong>เงื่อนไขตามวิธีส่งมอบ</strong>
-              <small>Physical ใช้ขนส่ง · Digital ใช้ผู้ซื้อยืนยัน</small>
+              <strong>Tracking อยู่ในรายการเดียว</strong>
+              <small>ผู้ซื้อและผู้ขายเห็นสถานะเดียวกัน</small>
             </div>
           </div>
           <span class="sr-only" id="flowLive" aria-live="polite"></span>
@@ -866,19 +1003,54 @@
         <div class="trust-shell reveal">
           <div class="trust-item">
             <span class="trust-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 7h16v10H4z" stroke="currentColor" stroke-width="1.7"/><path d="M4 10h16M8 15h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>
-            <span><strong>ชำระผ่านลิงก์เดียว</strong><small>ผู้ซื้อเห็นรายการ ยอด และเงื่อนไขส่งมอบก่อนจ่าย</small></span>
+            <span><strong>ไม่ต้องตรวจสลิปเอง</strong><small>ใช้สถานะที่ผู้ให้บริการชำระเงินยืนยัน ไม่ใช้รูปสลิป</small></span>
           </div>
           <div class="trust-item">
             <span class="trust-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M3.5 7.5h11v8h-11zM14.5 10h3l3 3v2.5h-6V10Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM17.5 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" stroke="currentColor" stroke-width="1.7"/></svg></span>
-            <span><strong>เงื่อนไขตามวิธีส่งมอบ</strong><small>Physical ใช้ Tracking ส่วน Digital ต้องยืนยันรับหรือ manual review</small></span>
+            <span><strong>เห็นยอดแล้วค่อยส่ง</strong><small>ขั้นตอนส่งสินค้าจะแสดงหลังระบบยืนยันการชำระ</small></span>
           </div>
           <div class="trust-item">
             <span class="trust-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6v5c0 4.6 2.7 8.3 7 10 4.3-1.7 7-5.4 7-10V6l-7-3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-            <span><strong>หยุดจ่ายเมื่อมีข้อโต้แย้ง</strong><small>การแจ้งปัญหาภายในกำหนดจะพัก payout ไว้ก่อน</small></span>
+            <span><strong>มีหลักฐานในรายการเดียว</strong><small>รายละเอียด เวลา และ Tracking ช่วยอธิบายว่าเกิดอะไรขึ้น</small></span>
           </div>
         </div>
       </div>
     </div>
+
+    <section class="section seller-value-section" id="seller-value" aria-labelledby="sellerValueTitle">
+      <div class="container">
+        <div class="seller-value-intro reveal">
+          <span class="eyebrow"><span class="eyebrow-dot"></span>ทำไมผู้ขายถึงยอมใช้ TOKLONG</span>
+          <h2 class="section-title" id="sellerValueTitle">ขายให้คนที่เพิ่งรู้จักได้ง่ายขึ้น โดยไม่เพิ่มงานที่ไม่จำเป็น</h2>
+          <p class="section-lead">ผู้ขายยอมรอรับเงินและทำตามขั้นตอนเพิ่มเล็กน้อย เมื่อสิ่งที่ได้กลับมาคือโอกาสปิดดีลที่มากขึ้น ความเสี่ยงที่ลดลง และเวลาที่ประหยัดได้</p>
+        </div>
+
+        <div class="seller-value-grid">
+          <article class="seller-value-card reveal">
+            <span class="seller-value-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 5h14v14H5z" stroke="currentColor" stroke-width="1.7"/><path d="M8 9h8M8 13h5M15 17l2 2 3-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <div><h3>ลูกค้าใหม่ตัดสินใจง่ายขึ้น</h3><p>ลูกค้าไม่ต้องเริ่มจากการโอนตรงให้คนที่ยังไม่รู้จัก เขาเห็นสินค้า ยอด และเงื่อนไขก่อนจ่าย ส่วนคุณยืนยันข้อมูลก่อนรับดีล</p></div>
+          </article>
+          <article class="seller-value-card reveal">
+            <span class="seller-value-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 7h16v10H4zM4 10h16" stroke="currentColor" stroke-width="1.7"/><path d="m8 14 2 2 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <div><h3>ไม่ต้องเช็กสลิป ไม่ต้องเดาว่าเงินจริงไหม</h3><p><strong>ระบบยืนยันยอดแล้วค่อยส่งของ</strong> ผู้ขายไม่ต้องเทียบสลิป เปิดแอปธนาคาร หรือรับความเสี่ยงจากสลิปเก่าและสลิปปลอม</p></div>
+          </article>
+          <article class="seller-value-card reveal">
+            <span class="seller-value-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 4h14v16H5z" stroke="currentColor" stroke-width="1.7"/><path d="M8 8h8M8 12h6M8 16h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="m14.5 16 1.5 1.5 3-3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <div><h3>มีหลักฐานสำคัญเมื่อเกิดปัญหา</h3><p>ชื่อสินค้า รายละเอียด รูป ตำหนิ เวลาที่ยอมรับ และ Tracking ถูกเก็บไว้กับรายการ เพื่อให้ทั้งสองฝ่ายส่งหลักฐานก่อนเจ้าหน้าที่พิจารณา</p></div>
+          </article>
+          <article class="seller-value-card reveal">
+            <span class="seller-value-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 6h16v12H4z" stroke="currentColor" stroke-width="1.7"/><path d="M8 10h8M8 14h4M17 14h.01" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg></span>
+            <div><h3>ลดงานตามสถานะหลังปิดการขาย</h3><p>ผู้ซื้อกรอกข้อมูลและชำระในรายการ ผู้ขายเพิ่ม Tracking แล้วทั้งสองฝ่ายดูสถานะเดียวกัน ไม่ต้องไล่ถามและตอบข้อมูลเดิมหลายรอบในแชต</p></div>
+          </article>
+        </div>
+
+        <div class="seller-equation reveal" aria-label="สมการคุณค่าของผู้ขาย">
+          <span><strong>สิ่งที่ผู้ขายได้รับ</strong>ปิดดีลง่ายขึ้น · ลดความเสี่ยง · ประหยัดเวลา</span>
+          <span class="seller-equation-mark" aria-hidden="true">&gt;</span>
+          <span><strong>สิ่งที่ผู้ขายยอมแลก</strong>ค่าบริการ · เวลารอเงิน · ขั้นตอนเพิ่มเล็กน้อย</span>
+        </div>
+      </div>
+    </section>
 
     <section class="section simple-section" id="for-who" aria-labelledby="simpleTitle">
       <div class="container">
@@ -894,14 +1066,14 @@
               <span class="role-symbol"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 4h14v16H5z" stroke="currentColor" stroke-width="1.7"/><path d="M8 8h8M8 12h6M8 16h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>
               <span class="role-label">ผู้ขาย</span>
             </div>
-            <h3>สร้างลิงก์ ส่งมอบ รับเงิน</h3>
-            <p>ใช้ได้กับสินค้าที่จัดส่ง หรือรายการดิจิทัลที่ผู้ขายครอบครองและมีสิทธิ์โอน โดยไม่ใช่บริการ คริปโต วอลเล็ต หรือ stored value</p>
+            <h3>ยืนยันข้อเสนอ ส่งมอบ รับเงิน</h3>
+            <p>ใช้ได้กับสินค้าที่จับต้องได้ หรือรายการดิจิทัลที่ผู้ขายครอบครองและมีสิทธิ์โอน โดยไม่ใช่บริการ คริปโต วอลเล็ต หรือ stored value</p>
             <div class="role-actions">
-              <div class="role-action"><span class="role-number">1</span><span><strong>ใส่รูป รายละเอียด และราคา</strong><small>ระบบสร้างหน้าชำระเงินพร้อมเงื่อนไขรายการ</small></span></div>
+              <div class="role-action"><span class="role-number">1</span><span><strong>เปิดข้อเสนอและยืนยันข้อมูล</strong><small>เข้าสู่ระบบด้วยเบอร์โทรศัพท์ เลือกบัญชีรับเงิน แล้วตอบรับ</small></span></div>
               <div class="role-action"><span class="role-number">2</span><span><strong>ส่งมอบเมื่อยอดชำระยืนยันแล้ว</strong><small>Physical เพิ่ม Tracking · Digital ส่งผ่านช่องทางที่ตกลงกัน</small></span></div>
               <div class="role-action"><span class="role-number">3</span><span><strong>รับเงินเมื่อครบเงื่อนไข</strong><small>Digital ต้องผู้ซื้อยืนยันหรือผ่าน manual review ไม่มี auto-release จากเวลา</small></span></div>
             </div>
-            <span class="system-pill"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>ไม่ต้องส่งสัญญาให้ลูกค้าเซ็นอีกหน้า</span>
+            <span class="system-pill"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>ไม่ต้องส่งเลขบัญชีหรือตรวจสลิปเอง</span>
           </article>
 
           <article class="role-card buyer reveal">
@@ -909,10 +1081,10 @@
               <span class="role-symbol"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 6h15l-2 8H8L6 3H3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 20a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM18 20a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" stroke="currentColor" stroke-width="1.7"/></svg></span>
               <span class="role-label">ผู้ซื้อ</span>
             </div>
-            <h3>ตรวจ จ่าย ยืนยันรับ</h3>
-            <p>ผู้ซื้อไม่ต้องค้นหาสินค้าในแพลตฟอร์ม เพียงเปิดลิงก์ที่ผู้ขายส่งมาและตรวจรายละเอียดก่อนชำระ</p>
+            <h3>เสนอ ตรวจ จ่าย ยืนยันรับ</h3>
+            <p>ผู้ซื้อสร้างข้อเสนอให้ผู้ขายที่คุยกันแล้ว และยังไม่ชำระจนกว่าผู้ขายจะยืนยันรายละเอียดฉบับสุดท้าย</p>
             <div class="role-actions">
-              <div class="role-action"><span class="role-number">1</span><span><strong>ตรวจสินค้า ผู้ขาย และยอดรวม</strong><small>เห็นรายละเอียดเดียวกับที่ระบบบันทึกไว้</small></span></div>
+              <div class="role-action"><span class="role-number">1</span><span><strong>สร้างข้อเสนอให้ผู้ขาย</strong><small>ระบุรายการ ยอด และเบอร์ผู้ขายที่คุยกัน</small></span></div>
               <div class="role-action"><span class="role-number">2</span><span><strong>ชำระและติดตามการส่งมอบ</strong><small>Physical ดู Tracking · Digital ตรวจผ่านช่องทางที่ตกลงกัน</small></span></div>
               <div class="role-action"><span class="role-number">3</span><span><strong>ยืนยันรับหรือแจ้งปัญหา</strong><small>สินค้าดิจิทัลจะไม่ปล่อยเงินเองหากผู้ซื้อยังไม่ยืนยัน</small></span></div>
             </div>
@@ -933,8 +1105,8 @@
         <div class="steps-grid">
           <article class="step-card reveal" data-step="1">
             <div class="step-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 4h14v16H5z" stroke="currentColor" stroke-width="1.7"/><path d="M8 8h8M8 12h6M8 16h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div>
-            <h3>ผู้ขายสร้างลิงก์ข้อตกลง</h3>
-            <p>เลือกรูปแบบส่งมอบ ใส่รูป รายละเอียด ยอด และกำหนดส่งมอบ แล้วแชร์กลับไปในแชตเดิม</p>
+            <h3>ผู้ซื้อเสนอ ผู้ขายยืนยัน</h3>
+            <p>ผู้ซื้อระบุเบอร์ผู้ขาย ระบบส่งข้อเสนอเข้าบัญชีที่ยืนยันด้วยเบอร์นั้น ผู้ขายตรวจข้อมูลแบบอ่านอย่างเดียวและเลือกบัญชีรับเงินก่อนยอมรับ</p>
           </article>
           <article class="step-card reveal" data-step="2">
             <div class="step-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 7h16v10H4z" stroke="currentColor" stroke-width="1.7"/><path d="M4 10h16M8 15h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div>
@@ -974,9 +1146,9 @@
             <span class="backend-status">กำลังตรวจสินค้า</span>
           </div>
           <div class="backend-product">
-            <div class="product-visual" aria-hidden="true"><div class="camera-body"><span class="camera-flash"></span></div></div>
+            <div class="backend-product-visual" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none"><rect x="8" y="18" width="48" height="34" rx="8" fill="#294667"/><path d="M18 18l5-7h14l5 7" fill="#294667"/><circle cx="32" cy="35" r="12" fill="#BFE2FF" stroke="#142A45" stroke-width="5"/><circle cx="49" cy="25" r="3" fill="#65D6BF"/></svg></div>
             <div><strong>กล้องฟิล์ม Compact 35mm</strong><small>มือสอง · สภาพดี · รอยใช้งานเล็กน้อย</small></div>
-            <div class="backend-price">฿4,560<small>รวมค่าส่ง</small></div>
+            <div class="backend-price">฿4,560<small>ยอดที่ตกลงทั้งหมด</small></div>
           </div>
           <div class="backend-timeline">
             <div class="backend-row done"><span class="backend-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><strong>บันทึกรายละเอียดและการยอมรับแล้ว</strong><small>ข้อกำหนดเวอร์ชัน 1.2 · รายละเอียดถูกล็อกแล้ว</small></span><time class="backend-time">18 ก.ค. 10:42</time></div>
@@ -984,7 +1156,7 @@
             <div class="backend-row"><span class="backend-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.7"/><path d="M12 8v4l2.7 1.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><strong>ช่วงโต้แย้งสิ้นสุด 27 ก.ค. 14:18</strong><small>แจ้งเตือนผู้ซื้อก่อนหมดเวลา 24 ชั่วโมง</small></span><time class="backend-time">เหลือ 5 วัน</time></div>
             <div class="backend-row"><span class="backend-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M14 7l5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><strong>รอส่งคำสั่งจ่ายให้ผู้ขาย</strong><small>ทำเมื่อยืนยันรับ หรือหมดเวลาโดยไม่มี dispute</small></span><time class="backend-time">รอดำเนินการ</time></div>
           </div>
-          <div class="backend-note">หน้าจอนี้เป็นข้อมูลหลังบ้านและหน้า “รายละเอียดรายการ” ไม่ใช่ onboarding step ผู้ใช้จึงยังรู้สึกว่าใช้งานเพียงสร้างลิงก์ จ่าย ส่ง และรับเงิน</div>
+          <div class="backend-note">หน้าจอนี้เป็นข้อมูลหลังบ้านและหน้า “รายละเอียดรายการ” ไม่ใช่ขั้นตอนที่ผู้ใช้ต้องกรอกเพิ่ม ผู้ใช้จึงยังรู้สึกว่าใช้งานเพียงเสนอ ยืนยัน จ่าย ส่ง และรับเงิน</div>
         </div>
       </div>
     </section>
@@ -998,8 +1170,8 @@
         </div>
         <div class="use-grid">
           <article class="use-card reveal"><div class="use-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 7h14v12H5z" stroke="currentColor" stroke-width="1.7"/><path d="M8 7V5h8v2M8 11h8M8 15h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><h3>ซื้อขายของมือสอง</h3><p>กล้อง รองเท้า กระเป๋า ของสะสม และอุปกรณ์ที่ระบุสภาพด้วยรูปและรายละเอียดได้</p><span>เหมาะกับ MVP</span></article>
-          <article class="use-card reveal"><div class="use-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 5h14v14H5z" stroke="currentColor" stroke-width="1.7"/><path d="m8 14 3-3 2 2 3-4 2 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div><h3>สินค้าดิจิทัลที่โอนได้</h3><p>เช่น ไอดีเกมที่แพลตฟอร์มต้นทางอนุญาตให้โอน โดยส่งมอบผ่านช่องทางที่ตกลงกันและไม่กรอกรหัสลับใน TOKLONG</p><span>ผู้ซื้อต้องยืนยันรับ</span></article>
-          <article class="use-card reveal"><div class="use-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 5h16v11H8l-4 3V5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8 9h8M8 12h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><h3>ดีลจากแชตส่วนตัว</h3><p>ตกลงรายละเอียดกันใน LINE, Messenger หรือ Instagram แล้วผู้ขายส่งลิงก์ข้อตกลงกลับไปปิดดีล</p><span>ลิงก์เดียวจบ</span></article>
+          <article class="use-card reveal"><div class="use-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 5h14v14H5z" stroke="currentColor" stroke-width="1.7"/><path d="m8 14 3-3 2 2 3-4 2 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div><h3>สินค้าดิจิทัล</h3><p>เช่น ไอดีเกมที่แพลตฟอร์มต้นทางอนุญาตให้โอน โดยส่งมอบผ่านช่องทางที่ตกลงกันและไม่กรอกรหัสลับใน TOKLONG</p><span>ผู้ซื้อต้องยืนยันรับ</span></article>
+          <article class="use-card reveal"><div class="use-icon"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 5h16v11H8l-4 3V5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8 9h8M8 12h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><h3>ดีลจากแชตส่วนตัว</h3><p>ตกลงรายละเอียดกันใน LINE, Messenger หรือ Instagram แล้วผู้ซื้อสร้างข้อเสนอส่วนตัวให้ผู้ขายยืนยันก่อนชำระ</p><span>ข้อเสนอเดียวจบ</span></article>
         </div>
       </div>
     </section>
@@ -1037,7 +1209,7 @@
           <p class="section-lead">คำถามส่วนใหญ่ของผลิตภัณฑ์นี้ไม่ใช่เรื่องฟีเจอร์ แต่เป็นเรื่องเงินจะถูกจ่ายเมื่อไร และถ้าสินค้ามีปัญหาต้องทำอย่างไร</p>
         </div>
         <div class="faq-list reveal">
-          <article class="faq-item open"><button class="faq-button" type="button" aria-expanded="true">TOKLONG เป็น marketplace สำหรับค้นหาสินค้าไหม?<span class="faq-plus" aria-hidden="true"></span></button><div class="faq-answer"><div><p>ไม่ใช่ ผู้ซื้อและผู้ขายตกลงกันจาก Facebook Marketplace กลุ่มออนไลน์ หรือแชตก่อน แล้วนำดีลมาสร้างลิงก์ข้อตกลงและติดตามรายการบน TOKLONG</p></div></div></article>
+          <article class="faq-item open"><button class="faq-button" type="button" aria-expanded="true">TOKLONG เป็น marketplace สำหรับค้นหาสินค้าไหม?<span class="faq-plus" aria-hidden="true"></span></button><div class="faq-answer"><div><p>ไม่ใช่ ผู้ซื้อและผู้ขายตกลงกันจาก Facebook Marketplace กลุ่มออนไลน์ หรือแชตก่อน แล้วผู้ซื้อสร้างข้อเสนอส่วนตัวให้ผู้ขายยืนยันบน TOKLONG</p></div></div></article>
           <article class="faq-item"><button class="faq-button" type="button" aria-expanded="false">ผู้ขายได้รับเงินเมื่อไร?<span class="faq-plus" aria-hidden="true"></span></button><div class="faq-answer"><div><p>ของจัดส่ง: เมื่อผู้ซื้อยืนยันรับ หรือครบ 7 วันหลังขนส่งยืนยันการนำส่งโดยไม่มีข้อโต้แย้ง สินค้าดิจิทัล: เมื่อผู้ซื้อยืนยันรับ หรือผู้มีอำนาจตรวจและอนุมัติเท่านั้น จากนั้นระบบจึงส่งคำสั่งจ่ายผ่านพาร์ทเนอร์</p></div></div></article>
           <article class="faq-item"><button class="faq-button" type="button" aria-expanded="false">ถ้าผู้ขายไม่ส่งมอบภายในกำหนดล่ะ?<span class="faq-plus" aria-hidden="true"></span></button><div class="faq-answer"><div><p>ระบบเตือนผู้ขายก่อนหมดเวลา หากของจัดส่งยังไม่มี Tracking ที่ตรวจสอบได้ หรือสินค้าดิจิทัลยังไม่มีการแจ้งส่งมอบ รายการต้องเข้าสู่ขั้นตอนยกเลิกหรือคืนเงินตามนโยบายที่อนุมัติไว้</p></div></div></article>
           <article class="faq-item"><button class="faq-button" type="button" aria-expanded="false">ถ้ารายการไม่ตรงรายละเอียดต้องทำอย่างไร?<span class="faq-plus" aria-hidden="true"></span></button><div class="faq-answer"><div><p>ผู้ซื้อกด “แจ้งปัญหา” ก่อนยืนยันรับ สำหรับของจัดส่งต้องทำภายในวันเวลาที่แสดง ระบบพักการจ่ายเงินทันที แล้วรวบรวมหลักฐานเพื่อเข้าสู่กระบวนการที่กำหนด</p></div></div></article>
@@ -1051,10 +1223,10 @@
       <div class="container">
         <div class="cta-panel reveal">
           <div class="cta-content">
-            <h2 id="ctaTitle">ตกลงกันในแชต แล้วจบดีลผ่านลิงก์เดียว</h2>
-            <p>ไม่ต้องสร้างร้าน ไม่ต้องย้ายบทสนทนา และไม่ต้องพาผู้ใช้ผ่านขั้นตอนสัญญาหลายหน้า</p>
+            <h2 id="ctaTitle">เพิ่มความน่าเชื่อถือให้ทุกดีล แม้ลูกค้าเพิ่งรู้จักคุณ</h2>
+            <p>ผู้ซื้อสร้างข้อเสนอ ผู้ขายยืนยัน ระบบยืนยันยอดแล้วค่อยส่ง พร้อมรายละเอียดและ Tracking ที่ทั้งสองฝ่ายเปิดดูได้</p>
             <div class="cta-actions">
-              <button class="button button-primary" type="button" data-open-create>สร้างลิงก์ข้อตกลง</button>
+              <button class="button button-primary" type="button" data-open-create>สร้างข้อเสนอซื้อ</button>
               <button class="button button-secondary" type="button" data-play-flow>เล่น Mobile UI อีกครั้ง</button>
             </div>
           </div>
@@ -1068,9 +1240,9 @@
       <div class="footer-top">
         <div class="footer-brand">
           <a class="brand" href="#top"><span class="brand-mark" aria-hidden="true"><svg width="21" height="21" viewBox="0 0 24 24" fill="none"><path d="M6.5 7.5h11v9h-11z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>TOKLONG</span></a>
-          <p>ลิงก์ข้อตกลงและชำระเงินสำหรับดีลจากแชต รองรับทั้งของจัดส่งและสินค้าดิจิทัลที่โอนได้ตามเงื่อนไข</p>
+          <p>ช่วยคนขายที่จริงใจปิดดีลกับลูกค้าที่เพิ่งรู้จัก โดยไม่ต้องตรวจสลิปและมีหลักฐานสำคัญอยู่ในรายการเดียว</p>
         </div>
-        <div class="footer-col"><strong>ผลิตภัณฑ์</strong><a href="#for-who">สำหรับผู้ซื้อ/ผู้ขาย</a><a href="#how-it-works">วิธีใช้งาน</a><a href="#behind-scenes">ระบบหลังบ้าน</a></div>
+        <div class="footer-col"><strong>ผลิตภัณฑ์</strong><a href="#seller-value">สำหรับผู้ขาย</a><a href="#for-who">สำหรับผู้ซื้อ/ผู้ขาย</a><a href="#how-it-works">วิธีใช้งาน</a></div>
         <div class="footer-col"><strong>ความไว้ใจ</strong><a href="#safety">ความคุ้มครอง</a><a href="#faq">คำถามที่พบบ่อย</a><a href="#safety">สินค้าต้องห้าม</a></div>
         <div class="footer-col"><strong>ติดต่อ</strong><a href="mailto:hello@toklong.example">hello@toklong.example</a><a href="#top">ศูนย์ช่วยเหลือ</a><a href="#top">สถานะระบบ</a></div>
       </div>
@@ -1084,50 +1256,15 @@
   <div class="modal-backdrop" id="createModal" role="dialog" aria-modal="true" aria-labelledby="createTitle" aria-hidden="true">
     <div class="modal">
       <button class="modal-close" type="button" aria-label="ปิดหน้าต่าง" data-close-modal><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg></button>
-      <span class="eyebrow"><span class="eyebrow-dot"></span>เริ่มสร้างลิงก์ข้อตกลง</span>
-      <h2 id="createTitle">นำข้อมูลที่ตกลงกันแล้วไปต่อ</h2>
-      <p>กรอกเฉพาะข้อมูลเริ่มต้น แล้วตรวจรายละเอียด รูป และเงื่อนไขอีกครั้งในหน้าถัดไป</p>
-      <form id="createForm" class="form-grid" action="/sales/create" method="get">
-        <div><label class="form-label" for="productName">รายการที่ตกลงซื้อขาย</label><input class="form-control" id="productName" name="productName" value="ไอดีเกมพร้อมสิทธิ์โอน" required /></div>
-        <div class="form-row">
-          <div>
-            <label class="form-label" id="fulfillmentTypeLabel" for="fulfillmentType">วิธีส่งมอบ</label>
-            <div class="landing-select" data-landing-select>
-              <select class="landing-select-native" id="fulfillmentType" name="fulfillmentType" tabindex="-1">
-                <option value="DigitalHandoff">สินค้าดิจิทัลที่โอนได้</option>
-                <option value="PhysicalShipment">สินค้าที่จัดส่ง</option>
-              </select>
-              <button class="form-control landing-select-trigger" type="button" aria-labelledby="fulfillmentTypeLabel fulfillmentTypeValue" aria-haspopup="listbox" aria-expanded="false">
-                <span id="fulfillmentTypeValue" data-select-value>สินค้าดิจิทัลที่โอนได้</span>
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </button>
-              <div class="landing-select-menu" role="listbox"></div>
-            </div>
-          </div>
-          <div><label class="form-label" for="productPrice">ยอดที่ตกลง</label><input class="form-control" id="productPrice" name="priceBaht" type="number" min="1" value="2500" required /></div>
-        </div>
-        <div>
-            <label class="form-label" id="shipByLabel" for="shipBy">ส่งมอบภายใน</label>
-            <div class="landing-select" data-landing-select>
-              <select class="landing-select-native" id="shipBy" name="shipByDurationHours" tabindex="-1">
-                <option value="48">2 วัน</option>
-                <option value="72">3 วัน</option>
-                <option value="120">5 วัน</option>
-              </select>
-              <button class="form-control landing-select-trigger" type="button" aria-labelledby="shipByLabel shipByValue" aria-haspopup="listbox" aria-expanded="false">
-                <span id="shipByValue" data-select-value>2 วัน</span>
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </button>
-              <div class="landing-select-menu" role="listbox"></div>
-            </div>
-        </div>
-        <button class="button button-primary" type="submit">ไปตรวจและสร้างลิงก์</button>
-      </form>
+      <span class="eyebrow"><span class="eyebrow-dot"></span>เริ่มสร้างข้อเสนอซื้อ</span>
+      <h2 id="createTitle">ส่งข้อเสนอให้ผู้ขายยืนยันก่อนจ่าย</h2>
+      <p>เข้าสู่ระบบด้วยเบอร์โทรศัพท์และกรอกชื่อ–นามสกุลก่อนสร้างข้อเสนอ ขั้นนี้ยังไม่มีการเรียกเก็บเงิน</p>
+      <a class="button button-primary" id="buyerSignInCta" href="/buyer/sign-in?returnUrl=%2Foffers%2Fcreate">เข้าสู่ระบบด้วยเบอร์โทรศัพท์</a>
       <p class="modal-footnote">Prototype เท่านั้น · ไม่รับชำระเงินจริง</p>
     </div>
   </div>
 
-  <div class="toast" id="toast" role="status" aria-live="polite"><span class="toast-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span id="toastText">สร้างลิงก์แล้ว</span></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"><span class="toast-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span id="toastText">สร้างข้อเสนอแล้ว</span></div>
 
   <script>
     (() => {
@@ -1138,7 +1275,8 @@
       const menuToggle = document.getElementById('menuToggle');
       const mobilePanel = document.getElementById('mobilePanel');
       const phoneStage = document.getElementById('phoneStage');
-      const phoneRole = document.getElementById('phoneRole');
+      const phoneWrap = phoneStage.closest('.phone-wrap');
+      const phoneTitle = document.getElementById('phoneTitle');
       const stageDots = document.getElementById('stageDots');
       const stageCaption = document.getElementById('stageCaption');
       const prevStage = document.getElementById('prevStage');
@@ -1148,7 +1286,6 @@
       const payoutOverlay = document.getElementById('payoutOverlay');
       const flowLive = document.getElementById('flowLive');
       const modal = document.getElementById('createModal');
-      const createForm = document.getElementById('createForm');
       const toast = document.getElementById('toast');
       const toastText = document.getElementById('toastText');
       const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1163,81 +1300,122 @@
       const iconClose = '<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>';
       const iconPause = '<path d="M9 7v10M15 7v10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>';
       const iconPlay = '<path d="m9 7 8 5-8 5V7Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>';
+      const offerIcon = '<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="m24 39-5 5A9 9 0 0 1 6 31l8-8a9 9 0 0 1 13 0M40 25l5-5a9 9 0 0 1 13 13l-8 8a9 9 0 0 1-13 0M23 41l18-18" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg>';
+      const noteIcon = '<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><rect x="13" y="8" width="38" height="48" rx="7" stroke="currentColor" stroke-width="5"/><path d="M22 23h20M22 33h20M22 43h11" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><circle cx="44" cy="44" r="6" fill="#65D6BF"/><path d="m41 44 2 2 4-5" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      const shieldIcon = '<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M32 7 52 15v15c0 13-7.8 22.1-20 27-12.2-4.9-20-14-20-27V15L32 7Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="m23 32 6 6 12-14" stroke="#65D6BF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      const truckIcon = '<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M8 16h31v28H8V16Zm31 10h9l8 10v8H39V26Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><circle cx="19" cy="47" r="6" fill="white" stroke="currentColor" stroke-width="4"/><circle cx="47" cy="47" r="6" fill="white" stroke="currentColor" stroke-width="4"/></svg>';
+      const productIcon = '<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><rect x="8" y="18" width="48" height="34" rx="8" fill="#294667"/><path d="M18 18l5-7h14l5 7" fill="#294667"/><circle cx="32" cy="35" r="12" fill="#BFE2FF" stroke="#142A45" stroke-width="5"/><circle cx="49" cy="25" r="3" fill="#65D6BF"/></svg>';
+      const aiAssistIcon = '<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M10 23V15a5 5 0 0 1 5-5h8M41 10h8a5 5 0 0 1 5 5v8M54 41v8a5 5 0 0 1-5 5h-8M23 54h-8a5 5 0 0 1-5-5v-8" stroke="#145FC7" stroke-width="4.5" stroke-linecap="round"/><path d="M19 23h26v6H35v20h-7V29h-9v-6Z" fill="#145FC7"/><circle cx="45" cy="19" r="6" fill="#65D6BF"/><path d="m42.5 19 1.7 1.8 3.5-4" stroke="white" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
       const scenes = [
         {
-          label: 'สร้างข้อตกลง', role: 'ผู้ขาย', live: 'ขั้นที่ 1 ผู้ขายเลือกรูปแบบส่งมอบและสร้างลิงก์จากข้อตกลงในแชต',
+          label: 'สร้างข้อเสนอ', role: 'ผู้ซื้อ', theme: 'buyer', navTitle: 'สร้างดีล',
+          live: 'ขั้นที่ 1 หน้าสร้างดีลจริงจากแอป ผู้ซื้อกรอกข้อมูลและส่งข้อเสนอให้ผู้ขาย',
           html: `
-            <div class="app-scene">
-              <div class="scene-kicker"><span>ขั้นที่ 1 จาก 4</span><strong>ประมาณ 1 นาที</strong></div>
-              <h3 class="scene-title">สร้างลิงก์ข้อตกลง</h3>
-              <p class="scene-subtitle">เลือกวิธีส่งมอบให้ตรงกับรายการที่ตกลงกันแล้ว</p>
-              <div class="mobile-card product-block">
-                <div class="product-visual" aria-hidden="true"><svg width="48" height="48" viewBox="0 0 24 24" fill="none"><path d="M7 9h10a4 4 0 0 1 3.7 5.5l-1.2 3a2 2 0 0 1-3.3.7L14 16h-4l-2.2 2.2a2 2 0 0 1-3.3-.7l-1.2-3A4 4 0 0 1 7 9Z" stroke="#2b7fff" stroke-width="1.6"/><path d="M8 12v3M6.5 13.5h3M15.5 12.5h.01M18 14.5h.01" stroke="#2b7fff" stroke-width="1.8" stroke-linecap="round"/></svg></div>
-                <div class="product-copy"><strong>ไอดีเกมพร้อมสิทธิ์โอน</strong><small>ผู้ขายยืนยันว่าเป็นเจ้าของและแพลตฟอร์มอนุญาตให้โอน</small><span class="condition-pill">สินค้าดิจิทัลที่โอนได้</span></div>
+            <div class="app-scene maui-create-screen">
+              <div class="maui-eyebrow">ดีลซื้อขายส่วนตัว</div>
+              <div class="maui-title-row">
+                <span class="maui-title-icon">${offerIcon}</span>
+                <div><h3>สร้างข้อตกลงซื้อขาย</h3><p>คุณกรอก ผู้ขายยืนยันหรือปฏิเสธ</p></div>
               </div>
-              <div class="form-stack">
-                <div class="field-row"><div class="field-mini"><label>ยอดที่ตกลง</label><strong>฿2,500</strong></div><div class="field-mini"><label>ค่าส่ง</label><strong>ไม่มี</strong></div></div>
-                <div class="field-mini"><label>กำหนดส่งมอบ</label><strong>ภายใน 2 วันหลังยืนยันยอดชำระ</strong></div>
-                <button class="mobile-primary" type="button" tabindex="-1">สร้างลิงก์ข้อตกลง <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M14 7l5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+              <button class="maui-secondary" type="button" tabindex="-1"><span class="maui-small-icon">${aiAssistIcon}</span>ให้ AI ช่วยกรอก</button>
+              <div class="maui-surface maui-form-card">
+                <div class="maui-section-head"><span class="maui-small-icon">${offerIcon}</span><span>ประเภทสินค้า</span></div>
+                <div class="maui-compact-row"><span>สินค้าที่จับต้องได้</span><span>เปลี่ยนเป็นสินค้าดิจิทัล</span></div>
+                <div class="maui-divider"></div>
+                <div><label class="maui-label">เบอร์โทรผู้ขาย <span class="maui-required">*</span></label><div class="maui-field">081-234-5678</div><p class="maui-helper">เปิดและตอบรับได้เฉพาะบัญชีที่ยืนยันด้วยเบอร์นี้</p></div>
+                <div><label class="maui-label">ชื่อสินค้า <span class="maui-required">*</span></label><div class="maui-field">กล้อง Fujifilm X-T30 II</div></div>
+                <div><label class="maui-label">ราคาที่ตกลงกัน <span class="maui-required">*</span></label><div class="maui-field amount"><span class="currency">฿</span><span>4,500</span></div><p class="maui-helper">ราคานี้รวมทุกอย่างแล้ว ไม่มีค่าส่งแยก</p></div>
+                <button class="maui-secondary" type="button" tabindex="-1">เพิ่มรูปจากเครื่อง</button>
+                <div class="maui-compact-row"><span>มีที่อยู่จัดส่งแล้ว</span><span>เปลี่ยน</span></div>
               </div>
-              <div class="link-card"><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M10 13a4 4 0 0 0 5.7.1l2.2-2.2a4 4 0 0 0-5.7-5.7L11 6.4M14 11a4 4 0 0 0-5.7-.1l-2.2 2.2a4 4 0 0 0 5.7 5.7l1.2-1.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><span><strong>toklong.app/p/7E3XQ</strong><small>คัดลอกแล้ว · ส่งกลับไปในแชตได้เลย</small></span></div>
+              <div class="maui-note"><i></i><span>เมื่อผู้ขายตกลง คุณจะได้ตรวจรายละเอียดเดิมอีกครั้งก่อนจ่ายเงิน</span></div>
+              <button class="maui-primary" type="button" tabindex="-1">ตรวจข้อมูลก่อนส่ง&nbsp; →</button>
             </div>`
         },
         {
-          label: 'ตรวจและชำระ', role: 'ผู้ซื้อ', live: 'ขั้นที่ 2 ผู้ซื้อเปิดลิงก์ ตรวจสิทธิ์โอน เงื่อนไข และชำระเงิน',
+          label: 'ผู้ขายยืนยัน', role: 'ผู้ขาย', theme: 'offer', navTitle: 'ข้อเสนอขาย',
+          live: 'ขั้นที่ 2 หน้าข้อเสนอขายจริง ผู้ขายตรวจสินค้า ยอดสุทธิ บัญชีรับเงินและเงื่อนไขก่อนตอบ',
           html: `
             <div class="app-scene">
-              <div class="scene-kicker"><span>ขั้นที่ 2 จาก 4</span><strong>ตรวจสอบก่อนจ่าย</strong></div>
-              <h3 class="scene-title">ตรวจสอบและชำระ</h3>
-              <p class="scene-subtitle">ผู้ซื้อเห็นรายการ ผู้ขาย ยอด และเงื่อนไขรับเงินในหน้าเดียว</p>
-              <div class="mobile-card">
-                <div class="product-block">
-                  <div class="product-visual" aria-hidden="true"><svg width="48" height="48" viewBox="0 0 24 24" fill="none"><path d="M7 9h10a4 4 0 0 1 3.7 5.5l-1.2 3a2 2 0 0 1-3.3.7L14 16h-4l-2.2 2.2a2 2 0 0 1-3.3-.7l-1.2-3A4 4 0 0 1 7 9Z" stroke="#2b7fff" stroke-width="1.6"/><path d="M8 12v3M6.5 13.5h3M15.5 12.5h.01M18 14.5h.01" stroke="#2b7fff" stroke-width="1.8" stroke-linecap="round"/></svg></div>
-                  <div class="product-copy"><strong>ไอดีเกมพร้อมสิทธิ์โอน</strong><small>สินค้าดิจิทัล · ส่งมอบภายใน 2 วัน</small><span class="condition-pill">รูปประกอบ 3 รูป</span></div>
+              <div class="maui-page-heading"><h3>ตรวจข้อเสนอจากผู้ซื้อ</h3><p>ตรวจรายละเอียดทั้งหมดก่อนเลือกยืนยันหรือปฏิเสธ</p></div>
+              <div class="maui-surface maui-product-summary">
+                <span class="maui-product-image">${productIcon}</span>
+                <div class="maui-product-copy"><strong>กล้อง Fujifilm X-T30 II</strong><span class="maui-price">฿4,500</span><small>ตอบภายใน 26 ก.ค. · 18:00</small></div>
+              </div>
+              <div class="maui-surface">
+                <h4 class="maui-card-title">สิ่งที่ผู้ซื้อระบุ</h4>
+                <p class="maui-body">กล้องพร้อมเลนส์ แบตเตอรี่ และสายคล้อง มีรอยเล็กน้อยตามรูป</p>
+                <div class="maui-price-row muted"><span>ค่าบริการ</span><span>฿0</span></div>
+                <div class="maui-price-row total"><span>ยอดที่คาดว่าจะได้รับ</span><strong>฿4,500</strong></div>
+              </div>
+              <div class="maui-surface maui-form-card"><label class="maui-label">บัญชีรับเงิน</label><div class="maui-field"><span>กสิกรไทย ·•••• 1234</span><span>⌄</span></div></div>
+              <div class="maui-checks">
+                <div class="maui-check-row"><span class="maui-checkbox">✓</span><span>ฉันครอบครอง มีสิทธิ์โอน และไม่ใช่สินค้าต้องห้าม</span></div>
+                <div class="maui-check-row"><span class="maui-checkbox">✓</span><span>ฉันตรวจรายละเอียด ค่าบริการ และเงื่อนไขแล้ว</span></div>
+              </div>
+              <div class="maui-actions"><button class="maui-primary" type="button" tabindex="-1">ยืนยันข้อเสนอ</button><button class="maui-secondary" type="button" tabindex="-1">ปฏิเสธข้อเสนอ</button></div>
+            </div>`
+        },
+        {
+          label: 'ตรวจและจ่าย', role: 'ผู้ซื้อ', theme: 'buyer', navTitle: 'รายการซื้อ',
+          live: 'ขั้นที่ 3 หน้ารายการซื้อจริง ผู้ซื้อตรวจการ์ดสถานะ ข้อตกลง ที่อยู่และจ่ายเงินในแอป',
+          html: `
+            <div class="app-scene">
+              <div class="maui-role-hero">
+                <div class="maui-role-top"><span class="maui-role-label">ซื้อ</span><span class="maui-status-pill">จ่ายเงินได้</span></div>
+                <div class="maui-role-product"><span class="maui-product-image">${productIcon}</span><strong>กล้อง Fujifilm X-T30 II</strong></div>
+                <div class="maui-role-bottom"><div class="maui-role-amount"><small>ยอดรวม</small><strong>฿4,500</strong></div><div class="maui-role-meta"><small>ผู้ขาย · Supakorn Y.</small><small>ภายใน 26 ก.ค. · 18:00</small></div></div>
+              </div>
+              <div class="maui-surface">
+                <div class="maui-agreement-head"><span class="maui-small-icon note">${noteIcon}</span><strong>สิ่งที่ตกลงกัน</strong><span>สินค้าที่จับต้องได้</span></div>
+                <p class="maui-agreement-text">กล้องพร้อมเลนส์ แบตเตอรี่ และสายคล้อง มีรอยเล็กน้อยตามรูป</p>
+                <div class="maui-terms">ข้อตกลงการใช้บริการ · เวอร์ชัน 1</div>
+              </div>
+              <div class="maui-surface">
+                <div class="maui-action-card-head"><span class="maui-small-icon note">${shieldIcon}</span><span><strong>เช็กให้ครบก่อนจ่าย</strong><small>ใบเสร็จและการคืนเงินจะแจ้งทางอีเมล</small></span></div>
+                <label class="maui-label">ที่อยู่จัดส่ง</label>
+                <div class="maui-field">123 ถนนสุขุมวิท กรุงเทพฯ</div>
+                <div class="maui-field" style="margin-top:6px">buyer@example.com</div>
+                <div class="maui-check-row" style="margin:6px 0"><span class="maui-checkbox">✓</span><span>ฉันตรวจสินค้า ราคา กำหนดส่ง และเวลาแจ้งปัญหาแล้ว</span></div>
+                <button class="maui-primary" type="button" tabindex="-1">จ่ายเงิน&nbsp; →</button>
+                <p class="maui-helper" style="text-align:center">หน้าจ่ายเงินจะเปิดในแอป และข้อมูลบัตรส่งตรงไปยัง Stripe</p>
+              </div>
+            </div>`
+        },
+        {
+          label: 'ส่งและรับเงิน', role: 'ผู้ขาย', theme: 'seller', navTitle: 'รายการขาย',
+          live: 'ขั้นที่ 4 หน้ารายการขายจริง ผู้ขายเห็นสถานะจ่ายแล้วและเพิ่มบริษัทขนส่งกับเลขพัสดุ',
+          html: `
+            <div class="app-scene">
+              <div class="maui-role-hero seller">
+                <div class="maui-role-top"><span class="maui-role-label">ขาย</span><span class="maui-status-pill">ส่งสินค้าได้</span></div>
+                <div class="maui-role-product"><span class="maui-product-image">${productIcon}</span><strong>กล้อง Fujifilm X-T30 II</strong></div>
+                <div class="maui-role-bottom"><div class="maui-role-amount"><small>ยอดรวม</small><strong>฿4,500</strong></div><div class="maui-role-meta"><small>ผู้ซื้อ · Mikey Y.</small><small>ภายใน 28 ก.ค. · 18:00</small></div></div>
+              </div>
+              <div class="maui-surface">
+                <div class="maui-agreement-head"><span class="maui-small-icon note">${noteIcon}</span><strong>สิ่งที่ตกลงกัน</strong><span>สินค้าที่จับต้องได้</span></div>
+                <p class="maui-agreement-text">กล้องพร้อมเลนส์ แบตเตอรี่ และสายคล้อง</p>
+                <div class="maui-price-row muted"><span>ค่าบริการ</span><span>฿0</span></div>
+                <div class="maui-price-row total"><span>ยอดที่คุณจะได้รับ</span><strong>฿4,500</strong></div>
+              </div>
+              <div class="maui-paid-note"><span class="maui-small-icon">${truckIcon}</span><span>ผู้ซื้อจ่ายแล้ว เพิ่มข้อมูลการส่งของได้เลย</span></div>
+              <div class="maui-surface">
+                <div class="maui-action-card-head"><span class="maui-small-icon">${truckIcon}</span><span><strong>เพิ่มเลขพัสดุ</strong><small>กรอกหลังส่งสินค้าแล้ว เราจะตรวจรูปแบบก่อนรอข้อมูลจริง</small></span></div>
+                <div class="maui-tracking-fields">
+                  <div><label class="maui-label">บริษัทขนส่ง <span class="maui-required">*</span></label><div class="maui-field"><span>Flash Express</span><span>⌄</span></div></div>
+                  <div><label class="maui-label">หมายเลขพัสดุ <span class="maui-required">*</span></label><div class="maui-field">TH1234567890</div></div>
                 </div>
-                <div class="seller-row"><span class="seller-profile"><span class="mini-avatar">NP</span><span><strong>Nina P.</strong><small>● ยืนยันเบอร์แล้ว</small></span></span><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6v5c0 4.6 2.7 8.3 7 10 4.3-1.7 7-5.4 7-10V6l-7-3Z" stroke="#2b7fff" stroke-width="1.7" stroke-linejoin="round"/></svg></div>
+                <button class="maui-primary" type="button" tabindex="-1" style="margin-top:8px">บันทึกเลขพัสดุ</button>
               </div>
-              <div class="price-summary"><div class="price-line"><span>รายการ</span><span>฿2,500</span></div><div class="price-line"><span>ค่าส่ง</span><span>฿0</span></div><div class="price-line total"><span>ยอดชำระ</span><span>฿2,500</span></div></div>
-              <div class="protection-note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6v5c0 4.6 2.7 8.3 7 10 4.3-1.7 7-5.4 7-10V6l-7-3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>สินค้าดิจิทัลไม่มีการปล่อยเงินอัตโนมัติตามเวลา คุณต้องยืนยันรับหรือแจ้งปัญหา</span></div>
-              <button class="mobile-primary" type="button" tabindex="-1">ชำระ ฿2,500</button>
-            </div>`
-        },
-        {
-          label: 'ส่งมอบ', role: 'ผู้ขาย', live: 'ขั้นที่ 3 ผู้ขายเห็นยอดชำระที่ยืนยันแล้ว ส่งมอบผ่านช่องทางที่ตกลง และแจ้งสถานะ',
-          html: `
-            <div class="app-scene">
-              <div class="scene-kicker"><span>ขั้นที่ 3 จาก 4</span><strong>ยอดชำระยืนยันแล้ว</strong></div>
-              <h3 class="scene-title">ส่งมอบได้เลย</h3>
-              <p class="scene-subtitle">ระบบแสดงสถานะนี้หลังได้รับการยืนยันจากผู้ให้บริการชำระเงิน</p>
-              <div class="mobile-card success-card">
-                <div class="success-head"><span class="success-icon"><svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><strong>ผู้ซื้อชำระสำเร็จ</strong><small>Payment reference PAY-8F21</small></span></div>
-                <div class="success-amount">฿2,500</div><div class="success-caption">เงินรอการจ่ายตามเงื่อนไขผ่านพาร์ทเนอร์</div>
+              <div class="maui-surface">
+                <h4 class="maui-card-title">ตอนนี้ถึงขั้นไหน</h4>
+                <div class="maui-progress">
+                  <div class="maui-progress-step done"><span class="maui-progress-icon">✓</span><span>ยอมรับข้อตกลง</span></div>
+                  <div class="maui-progress-step"><span class="maui-progress-icon">2</span><span>ส่งของ</span></div>
+                  <div class="maui-progress-step"><span class="maui-progress-icon">3</span><span>รับเงิน</span></div>
+                </div>
               </div>
-              <div class="mobile-card shipping-card">
-                <div class="ship-deadline"><span>ส่งมอบภายใน</span><span class="ship-pill">พรุ่งนี้ 18:00</span></div>
-                <div class="field-mini"><label>ช่องทางที่ตกลงกัน</label><strong>ส่งรายละเอียดผ่าน LINE แล้ว</strong></div>
-                <button class="mobile-primary" type="button" tabindex="-1" style="margin-top:9px">แจ้งว่าส่งมอบแล้ว</button>
-              </div>
-              <div class="mobile-card shipment-timeline">
-                <div class="shipment-row"><span class="shipment-dot"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 5h14v14H5zM8 9h8M8 13h5" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span><span><strong>อย่าใส่ข้อมูลลับใน TOKLONG</strong><small>ไม่กรอกรหัสผ่าน รหัสกู้คืน หรือ private key</small></span><time>สำคัญ</time></div>
-              </div>
-            </div>`
-        },
-        {
-          label: 'ยืนยันรับ', role: 'ผู้ซื้อ', live: 'ขั้นที่ 4 ผู้ซื้อตรวจสินค้าดิจิทัล ยืนยันรับหรือแจ้งปัญหา โดยไม่มีการปล่อยเงินอัตโนมัติตามเวลา',
-          html: `
-            <div class="app-scene">
-              <div class="scene-kicker"><span>ขั้นที่ 4 จาก 4</span><strong>รอผู้ซื้อยืนยัน</strong></div>
-              <h3 class="scene-title">ผู้ขายแจ้งส่งมอบแล้ว</h3>
-              <p class="scene-subtitle">ตรวจสิทธิ์เข้าใช้และรายละเอียดให้ครบก่อนยืนยันรับ</p>
-              <div class="mobile-card delivery-card">
-                <span class="delivery-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M5 5h14v14H5z" stroke="currentColor" stroke-width="1.7"/><path d="m8 12 2.2 2.2L16 9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-                <h4>ส่งมอบผ่าน LINE แล้ว</h4><p>ผู้ขายแจ้งเมื่อ 20 ก.ค. 14:18</p>
-              </div>
-              <div class="countdown-shell"><div class="countdown-ring"><span><strong>✓</strong></span></div><div class="countdown-copy"><strong>ไม่มีการปล่อยเงินอัตโนมัติ</strong><small>ผู้ขายยังไม่ได้รับเงินจนกว่าคุณยืนยัน หรือมีการตรวจโดยผู้มีอำนาจ</small></div></div>
-              <div class="action-grid"><button class="mobile-primary" type="button" tabindex="-1">ได้รับสินค้าดิจิทัลแล้ว</button><button class="mobile-secondary" type="button" tabindex="-1">แจ้งปัญหา</button></div>
-              <div class="protection-note" style="margin-bottom:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6v5c0 4.6 2.7 8.3 7 10 4.3-1.7 7-5.4 7-10V6l-7-3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span>เมื่อแจ้งปัญหา ระบบจะพักการจ่ายเงินทันที</span></div>
             </div>`
         }
       ];
@@ -1275,7 +1453,8 @@
         clearTimeout(payoutTimer);
         payoutOverlay.classList.remove('show');
         payoutOverlay.setAttribute('aria-hidden', 'true');
-        phoneRole.textContent = scene.role;
+        phoneWrap.classList.toggle('seller-role', scene.theme === 'seller');
+        phoneTitle.textContent = scene.navTitle;
         phoneStage.innerHTML = scene.html;
         flowLive.textContent = scene.live;
         [...stageDots.children].forEach((dot, i) => dot.classList.toggle('active', i === stageIndex));
@@ -1423,7 +1602,7 @@
         modal.classList.add('open');
         modal.setAttribute('aria-hidden', 'false');
         document.body.classList.add('locked');
-        setTimeout(() => document.getElementById('productName').focus(), 60);
+        setTimeout(() => document.getElementById('buyerSignInCta').focus(), 60);
       };
       const closeModal = () => {
         closeLandingSelect();

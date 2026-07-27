@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Toklong.Application\Toklong.Application.csproj" />
+    <ProjectReference Include="..\Toklong.Infrastructure\Toklong.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>1a5e7a4c-68bd-4c0f-960e-6815fa96a5e7</UserSecretsId>
+  </PropertyGroup>
+
+</Project>

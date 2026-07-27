@@ -1,0 +1,67 @@
+@page "/buyer/verify-otp"
+
+<PageTitle>กรอกรหัสยืนยัน — TOKLONG</PageTitle>
+<AppHeader BackHref="/buyer/sign-in" BackLabel="เปลี่ยนข้อมูล" />
+
+<main class="auth-shell">
+    <section class="auth-card">
+        <div class="auth-icon" aria-hidden="true">•••</div>
+        <span class="eyebrow"><span class="eyebrow-dot"></span>รหัสมีอายุ 5 นาที</span>
+        <h1>กรอกรหัส 6 หลัก</h1>
+        <p>เราส่งรหัสไปที่ <strong>@Phone</strong></p>
+
+        @if (!string.IsNullOrWhiteSpace(Error))
+        {
+            <AlertMessage Message="@Error" Danger />
+        }
+        @if (!string.IsNullOrWhiteSpace(DevCode))
+        {
+            <div class="dev-otp-note" role="status">
+                โหมดทดสอบบนเครื่อง · รหัสยืนยันคือ <strong>@DevCode</strong>
+            </div>
+        }
+
+        <form method="post" action="/auth/buyer/otp/verify" class="auth-form">
+            <AntiforgeryToken />
+            <input type="hidden" name="challengeId" value="@ChallengeId" />
+            <input type="hidden" name="phone" value="@Phone" />
+            <input type="hidden" name="mode" value="@Mode" />
+            @if (IsSignUp)
+            {
+                <input type="hidden" name="fullName" value="@FullName" />
+                <input type="hidden" name="email" value="@Email" />
+            }
+            <input type="hidden" name="devCode" value="@DevCode" />
+            <input type="hidden" name="returnUrl" value="@SafeReturnUrl" />
+            <label class="form-label" for="code">รหัสยืนยัน</label>
+            <input class="form-control otp-control" id="code" name="code"
+                   type="text" inputmode="numeric" autocomplete="one-time-code"
+                   pattern="[0-9]{6}" maxlength="6" placeholder="— — — — — —"
+                   autofocus required />
+            <button class="button button-primary" type="submit">
+                @(IsSignUp ? "ยืนยันและสมัครสมาชิก" : "ยืนยันและเข้าสู่ระบบ")
+            </button>
+        </form>
+
+        <a class="auth-secondary" href="/buyer/sign-in">ยังไม่ได้รับรหัส? ขอรหัสใหม่</a>
+    </section>
+</main>
+
+@code {
+    [SupplyParameterFromQuery] public string? ChallengeId { get; set; }
+    [SupplyParameterFromQuery] public string? Phone { get; set; }
+    [SupplyParameterFromQuery] public string? Mode { get; set; }
+    [SupplyParameterFromQuery] public string? FullName { get; set; }
+    [SupplyParameterFromQuery] public string? Email { get; set; }
+    [SupplyParameterFromQuery] public string? DevCode { get; set; }
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+    private bool IsSignUp =>
+        string.Equals(Mode, "sign-up", StringComparison.Ordinal);
+
+    private string SafeReturnUrl =>
+        !string.IsNullOrWhiteSpace(ReturnUrl) && ReturnUrl.StartsWith('/')
+            && !ReturnUrl.StartsWith("//", StringComparison.Ordinal)
+                ? ReturnUrl
+                : "/offers/create";
+}

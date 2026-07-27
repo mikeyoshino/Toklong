@@ -14,7 +14,9 @@ public sealed class RequestSellerOtpHandler(IOtpVerificationProvider provider)
     public Task<OtpChallenge> Handle(
         RequestSellerOtpCommand request,
         CancellationToken cancellationToken) =>
-        provider.RequestAsync(request.PhoneNumber, cancellationToken);
+        provider.RequestAsync(
+            ThaiMobilePhone.Normalize(request.PhoneNumber),
+            cancellationToken);
 }
 
 public sealed record VerifySellerOtpCommand(string ChallengeId, string Code)
@@ -34,7 +36,8 @@ public sealed class VerifySellerOtpHandler(
         var phone = await provider.VerifyAsync(
             request.ChallengeId, request.Code, cancellationToken);
         if (phone is null)
-            throw new ArgumentException("รหัส OTP ไม่ถูกต้องหรือหมดอายุแล้ว");
+            throw new ArgumentException(
+                "รหัสไม่ถูกต้อง ใช้ไปแล้ว หรือหมดอายุ กรุณาขอรหัสใหม่");
 
         var seller = await sellers.GetByPhoneAsync(phone, cancellationToken);
         if (seller is null)
@@ -55,6 +58,12 @@ public sealed class VerifySellerOtpHandler(
 public sealed record GetSellerProfileQuery(Guid SellerId)
     : IRequest<SellerProfile>;
 
+public sealed record GetSellerProfileByPhoneQuery(string PhoneNumber)
+    : IRequest<SellerProfile?>;
+
+public sealed record EnsureSellerProfileCommand(string PhoneNumber)
+    : IRequest<SellerProfile>;
+
 public sealed class GetSellerProfileHandler(ISellerRepository sellers)
     : IRequestHandler<GetSellerProfileQuery, SellerProfile>
 {
@@ -64,6 +73,50 @@ public sealed class GetSellerProfileHandler(ISellerRepository sellers)
     {
         var seller = await sellers.GetByIdAsync(request.SellerId, cancellationToken)
             ?? throw new NotFoundException("ไม่พบโปรไฟล์ผู้ขาย");
+        return SellerProfile.From(seller);
+    }
+}
+
+public sealed class GetSellerProfileByPhoneHandler(
+    ISellerRepository sellers)
+    : IRequestHandler<GetSellerProfileByPhoneQuery, SellerProfile?>
+{
+    public async Task<SellerProfile?> Handle(
+        GetSellerProfileByPhoneQuery request,
+        CancellationToken cancellationToken)
+    {
+        var seller = await sellers.GetByPhoneAsync(
+            ThaiMobilePhone.Normalize(request.PhoneNumber),
+            cancellationToken);
+        return seller is null ? null : SellerProfile.From(seller);
+    }
+}
+
+public sealed class EnsureSellerProfileHandler(
+    ISellerRepository sellers,
+    IUnitOfWork unitOfWork,
+    IClock clock)
+    : IRequestHandler<EnsureSellerProfileCommand, SellerProfile>
+{
+    public async Task<SellerProfile> Handle(
+        EnsureSellerProfileCommand request,
+        CancellationToken cancellationToken)
+    {
+        var phone = ThaiMobilePhone.Normalize(request.PhoneNumber);
+        var seller = await sellers.GetByPhoneAsync(
+            phone,
+            cancellationToken);
+        if (seller is null)
+        {
+            seller = SellerAccount.Create(phone, clock.UtcNow);
+            await sellers.AddAsync(seller, cancellationToken);
+        }
+        else
+        {
+            seller.MarkPhoneVerified(clock.UtcNow);
+        }
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
         return SellerProfile.From(seller);
     }
 }
@@ -107,15 +160,28 @@ public sealed record SellerPayoutAccountView(
     string MaskedNumber,
     bool IsDefault);
 
+public sealed record SellerSavedShippingOriginView(
+    string DisplayText,
+    int ProvinceId,
+    string ProvinceName,
+    int DistrictId,
+    string DistrictName,
+    int SubdistrictId,
+    string SubdistrictName,
+    string PostalCode);
+
 public sealed record SellerProfile(
     Guid Id,
     string PhoneNumber,
     string DisplayName,
     DateTimeOffset PhoneVerifiedAt,
-    IReadOnlyList<SellerPayoutAccountView> PayoutAccounts)
+    IReadOnlyList<SellerPayoutAccountView> PayoutAccounts,
+    SellerSavedShippingOriginView? SavedShippingOrigin)
 {
-    public static SellerProfile From(SellerAccount seller) =>
-        new(
+    public static SellerProfile From(SellerAccount seller)
+    {
+        var origin = seller.GetSavedShippingOrigin();
+        return new(
             seller.Id,
             seller.PhoneNumber,
             seller.DisplayName,
@@ -129,5 +195,17 @@ public sealed record SellerProfile(
                     x.AccountName,
                     x.MaskedNumber,
                     x.IsDefault))
-                .ToArray());
+                .ToArray(),
+            origin is null
+                ? null
+                : new SellerSavedShippingOriginView(
+                    origin.ToDisplayText(),
+                    origin.ProvinceId,
+                    origin.ProvinceName,
+                    origin.DistrictId,
+                    origin.DistrictName,
+                    origin.SubdistrictId,
+                    origin.SubdistrictName,
+                    origin.PostalCode));
+    }
 }

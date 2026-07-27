@@ -2,7 +2,13 @@
 
 ## Purpose
 
-The backend transaction record replaces a visible contract drafting/signing workflow. It captures what was offered, what the buyer accepted, how payment and delivery progressed, and why payout or refund occurred.
+The backend transaction record replaces a separate visible contract
+drafting/signing workflow. It captures what was offered, the same agreement
+core electronically accepted by both parties, how payment and delivery
+progressed, and why payout or refund occurred. This is click acceptance backed
+by authenticated accounts and immutable records; it must not be described as a
+certificate-backed or qualified digital signature without separate legal and
+identity-provider approval.
 
 This record must be understandable to users and operations, while preserving technical evidence for audit and reconciliation.
 
@@ -22,6 +28,34 @@ status
 
 Do not store more identity data than necessary. Prefer provider references or tokenized identifiers where supported.
 
+### Buyer profile
+
+```text
+buyer_id
+full_name
+phone_number
+phone_verified_at
+payment_contact_email_or_null_for_legacy_accounts
+saved_address_line_or_null
+saved_province_id_or_null
+saved_province_name_or_null
+saved_district_id_or_null
+saved_district_name_or_null
+saved_subdistrict_id_or_null
+saved_subdistrict_name_or_null
+saved_postal_code_or_null
+saved_address_updated_at_or_null
+created_at
+```
+
+The offer command accepts `buyer_id`, not editable name/contact fields, and
+resolves the current buyer profile server-side. A buyer has zero or one saved
+delivery address. Saving another address updates that single record rather than
+creating an address book. Physical-offer creation resolves administrative IDs
+against the bundled catalog server-side and stores a formatted private
+delivery-address snapshot independently of later profile updates. Checkout
+reads that locked snapshot and never replaces it.
+
 ### Seller payout profile
 
 ```text
@@ -32,16 +66,31 @@ beneficiary_name_verification_status
 onboarding_status
 payout_eligibility_status
 risk_flags
+saved_shipping_address_line_or_null
+saved_shipping_province_id_or_null
+saved_shipping_province_name_or_null
+saved_shipping_district_id_or_null
+saved_shipping_district_name_or_null
+saved_shipping_subdistrict_id_or_null
+saved_shipping_subdistrict_name_or_null
+saved_shipping_postal_code_or_null
+saved_shipping_address_updated_at_or_null
 created_at
 updated_at
 ```
+
+The seller has zero or one saved shipping origin. Administrative IDs are
+resolved against the server-owned Thai address catalog. Saving another origin
+replaces the profile value, while every accepted physical transaction keeps its
+own immutable origin snapshot. Parcel weight and dimensions are not profile
+defaults.
 
 ### Sale link
 
 ```text
 id
 seller_id_or_null_until_joined
-initiator_role
+initiator_role = buyer
 public_token
 status
 expires_at
@@ -57,21 +106,43 @@ The public token must be unguessable and revocable.
 ```text
 sale_link_id
 buyer_id
+intended_seller_phone
 fulfillment_type
-proposed_name
+product_name
 proposed_description
 proposed_photo_asset_ids[]
-proposed_price_satang
-proposed_shipping_fee_satang
+proposed_item_price_satang
 currency
-proposed_fulfillment_duration_hours
+fulfillment_duration_hours = 72 (system fixed)
 seller_acceptance_deadline_at
-buyer_contact_email_reference
+buyer_payment_deadline_at_or_null
+expiration_reason_or_null
 created_at
 updated_at
 ```
 
-This is a proposal, not a paid snapshot and not a seller representation. The seller must authenticate, complete or confirm the material facts, and accept the final agreement before checkout is enabled. Prefer a provider/customer reference for the buyer email where practical; do not store refund bank details.
+This is not a paid snapshot. `buyer_id` references a buyer account that supplied
+first and last name during registration and later signed in by phone without
+re-entering that name. The buyer supplies a product name, every material fact,
+an optional managed photo, and the intended seller's normalized Thai mobile
+number. The seller must authenticate with that exact phone and either accept
+the record unchanged or decline it before checkout is enabled. If supplied,
+the managed photo is included in the immutable agreement core and paid
+snapshot; absence is stored explicitly as `null`. The unguessable link is a
+routing identifier, not an authorization credential. The
+payment-contact email is collected during registration and read server-side
+from the authenticated buyer profile at checkout; the checkout client cannot
+replace it. Existing legacy accounts may add or update it from the authenticated
+account screen. Use a provider/customer reference where practical; do not store
+refund bank details.
+
+For physical offers, `proposed_item_price_satang` excludes shipping. Shipping
+is not buyer-authored: the intended seller selects a validated quote before
+acceptance, after which item price, shipping charge, and buyer total are frozen.
+The domain accepts no item price above the absolute 999,999 THB technical
+boundary. The application independently enforces the lower active commercial
+maximum from the versioned fee policy before storing the offer. Supporting the
+technical value does not activate it for sale.
 
 ### Product draft
 
@@ -85,22 +156,115 @@ condition_code
 known_defects
 photo_asset_ids[]
 price_satang
-shipping_fee_satang
 currency
-ship_by_duration_hours
+ship_by_duration_hours = 72 (system fixed)
 supported_carriers[]
 prohibited_goods_attestation
 transfer_rights_attestation
 updated_at
 ```
 
-The compact seller UI may collect `name`, `description`, and `known_defects` through one agreement-details experience. The backend still normalizes and retains category, condition, defects, and photo asset references so the buyer-facing record and paid snapshot remain explicit. A hidden/default classifier value must never be presented as a seller assertion when it was not stated; use a neutral `as described` condition and preserve the actual agreement text.
+The buyer UI always collects `name` and `condition_code`; a managed product
+photo is optional. For Quick Deal presentation, `description` is optional on the first
+screen and deterministically falls back to the trimmed product name when the
+buyer leaves it blank. `known_defects` is required when
+`condition_code = USED_DEFECTS`; otherwise the client sends the explicit value
+`ไม่มีตำหนิที่ผู้ซื้อระบุ`. Condition and defects are confirmed in the final
+review-before-submit sheet, not omitted from the transaction record. The seller
+UI renders these explicit fields read-only and exposes only accept or decline.
+The backend retains them for the buyer-facing record and paid snapshot.
 
-Photo capture/upload must produce a managed asset reference. A public image URL may be imported as assistance, but the seller is never required to type a raw photo URL. Saving a photo must work independently from optional AI analysis.
+When the buyer chooses a product photo, capture/upload must produce a managed
+asset reference. A public image URL may be imported as assistance, but the
+buyer is never required to type a raw photo URL. Saving a photo must work
+independently from optional AI analysis. AI source images are not promoted into
+the product snapshot automatically.
 
-### Paid transaction snapshot
+The optional agreement-draft extractor accepts authenticated, rate-limited
+multipart requests containing pasted chat text and up to three supported
+images. Sources are processed in memory and are not stored as product evidence,
+transaction fields, logs, or snapshot attachments. The structured AI result is
+an untrusted draft containing only seller phone, product name, description,
+known defects, price, condition, confidence, and extracted-field names. The
+mobile client previews it and fills only empty controls after explicit buyer
+confirmation. The ordinary offer command still validates every field and
+prohibited-goods rules; AI output cannot activate a link or change transaction
+state.
 
-Created atomically when checkout terms are accepted and payment intent is established. Once payment is confirmed, material fields are immutable.
+### Agreement core snapshot
+
+Created atomically when the authenticated seller accepts the buyer-authored
+offer. It freezes every term that both parties must accept:
+
+```text
+transaction_id
+agreement_core_snapshot_json
+agreement_core_snapshot_hash
+agreement_core_snapshot_created_at
+terms_snapshot_json
+terms_snapshot_hash
+agreement_core_schema_version = 6 (inside JSON)
+buyer_id
+seller_id
+buyer_and_seller_display_identity
+item_description_condition_defects_and_optional_photo
+item_price_shipping_fee_buyer_total_platform_fee_seller_net_and_currency
+fulfillment_type_and_duration
+delivery_province_name_and_postal_code_for_physical_goods
+origin_province_name_and_postal_code_for_physical_goods
+package_weight_and_dimensions_for_physical_goods
+shipping_quote_provider_reference_expiry_carrier_and_service
+inspection_or_digital_release_rules
+terms_and_fee_policy_versions
+seller_accepted_at
+buyer_payment_deadline_at
+```
+
+The core JSON is canonical for its schema version and protected by SHA-256.
+Checkout rebuilds it from the transaction and must fail if any material value,
+party identity, fee, deadline, terms document, or hash differs.
+
+### Agreement acceptance
+
+One append-only row is stored per transaction party:
+
+```text
+id
+transaction_id
+role = buyer | seller
+actor_user_id
+verified_phone_number
+authentication_method = verified-phone-session
+agreement_core_snapshot_hash
+terms_version
+terms_snapshot_hash
+accepted_at
+correlation_id
+idempotency_key
+```
+
+`(transaction_id, role)` and `(transaction_id, idempotency_key)` are unique.
+The seller row is created by `ยอมรับข้อเสนอ`; the buyer row is created by the
+final `ยอมรับข้อตกลง` action before provider checkout. Both rows must reference
+the exact same core and terms hashes. The record stores neither the OTP value
+nor reusable authentication credentials. There is no update method for an
+acceptance, and the persistence layer rejects `Modified` or `Deleted`
+acceptance entries. Corrections require a new offer.
+
+### Private fulfillment annex and paid transaction snapshot
+
+For a physical offer, the private full-delivery-address annex is created and
+locked with the offer before seller acceptance. When the seller accepts, a
+private full-origin snapshot and the selected shipping quote are also locked.
+Only resolved province/postal values, parcel measurements, carrier/service,
+quote metadata, and shipping charge enter the shared core; street-level origin
+and destination remain private fulfillment data. After the buyer accepts the
+validated agreement core and the payment intent is established, the product
+snapshot references the shared core hash, both already-locked address records,
+and the buyer acceptance time. The full destination is not disclosed to the
+seller before provider-confirmed payment.
+Once payment is confirmed, the snapshot is sealed and material fields are
+immutable.
 
 ```text
 transaction_id
@@ -110,23 +274,145 @@ buyer_id
 fulfillment_type
 product_snapshot_json
 product_snapshot_hash
+snapshot_schema_version
+agreement_snapshot_created_at
+agreement_snapshot_sealed_at
 price_satang
 shipping_fee_satang
-platform_fee_satang
 buyer_total_satang
+buyer_protection_fee_satang
+platform_fee_satang
 seller_expected_net_satang
 currency
+shipping_origin_address
+shipping_origin_address_line
+shipping_origin_subdistrict_name
+shipping_origin_district_name
+shipping_origin_province_name
+shipping_origin_postal_code
+package_weight_grams
+package_width_centimeters
+package_length_centimeters
+package_height_centimeters
+shipping_quote_provider
+shipping_quote_reference
+shipping_quote_expires_at
+carrier_code
+shipping_service_code
+shipping_service_name
+shipping_purchase_reference
+shipping_provider_tracking_code
+shipping_courier_tracking_code_or_null
+shipping_reserved_at
 ship_by_at
+inspection_window_duration_hours
 terms_version
+terms_snapshot_json
 terms_snapshot_hash
 buyer_acceptance_at
-buyer_acceptance_ip_or_risk_reference
 seller_acceptance_at
 initiator_role
 created_at
 ```
 
-The exact fields retained for IP/device/risk evidence require privacy and legal review.
+Snapshot schema version 8 retains version 7's shipping and managed-booking
+fields and adds the exact buyer-funded Buyer Protection fee to the immutable
+agreement core, product snapshot, and retained financial record. Version 7
+remains readable with an implicit historical value of zero.
+
+Snapshot schema version 7 retains version 6's separate shipping fee, buyer
+total, package, and quote/service fields and adds structured private origin and
+destination address parts plus the unconfirmed provider-booking references
+created at seller acceptance. The shared agreement core still contains only
+province/postal disclosure for each address; street, district, and subdistrict
+remain in the private fulfillment/product snapshot. Version 7 binds the
+provider purchase/tracking references and reservation time without presenting
+them as consumer-facing contract jargon.
+
+It retains version 5's optional photo as its managed reference or explicit
+`null`, and version 4's rule that the private physical address is locked at
+offer creation. Seller acceptance creates the core and terms documents; buyer
+acceptance creates the checkout/product document referencing the pre-locked
+fulfillment annex; provider-confirmed payment seals it. A missing acceptance,
+actor mismatch, shared-hash mismatch, or content/hash mismatch blocks payment
+confirmation and subsequent financial release.
+
+Schema versions 1–6 remain readable for historical paid records. Existing rows
+must never be assigned invented acceptances, delivery addresses, delivery
+regions, or core snapshots. An unpaid legacy physical offer without a complete
+address must end and be recreated rather than collecting or mutating its
+address at checkout.
+
+The MVP does not persist IP addresses, device fingerprints, advertising IDs,
+hardware IDs, or precise location as agreement evidence or as a separate
+acceptance/security-evidence dataset. OTP rate limiting transiently transforms
+the connection address with a random per-process HMAC key; only that
+non-reusable in-memory partition key reaches the limiter and it is never
+written to application storage or logs.
+
+The agreement core, private fulfillment annex, checkout snapshot, party
+acceptances, fulfillment events,
+payment/refund/payout state evidence, audit trail, and dispute evidence are
+retained for five years from the later of the terminal transaction time or
+final dispute-closure time. An authorized legal hold pauses deletion only for
+the affected transaction. Separately classified accounting and tax records may
+follow an approved schedule of up to seven years where required. At expiry,
+personal data must be securely deleted or irreversibly anonymized; immutable
+hashes must not be presented as recoverable transaction evidence after their
+underlying record has been deleted.
+
+Terminal transitions to `PAID_OUT`, `REFUNDED`, `CANCELLED`, or `EXPIRED`
+atomically set:
+
+```text
+retention_starts_at
+retention_expires_at = retention_starts_at + 5 years
+```
+
+If a terminal transaction follows a resolved dispute, the later timestamp is
+used. `EXPIRED` may still receive an authorized late provider event; any later
+terminal transition replaces the schedule with the new terminal time.
+
+Legal hold fields are:
+
+```text
+legal_hold_placed_at
+legal_hold_reference
+legal_hold_reason
+```
+
+Only signed internal operations can place or release a hold. Both actions are
+idempotent and append audit events. A held transaction is excluded from every
+purge query.
+
+The retention worker deletes the complete transaction aggregate, including
+party identity, contacts, address, item details, photos, snapshots,
+acceptances, evidence, notifications, and audit events, in the same database
+commit that creates a minimized `financial_retention_records` row. That row
+contains only transaction ID, terminal state, integer monetary values,
+currency, provider references, retention dates, and purge time. It contains no
+party identity, address, product description, photo, acceptance record, or
+agreement hash and is deleted at year seven.
+
+Managed photo deletion uses `retention_file_deletions` as a transactional
+outbox. The queue row is committed with the database purge; the Worker then
+deletes the owned file idempotently and removes the queue row. A storage error
+leaves the queue row for retry, so a database commit cannot silently orphan a
+managed image.
+
+### Downloadable agreement evidence
+
+After both append-only acceptances exist, an authenticated buyer or seller on
+that transaction may download:
+
+- canonical JSON containing schema version, item/amount/terms, accepted
+  delivery region, shared hashes, party roles, and server acceptance times;
+- a readable HTML rendering suitable for printing or saving as PDF.
+
+The evidence payload has its own SHA-256 hash. Contacts are masked and the file
+contains no OTP value, reusable credential, full delivery or shipping-origin
+street address, IP address, or device identifier. These files are evidence of
+electronic click acceptance, not a certificate-backed digital signature.
 
 ### Payment
 
@@ -146,6 +432,10 @@ provider_settlement_reference
 settled_to_bank_at
 ```
 
+For schema-6 and later physical transactions, `amount_satang` equals
+`buyer_total_satang`, not item price alone. Full refunds validate against the
+same amount.
+
 ### Settlement ledger entry
 
 ```text
@@ -161,13 +451,41 @@ created_at
 idempotency_key
 ```
 
-The settlement ledger is an internal append-only liability/reconciliation record, not a user wallet or stored-value balance. It must distinguish buyer funds received, provider fees, TOKLONG fees, refund liabilities, seller payable, seller payout, and corrections. Entries use integer satang and corrections are new entries rather than edits.
+The settlement ledger is an internal append-only liability/reconciliation
+record, not a user wallet or stored-value balance. It must distinguish buyer
+funds received, shipping-cost liability, provider fees, TOKLONG fees, refund
+liabilities, seller payable, seller payout, and corrections. Entries use
+integer satang and corrections are new entries rather than edits.
 
 ### Shipment
 
 ```text
 transaction_id
+shipping_origin_address
+shipping_origin_address_line
+shipping_origin_subdistrict_name
+shipping_origin_district_name
+shipping_origin_province_name
+shipping_origin_postal_code
+package_weight_grams
+package_width_centimeters
+package_length_centimeters
+package_height_centimeters
+shipping_quote_provider
+shipping_quote_reference
+shipping_quote_expires_at
 carrier_code
+shipping_service_code
+shipping_service_name
+shipping_fee_satang
+shipping_purchase_reference
+shipping_provider_tracking_code
+shipping_courier_tracking_code
+shipping_reserved_at
+shipping_confirmed_at
+shipping_last_provider_status
+shipping_last_reconciled_at
+shipping_cancelled_at
 tracking_number
 tracking_verification_status
 submitted_at
@@ -175,9 +493,29 @@ first_carrier_scan_at
 in_transit_at
 delivered_at
 carrier_delivery_event_id
+carrier_delivery_event_received_at
 delivery_raw_reference
 last_checked_at
 ```
+
+For a provider-managed shipment, `first_carrier_scan_at` is the trusted
+seller-to-carrier handoff fact. The application derives, rather than stores as
+an editable claim:
+
+```text
+seller_handoff_confirmed =
+  first_carrier_scan_at is not null
+
+seller_protection_eligible_for_carrier_failure =
+  first_carrier_scan_at <= ship_by_at
+  and carrier/tracking match the locked provider shipment
+```
+
+Eligibility protects the seller from being classified as “did not ship” when a
+carrier problem happens later. It never authorizes payout by itself. If a
+timely scan is discovered while an unused-shipment cancellation is being
+attempted, the pending automatic refund is stopped before provider instruction
+and the transaction returns to a payout-blocked tracking review state.
 
 ### Digital fulfillment
 
@@ -205,7 +543,11 @@ buyer_confirmed_at
 release_reason
 ```
 
-`starts_at` must equal trusted `delivered_at` for the default flow.
+For the default physical flow, `starts_at` must equal trusted `delivered_at`
+and `ends_at` must equal `starts_at + inspection_window_duration_hours`.
+New offers use 72 hours. Rows created under the former disclosed rule retain
+168 hours rather than being shortened retroactively. A shipped, in-transit,
+seller-entered, or unverified event must not populate either timestamp.
 
 ### Dispute
 
@@ -241,6 +583,7 @@ integrity_hash
 transaction_id
 provider
 provider_payout_reference
+payout_provider
 amount_satang
 currency
 status
@@ -263,8 +606,50 @@ requested_at
 provider_confirmed_at
 failure_code
 last_provider_event_id
-instructions_email_reference
+action_required_at
+action_expires_at
+instructions_sent_at
 ```
+
+The transaction also retains `refund_requested_at`, `refund_confirmed_at`,
+`refund_provider_status`, `refund_action_required_at`,
+`refund_action_expires_at`, `refund_instructions_sent_at`,
+`dispute_resolved_at`, and `dispute_resolution_reference`. The status and
+timestamps are provider evidence; TOKLONG does not duplicate the refund
+instruction email address or store the bank-account number submitted to Stripe.
+The immutable PaymentIntent receipt email is supplied to Stripe as
+`instructions_email`. A resolution reference is the authorized human case
+reference, never an AI decision.
+
+### Notification outbox
+
+```text
+notification_id
+transaction_id
+audience
+recipient
+template
+created_at
+available_at
+attempts
+last_attempt_at
+sent_at
+provider_reference
+```
+
+State and notification intent commit together. Delivery is retried later with
+backoff and is not considered sent without a provider reference. The exact
+24-hour pre-payout reminder is scheduled from the carrier-confirmed dispute
+deadline.
+
+The outbox is also the source for the authenticated in-app activity feed.
+Templates are reusable lifecycle event identifiers; a formatter derives the
+consumer title, body, and deep link from current transaction data. The initial
+`buyer_offer_received` record is addressed to the normalized intended seller
+phone and is created in the same transaction as the offer. Device registration
+is separate and binds a random installation ID, authenticated recipient,
+platform, and opaque provider push token. Provider tokens must not appear in
+logs, consumer API responses, or transaction records.
 
 ### Audit event
 
@@ -312,6 +697,25 @@ Each operation needs a stable idempotency key and unique constraint appropriate 
 
 ## Deadline processing
 
+A scheduled unpaid-offer job evaluates:
+
+```text
+state == AWAITING_SELLER_ACCEPTANCE
+and seller_acceptance_deadline_at <= now
+  → EXPIRED / SELLER_DID_NOT_RESPOND
+
+state in (
+  SELLER_ACCEPTED_AWAITING_PAYMENT,
+  CHECKOUT_STARTED,
+  PAYMENT_PENDING)
+and buyer_payment_deadline_at <= now
+  → EXPIRED / BUYER_DID_NOT_PAY
+```
+
+The same checks run before seller response, checkout preparation, and
+transaction reads so an inactive worker cannot make an expired offer usable.
+Each expiration writes one immutable system audit event.
+
 A scheduled release job may evaluate transactions where:
 
 ```text
@@ -331,10 +735,13 @@ Digital transactions must be excluded from this job. Do not combine eligibility 
 
 Seller can:
 
-- Create/deactivate unpaid links.
 - Join, complete, accept, or decline a buyer-created offer before payment.
 - View their transactions.
-- Submit tracking before policy deadline.
+- For a provider-managed physical shipment, download the label and hand the
+  parcel to the locked carrier before the policy deadline; the native app may
+  render a script-disabled full-screen copy and share/save/print the unchanged
+  original provider file. Tracking is read-only and provider-issued.
+- Submit tracking only on a non-managed legacy shipping path.
 - Add dispute evidence.
 - View payout status.
 
@@ -365,6 +772,10 @@ No human role should directly edit provider-confirmed historical events.
 - Redact sensitive identifiers from normal logs.
 - Separate analytics identifiers from operational identity where practical.
 - Apply retention schedules to transaction, evidence, support, and payment-provider data.
+- The automated worker enforces the five-year evidence purge and seven-year
+  minimized-financial-record purge. Signed internal operations provide dry-run
+  preview and narrowly scoped legal-hold placement/release; there is
+  intentionally no remote HTTP endpoint that executes deletion.
 - Record access to dispute evidence and sensitive transaction details.
 
 ## Downloadable transaction summary

@@ -6,12 +6,27 @@ namespace Toklong.Infrastructure.Services;
 internal static class ProductImageProcessor
 {
     private const int MaximumDimension = 1600;
+    private const long MaximumDecodedPixels = 24_000_000;
 
     public static Task<byte[]> NormalizeAsync(
         ListingImageInput input,
         CancellationToken cancellationToken)
     {
-        using var source = new MemoryStream(input.Content, writable: false);
+        using (var metadataSource =
+               new MemoryStream(input.Content, writable: false))
+        using (var codec = SKCodec.Create(metadataSource))
+        {
+            if (codec is null ||
+                codec.Info.Width < 1 ||
+                codec.Info.Height < 1 ||
+                (long)codec.Info.Width *
+                codec.Info.Height >
+                MaximumDecodedPixels)
+                throw new InvalidOperationException(
+                    "ขนาดมิติของรูปสูงเกินไป");
+        }
+        using var source =
+            new MemoryStream(input.Content, writable: false);
         using var original = SKBitmap.Decode(source)
             ?? throw new InvalidOperationException("ไม่สามารถอ่านไฟล์รูปนี้ได้");
         var scale = Math.Min(

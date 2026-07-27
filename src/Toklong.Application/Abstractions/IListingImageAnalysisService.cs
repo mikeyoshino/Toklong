@@ -38,4 +38,7 @@ public interface IListingImageAnalysisService
 public interface IImportedProductImageStore
 {
     Task<string> SaveAsync(ListingImageInput image, CancellationToken cancellationToken);
+    Task DeleteAsync(
+        string fileReference,
+        CancellationToken cancellationToken);
 }

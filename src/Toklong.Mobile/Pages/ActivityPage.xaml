@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Toklong.Mobile.Pages.ActivityPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    SafeAreaEdges="Container"
+    Shell.NavBarIsVisible="False">
+    <ContentPage.Background>
+        <RadialGradientBrush Center="0.88,0.02" Radius="0.95">
+            <GradientStop Color="#DCEFFF" Offset="0" />
+            <GradientStop Color="#F6FAFF" Offset="0.34" />
+            <GradientStop Color="#FFFFFF" Offset="0.84" />
+        </RadialGradientBrush>
+    </ContentPage.Background>
+
+    <RefreshView
+        Command="{Binding RefreshCommand}"
+        IsRefreshing="{Binding IsRefreshing, Mode=TwoWay}">
+        <CollectionView
+            ItemsSource="{Binding Items}"
+            SelectionMode="None">
+            <CollectionView.Header>
+                <VerticalStackLayout Padding="20,18,20,12" Spacing="12">
+                    <Border
+                        HorizontalOptions="Start"
+                        Padding="11,6"
+                        BackgroundColor="#DFFFFFFF"
+                        Stroke="#292B7FFF"
+                        StrokeShape="RoundRectangle 99">
+                        <HorizontalStackLayout Spacing="8">
+                            <BoxView
+                                WidthRequest="7"
+                                HeightRequest="7"
+                                VerticalOptions="Center"
+                                Color="{StaticResource BrandBlue}"
+                                CornerRadius="4" />
+                            <Label
+                                Style="{StaticResource Eyebrow}"
+                                Text="อัปเดตจากทุกรายการ" />
+                        </HorizontalStackLayout>
+                    </Border>
+                    <Label
+                        Style="{StaticResource PageTitle}"
+                        Text="การแจ้งเตือน" />
+                    <Border
+                        IsVisible="{Binding HasMessage}"
+                        Style="{StaticResource RefinedValidationBorder}">
+                        <Label
+                            Style="{StaticResource RefinedValidationText}"
+                            Text="{Binding Message}" />
+                    </Border>
+                </VerticalStackLayout>
+            </CollectionView.Header>
+
+            <CollectionView.EmptyView>
+                <VerticalStackLayout
+                    Padding="32,80"
+                    Spacing="12"
+                    HorizontalOptions="Center">
+                    <Image
+                        WidthRequest="52"
+                        HeightRequest="52"
+                        Source="ui_bell.png" />
+                    <Label
+                        HorizontalTextAlignment="Center"
+                        Style="{StaticResource SectionTitle}"
+                        Text="ยังไม่มีการแจ้งเตือน" />
+                    <Label
+                        HorizontalTextAlignment="Center"
+                        Style="{StaticResource RefinedHelperText}"
+                        Text="เมื่อมีข้อเสนอหรือสถานะสำคัญ เราจะแสดงไว้ที่นี่" />
+                </VerticalStackLayout>
+            </CollectionView.EmptyView>
+
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Border
+                        Margin="20,0,20,10"
+                        Padding="16"
+                        Style="{StaticResource SurfaceCard}">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer
+                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.OpenCommand}"
+                                CommandParameter="{Binding .}" />
+                        </Border.GestureRecognizers>
+                        <Grid ColumnDefinitions="46,*,Auto" ColumnSpacing="13">
+                            <Border
+                                WidthRequest="46"
+                                HeightRequest="46"
+                                VerticalOptions="Start"
+                                BackgroundColor="#EAF4FF"
+                                StrokeThickness="0"
+                                StrokeShape="RoundRectangle 14">
+                                <Image Margin="10" Source="{Binding Icon}" />
+                            </Border>
+                            <VerticalStackLayout
+                                Grid.Column="1"
+                                Spacing="4">
+                                <Label
+                                    FontAttributes="Bold"
+                                    FontSize="16"
+                                    Text="{Binding Title}" />
+                                <Label
+                                    Style="{StaticResource RefinedBodyText}"
+                                    Text="{Binding Body}" />
+                                <Label
+                                    FontSize="12"
+                                    Text="{Binding TimeText}"
+                                    TextColor="{StaticResource Muted}" />
+                            </VerticalStackLayout>
+                            <Label
+                                Grid.Column="2"
+                                VerticalOptions="Center"
+                                FontSize="22"
+                                Text="›"
+                                TextColor="#98A2B3" />
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </RefreshView>
+</ContentPage>

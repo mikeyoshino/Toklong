@@ -1,5 +1,6 @@
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using Toklong.Application.Common;
 using Microsoft.EntityFrameworkCore;
 using Toklong.Domain.Common;
 using Toklong.Domain.Sellers;
@@ -25,7 +26,10 @@ public sealed class SellerOnboardingTests
     [Theory]
     [InlineData("1234")]
     [InlineData("021234567")]
+    [InlineData("0712345678")]
     [InlineData("+14155552671")]
+    [InlineData("abc0812345678")]
+    [InlineData("08123x5678")]
     public void Unsupported_phone_is_rejected(string input)
     {
         Assert.Throws<ArgumentException>(() =>
@@ -66,6 +70,24 @@ public sealed class SellerOnboardingTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             provider.RequestAsync("0812345678", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Development_otp_resend_reports_a_retryable_cooldown()
+    {
+        var provider = new DevelopmentOtpVerificationProvider(
+            new TestEnvironment(Environments.Development));
+        var phone = $"086{Random.Shared.Next(10_000_000):D7}";
+
+        await provider.RequestAsync(phone, CancellationToken.None);
+        var exception = await Assert.ThrowsAsync<RequestCooldownException>(() =>
+            provider.RequestAsync(phone, CancellationToken.None));
+
+        Assert.InRange(
+            exception.RetryAfter,
+            TimeSpan.FromMilliseconds(1),
+            TimeSpan.FromSeconds(60));
+        Assert.Contains("ก่อนขอรหัสใหม่", exception.Message);
     }
 
     [Fact]

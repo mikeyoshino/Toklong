@@ -8,45 +8,116 @@ public sealed class MustBeTrueAttribute : ValidationAttribute
     public override bool IsValid(object? value) => value is true;
 }
 
-public sealed class CreateSaleForm
+public sealed class CreateBuyerOfferForm : IValidatableObject
 {
-    [Required(ErrorMessage = "กรุณาเลือกบัญชีรับเงิน")]
-    public Guid? PayoutAccountId { get; set; }
+    [Required(ErrorMessage = "กรุณากรอกเบอร์มือถือผู้ขาย")]
+    [RegularExpression(
+        @"^(0[689]\d{8}|\+66[689]\d{8})$",
+        ErrorMessage =
+            "กรุณากรอกเบอร์มือถือไทย 10 หลัก เช่น 0812345678")]
+    public string SellerPhoneNumber { get; set; } = "";
+
+    [Required(ErrorMessage = "กรุณาระบุชื่อสินค้า")]
+    [StringLength(
+        180,
+        ErrorMessage = "ชื่อสินค้าต้องไม่เกิน 180 ตัวอักษร")]
+    public string ProductName { get; set; } = "";
 
     public FulfillmentType FulfillmentType { get; set; } =
         FulfillmentType.PhysicalShipment;
 
-    [Required(ErrorMessage = "กรุณาระบุรายการที่ตกลงซื้อขาย")]
-    [StringLength(180, ErrorMessage = "ชื่อรายการยาวเกิน 180 ตัวอักษร")]
-    public string ProductName { get; set; } = "";
-
-    public string Category { get; set; } = "งานอดิเรกและของใช้";
-
-    public ConditionCode Condition { get; set; } = ConditionCode.AsDescribed;
-
-    [Required(ErrorMessage = "กรุณาระบุรายละเอียดข้อตกลง")]
+    [Required(ErrorMessage = "กรุณาระบุรายละเอียด สภาพ อุปกรณ์ และตำหนิ")]
     [StringLength(2000, MinimumLength = 10, ErrorMessage = "รายละเอียดต้องมี 10–2,000 ตัวอักษร")]
-    public string Description { get; set; } = "";
+    public string ProposedDescription { get; set; } = "";
 
+    public ConditionCode Condition { get; set; } = ConditionCode.New;
+
+    [StringLength(1000, ErrorMessage = "รายละเอียดตำหนิต้องไม่เกิน 1,000 ตัวอักษร")]
     public string KnownDefects { get; set; } = "";
 
-    [Required(ErrorMessage = "กรุณาเพิ่มรูปประกอบข้อตกลงอย่างน้อย 1 รูป")]
-    public string PhotoUrl { get; set; } = "";
+    public string? PhotoUrl { get; set; }
 
     [Required(ErrorMessage = "กรุณากรอกราคา")]
     [RegularExpression(@"^\d{1,9}(\.\d{1,2})?$", ErrorMessage = "ราคาใช้ตัวเลขและทศนิยมไม่เกิน 2 ตำแหน่ง")]
     public string PriceBaht { get; set; } = "";
 
-    [Required(ErrorMessage = "กรุณากรอกค่าส่ง (ใส่ 0 หากส่งฟรี)")]
-    [RegularExpression(@"^\d{1,7}(\.\d{1,2})?$", ErrorMessage = "ค่าส่งใช้ตัวเลขและทศนิยมไม่เกิน 2 ตำแหน่ง")]
-    public string ShippingFeeBaht { get; set; } = "0";
+    public bool UseSavedAddress { get; set; }
 
-    public int ShipByDurationHours { get; set; } = 48;
+    [StringLength(
+        500,
+        ErrorMessage =
+            "บ้านเลขที่และรายละเอียดที่อยู่ยาวเกิน 500 ตัวอักษร")]
+    public string AddressLine { get; set; } = "";
 
-    [MustBeTrue(ErrorMessage = "กรุณายืนยันว่าคุณครอบครองหรือควบคุมรายการ มีสิทธิ์โอน และไม่ใช่รายการต้องห้าม")]
-    public bool ProhibitedGoodsAttested { get; set; }
+    public int? ProvinceId { get; set; }
+    public int? DistrictId { get; set; }
+    public int? SubdistrictId { get; set; }
+    public bool RememberAddress { get; set; }
+
+    [MustBeTrue(ErrorMessage = "กรุณายืนยันว่าจะตรวจข้อมูลฉบับสุดท้ายก่อนชำระ")]
+    public bool AcceptedReviewRule { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(
+        ValidationContext validationContext)
+    {
+        if (FulfillmentType !=
+            FulfillmentType.PhysicalShipment)
+            yield break;
+        if (UseSavedAddress)
+            yield break;
+        if (string.IsNullOrWhiteSpace(
+                AddressLine))
+            yield return new ValidationResult(
+                "กรุณากรอกบ้านเลขที่และรายละเอียดที่อยู่",
+                [nameof(AddressLine)]);
+        if (!ProvinceId.HasValue)
+            yield return new ValidationResult(
+                "กรุณาเลือกจังหวัดปลายทาง",
+                [nameof(ProvinceId)]);
+        if (!DistrictId.HasValue)
+            yield return new ValidationResult(
+                "กรุณาเลือกอำเภอหรือเขตปลายทาง",
+                [nameof(DistrictId)]);
+        if (!SubdistrictId.HasValue)
+            yield return new ValidationResult(
+                "กรุณาเลือกตำบลหรือแขวงปลายทาง",
+                [nameof(SubdistrictId)]);
+    }
+}
+
+public sealed class SellerOfferAcceptanceForm
+{
+    [Required(ErrorMessage = "กรุณาเลือกบัญชีรับเงิน")]
+    public Guid? PayoutAccountId { get; set; }
+
+    [MustBeTrue(ErrorMessage = "กรุณายืนยันว่าคุณครอบครอง มีสิทธิ์โอน และรายการไม่ต้องห้าม")]
+    public bool TransferRightsAttested { get; set; }
 
     [MustBeTrue(ErrorMessage = "กรุณายอมรับข้อตกลงผู้ขาย")]
+    public bool AcceptedTerms { get; set; }
+
+    public bool UseSavedOrigin { get; set; }
+
+    [StringLength(
+        500,
+        ErrorMessage =
+            "บ้านเลขที่และรายละเอียดต้นทางยาวเกิน 500 ตัวอักษร")]
+    public string OriginAddressLine { get; set; } = "";
+
+    public int? OriginProvinceId { get; set; }
+    public int? OriginDistrictId { get; set; }
+    public int? OriginSubdistrictId { get; set; }
+    public bool RememberOrigin { get; set; }
+    public string WeightGrams { get; set; } = "";
+    public string WidthCentimeters { get; set; } = "";
+    public string LengthCentimeters { get; set; } = "";
+    public string HeightCentimeters { get; set; } = "";
+    public string QuoteReference { get; set; } = "";
+}
+
+public sealed class BuyerOfferCheckoutForm
+{
+    [MustBeTrue(ErrorMessage = "กรุณายอมรับข้อตกลงฉบับสุดท้ายก่อนชำระ")]
     public bool AcceptedTerms { get; set; }
 }
 
@@ -70,21 +141,6 @@ public sealed class PayoutAccountForm
 
     [RegularExpression(@"^[0-9]{10,15}$", ErrorMessage = "เลขบัญชีต้องเป็นตัวเลข 10–15 หลัก")]
     public string AccountNumber { get; set; } = "";
-}
-
-public sealed class CheckoutForm
-{
-    [Required(ErrorMessage = "กรุณากรอกชื่อผู้รับ")]
-    public string BuyerDisplayName { get; set; } = "";
-
-    [Required(ErrorMessage = "กรุณากรอกเบอร์โทรหรืออีเมล")]
-    public string BuyerContact { get; set; } = "";
-
-    [StringLength(1000, MinimumLength = 10, ErrorMessage = "กรุณากรอกที่อยู่ให้ครบถ้วน")]
-    public string DeliveryAddress { get; set; } = "";
-
-    [MustBeTrue(ErrorMessage = "กรุณายอมรับข้อตกลงของรายการ")]
-    public bool AcceptedTerms { get; set; }
 }
 
 public sealed class TrackingForm

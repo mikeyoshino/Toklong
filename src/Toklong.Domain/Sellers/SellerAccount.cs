@@ -13,6 +13,15 @@ public sealed class SellerAccount
     public string DisplayName { get; private set; } = "";
     public DateTimeOffset PhoneVerifiedAt { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
+    public string? SavedShippingAddressLine { get; private set; }
+    public int? SavedShippingProvinceId { get; private set; }
+    public string? SavedShippingProvinceName { get; private set; }
+    public int? SavedShippingDistrictId { get; private set; }
+    public string? SavedShippingDistrictName { get; private set; }
+    public int? SavedShippingSubdistrictId { get; private set; }
+    public string? SavedShippingSubdistrictName { get; private set; }
+    public string? SavedShippingPostalCode { get; private set; }
+    public DateTimeOffset? SavedShippingAddressUpdatedAt { get; private set; }
     public IReadOnlyCollection<SellerPayoutAccount> PayoutAccounts => _payoutAccounts;
 
     public static SellerAccount Create(
@@ -34,6 +43,37 @@ public sealed class SellerAccount
 
     public void MarkPhoneVerified(DateTimeOffset verifiedAt) =>
         PhoneVerifiedAt = verifiedAt;
+
+    public void UpdateSavedShippingOrigin(
+        SellerShippingOriginAddress address,
+        DateTimeOffset updatedAt)
+    {
+        ArgumentNullException.ThrowIfNull(address);
+        SavedShippingAddressLine = address.AddressLine;
+        SavedShippingProvinceId = address.ProvinceId;
+        SavedShippingProvinceName = address.ProvinceName;
+        SavedShippingDistrictId = address.DistrictId;
+        SavedShippingDistrictName = address.DistrictName;
+        SavedShippingSubdistrictId = address.SubdistrictId;
+        SavedShippingSubdistrictName = address.SubdistrictName;
+        SavedShippingPostalCode = address.PostalCode;
+        SavedShippingAddressUpdatedAt = updatedAt;
+    }
+
+    public SellerShippingOriginAddress? GetSavedShippingOrigin() =>
+        SavedShippingProvinceId.HasValue &&
+        SavedShippingDistrictId.HasValue &&
+        SavedShippingSubdistrictId.HasValue
+            ? new SellerShippingOriginAddress(
+                SavedShippingAddressLine ?? "",
+                SavedShippingProvinceId.Value,
+                SavedShippingProvinceName ?? "",
+                SavedShippingDistrictId.Value,
+                SavedShippingDistrictName ?? "",
+                SavedShippingSubdistrictId.Value,
+                SavedShippingSubdistrictName ?? "",
+                SavedShippingPostalCode ?? "")
+            : null;
 
     public SellerPayoutAccount SavePayoutAccount(
         Guid? accountId,
@@ -66,6 +106,65 @@ public sealed class SellerAccount
             Id, bankCode, accountName, normalized, _payoutAccounts.Count == 0, now);
         _payoutAccounts.Add(account);
         return account;
+    }
+}
+
+public sealed record SellerShippingOriginAddress
+{
+    public SellerShippingOriginAddress(
+        string addressLine,
+        int provinceId,
+        string provinceName,
+        int districtId,
+        string districtName,
+        int subdistrictId,
+        string subdistrictName,
+        string postalCode)
+    {
+        AddressLine = Required(addressLine, "บ้านเลขที่และรายละเอียดต้นทาง", 500);
+        ProvinceId = Positive(provinceId, "จังหวัดต้นทาง");
+        ProvinceName = Required(provinceName, "จังหวัดต้นทาง", 100);
+        DistrictId = Positive(districtId, "อำเภอหรือเขตต้นทาง");
+        DistrictName = Required(districtName, "อำเภอหรือเขตต้นทาง", 100);
+        SubdistrictId = Positive(subdistrictId, "ตำบลหรือแขวงต้นทาง");
+        SubdistrictName = Required(subdistrictName, "ตำบลหรือแขวงต้นทาง", 100);
+        PostalCode = Required(postalCode, "รหัสไปรษณีย์ต้นทาง", 5);
+        if (PostalCode.Length != 5 ||
+            PostalCode.Any(character => !char.IsDigit(character)))
+            throw new DomainException("รหัสไปรษณีย์ต้นทางไม่ถูกต้อง");
+    }
+
+    public string AddressLine { get; }
+    public int ProvinceId { get; }
+    public string ProvinceName { get; }
+    public int DistrictId { get; }
+    public string DistrictName { get; }
+    public int SubdistrictId { get; }
+    public string SubdistrictName { get; }
+    public string PostalCode { get; }
+
+    public string ToDisplayText() =>
+        $"{AddressLine} ตำบล/แขวง {SubdistrictName} อำเภอ/เขต {DistrictName} จังหวัด {ProvinceName} {PostalCode}";
+
+    private static string Required(
+        string value,
+        string label,
+        int maximumLength)
+    {
+        var clean = value.Trim();
+        if (string.IsNullOrWhiteSpace(clean))
+            throw new DomainException($"กรุณาระบุ{label}");
+        if (clean.Length > maximumLength)
+            throw new DomainException(
+                $"{label}ยาวเกิน {maximumLength} ตัวอักษร");
+        return clean;
+    }
+
+    private static int Positive(int value, string label)
+    {
+        if (value <= 0)
+            throw new DomainException($"กรุณาเลือก{label}");
+        return value;
     }
 }
 
