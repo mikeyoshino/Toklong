@@ -91,50 +91,50 @@ public sealed class TransactionFilterTests
     }
 
     [Fact]
-    public void SellerModeFiltersReviewFulfillmentAndPayoutSeparately()
+    public void BuyerModeFiltersActionProgressAndCompletedSeparately()
     {
-        var review = Item(
-            AppTransactionRole.Seller,
-            "AwaitingSellerAcceptance",
-            null);
-        var fulfillment = Item(
-            AppTransactionRole.Seller,
-            "PaidAwaitingShipment",
-            null);
-        var payout = Item(
-            AppTransactionRole.Seller,
+        var action = Item(
+            AppTransactionRole.Buyer,
             "SellerAcceptedAwaitingPayment",
             null);
-        var buyer = Item(
+        var progress = Item(
             AppTransactionRole.Buyer,
+            "InTransit",
+            null);
+        var completed = Item(
+            AppTransactionRole.Buyer,
+            "PaidOut",
+            null);
+        var seller = Item(
+            AppTransactionRole.Seller,
             "PaidAwaitingShipment",
             null);
         var source = new[]
         {
-            review,
-            fulfillment,
-            payout,
-            buyer
+            action,
+            progress,
+            completed,
+            seller
         };
 
         Assert.Equal(
-            review.Id,
+            action.Id,
             Assert.Single(TransactionFilter.Apply(
                 source,
-                RoleFilter.Selling,
-                BucketFilter.SellerReview)).Id);
+                RoleFilter.Buying,
+                BucketFilter.ActionRequired)).Id);
         Assert.Equal(
-            fulfillment.Id,
+            progress.Id,
             Assert.Single(TransactionFilter.Apply(
                 source,
-                RoleFilter.Selling,
-                BucketFilter.SellerFulfillment)).Id);
+                RoleFilter.Buying,
+                BucketFilter.InProgress)).Id);
         Assert.Equal(
-            payout.Id,
+            completed.Id,
             Assert.Single(TransactionFilter.Apply(
                 source,
-                RoleFilter.Selling,
-                BucketFilter.SellerPayout)).Id);
+                RoleFilter.Buying,
+                BucketFilter.Completed)).Id);
     }
 
     private static AppTransaction Item(

@@ -246,11 +246,11 @@ public sealed class UiLayoutConsistencyTests
             .Single(scroll =>
                 AttributeValue(scroll, "AutomationId") ==
                 "BuyerStatusFilters");
-        var sellerFilters = transactions
-            .Descendants(Maui + "ScrollView")
-            .Single(scroll =>
-                AttributeValue(scroll, "AutomationId") ==
-                "SellerStatusFilters");
+        var sellerSummary = transactions
+            .Descendants(Maui + "Grid")
+            .Single(grid =>
+                AttributeValue(grid, "AutomationId") ==
+                "SellerWorkSummary");
 
         Assert.Equal("รายการของคุณ", AttributeValue(pageTitle, "Text"));
         Assert.DoesNotContain(
@@ -262,7 +262,7 @@ public sealed class UiLayoutConsistencyTests
             AttributeValue(buyerFilters, "IsVisible"));
         Assert.Equal(
             "{Binding IsSelling}",
-            AttributeValue(sellerFilters, "IsVisible"));
+            AttributeValue(sellerSummary, "IsVisible"));
         Assert.Contains(
             transactions.Descendants(Maui + "Label"),
             label =>
@@ -275,6 +275,153 @@ public sealed class UiLayoutConsistencyTests
                     "+ สร้างดีลซื้อ" &&
                 AttributeValue(button, "IsVisible") ==
                     "{Binding IsBuying}");
+    }
+
+    [Fact]
+    public void SellerWorkspace_ShowsSummaryProblemAndPriorityContracts()
+    {
+        var page = Load("Ui", "Pages", "TransactionsPage.xaml");
+        var summary = page.Descendants(Maui + "Grid")
+            .Single(element =>
+                AttributeValue(element, "AutomationId") ==
+                "SellerWorkSummary");
+        var summaryButtons = summary.Descendants(Maui + "Button").ToArray();
+        var problem = page.Descendants(Maui + "Border")
+            .Single(element =>
+                AttributeValue(element, "AutomationId") ==
+                "SellerProblemBanner");
+        var spotlight = page.Descendants(Maui + "Border")
+            .Single(element =>
+                AttributeValue(element, "AutomationId") ==
+                "ActionSpotlightCard");
+        var compactCard = page.Descendants(Maui + "Border")
+            .Single(element =>
+                AttributeValue(element, "AutomationId") ==
+                "CompactSellerTransactionCard");
+
+        Assert.Equal(
+            "{Binding IsSelling}",
+            AttributeValue(summary, "IsVisible"));
+        Assert.Contains(
+            summary.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                "{Binding SellerTotalText}");
+        Assert.Contains(summaryButtons, button =>
+            AttributeValue(button, "Command") ==
+                "{Binding SelectSellerNewOffersCommand}" &&
+            AttributeValue(button, "SemanticProperties.Description") ==
+                "{Binding NewOfferSemanticText}");
+        Assert.Contains(summaryButtons, button =>
+            AttributeValue(button, "Command") ==
+                "{Binding SelectSellerFulfillmentCommand}" &&
+            AttributeValue(button, "SemanticProperties.Description") ==
+                "{Binding FulfillmentSemanticText}");
+        Assert.Contains(summaryButtons, button =>
+            AttributeValue(button, "Command") ==
+                "{Binding SelectSellerInProgressCommand}" &&
+            AttributeValue(button, "SemanticProperties.Description") ==
+                "{Binding InProgressSemanticText}");
+        Assert.All(
+            summaryButtons,
+            button => Assert.Equal(
+                "{StaticResource CompactControlMinimumHeight}",
+                AttributeValue(button, "MinimumHeightRequest")));
+
+        var selectedTile = summary.Descendants(Maui + "Border")
+            .Single(element =>
+                AttributeValue(element, "AutomationId") ==
+                "SellerNewOffersTile");
+        Assert.Contains(
+            selectedTile.Descendants(Maui + "DataTrigger"),
+            trigger =>
+                AttributeValue(trigger, "Binding") ==
+                    "{Binding IsSellerNewOffersSelected}" &&
+                AttributeValue(trigger, "Value") == "True");
+        Assert.Contains(
+            summaryButtons,
+            button =>
+                AttributeValue(
+                    button,
+                    "SemanticProperties.Description") ==
+                    "{Binding NewOfferSemanticText}");
+
+        Assert.Equal(
+            "{Binding HasSellerProblems}",
+            AttributeValue(problem, "IsVisible"));
+        Assert.Contains(
+            problem.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                "{Binding SellerProblemText}");
+        Assert.Contains(problem.Descendants(Maui + "Button"), button =>
+            AttributeValue(button, "Command") ==
+                "{Binding SelectSellerProblemsCommand}" &&
+            AttributeValue(button, "MinimumHeightRequest") ==
+                "{StaticResource CompactControlMinimumHeight}");
+
+        Assert.Contains(
+            spotlight.Descendants(Maui + "GradientStop"),
+            stop => AttributeValue(stop, "Color") ==
+                "{Binding SpotlightTransaction.RoleHeaderStart}");
+        Assert.Contains(
+            spotlight.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                "{Binding SpotlightAmountText}");
+        Assert.Contains(
+            spotlight.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                "{Binding SellerPriorityExplanation}");
+        Assert.Contains(
+            spotlight.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                "{Binding SpotlightTransaction.DeadlineText}");
+        Assert.DoesNotContain(
+            summary.Descendants(Maui + "Label")
+                .Concat(spotlight.Descendants(Maui + "Label")),
+            label =>
+                AttributeValue(label, "Text")?.Contains(
+                    "BuyerProtectionFeeText",
+                    StringComparison.Ordinal) == true ||
+                AttributeValue(label, "Text")?.Contains(
+                    "FormattedAmount",
+                    StringComparison.Ordinal) == true);
+
+        Assert.Equal(
+            "{Binding IsSellerRole}",
+            AttributeValue(compactCard, "IsVisible"));
+        Assert.Contains(
+            compactCard.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                "{Binding ItemPriceText}");
+        Assert.DoesNotContain(
+            compactCard.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text")?.Contains(
+                    "FormattedAmount",
+                    StringComparison.Ordinal) == true ||
+                AttributeValue(label, "Text")?.Contains(
+                    "BuyerProtectionFeeText",
+                    StringComparison.Ordinal) == true);
+
+        var visibleLabels = page.Descendants(Maui + "Label")
+            .Select(label => AttributeValue(label, "Text"))
+            .ToArray();
+        Assert.Contains("{Binding ErrorText}", visibleLabels);
+        Assert.Contains("{Binding SellerProblemText}", visibleLabels);
+        Assert.Contains("รอตอบ", visibleLabels);
+        Assert.Contains("ต้องส่ง", visibleLabels);
+        Assert.Contains("กำลังไปต่อ", visibleLabels);
+        Assert.Contains(
+            "{Binding SpotlightTransaction.RoleLabel}",
+            visibleLabels);
+        Assert.Contains(
+            "{Binding SpotlightTransaction.StatusLabel}",
+            visibleLabels);
     }
 
     [Fact]

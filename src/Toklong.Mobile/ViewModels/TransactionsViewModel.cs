@@ -9,6 +9,8 @@ public sealed class TransactionsViewModel : ObservableViewModel
 {
     private readonly ITransactionService transactionService;
     private readonly IDeepLinkCoordinator deepLinks;
+    private readonly SellerWorkspaceState sellerState = new();
+    private readonly IMobileAnalytics analytics;
     private IReadOnlyList<AppTransaction> allTransactions = [];
     private RoleFilter roleFilter;
     private BucketFilter bucketFilter;
@@ -20,10 +22,12 @@ public sealed class TransactionsViewModel : ObservableViewModel
 
     public TransactionsViewModel(
         ITransactionService transactionService,
-        IDeepLinkCoordinator deepLinks)
+        IDeepLinkCoordinator deepLinks,
+        IMobileAnalytics analytics)
     {
         this.transactionService = transactionService;
         this.deepLinks = deepLinks;
+        this.analytics = analytics;
         roleFilter =
             Preferences.Default.Get(
                 "transactions.last-role",
@@ -37,12 +41,22 @@ public sealed class TransactionsViewModel : ObservableViewModel
         SelectActionCommand = new Command(() => SelectBucket(BucketFilter.ActionRequired));
         SelectProgressCommand = new Command(() => SelectBucket(BucketFilter.InProgress));
         SelectCompletedCommand = new Command(() => SelectBucket(BucketFilter.Completed));
-        SelectSellerReviewCommand =
-            new Command(() => SelectBucket(BucketFilter.SellerReview));
-        SelectSellerFulfillmentCommand =
-            new Command(() => SelectBucket(BucketFilter.SellerFulfillment));
-        SelectSellerPayoutCommand =
-            new Command(() => SelectBucket(BucketFilter.SellerPayout));
+        SelectSellerNewOffersCommand = new Command(
+            () => SelectSellerWork(SellerWorkCategory.NewOffers));
+        SelectSellerFulfillmentCommand = new Command(
+            () => SelectSellerWork(SellerWorkCategory.FulfillmentRequired));
+        SelectSellerInProgressCommand = new Command(
+            () => SelectSellerWork(SellerWorkCategory.InProgress));
+        SelectSellerProblemsCommand = new Command(
+            () =>
+            {
+                SelectSellerWork(SellerWorkCategory.Problems);
+                analytics.Track(
+                    SellerWorkspaceAnalytics.ProblemBannerOpened(
+                        sellerState.Snapshot.ProblemCount));
+            });
+        SelectAllSellerWorkCommand = new Command(
+            () => SelectSellerWork(SellerWorkCategory.All));
         OpenTransactionCommand = new Command<AppTransaction>(
             async item => await OpenTransactionAsync(item));
         CreateOfferCommand = new Command(
@@ -58,9 +72,11 @@ public sealed class TransactionsViewModel : ObservableViewModel
     public ICommand SelectActionCommand { get; }
     public ICommand SelectProgressCommand { get; }
     public ICommand SelectCompletedCommand { get; }
-    public ICommand SelectSellerReviewCommand { get; }
+    public ICommand SelectSellerNewOffersCommand { get; }
     public ICommand SelectSellerFulfillmentCommand { get; }
-    public ICommand SelectSellerPayoutCommand { get; }
+    public ICommand SelectSellerInProgressCommand { get; }
+    public ICommand SelectSellerProblemsCommand { get; }
+    public ICommand SelectAllSellerWorkCommand { get; }
     public ICommand OpenTransactionCommand { get; }
     public ICommand CreateOfferCommand { get; }
     public ICommand RefreshCommand { get; }
@@ -104,6 +120,7 @@ public sealed class TransactionsViewModel : ObservableViewModel
             {
                 OnPropertyChanged(nameof(HasSpotlight));
                 OnPropertyChanged(nameof(HasNoSpotlight));
+                OnPropertyChanged(nameof(SpotlightAmountText));
             }
         }
     }
@@ -117,12 +134,58 @@ public sealed class TransactionsViewModel : ObservableViewModel
     public bool IsActionRequired => bucketFilter == BucketFilter.ActionRequired;
     public bool IsInProgress => bucketFilter == BucketFilter.InProgress;
     public bool IsCompleted => bucketFilter == BucketFilter.Completed;
-    public bool IsSellerReview =>
-        bucketFilter == BucketFilter.SellerReview;
-    public bool IsSellerFulfillment =>
-        bucketFilter == BucketFilter.SellerFulfillment;
-    public bool IsSellerPayout =>
-        bucketFilter == BucketFilter.SellerPayout;
+    public bool HasSellerSummary =>
+        IsSelling && sellerState.HasVisibleSummary;
+    public string SellerTotalText =>
+        $"รายการขายทั้งหมด {sellerState.Snapshot.TotalCount} รายการ";
+    public string NewOfferCountText =>
+        sellerState.Snapshot.NewOfferCount.ToString();
+    public string FulfillmentCountText =>
+        sellerState.Snapshot.FulfillmentRequiredCount.ToString();
+    public string InProgressCountText =>
+        sellerState.Snapshot.InProgressCount.ToString();
+    public bool IsSellerNewOffersSelected =>
+        sellerState.SelectedCategory == SellerWorkCategory.NewOffers;
+    public bool IsSellerFulfillmentSelected =>
+        sellerState.SelectedCategory ==
+        SellerWorkCategory.FulfillmentRequired;
+    public bool IsSellerInProgressSelected =>
+        sellerState.SelectedCategory == SellerWorkCategory.InProgress;
+    public string NewOfferSemanticText =>
+        SellerSemanticText(
+            "ข้อเสนอใหม่",
+            NewOfferCountText,
+            IsSellerNewOffersSelected);
+    public string FulfillmentSemanticText =>
+        SellerSemanticText(
+            "ต้องส่ง",
+            FulfillmentCountText,
+            IsSellerFulfillmentSelected);
+    public string InProgressSemanticText =>
+        SellerSemanticText(
+            "กำลังไปต่อ",
+            InProgressCountText,
+            IsSellerInProgressSelected);
+    public bool HasSellerProblems =>
+        IsSelling && sellerState.Snapshot.ProblemCount > 0;
+    public string SellerProblemText =>
+        $"มี {sellerState.Snapshot.ProblemCount} รายการแจ้งปัญหา · " +
+        "ยอดรับหยุดไว้ระหว่างตรวจสอบ";
+    public string SpotlightAmountText =>
+        SpotlightTransaction is null
+            ? ""
+            : IsSelling
+                ? SpotlightTransaction.ItemPriceText
+                : SpotlightTransaction.FormattedAmount;
+    public string SellerPriorityExplanation =>
+        sellerState.SelectedCategory switch
+        {
+            SellerWorkCategory.NewOffers => "ใกล้หมดเวลาตอบก่อน",
+            SellerWorkCategory.FulfillmentRequired => "เร่งส่งก่อน",
+            SellerWorkCategory.InProgress => "อัปเดตล่าสุดก่อน",
+            SellerWorkCategory.Problems => "ปัญหาล่าสุดก่อน",
+            _ => "เรียงตามสิ่งที่ต้องทำก่อน"
+        };
 
     public string ModeTitle =>
         IsBuying ? "รายการซื้อ" : "รายการขาย";
@@ -156,18 +219,25 @@ public sealed class TransactionsViewModel : ObservableViewModel
         ErrorText = "";
         try
         {
-            allTransactions = await transactionService.GetTransactionsAsync();
+            var loaded = await transactionService.GetTransactionsAsync();
+            allTransactions = loaded;
+            sellerState.ReplaceSuccessful(loaded);
             ApplyFilter();
+            RaiseSellerSummaryProperties();
             OnPropertyChanged(nameof(ActionRequiredCount));
             OnPropertyChanged(nameof(ActionSummary));
         }
         catch
         {
-            allTransactions = [];
-            ApplyFilter();
+            sellerState.MarkLoadFailed();
+            if (!sellerState.HasSuccessfulLoad)
+            {
+                allTransactions = [];
+                ApplyFilter();
+            }
             OnPropertyChanged(nameof(ActionRequiredCount));
             OnPropertyChanged(nameof(ActionSummary));
-            ErrorText = "โหลดรายการไม่สำเร็จ กรุณาลองอีกครั้ง";
+            ErrorText = sellerState.LoadErrorText;
         }
         finally
         {
@@ -198,6 +268,7 @@ public sealed class TransactionsViewModel : ObservableViewModel
             return;
         roleFilter = value;
         bucketFilter = BucketFilter.All;
+        sellerState.Select(SellerWorkCategory.All);
         Preferences.Default.Set(
             "transactions.last-role",
             value.ToString());
@@ -225,13 +296,24 @@ public sealed class TransactionsViewModel : ObservableViewModel
         OnPropertyChanged(nameof(IsActionRequired));
         OnPropertyChanged(nameof(IsInProgress));
         OnPropertyChanged(nameof(IsCompleted));
-        OnPropertyChanged(nameof(IsSellerReview));
-        OnPropertyChanged(nameof(IsSellerFulfillment));
-        OnPropertyChanged(nameof(IsSellerPayout));
+        RaiseSellerSummaryProperties();
     }
 
     private void ApplyFilter()
     {
+        if (IsSelling)
+        {
+            var snapshot = sellerState.Snapshot;
+            SpotlightTransaction = snapshot.Spotlight;
+            TransactionCollectionSynchronizer.Synchronize(
+                Transactions,
+                snapshot.RemainingTransactions);
+            EmptyText = SpotlightTransaction is null
+                ? "ยังไม่มีรายการในสถานะนี้"
+                : "ไม่มีรายการอื่นในสถานะนี้";
+            return;
+        }
+
         var filtered = TransactionFilter.Apply(
             allTransactions,
             roleFilter,
@@ -250,11 +332,58 @@ public sealed class TransactionsViewModel : ObservableViewModel
             : "ไม่มีรายการอื่นในสถานะนี้";
     }
 
+    private void SelectSellerWork(SellerWorkCategory category)
+    {
+        sellerState.Select(category);
+        ApplyFilter();
+        var snapshot = sellerState.Snapshot;
+        analytics.Track(
+            SellerWorkspaceAnalytics.FilterSelected(
+                snapshot.SelectedCategory,
+                snapshot.VisibleTransactions.Count));
+        RaiseSellerSummaryProperties();
+    }
+
+    private void RaiseSellerSummaryProperties()
+    {
+        OnPropertyChanged(nameof(HasSellerSummary));
+        OnPropertyChanged(nameof(SellerTotalText));
+        OnPropertyChanged(nameof(NewOfferCountText));
+        OnPropertyChanged(nameof(FulfillmentCountText));
+        OnPropertyChanged(nameof(InProgressCountText));
+        OnPropertyChanged(nameof(NewOfferSemanticText));
+        OnPropertyChanged(nameof(FulfillmentSemanticText));
+        OnPropertyChanged(nameof(InProgressSemanticText));
+        OnPropertyChanged(nameof(HasSellerProblems));
+        OnPropertyChanged(nameof(SellerProblemText));
+        OnPropertyChanged(nameof(IsSellerNewOffersSelected));
+        OnPropertyChanged(nameof(IsSellerFulfillmentSelected));
+        OnPropertyChanged(nameof(IsSellerInProgressSelected));
+        OnPropertyChanged(nameof(SpotlightAmountText));
+        OnPropertyChanged(nameof(SellerPriorityExplanation));
+    }
+
+    private static string SellerSemanticText(
+        string label,
+        string count,
+        bool selected) =>
+        $"{label} {count} รายการ" +
+        (selected ? " เลือกอยู่" : "");
+
     private async Task OpenTransactionAsync(
         AppTransaction? item)
     {
         if (item is null)
             return;
+
+        if (IsSelling &&
+            item.Id == SpotlightTransaction?.Id)
+        {
+            analytics.Track(
+                SellerWorkspaceAnalytics.SpotlightOpened(
+                    item.Presentation.PrimaryAction,
+                    item.State));
+        }
 
         if (item.Presentation.PrimaryAction ==
                 TransactionAction.ReviewSellerOffer &&
