@@ -129,6 +129,23 @@ public sealed class EmailVerificationDeliveryTests
     }
 
     [Fact]
+    public void Thai_template_caps_classic_outlook_at_600_pixels()
+    {
+        var message = Template().Render("123456");
+
+        Assert.Matches(
+            """
+            (?s)<!--\[if mso\]>\s*<table role="presentation" align="center" width="600"[^>]*>\s*<tr>\s*<td>\s*<!\[endif\]-->
+            """,
+            message.HtmlBody);
+        Assert.Matches(
+            """
+            (?s)<!--\[if mso\]>\s*</td>\s*</tr>\s*</table>\s*<!\[endif\]-->
+            """,
+            message.HtmlBody);
+    }
+
+    [Fact]
     public void Thai_template_escapes_dynamic_logo_and_code_values()
     {
         var template = new ToklongEmailVerificationTemplate(
