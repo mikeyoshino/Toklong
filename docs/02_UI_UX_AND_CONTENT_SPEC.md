@@ -184,13 +184,14 @@ Show:
   apply the purple transaction-detail theme to this screen.
 - Current heading `ตรวจข้อเสนอจากผู้ซื้อ`.
 - The same offer as read-only, its exact response deadline, item price,
-  destination province/postal code, fixed fulfillment rule, fee, and expected
-  net.
+  destination province/postal code, fixed fulfillment rule, applicable
+  shipping charge, and expected seller net. Do not show the
+  buyer-protection amount or buyer total to the seller.
 - For a physical offer, one `เตรียมค่าจัดส่ง` section before acceptance:
   saved-origin summary or complete origin editor, `จำต้นทางนี้ไว้`, parcel
   weight and width/length/height, `ดูค่าจัดส่ง`, selectable quote rows, and the
-  item-price/shipping/buyer-total breakdown. Changing origin or measurements
-  clears the selected quote.
+  item-price/shipping breakdown. Changing origin or measurements clears the
+  selected quote.
 - Primary action `ยืนยันข้อเสนอ`.
 - Secondary action `ปฏิเสธข้อเสนอ`, placed below the full-width primary action
   as in the app.
@@ -202,13 +203,17 @@ Show:
 Show:
 
 - Shell title `รายการซื้อ` and the current blue buyer transaction header.
-- Current heading `เช็กให้ครบก่อนจ่าย`.
 - The seller-confirmed product snapshot and a clear statement that paid details
   cannot be edited.
 - Allowed seller identity signals, the amount breakdown, and the exact payment
   deadline.
+- Show the complete locked delivery address once in the agreement details.
+- Show the exact item price, buyer-protection fee, shipping charge, and total
+  in one buyer-only breakdown.
+- Place the required confirmation and exact-total payment button directly
+  below that breakdown, without a separate pre-payment card.
 - Plain-language payout condition.
-- Primary action `จ่ายเงิน →`.
+- Primary action `ชำระ <ยอดทั้งหมด>`.
 
 ### Scene 4 — Seller fulfills and tracks payout
 
@@ -486,11 +491,11 @@ Must show before payment:
 
 ### Checkout
 
-- For a physical agreement, show the complete locked address for review with
-  clear copy that it cannot be changed in checkout.
-- Show separate rows for `ราคาสินค้า`, `ค่าจัดส่ง`, and `ยอดชำระทั้งหมด`, plus
-  the selected carrier service. The payment intent amount equals the displayed
-  total.
+- For a physical agreement, show the complete locked address exactly once for
+  review. The payment action must not repeat it.
+- Show separate rows for `ราคาสินค้า`, `ค่าคุ้มครองผู้ซื้อ`, `ค่าจัดส่ง`, and
+  `ยอดชำระทั้งหมด`, plus the selected carrier service. The payment intent
+  amount equals the displayed total.
 - Do not show an address editor, saved-address selector, or
   `จำที่อยู่นี้ไว้` control in checkout.
 - The seller may see the complete address only after provider-confirmed payment

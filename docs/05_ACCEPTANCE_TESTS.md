@@ -449,8 +449,18 @@ outside the selected parent hierarchy
 postal code
 **When** the buyer opens checkout
 **Then** the complete address locked at creation is shown for review
+**And** the accepted-offer buyer screen shows the locked full address exactly
+once
 **And** no address field or saved-address choice is accepted by checkout
-**And** changing the address requires a new offer.
+**And** changing the address requires a new offer
+**And** the buyer sees item price, buyer-protection fee, shipping charge, and
+exact total before payment
+**And** confirmation and the exact-total payment action follow that breakdown
+without a separate pre-payment card
+**And** seller offer and seller transaction views do not show the
+buyer-protection amount or buyer total
+**And** seller views still show applicable shipping information and exact
+expected net payout.
 
 **Given** a material field, party identity, fee, deadline, or normalized terms
 changes after seller acceptance
