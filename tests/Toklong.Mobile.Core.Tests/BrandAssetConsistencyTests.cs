@@ -151,15 +151,15 @@ public sealed class BrandAssetConsistencyTests
                      StringComparison.Ordinal))
         {
             Assert.Equal(
-                "#6548C7",
+                SellerColorPalette.Role,
                 Attr(primary, "stroke"),
                 ignoreCase: true);
             Assert.Equal(
-                "#8067DE",
+                SellerColorPalette.HeaderStart,
                 Attr(secondary, "stroke"),
                 ignoreCase: true);
             Assert.Equal(
-                "#65D6BF",
+                SellerColorPalette.Accent,
                 Attr(node, "fill"),
                 ignoreCase: true);
             Assert.DoesNotContain(

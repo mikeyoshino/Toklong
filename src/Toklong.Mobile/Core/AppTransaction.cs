@@ -153,30 +153,50 @@ public sealed record AppTransaction(
 
     public string RoleLabel => Role == AppTransactionRole.Buyer ? "ซื้อ" : "ขาย";
 
-    public string RoleColor => Role == AppTransactionRole.Buyer ? "#145FC7" : "#6548C7";
+    public string RoleColor =>
+        Role == AppTransactionRole.Buyer
+            ? "#145FC7"
+            : SellerColorPalette.Role;
 
-    public string RoleBackground => Role == AppTransactionRole.Buyer ? "#EAF4FF" : "#F1ECFF";
+    public string RoleBackground =>
+        Role == AppTransactionRole.Buyer
+            ? "#EAF4FF"
+            : SellerColorPalette.Surface;
 
     public string RoleHeaderStart =>
-        Role == AppTransactionRole.Buyer ? "#3C8AF1" : "#8067DE";
+        Role == AppTransactionRole.Buyer
+            ? "#3C8AF1"
+            : SellerColorPalette.HeaderStart;
 
     public string RoleHeaderMiddle =>
-        Role == AppTransactionRole.Buyer ? "#236DCE" : "#6348C9";
+        Role == AppTransactionRole.Buyer
+            ? "#236DCE"
+            : SellerColorPalette.HeaderMiddle;
 
     public string RoleHeaderEnd =>
-        Role == AppTransactionRole.Buyer ? "#185CB9" : "#4930A7";
+        Role == AppTransactionRole.Buyer
+            ? "#185CB9"
+            : SellerColorPalette.HeaderEnd;
 
     public string RolePageTint =>
-        Role == AppTransactionRole.Buyer ? "#DCEFFF" : "#EEE9FF";
+        Role == AppTransactionRole.Buyer
+            ? "#DCEFFF"
+            : SellerColorPalette.Surface;
 
     public string RolePageMiddle =>
-        Role == AppTransactionRole.Buyer ? "#F6FAFF" : "#FAF8FF";
+        Role == AppTransactionRole.Buyer
+            ? "#F6FAFF"
+            : SellerColorPalette.BadgeSurface;
 
     public string RoleHeaderSecondary =>
-        Role == AppTransactionRole.Buyer ? "#D8E7FF" : "#E3DDFF";
+        Role == AppTransactionRole.Buyer
+            ? "#D8E7FF"
+            : SellerColorPalette.Secondary;
 
     public string RoleDot =>
-        Role == AppTransactionRole.Buyer ? "#9CEBD9" : "#D7CBFF";
+        Role == AppTransactionRole.Buyer
+            ? "#9CEBD9"
+            : SellerColorPalette.Accent;
 
     public string StatusLabel => Presentation.StatusLabel;
 
@@ -564,8 +584,9 @@ public sealed record AppTransaction(
 
     private const string BuyerProgress = "#145FC7";
     private const string BuyerProgressBackground = "#EAF4FF";
-    private const string SellerProgress = "#6548C7";
-    private const string SellerProgressBackground = "#F1ECFF";
+    private const string SellerProgress = SellerColorPalette.Role;
+    private const string SellerProgressBackground =
+        SellerColorPalette.Surface;
     private const string ProgressIncomplete = "#E4EAF1";
     private const string ProgressMuted = "#98A2B3";
 
