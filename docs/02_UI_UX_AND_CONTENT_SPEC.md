@@ -125,9 +125,9 @@ role colors, and current consumer copy from those XAML screens.
 
 Show:
 
-- Shell title `สร้างดีล`.
-- Current create-offer heading `สร้างข้อตกลงซื้อขาย` and helper
-  `สร้างดีลผู้ซื้อกับผู้ขาย`.
+- Shell title and heading `สร้างข้อเสนอ`.
+- Show the current step name and `ขั้นที่ N จาก 3` with a three-segment
+  progress indicator.
 - Start directly with that heading without the redundant
   `ดีลซื้อขายส่วนตัว` badge. Keep the main form on the page background rather
   than inside one outer bordered card so mobile inputs retain the available
@@ -136,23 +136,22 @@ Show:
   the buyer reviews again before payment or that fulfillment is due in three
   days; those rules remain visible in the review and transaction states where
   they are actionable.
-- Use a Quick Deal form whose default visible inputs are seller phone, product
-  name, item price, an optional compact product-photo action, and—when
-  physical—the delivery address. Label the photo `รูปสินค้า (ไม่บังคับ)` and
-  recommend it for used or condition-sensitive goods. Physical is the default
-  item type and appears as one compact summary row with a link to switch to
-  digital, not two large type cards.
+- Step `ข้อมูลดีล` contains seller phone, product name, item price, optional
+  product photo, optional details, and the optional AI helper. Label the photo
+  `รูปสินค้า (ไม่บังคับ)`.
+- Step `การรับสินค้า` contains the physical/digital selection and the
+  applicable delivery address. Physical remains the default.
 - Under the physical item-price field, say that shipping will be calculated
   from the seller's origin and parcel size before the buyer pays. Do not ask the
   buyer to guess or include shipping in the item price.
 - Keep description and included items behind one optional-details disclosure.
   AI remains independent from this disclosure and is never required to finish
   the ordinary form.
-- Primary action `ตรวจข้อมูลก่อนส่ง` opens a review bottom sheet. This is a
-  review-before-submit step, not contract drafting or signing. The sheet shows
-  the entered summary, asks for condition with three compact choices, reveals a
-  defect description only when `มีตำหนิ` is selected, and contains the final
-  action `ส่งข้อเสนอให้ผู้ขาย`.
+- Step `ตรวจและส่ง` is a full page, not a sheet or contract-signing step. It
+  shows the entered summary and server-priced cost preview, asks for condition
+  with three compact choices, reveals a defect description only when
+  `มีตำหนิ` is selected, and contains the only create action
+  `ส่งข้อเสนอให้ผู้ขาย`.
 - When no optional description is supplied, the transaction record uses the
   product name as its explicit description. `ใหม่` and `มือสอง สภาพดี` record
   `ไม่มีตำหนิที่ผู้ซื้อระบุ`; `มีตำหนิ` requires explicit defect text. This
@@ -357,7 +356,7 @@ or marketplace bid. Keep it short:
 The server-side proof for a new registration expires after 15 minutes and is
 bound to the app installation. The app resumes a still-valid profile-completion
 step after backgrounding or restart. Startup priority is: valid authenticated
-session to the transaction list; otherwise valid pending registration to
+session to the authenticated role home; otherwise valid pending registration to
 profile completion; otherwise Welcome. The unsigned DEBUG iOS simulator uses
 in-memory authentication storage, so cold-process resume must be verified on a
 signed physical build. Consumer screens and logs must not expose internal
@@ -376,28 +375,46 @@ If the user requests another code during the resend cooldown, show the actual
 remaining wait in seconds. Do not describe a normal cooldown as a service
 outage.
 
-1. Compact item-type summary, defaulting to `สินค้าที่จับต้องได้`, with one
-   text action to switch to `สินค้าดิจิทัล`.
-2. Required `เบอร์โทรศัพท์ผู้ขาย`, using the shared Thai phone formatter and
-   server-side validation. Explain that only the account verified with this
-   number can open and respond to the offer.
-3. Required `ชื่อสินค้า` and `ราคาสินค้า`, excluding the shipping charge that
-   the seller will quote before acceptance. Offer one compact
-   `รูปสินค้า (ไม่บังคับ)` action and recommend it for used or
-   condition-sensitive goods.
-4. Optional `รายละเอียดหรือสิ่งที่รวม` disclosure. Do not offer
-   `ตามรายละเอียดที่ตกลง`.
-5. Required complete delivery address for physical fulfillment. When a saved
-   address exists, show its compact summary and one `เปลี่ยน` action.
-6. Primary action `ตรวจข้อมูลก่อนส่ง`. Its bottom sheet contains the exact
-   summary, explicit condition, conditional defect text, and final
+### Authenticated role home
+
+After registered-phone verification, show the centered TOKLONG brand,
+`เริ่มดีลอย่างมั่นใจ`, and
+`สร้างข้อเสนอซื้อ หรือจัดการรายการขาย`.
+`ซื้อ` opens the existing transaction root in buying mode. `ขาย` opens it in
+selling mode. These are navigation choices, not permanent account roles. Do
+not show login/register actions or a seller-created-link action on this page.
+
+Each role card is one focusable action with a visible role label and a complete
+semantic description. Nested decorative labels are not separate accessibility
+targets. Role is never communicated by color alone.
+
+### Three-step buyer offer creation
+
+1. `ข้อมูลดีล`: required intended-seller Thai phone, product name, agreed item
+   price, and optional AI/photo/details.
+2. `การรับสินค้า`: physical/digital choice and the applicable delivery
+   address. Physical is the default. A saved address is compact with one
+   `เปลี่ยน` action; Digital hides address and shipping content.
+3. `ตรวจและส่ง`: masked seller phone, offer summary, condition, conditional
+   defect text, server cost preview, and the only create action
    `ส่งข้อเสนอให้ผู้ขาย`.
-7. Read-only notice that fulfillment is due within 3 days after
-   provider-confirmed payment. Do not render a duration input.
-8. Read-only buyer first/last name, phone, and account email from the
-   authenticated account; no email field during offer creation.
-9. Confirmation that the buyer-specified terms are complete and will be
-   reviewed again before payment.
+
+The three steps live in one `CreateOfferViewModel`. Current-step validation is
+inline and moves focus to the first invalid field. Going backward preserves
+values. Editing price or fulfillment invalidates an older preview. A preview,
+AI draft, or step transition creates no transaction, snapshot, notification,
+payment, or audit event.
+
+The wizard keeps values only while the page is open. A dirty exit says
+`ยังสร้างข้อเสนอไม่เสร็จ`,
+`ถ้าออกตอนนี้ ข้อมูลที่กรอกไว้จะหาย`,
+`กลับไปกรอกต่อ`, and `ออกจากหน้านี้`.
+No draft is persisted locally or on the server.
+
+The physical page explains that the seller sees only province and postal code
+before provider-confirmed payment, selects an authoritative supported shipping
+service later, and that the buyer must not include shipping in the item price.
+Do not render a buyer-editable fulfillment duration.
 
 Success copy:
 
@@ -425,6 +442,8 @@ After seller acceptance, buyer copy says
 
 The root `รายการ` screen uses one top-level `ซื้อ | ขาย` switch and does not
 mix both roles in an `ทั้งหมด` view. It remembers the last selected mode.
+Choosing `ซื้อ` or `ขาย` on the authenticated home explicitly overrides that
+remembered mode for the next navigation.
 Notification/deep-link navigation still opens the exact transaction directly.
 The content starts directly with `รายการของคุณ`; do not place a redundant
 TOKLONG brand badge above the title.

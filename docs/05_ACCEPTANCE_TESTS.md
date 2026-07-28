@@ -176,25 +176,19 @@ draft.
 **Then** no transaction, product photo, snapshot, payment, audit transition, or
 notification is created.
 
-### A0.0.4.2 — Quick Deal keeps optional fields out of the first screen
+### A0.0.4.2 — Buyer offer creation uses three full-page steps
 
 **Given** an authenticated buyer opens offer creation
-**Then** seller phone, product name, item price, and the applicable delivery
-address appear before optional actions
-**And** the header shows `สร้างข้อเสนอ`,
-`ส่งให้ผู้ขายตรวจและตอบรับ`, and a two-step progress indicator
-**And** the price section has no outer card border or white container while its
-amount input retains one visible blue outline
-**And** form labels use a lighter weight than titles and primary actions, while
-descriptions and ordinary field values use regular weight
-**And** no `ดีลซื้อขายส่วนตัว` badge or outer bordered form card reduces the
-available input width
-**And** no separate informational card repeats the later review and
-three-day-fulfillment rules below the form
-**And** physical fulfillment is the compact default with one action to change
-to digital
-**And** AI and additional item details are optional and collapsed
-**And** condition and defect inputs do not occupy the initial form.
+**Then** the header shows `สร้างข้อเสนอ`, the current step, and a three-segment
+progress indicator
+**And** `ข้อมูลดีล` contains seller phone, product name, item price, and
+optional AI/photo/details
+**And** `การรับสินค้า` contains physical/digital choice and the applicable
+address
+**And** physical fulfillment is selected by default
+**And** Digital hides address and shipping content
+**And** `ตรวจและส่ง` is a full page rather than a bottom sheet
+**And** every step has one primary forward action.
 
 **When** the buyer leaves the product photo empty and submits otherwise valid
 details
@@ -206,10 +200,12 @@ evidence represent the photo as absent without failing hash validation.
 **When** the buyer supplies a product photo
 **Then** it remains part of the immutable agreement core and paid snapshot.
 
-**When** the buyer taps `ตรวจข้อมูลก่อนส่ง`
-**Then** the ordinary required fields and physical address are validated before
-the review sheet opens
-**And** the sheet shows the exact offer summary and server-priced cost breakdown
+**When** the buyer advances from a step
+**Then** only that step is validated
+**And** each error appears beside its field
+**And** focus moves to the first invalid field
+**When** the buyer reaches `ตรวจและส่ง`
+**Then** the page shows the exact offer summary and server-priced cost breakdown
 **And** no separate shipment-deadline card is shown
 **And** the buyer must select `ใหม่`, `มือสอง สภาพดี`, or `มีตำหนิ`
 **And** the defect input is shown and required only for `มีตำหนิ`
@@ -225,12 +221,12 @@ used-good offer
 
 **Given** an authenticated buyer enters a valid item price between 1,000 and
 30,000 THB with no more than two decimal places
-**When** the buyer selects `ตรวจข้อมูลก่อนส่ง`
+**When** the buyer advances from `การรับสินค้า`
 **And** the fresh pricing request for the exact current price succeeds
 **Then** the server applies the active versioned Buyer Protection policy using
 integer satang
-**And** the review sheet opens only after that exact matching response
-**And** the review sheet is the only price-breakdown surface
+**And** `ตรวจและส่ง` opens only after that exact matching response
+**And** `ตรวจและส่ง` is the only price-breakdown surface
 **And** a physical item labels the amount `ยอดก่อนค่าจัดส่ง` and the shipping
 row `รอผู้ขายเลือก`
 **And** a digital item labels the amount `ยอดเมื่อผู้ขายตอบรับ` and the
@@ -241,16 +237,48 @@ while keeping condition and final actions reachable
 **And** no sticky total bar, separate pricing sheet, or shipment-deadline card
 is present.
 
-**When** the buyer edits the price or fulfillment type, closes the review, or
+**When** the buyer edits the price or fulfillment type, leaves the review, or
 leaves the page before an older request returns
-**Then** the older response cannot open or replace the review
+**Then** the older response cannot open or replace `ตรวจและส่ง`
 **And** no preview is shown until a valid matching server response arrives
 after another review action.
 
 **When** pricing fails
-**Then** the review remains closed
+**Then** the wizard remains before `ตรวจและส่ง`
 **And** the form shows a retryable message
-**And** selecting `ตรวจข้อมูลก่อนส่ง` again starts a fresh request.
+**And** advancing again starts a fresh request.
+
+### A0.0.4.4 — Authenticated home routes by chosen transaction role
+
+**Given** an authenticated account has both buyer and seller transactions
+**When** the user taps `ซื้อ` on the authenticated home
+**Then** the existing transaction root opens with buying selected
+**When** the user returns home and taps `ขาย`
+**Then** the same root opens with selling selected
+**And** ordinary transaction-root navigation still uses the remembered mode
+**And** no seller-created link action is shown.
+
+### A0.0.4.5 — Buyer offer wizard creates only on final submit
+
+**Given** an authenticated buyer opens `สร้างข้อเสนอ`
+**When** the buyer completes `ข้อมูลดีล` and `การรับสินค้า`
+**Then** no transaction, snapshot, notification, payment, or audit transition
+exists
+**When** preview fails
+**Then** entered values remain and retry is available
+**When** the buyer reaches `ตรวจและส่ง` and taps
+`ส่งข้อเสนอให้ผู้ขาย`
+**Then** exactly one buyer-created offer is created.
+
+### A0.0.4.6 — Dirty wizard exit uses plain warning copy
+
+**Given** the buyer changed an offer value
+**When** the buyer attempts to leave from the first step
+**Then** the app shows `ยังสร้างข้อเสนอไม่เสร็จ`
+and `ถ้าออกตอนนี้ ข้อมูลที่กรอกไว้จะหาย`
+**And** `กลับไปกรอกต่อ` preserves values
+**And** `ออกจากหน้านี้` discards only the in-memory wizard and temporary
+product photo.
 
 **When** any preview is requested or displayed
 **Then** no transaction, immutable snapshot, agreement acceptance, notification,
@@ -347,7 +375,7 @@ registration-proof hash.
 
 **Given** the app starts after interruption
 **When** startup state is resolved
-**Then** a valid authenticated session always routes to `//transactions`
+**Then** a valid authenticated session always routes to `//home`
 **And** without a session, a valid pending registration routes to profile
 completion
 **And** without either, the app routes to Welcome
