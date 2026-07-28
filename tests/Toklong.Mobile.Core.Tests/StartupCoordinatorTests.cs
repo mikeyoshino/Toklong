@@ -5,7 +5,7 @@ namespace Toklong.Mobile.Core.Tests;
 public sealed class StartupCoordinatorTests
 {
     [Fact]
-    public async Task StartAsync_WithSession_PlaysMotionAndRoutesToTransactions()
+    public async Task StartAsync_WithSession_PlaysMotionAndRoutesToAuthenticatedHome()
     {
         var authentication = new AuthenticationStub(() => Task.FromResult(true));
         var coordinator = new StartupCoordinator(
@@ -20,7 +20,7 @@ public sealed class StartupCoordinatorTests
             return Task.CompletedTask;
         });
 
-        Assert.Equal("//transactions", result.Route);
+        Assert.Equal(AuthenticatedHomeRoutes.Home, result.Route);
         Assert.Null(result.SessionError);
         Assert.Equal(1, plays);
     }
@@ -75,7 +75,7 @@ public sealed class StartupCoordinatorTests
         Assert.False(startup.IsCompleted);
         animationGate.SetResult();
         Assert.Equal(
-            "//transactions",
+            AuthenticatedHomeRoutes.Home,
             (await startup).Route);
     }
 
@@ -135,7 +135,7 @@ public sealed class StartupCoordinatorTests
         var result = await coordinator.StartAsync(
             _ => Task.CompletedTask);
 
-        Assert.Equal("//transactions", result.Route);
+        Assert.Equal(AuthenticatedHomeRoutes.Home, result.Route);
     }
 
     private sealed class MotionPreferenceStub(bool reduced)

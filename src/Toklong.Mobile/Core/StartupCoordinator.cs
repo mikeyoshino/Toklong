@@ -52,7 +52,7 @@ public sealed class StartupCoordinator(
 
         return new StartupResult(
             session.HasSession
-                ? "//transactions"
+                ? AuthenticatedHomeRoutes.Home
                 : pending.HasPending
                     ? AuthenticationRoutes
                         .CompleteRegistration
