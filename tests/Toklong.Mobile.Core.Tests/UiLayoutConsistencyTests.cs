@@ -439,10 +439,14 @@ public sealed class UiLayoutConsistencyTests
             AttributeValue(button, "MinimumHeightRequest") ==
                 "{StaticResource CompactControlMinimumHeight}");
 
-        Assert.Contains(
-            spotlight.Descendants(Maui + "GradientStop"),
-            stop => AttributeValue(stop, "Color") ==
-                "{Binding SpotlightTransaction.RoleHeaderStart}");
+        Assert.Equal(
+            [
+                "{Binding SpotlightGradient.Start}",
+                "{Binding SpotlightGradient.Middle}",
+                "{Binding SpotlightGradient.End}"
+            ],
+            spotlight.Descendants(Maui + "GradientStop")
+                .Select(stop => AttributeValue(stop, "Color")));
         Assert.Contains(
             spotlight.Descendants(Maui + "Label"),
             label =>

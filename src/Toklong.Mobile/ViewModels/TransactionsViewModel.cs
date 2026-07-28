@@ -125,6 +125,7 @@ public sealed class TransactionsViewModel : ObservableViewModel
         {
             if (SetProperty(ref spotlightTransaction, value))
             {
+                SpotlightGradient.SetSpotlight(value);
                 OnPropertyChanged(nameof(HasSpotlight));
                 OnPropertyChanged(nameof(HasNoSpotlight));
                 spotlightEmptyState.SetHasSpotlight(
@@ -136,6 +137,8 @@ public sealed class TransactionsViewModel : ObservableViewModel
 
     public bool HasSpotlight => SpotlightTransaction is not null;
     public bool HasNoSpotlight => SpotlightTransaction is null;
+    public SpotlightGradientPresentation SpotlightGradient { get; } =
+        new(null);
     public bool ShowBuyerSpotlightEmptyState =>
         spotlightEmptyState.ShowBuyerSpotlightEmptyState;
 

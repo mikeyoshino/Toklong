@@ -419,9 +419,9 @@
                             </Border.Shadow>
                             <Border.Background>
                                 <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                    <GradientStop Color="{Binding SpotlightTransaction.RoleHeaderStart}" Offset="0" />
-                                    <GradientStop Color="{Binding SpotlightTransaction.RoleHeaderMiddle}" Offset="0.64" />
-                                    <GradientStop Color="{Binding SpotlightTransaction.RoleHeaderEnd}" Offset="1" />
+                                    <GradientStop Color="{Binding SpotlightGradient.Start}" Offset="0" />
+                                    <GradientStop Color="{Binding SpotlightGradient.Middle}" Offset="0.64" />
+                                    <GradientStop Color="{Binding SpotlightGradient.End}" Offset="1" />
                                 </LinearGradientBrush>
                             </Border.Background>
                             <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="11">
