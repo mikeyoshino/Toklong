@@ -224,9 +224,15 @@ public sealed class TransactionPresentationTests
         Assert.Equal("progress_agreement_seller_completed.png", item.ProgressOne.Icon);
         Assert.Equal("progress_physical_handoff_seller_completed.png", item.ProgressTwo.Icon);
         Assert.Equal("progress_payout_disabled.png", item.ProgressThree.Icon);
-        Assert.Equal("#F1ECFF", item.ProgressTwo.BackgroundColor);
-        Assert.Equal("#6548C7", item.ProgressTwo.StrokeColor);
-        Assert.Equal("#6548C7", item.ProgressTwo.LabelColor);
+        Assert.Equal(
+            SellerColorPalette.Surface,
+            item.ProgressTwo.BackgroundColor);
+        Assert.Equal(
+            SellerColorPalette.Role,
+            item.ProgressTwo.StrokeColor);
+        Assert.Equal(
+            SellerColorPalette.Role,
+            item.ProgressTwo.LabelColor);
     }
 
     [Theory]
@@ -285,8 +291,12 @@ public sealed class TransactionPresentationTests
             Role = AppTransactionRole.Seller,
             State = "PaidOut"
         };
-        Assert.Equal("#6548C7", seller.ProgressConnectorOneColor);
-        Assert.Equal("#6548C7", seller.ProgressConnectorTwoColor);
+        Assert.Equal(
+            SellerColorPalette.Role,
+            seller.ProgressConnectorOneColor);
+        Assert.Equal(
+            SellerColorPalette.Role,
+            seller.ProgressConnectorTwoColor);
     }
 
     [Fact]
