@@ -80,9 +80,24 @@ public sealed class BrandAssetConsistencyTests
         var document = XDocument.Load(BrandPath(fileName));
         var svg = document.Root!;
         var content = Read(fileName);
+        var strokeWidths = document
+            .Descendants()
+            .Select(element =>
+                (string?)element.Attribute("stroke-width"))
+            .Where(value =>
+                !string.IsNullOrWhiteSpace(value))
+            .Select(value =>
+                decimal.Parse(
+                    value!,
+                    System.Globalization.CultureInfo.InvariantCulture))
+            .ToArray();
 
         Assert.Equal("0 0 48 48", (string?)svg.Attribute("viewBox"));
         Assert.Contains("stroke-linecap=\"round\"", content);
+        Assert.NotEmpty(strokeWidths);
+        Assert.All(
+            strokeWidths,
+            width => Assert.InRange(width, 0.1m, 3m));
         Assert.DoesNotContain(
             "<text",
             content,

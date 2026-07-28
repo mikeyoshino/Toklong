@@ -38,8 +38,8 @@
                 SemanticProperties.Description="{Binding ProgressOne.SemanticDescription}">
                 <Image
                     AutomationProperties.IsInAccessibleTree="False"
-                    WidthRequest="34"
-                    HeightRequest="34"
+                    WidthRequest="30"
+                    HeightRequest="30"
                     Source="{Binding ProgressOne.Icon}" />
             </Border>
             <Border
@@ -54,8 +54,8 @@
                 SemanticProperties.Description="{Binding ProgressTwo.SemanticDescription}">
                 <Image
                     AutomationProperties.IsInAccessibleTree="False"
-                    WidthRequest="34"
-                    HeightRequest="34"
+                    WidthRequest="30"
+                    HeightRequest="30"
                     Source="{Binding ProgressTwo.Icon}" />
             </Border>
             <Border
@@ -70,8 +70,8 @@
                 SemanticProperties.Description="{Binding ProgressThree.SemanticDescription}">
                 <Image
                     AutomationProperties.IsInAccessibleTree="False"
-                    WidthRequest="34"
-                    HeightRequest="34"
+                    WidthRequest="30"
+                    HeightRequest="30"
                     Source="{Binding ProgressThree.Icon}" />
             </Border>
         </Grid>

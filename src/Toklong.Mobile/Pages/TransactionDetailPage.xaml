@@ -826,7 +826,7 @@
                 Style="{StaticResource SurfaceCard}"
                 Padding="17">
                 <VerticalStackLayout Spacing="14">
-                    <Label Style="{StaticResource SectionTitle}" FontSize="17" Text="ตอนนี้ถึงขั้นไหน" />
+                    <Label Style="{StaticResource SectionTitle}" FontSize="15" Text="ตอนนี้ถึงขั้นไหน" />
                     <controls:TransactionProgressView
                         AutomationId="TransactionProgress"
                         Transaction="{Binding Transaction}" />

@@ -749,12 +749,20 @@ public sealed class UiLayoutConsistencyTests
             "Ui",
             "Pages",
             "TransactionDetailPage.xaml");
+        var progressTitle = detail
+            .Descendants(Maui + "Label")
+            .Single(label =>
+                AttributeValue(label, "Text") ==
+                    "ตอนนี้ถึงขั้นไหน");
         var progressHost = detail
             .Descendants()
             .Single(element =>
                 element.Name.LocalName ==
                     "TransactionProgressView");
 
+        Assert.Equal(
+            "15",
+            AttributeValue(progressTitle, "FontSize"));
         Assert.Equal(
             "{Binding Transaction}",
             AttributeValue(progressHost, "Transaction"));
