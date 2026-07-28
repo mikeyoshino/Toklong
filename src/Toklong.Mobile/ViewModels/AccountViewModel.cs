@@ -4,7 +4,8 @@ using Toklong.Mobile.Core;
 namespace Toklong.Mobile.ViewModels;
 
 public sealed class AccountViewModel(
-    IAuthenticationService authentication) : ObservableViewModel
+    IAuthenticationService authentication,
+    AuthenticatedSessionBoundary session) : ObservableViewModel
 {
     private MobileProfile? profile;
     private string email = "";
@@ -118,9 +119,14 @@ public sealed class AccountViewModel(
         }
     }
 
-    private async Task SignOutAsync()
+    internal async Task SignOutAsync()
     {
         IsBusy = true;
+        Message = "";
+        profile = null;
+        Email = "";
+        RaiseProfileChanged();
+        session.Reset();
         try
         {
             await authentication.SignOutAsync();

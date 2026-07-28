@@ -7,16 +7,21 @@ public sealed class AuthenticatedHomeViewModel : ObservableViewModel
 {
     private readonly ITransactionService transactions;
     private readonly IMobileAnalytics analytics;
+    private readonly AuthenticatedSessionBoundary session;
     private readonly SellerWorkspaceState sellerState = new();
     private readonly AsyncCommand retryCommand;
     private bool isBusy;
 
     public AuthenticatedHomeViewModel(
         ITransactionService transactions,
-        IMobileAnalytics analytics)
+        IMobileAnalytics analytics,
+        AuthenticatedSessionBoundary session)
     {
         this.transactions = transactions;
         this.analytics = analytics;
+        this.session = session;
+        session.ResetRequested +=
+            (_, _) => ResetForSessionBoundary();
         retryCommand = new AsyncCommand(LoadAsync);
     }
 
@@ -42,10 +47,14 @@ public sealed class AuthenticatedHomeViewModel : ObservableViewModel
         if (isBusy)
             return;
 
+        var generation = session.Capture();
         isBusy = true;
         try
         {
             var loaded = await transactions.GetTransactionsAsync();
+            if (!session.IsCurrent(generation))
+                return;
+
             sellerState.ReplaceSuccessful(loaded);
             RaiseSummaryProperties();
             analytics.Track(SellerWorkspaceAnalytics.HomeOpened(
@@ -54,13 +63,24 @@ public sealed class AuthenticatedHomeViewModel : ObservableViewModel
         }
         catch
         {
+            if (!session.IsCurrent(generation))
+                return;
+
             sellerState.MarkLoadFailed();
             RaiseSummaryProperties();
         }
         finally
         {
-            isBusy = false;
+            if (session.IsCurrent(generation))
+                isBusy = false;
         }
+    }
+
+    private void ResetForSessionBoundary()
+    {
+        isBusy = false;
+        sellerState.Reset();
+        RaiseSummaryProperties();
     }
 
     private void RaiseSummaryProperties()

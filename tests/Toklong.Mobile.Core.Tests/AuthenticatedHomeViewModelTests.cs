@@ -20,7 +20,8 @@ public sealed class AuthenticatedHomeViewModelTests
         var analytics = new RecordingAnalytics();
         var viewModel = new AuthenticatedHomeViewModel(
             transactions,
-            analytics);
+            analytics,
+            new AuthenticatedSessionBoundary());
 
         await viewModel.LoadAsync();
 
@@ -55,7 +56,8 @@ public sealed class AuthenticatedHomeViewModelTests
         var analytics = new RecordingAnalytics();
         var viewModel = new AuthenticatedHomeViewModel(
             transactions,
-            analytics);
+            analytics,
+            new AuthenticatedSessionBoundary());
         await viewModel.LoadAsync();
 
         await viewModel.LoadAsync();
@@ -84,7 +86,8 @@ public sealed class AuthenticatedHomeViewModelTests
         var analytics = new RecordingAnalytics();
         var viewModel = new AuthenticatedHomeViewModel(
             transactions,
-            analytics);
+            analytics,
+            new AuthenticatedSessionBoundary());
 
         await viewModel.LoadAsync();
 
@@ -109,7 +112,8 @@ public sealed class AuthenticatedHomeViewModelTests
         var analytics = new RecordingAnalytics();
         var viewModel = new AuthenticatedHomeViewModel(
             transactions,
-            analytics);
+            analytics,
+            new AuthenticatedSessionBoundary());
         await viewModel.LoadAsync();
 
         await viewModel.LoadAsync();
@@ -135,7 +139,8 @@ public sealed class AuthenticatedHomeViewModelTests
         transactions.EnqueueResult(Item("AwaitingSellerAcceptance"));
         var viewModel = new AuthenticatedHomeViewModel(
             transactions,
-            new RecordingAnalytics());
+            new RecordingAnalytics(),
+            new AuthenticatedSessionBoundary());
         var changed = new List<string?>();
         viewModel.PropertyChanged +=
             (_, eventArgs) => changed.Add(eventArgs.PropertyName);
@@ -167,7 +172,8 @@ public sealed class AuthenticatedHomeViewModelTests
         var retryResponse = transactions.EnqueuePending();
         var viewModel = new AuthenticatedHomeViewModel(
             transactions,
-            new RecordingAnalytics());
+            new RecordingAnalytics(),
+            new AuthenticatedSessionBoundary());
         await viewModel.LoadAsync();
         var loaded = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);

@@ -11,8 +11,10 @@ public sealed class TransactionsViewModel : ObservableViewModel
     private readonly IDeepLinkCoordinator deepLinks;
     private readonly SellerWorkspaceState sellerState = new();
     private readonly IMobileAnalytics analytics;
+    private readonly AuthenticatedSessionBoundary session;
     private readonly SpotlightEmptyStatePresentation spotlightEmptyState;
     private IReadOnlyList<AppTransaction> allTransactions = [];
+    private bool hasSuccessfulLoad;
     private RoleFilter roleFilter;
     private BucketFilter bucketFilter;
     private bool isBusy;
@@ -24,11 +26,15 @@ public sealed class TransactionsViewModel : ObservableViewModel
     public TransactionsViewModel(
         ITransactionService transactionService,
         IDeepLinkCoordinator deepLinks,
-        IMobileAnalytics analytics)
+        IMobileAnalytics analytics,
+        AuthenticatedSessionBoundary session)
     {
         this.transactionService = transactionService;
         this.deepLinks = deepLinks;
         this.analytics = analytics;
+        this.session = session;
+        session.ResetRequested +=
+            (_, _) => ResetForSessionBoundary();
         roleFilter =
             Preferences.Default.Get(
                 "transactions.last-role",
@@ -141,6 +147,8 @@ public sealed class TransactionsViewModel : ObservableViewModel
         new(null);
     public bool ShowBuyerSpotlightEmptyState =>
         spotlightEmptyState.ShowBuyerSpotlightEmptyState;
+    public bool ShowTransactionCollectionEmptyState =>
+        hasSuccessfulLoad && Transactions.Count == 0;
 
     public bool IsBuying => roleFilter == RoleFilter.Buying;
     public bool IsSelling => roleFilter == RoleFilter.Selling;
@@ -229,12 +237,17 @@ public sealed class TransactionsViewModel : ObservableViewModel
         if (IsBusy)
             return;
 
+        var generation = session.Capture();
         IsBusy = true;
         ErrorText = "";
         try
         {
             var loaded = await transactionService.GetTransactionsAsync();
+            if (!session.IsCurrent(generation))
+                return;
+
             allTransactions = loaded;
+            hasSuccessfulLoad = true;
             sellerState.ReplaceSuccessful(loaded);
             ApplyFilter();
             RaiseSellerSummaryProperties();
@@ -243,6 +256,9 @@ public sealed class TransactionsViewModel : ObservableViewModel
         }
         catch
         {
+            if (!session.IsCurrent(generation))
+                return;
+
             sellerState.MarkLoadFailed();
             if (!sellerState.HasSuccessfulLoad)
             {
@@ -255,7 +271,8 @@ public sealed class TransactionsViewModel : ObservableViewModel
         }
         finally
         {
-            IsBusy = false;
+            if (session.IsCurrent(generation))
+                IsBusy = false;
         }
     }
 
@@ -264,6 +281,7 @@ public sealed class TransactionsViewModel : ObservableViewModel
 
     private async Task RefreshAsync()
     {
+        var generation = session.Capture();
         IsRefreshing = true;
         try
         {
@@ -271,7 +289,8 @@ public sealed class TransactionsViewModel : ObservableViewModel
         }
         finally
         {
-            IsRefreshing = false;
+            if (session.IsCurrent(generation))
+                IsRefreshing = false;
         }
     }
 
@@ -326,6 +345,8 @@ public sealed class TransactionsViewModel : ObservableViewModel
             EmptyText = SpotlightTransaction is null
                 ? "ยังไม่มีรายการในสถานะนี้"
                 : "ไม่มีรายการอื่นในสถานะนี้";
+            OnPropertyChanged(
+                nameof(ShowTransactionCollectionEmptyState));
             return;
         }
 
@@ -345,6 +366,29 @@ public sealed class TransactionsViewModel : ObservableViewModel
         EmptyText = SpotlightTransaction is null
             ? "ยังไม่มีรายการในสถานะนี้"
             : "ไม่มีรายการอื่นในสถานะนี้";
+        OnPropertyChanged(
+            nameof(ShowTransactionCollectionEmptyState));
+    }
+
+    private void ResetForSessionBoundary()
+    {
+        allTransactions = [];
+        hasSuccessfulLoad = false;
+        sellerState.Reset();
+        bucketFilter = BucketFilter.All;
+        IsBusy = false;
+        IsRefreshing = false;
+        ErrorText = "";
+        EmptyText = "";
+        SpotlightTransaction = null;
+        TransactionCollectionSynchronizer.Synchronize(
+            Transactions,
+            []);
+        RaiseFilterProperties();
+        OnPropertyChanged(nameof(ActionRequiredCount));
+        OnPropertyChanged(nameof(ActionSummary));
+        OnPropertyChanged(
+            nameof(ShowTransactionCollectionEmptyState));
     }
 
     private void SelectSellerWork(SellerWorkCategory category)

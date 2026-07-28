@@ -125,6 +125,7 @@ public sealed record AppTransaction(
                     PrimaryActionLabel = "ดูสถานะ"
                 };
             if (ShippingManagedByProvider &&
+                Role == AppTransactionRole.Seller &&
                 State == "ShipmentOverdue")
                 return presentation with
                 {

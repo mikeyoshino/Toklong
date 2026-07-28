@@ -43,6 +43,15 @@ public sealed class SellerWorkspaceState
             ? "อัปเดตล่าสุดไม่สำเร็จ"
             : "โหลดรายการไม่สำเร็จ · ลองอีกครั้ง";
 
+    public void Reset()
+    {
+        transactions = [];
+        HasSuccessfulLoad = false;
+        LoadErrorText = "";
+        SelectedCategory = SellerWorkCategory.All;
+        Rebuild();
+    }
+
     private void Rebuild() =>
         Snapshot = SellerWorkSummary.Create(
             transactions,

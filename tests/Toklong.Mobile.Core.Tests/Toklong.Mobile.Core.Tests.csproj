@@ -25,6 +25,10 @@
              Link="MobileViewModels/ObservableViewModel.cs" />
     <Compile Include="../../src/Toklong.Mobile/ViewModels/AuthenticatedHomeViewModel.cs"
              Link="MobileViewModels/AuthenticatedHomeViewModel.cs" />
+    <Compile Include="../../src/Toklong.Mobile/ViewModels/AccountViewModel.cs"
+             Link="MobileViewModels/AccountViewModel.cs" />
+    <Compile Include="../../src/Toklong.Mobile/ViewModels/TransactionsViewModel.cs"
+             Link="MobileViewModels/TransactionsViewModel.cs" />
   </ItemGroup>
 
   <ItemGroup>

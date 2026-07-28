@@ -485,31 +485,30 @@
                                     </VerticalStackLayout>
                                 </Grid>
 
-                                <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
-                                    <VerticalStackLayout Spacing="2">
-                                        <Label
-                                            FontSize="12"
-                                            Text="{Binding SpotlightTransaction.StatusLabel}"
-                                            TextColor="#CFE1FF" />
-                                        <Label
-                                            IsVisible="{Binding IsSelling}"
-                                            FontSize="12"
-                                            Text="{Binding SellerPriorityExplanation}"
-                                            TextColor="#E3DDFF" />
-                                        <Label
-                                            FontAttributes="Bold"
-                                            FontSize="25"
-                                            CharacterSpacing="-0.5"
-                                            Text="{Binding SpotlightAmountText}"
-                                            TextColor="White" />
-                                    </VerticalStackLayout>
+                                <VerticalStackLayout
+                                    Grid.Row="2"
+                                    Spacing="2">
                                     <Label
-                                        Grid.Column="1"
-                                        VerticalOptions="End"
                                         FontSize="12"
+                                        Text="{Binding SpotlightTransaction.StatusLabel}"
+                                        TextColor="#CFE1FF" />
+                                    <Label
+                                        IsVisible="{Binding IsSelling}"
+                                        FontSize="12"
+                                        Text="{Binding SellerPriorityExplanation}"
+                                        TextColor="#E3DDFF" />
+                                    <Label
+                                        FontAttributes="Bold"
+                                        FontSize="25"
+                                        CharacterSpacing="-0.5"
+                                        Text="{Binding SpotlightAmountText}"
+                                        TextColor="White" />
+                                    <Label
+                                        FontSize="12"
+                                        LineBreakMode="WordWrap"
                                         Text="{Binding SpotlightTransaction.DeadlineText}"
                                         TextColor="#D8E7FF" />
-                                </Grid>
+                                </VerticalStackLayout>
 
                                 <Button
                                     Grid.Row="3"
@@ -622,7 +621,11 @@
                 </CollectionView.Header>
 
                 <CollectionView.EmptyView>
-                    <VerticalStackLayout Padding="30,26,30,48" Spacing="7">
+                    <VerticalStackLayout
+                        AutomationId="TransactionCollectionEmptyState"
+                        IsVisible="{Binding Source={x:Reference RootPage}, Path=BindingContext.ShowTransactionCollectionEmptyState}"
+                        Padding="30,26,30,48"
+                        Spacing="7">
                         <Label
                             HorizontalTextAlignment="Center"
                             FontAttributes="Bold"
@@ -716,29 +719,23 @@
                                         Grid.Column="1"
                                         Grid.ColumnSpan="2"
                                         ColumnDefinitions="*,Auto"
-                                        ColumnSpacing="10">
-                                        <VerticalStackLayout Spacing="2">
-                                            <HorizontalStackLayout Spacing="6">
-                                                <BoxView
-                                                    WidthRequest="6"
-                                                    HeightRequest="6"
-                                                    VerticalOptions="Center"
-                                                    Color="{Binding StatusColor}"
-                                                    CornerRadius="3" />
-                                                <Label
-                                                    VerticalOptions="Center"
-                                                    FontAttributes="Bold"
-                                                    FontSize="12"
-                                                    Text="{Binding StatusLabel}"
-                                                    TextColor="{Binding StatusColor}" />
-                                            </HorizontalStackLayout>
+                                        ColumnSpacing="10"
+                                        RowDefinitions="Auto,Auto"
+                                        RowSpacing="2">
+                                        <HorizontalStackLayout Spacing="6">
+                                            <BoxView
+                                                WidthRequest="6"
+                                                HeightRequest="6"
+                                                VerticalOptions="Center"
+                                                Color="{Binding StatusColor}"
+                                                CornerRadius="3" />
                                             <Label
+                                                VerticalOptions="Center"
+                                                FontAttributes="Bold"
                                                 FontSize="12"
-                                                LineBreakMode="TailTruncation"
-                                                MaxLines="1"
-                                                Text="{Binding DeadlineText}"
-                                                TextColor="{StaticResource Muted}" />
-                                        </VerticalStackLayout>
+                                                Text="{Binding StatusLabel}"
+                                                TextColor="{Binding StatusColor}" />
+                                        </HorizontalStackLayout>
                                         <Label
                                             Grid.Column="1"
                                             VerticalOptions="Center"
@@ -746,6 +743,13 @@
                                             FontSize="12"
                                             Text="{Binding PrimaryActionLabel}"
                                             TextColor="{StaticResource BrandBlue}" />
+                                        <Label
+                                            Grid.Row="1"
+                                            Grid.ColumnSpan="2"
+                                            FontSize="12"
+                                            LineBreakMode="WordWrap"
+                                            Text="{Binding DeadlineText}"
+                                            TextColor="{StaticResource Muted}" />
                                     </Grid>
                                 </Grid>
                             </Border>
@@ -827,29 +831,23 @@
                                         Grid.Column="1"
                                         Grid.ColumnSpan="2"
                                         ColumnDefinitions="*,Auto"
-                                        ColumnSpacing="10">
-                                        <VerticalStackLayout Spacing="2">
-                                            <HorizontalStackLayout Spacing="6">
-                                                <BoxView
-                                                    WidthRequest="6"
-                                                    HeightRequest="6"
-                                                    VerticalOptions="Center"
-                                                    Color="{Binding StatusColor}"
-                                                    CornerRadius="3" />
-                                                <Label
-                                                    VerticalOptions="Center"
-                                                    FontAttributes="Bold"
-                                                    FontSize="12"
-                                                    Text="{Binding StatusLabel}"
-                                                    TextColor="{Binding StatusColor}" />
-                                            </HorizontalStackLayout>
+                                        ColumnSpacing="10"
+                                        RowDefinitions="Auto,Auto"
+                                        RowSpacing="2">
+                                        <HorizontalStackLayout Spacing="6">
+                                            <BoxView
+                                                WidthRequest="6"
+                                                HeightRequest="6"
+                                                VerticalOptions="Center"
+                                                Color="{Binding StatusColor}"
+                                                CornerRadius="3" />
                                             <Label
+                                                VerticalOptions="Center"
+                                                FontAttributes="Bold"
                                                 FontSize="12"
-                                                LineBreakMode="TailTruncation"
-                                                MaxLines="1"
-                                                Text="{Binding DeadlineText}"
-                                                TextColor="{StaticResource Muted}" />
-                                        </VerticalStackLayout>
+                                                Text="{Binding StatusLabel}"
+                                                TextColor="{Binding StatusColor}" />
+                                        </HorizontalStackLayout>
                                         <Label
                                             Grid.Column="1"
                                             VerticalOptions="Center"
@@ -857,6 +855,13 @@
                                             FontSize="12"
                                             Text="{Binding PrimaryActionLabel}"
                                             TextColor="#6548C7" />
+                                        <Label
+                                            Grid.Row="1"
+                                            Grid.ColumnSpan="2"
+                                            FontSize="12"
+                                            LineBreakMode="WordWrap"
+                                            Text="{Binding DeadlineText}"
+                                            TextColor="{StaticResource Muted}" />
                                     </Grid>
                                 </Grid>
                             </Border>

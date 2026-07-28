@@ -508,6 +508,57 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
+    public void TransactionDeadlines_UseFullWidthWrappingRows()
+    {
+        var page = Load("Ui", "Pages", "TransactionsPage.xaml");
+        var spotlight = page.Descendants(Maui + "Border")
+            .Single(element =>
+                AttributeValue(element, "AutomationId") ==
+                "ActionSpotlightCard");
+        var spotlightDeadline = spotlight
+            .Descendants(Maui + "Label")
+            .Single(label =>
+                AttributeValue(label, "Text") ==
+                "{Binding SpotlightTransaction.DeadlineText}");
+        var emptyState = page.Descendants()
+            .Single(element =>
+                AttributeValue(element, "AutomationId") ==
+                "TransactionCollectionEmptyState");
+        var compactCards = new[]
+        {
+            "CompactBuyerTransactionCard",
+            "CompactSellerTransactionCard"
+        }
+            .Select(automationId => page
+                .Descendants(Maui + "Border")
+                .Single(element =>
+                    AttributeValue(element, "AutomationId") ==
+                    automationId))
+            .ToArray();
+
+        Assert.Equal(
+            "WordWrap",
+            AttributeValue(spotlightDeadline, "LineBreakMode"));
+        Assert.Null(AttributeValue(spotlightDeadline, "MaxLines"));
+        Assert.Null(AttributeValue(spotlightDeadline, "Grid.Column"));
+        Assert.Equal(
+            "{Binding Source={x:Reference RootPage}, Path=BindingContext.ShowTransactionCollectionEmptyState}",
+            AttributeValue(emptyState, "IsVisible"));
+
+        Assert.All(compactCards, card =>
+        {
+            var deadline = card.Descendants(Maui + "Label")
+                .Single(label =>
+                    AttributeValue(label, "Text") ==
+                    "{Binding DeadlineText}");
+            Assert.Equal("WordWrap", AttributeValue(deadline, "LineBreakMode"));
+            Assert.Null(AttributeValue(deadline, "MaxLines"));
+            Assert.Equal("1", AttributeValue(deadline, "Grid.Row"));
+            Assert.Equal("2", AttributeValue(deadline, "Grid.ColumnSpan"));
+        });
+    }
+
+    [Fact]
     public void CreateOffer_UsesThreeFullPageStepsAndProgressText()
     {
         var create = Load("Ui", "Pages", "CreateOfferPage.xaml");

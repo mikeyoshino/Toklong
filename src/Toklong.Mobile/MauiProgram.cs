@@ -107,6 +107,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<
             IMobileAnalytics,
             LoggingMobileAnalytics>();
+        builder.Services.AddSingleton<AuthenticatedSessionBoundary>();
         builder.Services.AddSingleton<IStartupMotionPreference, StartupMotionPreference>();
         builder.Services.AddSingleton<StartupCoordinator>();
         builder.Services.AddSingleton<StartupLogoPage>();
