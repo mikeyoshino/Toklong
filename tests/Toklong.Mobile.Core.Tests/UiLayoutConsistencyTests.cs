@@ -771,6 +771,9 @@ public sealed class UiLayoutConsistencyTests
             "Ui",
             "Controls",
             "TransactionProgressView.xaml");
+        var progressGrid = progress
+            .Descendants(Maui + "Grid")
+            .First();
         var tokens = progress
             .Descendants(Maui + "Border")
             .Where(element =>
@@ -786,7 +789,16 @@ public sealed class UiLayoutConsistencyTests
                     "ProgressConnectorOne" or
                     "ProgressConnectorTwo")
             .ToArray();
+        var images = progress
+            .Descendants(Maui + "Image")
+            .ToArray();
+        var labels = progress
+            .Descendants(Maui + "Label")
+            .ToArray();
 
+        Assert.Equal(
+            "*,48,*,48,*,48,*",
+            AttributeValue(progressGrid, "ColumnDefinitions"));
         Assert.Equal(3, tokens.Length);
         Assert.All(tokens, token =>
         {
@@ -808,8 +820,51 @@ public sealed class UiLayoutConsistencyTests
             Assert.Empty(token.Descendants(Maui + "Border"));
         });
         Assert.Equal(2, connectors.Length);
+        Assert.Equal(3, images.Length);
+        Assert.All(images, image =>
+        {
+            Assert.Equal(
+                "30",
+                AttributeValue(image, "WidthRequest"));
+            Assert.Equal(
+                "30",
+                AttributeValue(image, "HeightRequest"));
+            Assert.Equal(
+                "False",
+                AttributeValue(
+                    image,
+                    "AutomationProperties.IsInAccessibleTree"));
+        });
+        Assert.Equal(3, labels.Length);
+        var expectedLabelPositions = new[]
+        {
+            ("0", "3"),
+            ("2", "3"),
+            ("4", "3")
+        };
+        Assert.All(labels, label =>
+        {
+            Assert.Equal(
+                "12",
+                AttributeValue(label, "FontSize"));
+            Assert.Equal(
+                "False",
+                AttributeValue(
+                    label,
+                    "AutomationProperties.IsInAccessibleTree"));
+        });
+        Assert.Equal(
+            expectedLabelPositions,
+            labels.Select(label => (
+                AttributeValue(label, "Grid.Column")!,
+                AttributeValue(label, "Grid.ColumnSpan")!)));
         Assert.Empty(
             progress.Descendants(Maui + "TapGestureRecognizer"));
+        Assert.DoesNotContain(
+            progress.Descendants(),
+            element => element.Name.LocalName.Contains(
+                "Animation",
+                StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

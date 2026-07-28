@@ -6,101 +6,104 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
     <Grid
         BindingContext="{Binding Transaction, Source={x:Reference Root}}"
+        ColumnDefinitions="*,48,*,48,*,48,*"
         RowDefinitions="48,Auto"
         RowSpacing="7">
-        <Grid ColumnDefinitions="48,*,48,*,48">
-            <Border
-                AutomationId="ProgressConnectorOne"
-                Grid.Column="1"
-                HeightRequest="4"
-                VerticalOptions="Center"
-                BackgroundColor="{Binding ProgressConnectorOneColor}"
-                StrokeThickness="0"
-                StrokeShape="RoundRectangle 2" />
-            <Border
-                AutomationId="ProgressConnectorTwo"
-                Grid.Column="3"
-                HeightRequest="4"
-                VerticalOptions="Center"
-                BackgroundColor="{Binding ProgressConnectorTwoColor}"
-                StrokeThickness="0"
-                StrokeShape="RoundRectangle 2" />
+        <Border
+            AutomationId="ProgressConnectorOne"
+            Grid.Column="2"
+            HeightRequest="4"
+            VerticalOptions="Center"
+            BackgroundColor="{Binding ProgressConnectorOneColor}"
+            StrokeThickness="0"
+            StrokeShape="RoundRectangle 2" />
+        <Border
+            AutomationId="ProgressConnectorTwo"
+            Grid.Column="4"
+            HeightRequest="4"
+            VerticalOptions="Center"
+            BackgroundColor="{Binding ProgressConnectorTwoColor}"
+            StrokeThickness="0"
+            StrokeShape="RoundRectangle 2" />
 
-            <Border
-                AutomationId="ProgressTokenOne"
-                Grid.Column="0"
-                WidthRequest="48"
-                HeightRequest="48"
-                BackgroundColor="{Binding ProgressOne.BackgroundColor}"
-                Stroke="{Binding ProgressOne.StrokeColor}"
-                StrokeThickness="4"
-                StrokeShape="RoundRectangle 24"
-                SemanticProperties.Description="{Binding ProgressOne.SemanticDescription}">
-                <Image
-                    AutomationProperties.IsInAccessibleTree="False"
-                    WidthRequest="30"
-                    HeightRequest="30"
-                    Source="{Binding ProgressOne.Icon}" />
-            </Border>
-            <Border
-                AutomationId="ProgressTokenTwo"
-                Grid.Column="2"
-                WidthRequest="48"
-                HeightRequest="48"
-                BackgroundColor="{Binding ProgressTwo.BackgroundColor}"
-                Stroke="{Binding ProgressTwo.StrokeColor}"
-                StrokeThickness="4"
-                StrokeShape="RoundRectangle 24"
-                SemanticProperties.Description="{Binding ProgressTwo.SemanticDescription}">
-                <Image
-                    AutomationProperties.IsInAccessibleTree="False"
-                    WidthRequest="30"
-                    HeightRequest="30"
-                    Source="{Binding ProgressTwo.Icon}" />
-            </Border>
-            <Border
-                AutomationId="ProgressTokenThree"
-                Grid.Column="4"
-                WidthRequest="48"
-                HeightRequest="48"
-                BackgroundColor="{Binding ProgressThree.BackgroundColor}"
-                Stroke="{Binding ProgressThree.StrokeColor}"
-                StrokeThickness="4"
-                StrokeShape="RoundRectangle 24"
-                SemanticProperties.Description="{Binding ProgressThree.SemanticDescription}">
-                <Image
-                    AutomationProperties.IsInAccessibleTree="False"
-                    WidthRequest="30"
-                    HeightRequest="30"
-                    Source="{Binding ProgressThree.Icon}" />
-            </Border>
-        </Grid>
+        <Border
+            AutomationId="ProgressTokenOne"
+            Grid.Column="1"
+            WidthRequest="48"
+            HeightRequest="48"
+            BackgroundColor="{Binding ProgressOne.BackgroundColor}"
+            Stroke="{Binding ProgressOne.StrokeColor}"
+            StrokeThickness="4"
+            StrokeShape="RoundRectangle 24"
+            SemanticProperties.Description="{Binding ProgressOne.SemanticDescription}">
+            <Image
+                AutomationProperties.IsInAccessibleTree="False"
+                WidthRequest="30"
+                HeightRequest="30"
+                Source="{Binding ProgressOne.Icon}" />
+        </Border>
+        <Border
+            AutomationId="ProgressTokenTwo"
+            Grid.Column="3"
+            WidthRequest="48"
+            HeightRequest="48"
+            BackgroundColor="{Binding ProgressTwo.BackgroundColor}"
+            Stroke="{Binding ProgressTwo.StrokeColor}"
+            StrokeThickness="4"
+            StrokeShape="RoundRectangle 24"
+            SemanticProperties.Description="{Binding ProgressTwo.SemanticDescription}">
+            <Image
+                AutomationProperties.IsInAccessibleTree="False"
+                WidthRequest="30"
+                HeightRequest="30"
+                Source="{Binding ProgressTwo.Icon}" />
+        </Border>
+        <Border
+            AutomationId="ProgressTokenThree"
+            Grid.Column="5"
+            WidthRequest="48"
+            HeightRequest="48"
+            BackgroundColor="{Binding ProgressThree.BackgroundColor}"
+            Stroke="{Binding ProgressThree.StrokeColor}"
+            StrokeThickness="4"
+            StrokeShape="RoundRectangle 24"
+            SemanticProperties.Description="{Binding ProgressThree.SemanticDescription}">
+            <Image
+                AutomationProperties.IsInAccessibleTree="False"
+                WidthRequest="30"
+                HeightRequest="30"
+                Source="{Binding ProgressThree.Icon}" />
+        </Border>
 
-        <Grid Grid.Row="1" ColumnDefinitions="*,*,*">
-            <Label
-                AutomationProperties.IsInAccessibleTree="False"
-                Grid.Column="0"
-                HorizontalTextAlignment="Center"
-                FontSize="12"
-                MaxLines="2"
-                Text="{Binding ProgressOne.Label}"
-                TextColor="{Binding ProgressOne.LabelColor}" />
-            <Label
-                AutomationProperties.IsInAccessibleTree="False"
-                Grid.Column="1"
-                HorizontalTextAlignment="Center"
-                FontSize="12"
-                MaxLines="2"
-                Text="{Binding ProgressTwo.Label}"
-                TextColor="{Binding ProgressTwo.LabelColor}" />
-            <Label
-                AutomationProperties.IsInAccessibleTree="False"
-                Grid.Column="2"
-                HorizontalTextAlignment="Center"
-                FontSize="12"
-                MaxLines="2"
-                Text="{Binding ProgressThree.Label}"
-                TextColor="{Binding ProgressThree.LabelColor}" />
-        </Grid>
+        <Label
+            AutomationProperties.IsInAccessibleTree="False"
+            Grid.Row="1"
+            Grid.Column="0"
+            Grid.ColumnSpan="3"
+            HorizontalTextAlignment="Center"
+            FontSize="12"
+            MaxLines="2"
+            Text="{Binding ProgressOne.Label}"
+            TextColor="{Binding ProgressOne.LabelColor}" />
+        <Label
+            AutomationProperties.IsInAccessibleTree="False"
+            Grid.Row="1"
+            Grid.Column="2"
+            Grid.ColumnSpan="3"
+            HorizontalTextAlignment="Center"
+            FontSize="12"
+            MaxLines="2"
+            Text="{Binding ProgressTwo.Label}"
+            TextColor="{Binding ProgressTwo.LabelColor}" />
+        <Label
+            AutomationProperties.IsInAccessibleTree="False"
+            Grid.Row="1"
+            Grid.Column="4"
+            Grid.ColumnSpan="3"
+            HorizontalTextAlignment="Center"
+            FontSize="12"
+            MaxLines="2"
+            Text="{Binding ProgressThree.Label}"
+            TextColor="{Binding ProgressThree.LabelColor}" />
     </Grid>
 </ContentView>
