@@ -109,10 +109,15 @@ public sealed class UiLayoutConsistencyTests
                 AttributeValue(element, "AutomationId") ==
                 "SellerNewOfferBadge");
         var actionableLine = home
-            .Descendants(Maui + "HorizontalStackLayout")
+            .Descendants(Maui + "Grid")
             .Single(element =>
                 AttributeValue(element, "AutomationId") ==
                 "SellerActionableLine");
+        var actionableLabel = actionableLine
+            .Descendants(Maui + "Label")
+            .Single(label =>
+                AttributeValue(label, "Text") ==
+                "{Binding ActionableSellerWorkText}");
         var sellerButton = buttons.Single(button =>
             AttributeValue(button, "AutomationId") ==
             "OpenSellingHomeButton");
@@ -162,6 +167,18 @@ public sealed class UiLayoutConsistencyTests
         Assert.Equal(
             "{Binding HasActionableSellerWork}",
             AttributeValue(actionableLine, "IsVisible"));
+        Assert.Equal(
+            "Auto,*",
+            AttributeValue(actionableLine, "ColumnDefinitions"));
+        Assert.Equal(
+            "1",
+            AttributeValue(actionableLabel, "Grid.Column"));
+        Assert.Equal(
+            "WordWrap",
+            AttributeValue(actionableLabel, "LineBreakMode"));
+        Assert.Equal(
+            "Fill",
+            AttributeValue(actionableLabel, "HorizontalOptions"));
         Assert.Equal(
             "{Binding SellerCardSemanticText}",
             AttributeValue(

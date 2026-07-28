@@ -21,6 +21,10 @@
   <ItemGroup>
     <Compile Include="../../src/Toklong.Mobile/Core/**/*.cs"
              Link="MobileCore/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../../src/Toklong.Mobile/ViewModels/ObservableViewModel.cs"
+             Link="MobileViewModels/ObservableViewModel.cs" />
+    <Compile Include="../../src/Toklong.Mobile/ViewModels/AuthenticatedHomeViewModel.cs"
+             Link="MobileViewModels/AuthenticatedHomeViewModel.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -120,12 +120,14 @@
                                 Style="{StaticResource RefinedBodyText}"
                                 Text="ตรวจข้อเสนอ ส่งสินค้า และติดตามยอดรับ"
                                 TextColor="White" />
-                            <HorizontalStackLayout
+                            <Grid
                                 Grid.Row="2"
                                 Grid.ColumnSpan="2"
                                 AutomationId="SellerActionableLine"
+                                ColumnDefinitions="Auto,*"
+                                ColumnSpacing="8"
                                 IsVisible="{Binding HasActionableSellerWork}"
-                                Spacing="8">
+                                VerticalOptions="Center">
                                 <BoxView
                                     BackgroundColor="{StaticResource Mint}"
                                     CornerRadius="4"
@@ -133,12 +135,15 @@
                                     VerticalOptions="Center"
                                     WidthRequest="8" />
                                 <Label
+                                    Grid.Column="1"
                                     FontAttributes="Bold"
                                     FontSize="13"
+                                    HorizontalOptions="Fill"
+                                    LineBreakMode="WordWrap"
                                     Text="{Binding ActionableSellerWorkText}"
                                     TextColor="White"
                                     VerticalOptions="Center" />
-                            </HorizontalStackLayout>
+                            </Grid>
                         </Grid>
                         <Button
                             AutomationId="OpenSellingHomeButton"
