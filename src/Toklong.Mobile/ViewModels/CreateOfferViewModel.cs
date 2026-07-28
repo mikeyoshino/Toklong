@@ -40,6 +40,8 @@ public sealed class CreateOfferViewModel(
     private string savedAddress = "";
     private string addressLine = "";
     private bool addressDataLoaded;
+    private bool isAddressLoading;
+    private string addressLoadError = "";
     private BuyerCostPreview? costPreview;
     private bool isReviewPricing;
     private CancellationTokenSource? reviewPricingCancellation;
@@ -80,6 +82,8 @@ public sealed class CreateOfferViewModel(
                     ThaiMobilePhoneInput.Format(value)))
             {
                 SellerPhoneError = "";
+                OnPropertyChanged(nameof(MaskedSellerPhoneNumber));
+                OnPropertyChanged(nameof(ReviewSummary));
                 MarkWizardDirty();
             }
         }
@@ -354,6 +358,19 @@ public sealed class CreateOfferViewModel(
         HasSavedAddress &&
         UseSavedAddress;
 
+    public string AddressLoadError
+    {
+        get => addressLoadError;
+        private set
+        {
+            if (SetProperty(ref addressLoadError, value))
+                OnPropertyChanged(nameof(HasAddressLoadError));
+        }
+    }
+
+    public bool HasAddressLoadError =>
+        !string.IsNullOrWhiteSpace(AddressLoadError);
+
     public string SavedAddress
     {
         get => savedAddress;
@@ -560,8 +577,6 @@ public sealed class CreateOfferViewModel(
     public string OptionalDetailsChevron =>
         ShowOptionalDetails ? "⌃" : "⌄";
 
-    public bool IsReviewSheetOpen => IsReviewStep;
-
     public bool HasDefectCondition =>
         SelectedConditionIndex == 2;
     public bool IsNewCondition =>
@@ -577,7 +592,7 @@ public sealed class CreateOfferViewModel(
         {
             var lines = new List<string>
             {
-                $"ผู้ขาย: {SellerPhoneNumber}",
+                $"ผู้ขาย: {MaskedSellerPhoneNumber}",
                 $"สินค้า: {ProductName}",
                 $"ราคา: {FormattedReviewAmount}",
                 $"ประเภท: {FulfillmentTypeLabel}",
@@ -603,6 +618,18 @@ public sealed class CreateOfferViewModel(
         TryParseAmount(out var amount)
             ? $"฿{amount:N2}"
             : "ยังไม่ได้ระบุ";
+
+    public string MaskedSellerPhoneNumber
+    {
+        get
+        {
+            var clean = ThaiMobilePhoneInput.Sanitize(
+                SellerPhoneNumber);
+            return clean.Length == 10
+                ? $"{clean[..3]}-***-{clean[^4..]}"
+                : SellerPhoneNumber;
+        }
+    }
 
     public string ReviewDeliveryText =>
         HasSavedAddress && UseSavedAddress
@@ -636,16 +663,14 @@ public sealed class CreateOfferViewModel(
         new Command(() => UseSavedAddress = false);
     public ICommand UseSavedAddressCommand =>
         new Command(() => UseSavedAddress = true);
-    public ICommand ReviewCommand =>
-        new AsyncCommand(ContinueFromFulfillmentAsync);
-    public ICommand CloseReviewCommand =>
-        new Command(MoveToPreviousStep);
     public ICommand ContinueFromDealCommand =>
         new Command(ContinueFromDeal);
     public ICommand ContinueFromFulfillmentCommand =>
         new AsyncCommand(ContinueFromFulfillmentAsync);
     public ICommand PreviousStepCommand =>
         new Command(MoveToPreviousStep);
+    public ICommand RetryAddressCommand =>
+        new AsyncCommand(LoadAsync);
     public ICommand SelectNewConditionCommand =>
         new Command(() => SelectedConditionIndex = 0);
     public ICommand SelectUsedGoodConditionCommand =>
@@ -668,9 +693,11 @@ public sealed class CreateOfferViewModel(
 
     public async Task LoadAsync()
     {
-        if (addressDataLoaded)
+        if (addressDataLoaded || isAddressLoading)
             return;
+        isAddressLoading = true;
         isInitializing = true;
+        AddressLoadError = "";
         try
         {
             var profile =
@@ -688,9 +715,15 @@ public sealed class CreateOfferViewModel(
                 Provinces.Add(item);
             addressDataLoaded = true;
         }
+        catch
+        {
+            AddressLoadError =
+                "โหลดข้อมูลที่อยู่ไม่สำเร็จ กรุณาลองอีกครั้ง";
+        }
         finally
         {
             isInitializing = false;
+            isAddressLoading = false;
         }
     }
 
@@ -1081,7 +1114,6 @@ public sealed class CreateOfferViewModel(
         OnPropertyChanged(nameof(IsDealStep));
         OnPropertyChanged(nameof(IsFulfillmentStep));
         OnPropertyChanged(nameof(IsReviewStep));
-        OnPropertyChanged(nameof(IsReviewSheetOpen));
         OnPropertyChanged(nameof(IsWizardDirty));
         OnPropertyChanged(nameof(ProgressText));
     }

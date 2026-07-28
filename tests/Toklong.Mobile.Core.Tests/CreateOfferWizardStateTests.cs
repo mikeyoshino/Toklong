@@ -54,4 +54,21 @@ public sealed class CreateOfferWizardStateTests
         Assert.Equal(CreateOfferStep.Deal, wizard.CurrentStep);
         Assert.False(wizard.IsDirty);
     }
+
+    [Fact]
+    public void Exit_prompt_puts_safe_action_before_destructive_action()
+    {
+        Assert.Equal(
+            "ยังสร้างข้อเสนอไม่เสร็จ",
+            CreateOfferExitPrompt.Title);
+        Assert.Equal(
+            "ถ้าออกตอนนี้ ข้อมูลที่กรอกไว้จะหาย",
+            CreateOfferExitPrompt.Message);
+        Assert.Equal(
+            "กลับไปกรอกต่อ",
+            CreateOfferExitPrompt.KeepEditing);
+        Assert.Equal(
+            "ออกจากหน้านี้",
+            CreateOfferExitPrompt.Discard);
+    }
 }

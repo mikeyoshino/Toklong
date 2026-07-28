@@ -14,11 +14,10 @@
         <Border
             Grid.Row="0"
             AutomationId="CreateOfferHeader"
-            Padding="20,12,20,20"
+            Padding="20,12,20,18"
             BackgroundColor="White"
-            StrokeThickness="0"
-            StrokeShape="RoundRectangle 28">
-            <VerticalStackLayout Spacing="18">
+            StrokeThickness="0">
+            <VerticalStackLayout Spacing="14">
                 <Grid
                     ColumnDefinitions="48,*"
                     ColumnSpacing="16">
@@ -42,20 +41,18 @@
                         <Label
                             FontAttributes="Bold"
                             FontSize="26"
-                            LineHeight="1.08"
                             Text="สร้างข้อเสนอ"
                             TextColor="{StaticResource Ink}" />
                         <Label
-                            FontAttributes="None"
-                            FontSize="14"
-                            Text="ส่งให้ผู้ขายตรวจและตอบรับ"
-                            TextColor="{StaticResource InkSoft}" />
+                            Style="{StaticResource RefinedHelperText}"
+                            Text="{Binding ProgressText}"
+                            SemanticProperties.Description="{Binding ProgressText}" />
                     </VerticalStackLayout>
                 </Grid>
                 <Grid
                     AutomationId="CreateOfferProgress"
-                    ColumnDefinitions="*,*"
-                    ColumnSpacing="10">
+                    ColumnDefinitions="*,*,*"
+                    ColumnSpacing="8">
                     <BoxView
                         HeightRequest="4"
                         CornerRadius="2"
@@ -64,395 +61,428 @@
                         Grid.Column="1"
                         HeightRequest="4"
                         CornerRadius="2"
-                        Color="#DCE8F5" />
+                        Color="#DCE8F5">
+                        <BoxView.Triggers>
+                            <DataTrigger
+                                TargetType="BoxView"
+                                Binding="{Binding IsDealStep}"
+                                Value="False">
+                                <Setter
+                                    Property="Color"
+                                    Value="{StaticResource BrandBlue}" />
+                            </DataTrigger>
+                        </BoxView.Triggers>
+                    </BoxView>
+                    <BoxView
+                        Grid.Column="2"
+                        HeightRequest="4"
+                        CornerRadius="2"
+                        Color="#DCE8F5">
+                        <BoxView.Triggers>
+                            <DataTrigger
+                                TargetType="BoxView"
+                                Binding="{Binding IsReviewStep}"
+                                Value="True">
+                                <Setter
+                                    Property="Color"
+                                    Value="{StaticResource BrandBlue}" />
+                            </DataTrigger>
+                        </BoxView.Triggers>
+                    </BoxView>
                 </Grid>
             </VerticalStackLayout>
         </Border>
 
-        <Grid Grid.Row="1">
-            <ScrollView SafeAreaEdges="SoftInput">
+        <ScrollView
+            x:Name="DealStepScroll"
+            Grid.Row="1"
+            AutomationId="CreateOfferDealStep"
+            IsVisible="{Binding IsDealStep}"
+            SafeAreaEdges="SoftInput">
+            <VerticalStackLayout
+                MaximumWidthRequest="720"
+                Padding="20,24,20,124"
+                Spacing="24">
+                <VerticalStackLayout Spacing="4">
+                    <Label
+                        FontAttributes="Bold"
+                        FontSize="24"
+                        Text="ข้อมูลดีล"
+                        TextColor="{StaticResource Ink}" />
+                    <Label
+                        Style="{StaticResource RefinedHelperText}"
+                        Text="ระบุสิ่งที่ตกลงกับผู้ขาย" />
+                </VerticalStackLayout>
+
                 <VerticalStackLayout
-                    AutomationId="QuickDealForm"
-                    MaximumWidthRequest="720"
-                    HorizontalOptions="Fill"
-                    Padding="20,24,20,124"
-                    Spacing="24">
+                    AutomationId="SellerPhoneSection"
+                    Style="{StaticResource RefinedFormSection}">
+                    <controls:FormLabelView
+                        IsRequired="True"
+                        Text="เบอร์โทรผู้ขาย" />
+                    <Border Style="{StaticResource RefinedInputBorder}">
+                        <controls:ThaiMobilePhoneEntry
+                            x:Name="SellerPhoneEntry"
+                            Style="{StaticResource RefinedEntry}"
+                            PhoneNumber="{Binding SellerPhoneNumber}"
+                            Placeholder="เช่น 081-234-5678"
+                            SemanticProperties.Description="เบอร์โทรศัพท์ของผู้ขาย" />
+                    </Border>
+                    <Label
+                        IsVisible="{Binding HasSellerPhoneError}"
+                        Style="{StaticResource RefinedValidationText}"
+                        Text="{Binding SellerPhoneError}" />
+                    <Label
+                        Style="{StaticResource RefinedHelperText}"
+                        Text="ข้อเสนอนี้เปิดและตอบรับได้เฉพาะบัญชีที่ยืนยันด้วยเบอร์นี้" />
+                </VerticalStackLayout>
 
-                    <VerticalStackLayout
-                        AutomationId="SellerPhoneSection"
-                        Style="{StaticResource RefinedFormSection}">
-                        <controls:FormLabelView
-                            IsRequired="True"
-                            Text="เบอร์โทรผู้ขาย" />
-                        <Border Style="{StaticResource RefinedInputBorder}">
-                            <controls:ThaiMobilePhoneEntry
-                                Style="{StaticResource RefinedEntry}"
-                                PhoneNumber="{Binding SellerPhoneNumber}"
-                                Placeholder="เช่น 081-234-5678"
-                                SemanticProperties.Description="เบอร์โทรศัพท์ของผู้ขาย" />
-                        </Border>
-                        <Label
-                            Style="{StaticResource RefinedHelperText}"
-                            Text="ข้อเสนอนี้เปิดและตอบรับได้เฉพาะบัญชีที่ยืนยันด้วยเบอร์นี้" />
-                    </VerticalStackLayout>
+                <VerticalStackLayout
+                    AutomationId="ProductNameSection"
+                    Style="{StaticResource RefinedFormSection}">
+                    <controls:FormLabelView
+                        IsRequired="True"
+                        Text="ชื่อสินค้า" />
+                    <Border Style="{StaticResource RefinedInputBorder}">
+                        <Entry
+                            x:Name="ProductNameEntry"
+                            Style="{StaticResource RefinedEntry}"
+                            MaxLength="180"
+                            Placeholder="เช่น กล้อง Fujifilm X-T30 II"
+                            SemanticProperties.Description="ชื่อสินค้า"
+                            Text="{Binding ProductName}" />
+                    </Border>
+                    <Label
+                        IsVisible="{Binding HasProductNameError}"
+                        Style="{StaticResource RefinedValidationText}"
+                        Text="{Binding ProductNameError}" />
+                </VerticalStackLayout>
 
-                    <VerticalStackLayout
-                        AutomationId="ProductNameSection"
-                        Style="{StaticResource RefinedFormSection}">
-                        <controls:FormLabelView
-                            IsRequired="True"
-                            Text="ชื่อสินค้า" />
-                        <Border Style="{StaticResource RefinedInputBorder}">
-                            <Entry
-                                Style="{StaticResource RefinedEntry}"
-                                MaxLength="180"
-                                Placeholder="เช่น กล้อง Fujifilm X-T30 II"
-                                SemanticProperties.Description="ชื่อสินค้า"
-                                Text="{Binding ProductName}" />
-                        </Border>
-                    </VerticalStackLayout>
-
-                    <VerticalStackLayout
-                        AutomationId="ItemPriceSection"
-                        Style="{StaticResource RefinedFormSection}">
+                <VerticalStackLayout
+                    AutomationId="ItemPriceSection"
+                    Style="{StaticResource RefinedFormSection}">
+                    <controls:FormLabelView
+                        IsRequired="True"
+                        Text="ราคาสินค้า" />
+                    <Border Style="{StaticResource RefinedAmountBorder}">
                         <Grid
-                            ColumnDefinitions="24,*"
+                            ColumnDefinitions="Auto,*"
                             ColumnSpacing="{StaticResource SpacingSm}">
-                            <Image
-                                WidthRequest="20"
-                                HeightRequest="20"
+                            <Label
                                 VerticalOptions="Center"
-                                Source="ui_money.png" />
-                            <controls:FormLabelView
+                                FontAttributes="Bold"
+                                FontSize="20"
+                                Text="฿"
+                                TextColor="{StaticResource BrandBlueDeep}" />
+                            <Entry
+                                x:Name="AmountEntry"
                                 Grid.Column="1"
-                                IsRequired="True"
-                                VerticalOptions="Center"
-                                Text="ราคาสินค้า" />
+                                Style="{StaticResource RefinedAmountEntry}"
+                                Keyboard="Numeric"
+                                Placeholder="0.00"
+                                SemanticProperties.Description="ราคาสินค้าเป็นบาท"
+                                Text="{Binding AmountBaht}" />
                         </Grid>
-                        <Border Style="{StaticResource RefinedAmountBorder}">
-                            <Grid
-                                ColumnDefinitions="Auto,*"
-                                ColumnSpacing="{StaticResource SpacingSm}">
-                                <Label
-                                    VerticalOptions="Center"
-                                    FontAttributes="Bold"
-                                    FontSize="20"
-                                    Text="฿"
-                                    TextColor="{StaticResource BrandBlueDeep}" />
-                                <Entry
-                                    x:Name="AmountEntry"
-                                    Grid.Column="1"
-                                    Style="{StaticResource RefinedAmountEntry}"
-                                    Keyboard="Numeric"
-                                    Placeholder="0.00"
-                                    SemanticProperties.Description="ราคาสินค้าเป็นบาท"
-                                    Text="{Binding AmountBaht}" />
-                            </Grid>
-                        </Border>
+                    </Border>
+                    <Label
+                        IsVisible="{Binding HasAmountError}"
+                        Style="{StaticResource RefinedValidationText}"
+                        Text="{Binding AmountError}" />
+                    <Label
+                        Style="{StaticResource RefinedHelperText}"
+                        Text="ราคาสินค้าตั้งแต่ 1,000 ถึง 30,000 บาท" />
+                </VerticalStackLayout>
+
+                <Button
+                    AutomationId="OpenAiAgreementDraftButton"
+                    Style="{StaticResource RefinedSecondaryActionButton}"
+                    Command="{Binding OpenAiSheetCommand}"
+                    ContentLayout="Left,10"
+                    ImageSource="ui_ai_assist.png"
+                    SemanticProperties.Description="ให้ AI ช่วยกรอกข้อมูลจากรูปหรือข้อความแชต"
+                    Text="ให้ AI ช่วยกรอก" />
+
+                <VerticalStackLayout
+                    AutomationId="OptionalProductPhotoField"
+                    Spacing="{StaticResource SpacingSm}">
+                    <controls:FormLabelView
+                        Text="รูปสินค้า (ไม่บังคับ)" />
+                    <Label
+                        Style="{StaticResource RefinedHelperText}"
+                        Text="เมื่อเพิ่ม รูปนี้จะเป็นส่วนหนึ่งของรายละเอียดข้อเสนอ" />
+                    <Button
+                        x:Name="ProductPhotoButton"
+                        Style="{StaticResource RefinedSecondaryActionButton}"
+                        Command="{Binding PickPhotoCommand}"
+                        SemanticProperties.Description="เลือกรูปสินค้า"
+                        Text="+  ถ่ายหรือเลือกรูป" />
+                    <Label
+                        IsVisible="{Binding HasPhoto}"
+                        Style="{StaticResource RefinedHelperText}"
+                        Text="{Binding SelectedPhotoName, StringFormat='เลือกแล้ว · {0}'}"
+                        TextColor="{StaticResource Success}" />
+                    <Label
+                        IsVisible="{Binding HasProductPhotoError}"
+                        Style="{StaticResource RefinedValidationText}"
+                        Text="{Binding ProductPhotoError}" />
+                </VerticalStackLayout>
+
+                <Border
+                    AutomationId="OptionalDealDetailsDisclosure"
+                    Padding="14"
+                    BackgroundColor="White"
+                    Stroke="{StaticResource Line}"
+                    StrokeShape="RoundRectangle 16">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer
+                            Command="{Binding ToggleOptionalDetailsCommand}" />
+                    </Border.GestureRecognizers>
+                    <VerticalStackLayout Spacing="8">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label
+                                FontFamily="NotoSansThaiMedium"
+                                Text="{Binding OptionalDetailsLabel}"
+                                TextColor="{StaticResource Ink}" />
+                            <Label
+                                Grid.Column="1"
+                                Text="{Binding OptionalDetailsChevron}"
+                                TextColor="{StaticResource Muted}" />
+                        </Grid>
                         <Label
                             Style="{StaticResource RefinedHelperText}"
-                            Text="ระบบจะคำนวณค่าจัดส่งให้ผู้ซื้อดูก่อนชำระ" />
-                    </VerticalStackLayout>
-
-                    <VerticalStackLayout
-                        AutomationId="DeliveryAddressSection"
-                        IsVisible="{Binding IsPhysical}"
-                        Style="{StaticResource RefinedFormSection}">
-                        <controls:FormLabelView
-                            IsRequired="True"
-                            Text="ที่อยู่จัดส่ง" />
-
-                        <Border
-                            IsVisible="{Binding ShowSavedAddressSummary}"
-                            Padding="16"
-                            BackgroundColor="White"
-                            Stroke="{StaticResource Line}"
-                            StrokeThickness="1"
-                            StrokeShape="RoundRectangle 18">
-                            <VerticalStackLayout Spacing="6">
-                                <Grid
-                                    ColumnDefinitions="*,Auto"
-                                    ColumnSpacing="12">
-                                    <Label
-                                        VerticalOptions="Center"
-                                        FontFamily="NotoSansThaiMedium"
-                                        FontAttributes="None"
-                                        FontSize="16"
-                                        Text="{Binding SavedAddress}"
-                                        TextColor="{StaticResource Ink}" />
-                                    <Button
-                                        Grid.Column="1"
-                                        Style="{StaticResource RefinedInlineButton}"
-                                        Command="{Binding EditAddressCommand}"
-                                        FontAttributes="None"
-                                        SemanticProperties.Description="เปลี่ยนที่อยู่จัดส่ง"
-                                        Text="เปลี่ยนที่อยู่" />
-                                </Grid>
-                                <Label
-                                    Style="{StaticResource RefinedHelperText}"
-                                    Text="ผู้ขายจะเห็นเฉพาะจังหวัดและรหัสไปรษณีย์จนกว่าระบบยืนยันยอดชำระ" />
-                            </VerticalStackLayout>
-                        </Border>
-
+                            Text="{Binding OptionalDetailsSummary}" />
                         <VerticalStackLayout
-                            IsVisible="{Binding ShowAddressEditor}"
-                            Spacing="{StaticResource SpacingMd}">
-                            <Label
-                                Style="{StaticResource RefinedHelperText}"
-                                Text="เลือกให้เสร็จก่อนส่งข้อเสนอ ผู้ขายจะเห็นเฉพาะจังหวัดและรหัสไปรษณีย์จนกว่าระบบยืนยันยอดชำระ" />
-                            <Button
-                                IsVisible="{Binding HasSavedAddress}"
-                                Style="{StaticResource RefinedSecondaryActionButton}"
-                                Command="{Binding UseSavedAddressCommand}"
-                                Text="ใช้ที่อยู่เดิม" />
-                            <Border Style="{StaticResource RefinedInputBorder}">
-                                <Entry
-                                    Style="{StaticResource RefinedEntry}"
-                                    MaxLength="500"
-                                    Placeholder="บ้านเลขที่ ถนน อาคาร หรือหมู่บ้าน"
-                                    Text="{Binding AddressLine}" />
-                            </Border>
-                            <Border Style="{StaticResource RefinedInputBorder}">
-                                <Picker
-                                    Style="{StaticResource RefinedPicker}"
-                                    ItemDisplayBinding="{Binding Name}"
-                                    ItemsSource="{Binding Provinces}"
-                                    SelectedItem="{Binding SelectedProvince}"
-                                    Title="เลือกจังหวัดปลายทาง" />
-                            </Border>
-                            <Border Style="{StaticResource RefinedInputBorder}">
-                                <Picker
-                                    Style="{StaticResource RefinedPicker}"
-                                    ItemDisplayBinding="{Binding Name}"
-                                    ItemsSource="{Binding Districts}"
-                                    SelectedItem="{Binding SelectedDistrict}"
-                                    Title="เลือกอำเภอหรือเขต" />
-                            </Border>
-                            <Border Style="{StaticResource RefinedInputBorder}">
-                                <Picker
-                                    Style="{StaticResource RefinedPicker}"
-                                    ItemDisplayBinding="{Binding Name}"
-                                    ItemsSource="{Binding Subdistricts}"
-                                    SelectedItem="{Binding SelectedSubdistrict}"
-                                    Title="เลือกตำบลหรือแขวง" />
-                            </Border>
-                            <HorizontalStackLayout Spacing="5">
-                                <CheckBox
-                                    MinimumWidthRequest="{StaticResource CompactControlMinimumHeight}"
-                                    MinimumHeightRequest="{StaticResource CompactControlMinimumHeight}"
-                                    Color="{StaticResource BrandBlue}"
-                                    IsChecked="{Binding RememberAddress}" />
-                                <Label
-                                    VerticalOptions="Center"
-                                    FontAttributes="None"
-                                    FontSize="12"
-                                    Text="จำที่อยู่นี้ไว้สำหรับดีลถัดไป" />
-                            </HorizontalStackLayout>
-                            <Label
-                                Style="{StaticResource RefinedHelperText}"
-                                Text="{Binding DeliveryRegionText}"
-                                TextColor="{StaticResource BrandBlueDeep}" />
-                        </VerticalStackLayout>
-                    </VerticalStackLayout>
-
-                    <VerticalStackLayout
-                        AutomationId="SecondaryOfferOptions"
-                        Spacing="0">
-                        <Button
-                            AutomationId="OpenAiAgreementDraftButton"
-                            Margin="0,0,0,8"
-                            Style="{StaticResource RefinedSecondaryActionButton}"
-                            Command="{Binding OpenAiSheetCommand}"
-                            ContentLayout="Left,10"
-                            ImageSource="ui_ai_assist.png"
-                            SemanticProperties.Description="ให้ AI ช่วยกรอกข้อมูลจากรูปหรือข้อความแชต"
-                            Text="ให้ AI ช่วยกรอก" />
-
-                        <Border
-                            Padding="4,14"
-                            BackgroundColor="Transparent"
-                            Stroke="{StaticResource Line}"
-                            StrokeThickness="0"
-                            SemanticProperties.Description="เปลี่ยนประเภทสินค้า">
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer
-                                    Command="{Binding ToggleFulfillmentCommand}" />
-                            </Border.GestureRecognizers>
-                            <Grid
-                                ColumnDefinitions="28,*,Auto"
-                                ColumnSpacing="{StaticResource SpacingSm}">
-                                <Image
-                                    WidthRequest="20"
-                                    HeightRequest="20"
-                                    VerticalOptions="Center"
-                                    Source="ui_offer.png" />
-                                <Label
-                                    Grid.Column="1"
-                                    VerticalOptions="Center"
-                                    FontFamily="NotoSansThaiMedium"
-                                    FontAttributes="None"
-                                    FontSize="15"
-                                    Text="ประเภทสินค้า"
-                                    TextColor="{StaticResource Ink}" />
-                                <HorizontalStackLayout
-                                    Grid.Column="2"
-                                    VerticalOptions="Center"
-                                    Spacing="6">
-                                    <Label
-                                        VerticalOptions="Center"
-                                        FontAttributes="None"
-                                        FontSize="14"
-                                        Text="{Binding FulfillmentTypeLabel}"
-                                        TextColor="{StaticResource Muted}" />
-                                    <Label
-                                        VerticalOptions="Center"
-                                        FontSize="18"
-                                        Text="›"
-                                        TextColor="#98A2B3" />
-                                </HorizontalStackLayout>
-                            </Grid>
-                        </Border>
-
-                        <VerticalStackLayout
-                            AutomationId="OptionalProductPhotoField"
-                            Padding="4,14"
-                            Spacing="{StaticResource SpacingSm}">
-                            <Grid
-                                ColumnDefinitions="28,*"
-                                ColumnSpacing="{StaticResource SpacingSm}">
-                                <Image
-                                    WidthRequest="20"
-                                    HeightRequest="20"
-                                    VerticalOptions="Center"
-                                    Source="ui_camera.png" />
-                                <controls:FormLabelView
-                                    Grid.Column="1"
-                                    VerticalOptions="Center"
-                                    Text="รูปสินค้า (ไม่บังคับ)" />
-                            </Grid>
-                            <Label
-                                Style="{StaticResource RefinedHelperText}"
-                                Text="แนะนำสำหรับสินค้ามือสองหรือสินค้าที่ต้องตรวจสภาพ" />
-                            <Button
-                                Style="{StaticResource RefinedSecondaryActionButton}"
-                                Command="{Binding PickPhotoCommand}"
-                                SemanticProperties.Description="เลือกรูปสินค้าหรือรูปตำหนิ"
-                                Text="+  ถ่ายหรือเลือกรูป">
-                                <Button.Triggers>
-                                    <DataTrigger
-                                        TargetType="Button"
-                                        Binding="{Binding IsBusy}"
-                                        Value="True">
-                                        <Setter Property="IsEnabled" Value="False" />
-                                    </DataTrigger>
-                                </Button.Triggers>
-                            </Button>
-                            <Border
-                                IsVisible="{Binding HasPhoto}"
-                                Padding="12,8"
-                                BackgroundColor="{StaticResource SuccessSoft}"
-                                StrokeThickness="0"
-                                StrokeShape="RoundRectangle 12">
-                                <Label
-                                    FontAttributes="None"
-                                    FontSize="13"
-                                    Text="{Binding SelectedPhotoName, StringFormat='เพิ่มแล้ว · {0}'}"
-                                    TextColor="{StaticResource Success}" />
-                            </Border>
-                        </VerticalStackLayout>
-
-                        <Border
-                            AutomationId="OptionalDealDetailsDisclosure"
-                            Padding="4,14"
-                            BackgroundColor="Transparent"
-                            Stroke="{StaticResource Line}"
-                            StrokeThickness="0"
-                            SemanticProperties.Description="เพิ่มหรือซ่อนรายละเอียดสินค้าเพิ่มเติม"
-                            SemanticProperties.Hint="แตะเพื่อเปิดหรือปิด">
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer
-                                    Command="{Binding ToggleOptionalDetailsCommand}" />
-                            </Border.GestureRecognizers>
-                            <Grid
-                                ColumnDefinitions="28,*,Auto"
-                                ColumnSpacing="{StaticResource SpacingSm}">
-                                <Image
-                                    WidthRequest="20"
-                                    HeightRequest="20"
-                                    VerticalOptions="Center"
-                                    Source="ui_note.png" />
-                                <VerticalStackLayout
-                                    Grid.Column="1"
-                                    VerticalOptions="Center"
-                                    Spacing="2">
-                                    <Label
-                                        FontFamily="NotoSansThaiMedium"
-                                        FontAttributes="None"
-                                        FontSize="15"
-                                        Text="{Binding OptionalDetailsLabel}"
-                                        TextColor="{StaticResource Ink}" />
-                                    <Label
-                                        Style="{StaticResource RefinedHelperText}"
-                                        LineBreakMode="TailTruncation"
-                                        MaxLines="1"
-                                        Text="{Binding OptionalDetailsSummary}" />
-                                </VerticalStackLayout>
-                                <Label
-                                    Grid.Column="2"
-                                    MinimumWidthRequest="32"
-                                    VerticalOptions="Center"
-                                    HorizontalTextAlignment="Center"
-                                    FontAttributes="None"
-                                    FontSize="17"
-                                    Text="{Binding OptionalDetailsChevron}"
-                                    TextColor="{StaticResource BrandBlueDeep}" />
-                            </Grid>
-                        </Border>
-                        <VerticalStackLayout
-                            IsVisible="{Binding ShowOptionalDetails}"
-                            Padding="4,8,4,0"
-                            Spacing="{StaticResource SpacingSm}">
+                            IsVisible="{Binding ShowOptionalDetails}">
                             <Border Style="{StaticResource RefinedEditorBorder}">
                                 <Editor
                                     Style="{StaticResource RefinedEditor}"
                                     AutoSize="TextChanges"
-                                    Placeholder="เช่น อุปกรณ์ที่ให้มาด้วย รุ่น สี หรือรายละเอียดอื่น"
-                                    SemanticProperties.Description="รายละเอียดหรือสิ่งที่รวมเพิ่มเติม"
+                                    MaxLength="2000"
+                                    Placeholder="รุ่น สี อุปกรณ์ หรือสิ่งที่รวม"
                                     Text="{Binding AgreementDetails}" />
                             </Border>
                         </VerticalStackLayout>
                     </VerticalStackLayout>
+                </Border>
 
+                <Border
+                    IsVisible="{Binding HasMessage}"
+                    Style="{StaticResource RefinedValidationBorder}">
+                    <Label
+                        Style="{StaticResource RefinedValidationText}"
+                        Text="{Binding Message}" />
+                </Border>
+
+                <Button
+                    AutomationId="ContinueFromDealButton"
+                    Style="{StaticResource RefinedPrimaryButton}"
+                    Command="{Binding ContinueFromDealCommand}"
+                    Text="ถัดไป: การรับสินค้า  →" />
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <ScrollView
+            x:Name="FulfillmentStepScroll"
+            Grid.Row="1"
+            AutomationId="CreateOfferFulfillmentStep"
+            IsVisible="{Binding IsFulfillmentStep}"
+            SafeAreaEdges="SoftInput">
+            <VerticalStackLayout
+                MaximumWidthRequest="720"
+                Padding="20,24,20,124"
+                Spacing="24">
+                <VerticalStackLayout Spacing="4">
+                    <Label
+                        FontAttributes="Bold"
+                        FontSize="24"
+                        Text="การรับสินค้า"
+                        TextColor="{StaticResource Ink}" />
+                    <Label
+                        Style="{StaticResource RefinedHelperText}"
+                        Text="เลือกวิธีส่งมอบที่ใช้กับสินค้านี้" />
+                </VerticalStackLayout>
+
+                <VerticalStackLayout
+                    AutomationId="FulfillmentTypeSection"
+                    Spacing="{StaticResource SpacingSm}">
+                    <controls:FormLabelView
+                        IsRequired="True"
+                        Text="ประเภทสินค้า" />
+                    <Grid
+                        ColumnDefinitions="*,*"
+                        ColumnSpacing="{StaticResource SpacingSm}">
+                        <Button
+                            Style="{StaticResource RefinedSegmentButton}"
+                            Command="{Binding SelectPhysicalCommand}"
+                            Text="สินค้าที่จัดส่ง">
+                            <Button.Triggers>
+                                <DataTrigger
+                                    TargetType="Button"
+                                    Binding="{Binding IsPhysical}"
+                                    Value="True">
+                                    <Setter Property="BackgroundColor" Value="#EAF4FF" />
+                                    <Setter Property="TextColor" Value="#145FC7" />
+                                    <Setter Property="BorderColor" Value="#9CC9FF" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button
+                            Grid.Column="1"
+                            Style="{StaticResource RefinedSegmentButton}"
+                            Command="{Binding SelectDigitalCommand}"
+                            Text="ดิจิทัล">
+                            <Button.Triggers>
+                                <DataTrigger
+                                    TargetType="Button"
+                                    Binding="{Binding IsDigital}"
+                                    Value="True">
+                                    <Setter Property="BackgroundColor" Value="#EDEBFF" />
+                                    <Setter Property="TextColor" Value="#5144BF" />
+                                    <Setter Property="BorderColor" Value="#BDB6FF" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                    </Grid>
+                    <Label
+                        Style="{StaticResource RefinedHelperText}"
+                        Text="สินค้าดิจิทัลต้องเป็นรายการที่โอนได้และอยู่ในประเภทที่รองรับ" />
+                </VerticalStackLayout>
+
+                <VerticalStackLayout
+                    x:Name="DeliveryAddressAnchor"
+                    AutomationId="DeliveryAddressSection"
+                    IsVisible="{Binding IsPhysical}"
+                    Style="{StaticResource RefinedFormSection}">
+                    <controls:FormLabelView
+                        IsRequired="True"
+                        Text="ที่อยู่จัดส่ง" />
                     <Border
-                        IsVisible="{Binding HasMessage}"
-                        Style="{StaticResource RefinedValidationBorder}">
+                        IsVisible="{Binding ShowSavedAddressSummary}"
+                        Padding="16"
+                        BackgroundColor="White"
+                        Stroke="{StaticResource Line}"
+                        StrokeShape="RoundRectangle 18">
+                        <VerticalStackLayout Spacing="8">
+                            <Label
+                                FontFamily="NotoSansThaiMedium"
+                                Text="{Binding SavedAddress}"
+                                TextColor="{StaticResource Ink}" />
+                            <Button
+                                Style="{StaticResource RefinedInlineButton}"
+                                Command="{Binding EditAddressCommand}"
+                                SemanticProperties.Description="เปลี่ยนที่อยู่จัดส่ง"
+                                Text="เปลี่ยน" />
+                        </VerticalStackLayout>
+                    </Border>
+                    <VerticalStackLayout
+                        IsVisible="{Binding ShowAddressEditor}"
+                        Spacing="{StaticResource SpacingMd}">
+                        <Button
+                            IsVisible="{Binding HasSavedAddress}"
+                            Style="{StaticResource RefinedSecondaryActionButton}"
+                            Command="{Binding UseSavedAddressCommand}"
+                            Text="ใช้ที่อยู่เดิม" />
+                        <Border Style="{StaticResource RefinedInputBorder}">
+                            <Entry
+                                x:Name="AddressLineEntry"
+                                Style="{StaticResource RefinedEntry}"
+                                MaxLength="500"
+                                Placeholder="บ้านเลขที่ ถนน อาคาร หรือหมู่บ้าน"
+                                Text="{Binding AddressLine}" />
+                        </Border>
+                        <Border Style="{StaticResource RefinedInputBorder}">
+                            <Picker
+                                x:Name="ProvincePicker"
+                                Style="{StaticResource RefinedPicker}"
+                                ItemDisplayBinding="{Binding Name}"
+                                ItemsSource="{Binding Provinces}"
+                                SelectedItem="{Binding SelectedProvince}"
+                                Title="เลือกจังหวัดปลายทาง" />
+                        </Border>
+                        <Border Style="{StaticResource RefinedInputBorder}">
+                            <Picker
+                                Style="{StaticResource RefinedPicker}"
+                                ItemDisplayBinding="{Binding Name}"
+                                ItemsSource="{Binding Districts}"
+                                SelectedItem="{Binding SelectedDistrict}"
+                                Title="เลือกอำเภอหรือเขต" />
+                        </Border>
+                        <Border Style="{StaticResource RefinedInputBorder}">
+                            <Picker
+                                Style="{StaticResource RefinedPicker}"
+                                ItemDisplayBinding="{Binding Name}"
+                                ItemsSource="{Binding Subdistricts}"
+                                SelectedItem="{Binding SelectedSubdistrict}"
+                                Title="เลือกตำบลหรือแขวง" />
+                        </Border>
+                        <HorizontalStackLayout Spacing="6">
+                            <CheckBox
+                                MinimumWidthRequest="{StaticResource CompactControlMinimumHeight}"
+                                MinimumHeightRequest="{StaticResource CompactControlMinimumHeight}"
+                                Color="{StaticResource BrandBlue}"
+                                IsChecked="{Binding RememberAddress}" />
+                            <Label
+                                VerticalOptions="Center"
+                                Style="{StaticResource RefinedHelperText}"
+                                Text="จำที่อยู่นี้ไว้สำหรับดีลถัดไป" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                    <Label
+                        IsVisible="{Binding HasDeliveryAddressError}"
+                        Style="{StaticResource RefinedValidationText}"
+                        Text="{Binding DeliveryAddressError}" />
+                    <Label
+                        Style="{StaticResource RefinedHelperText}"
+                        Text="{Binding DeliveryRegionText}"
+                        TextColor="{StaticResource BrandBlueDeep}" />
+                    <Label
+                        Style="{StaticResource RefinedHelperText}"
+                        Text="ผู้ขายจะเห็นเฉพาะจังหวัดและรหัสไปรษณีย์ก่อนระบบยืนยันยอดชำระ" />
+                    <Label
+                        Style="{StaticResource RefinedHelperText}"
+                        Text="ผู้ขายจะเลือกบริการจัดส่งที่รองรับภายหลัง คุณไม่ต้องรวมค่าจัดส่งในราคาสินค้า" />
+                </VerticalStackLayout>
+
+                <Border
+                    IsVisible="{Binding IsDigital}"
+                    Padding="16"
+                    BackgroundColor="#F3F1FF"
+                    Stroke="#D5D0FF"
+                    StrokeShape="RoundRectangle 16">
+                    <Label
+                        Style="{StaticResource RefinedBodyText}"
+                        Text="ผู้ขายจะส่งมอบสิทธิ์ดิจิทัลหลังระบบยืนยันยอดชำระ และคุณต้องยืนยันว่าได้รับแล้ว"
+                        TextColor="{StaticResource Ink}" />
+                </Border>
+
+                <Border
+                    IsVisible="{Binding HasAddressLoadError}"
+                    Style="{StaticResource RefinedValidationBorder}">
+                    <VerticalStackLayout Spacing="8">
                         <Label
                             Style="{StaticResource RefinedValidationText}"
-                            Text="{Binding Message}" />
-                    </Border>
-                </VerticalStackLayout>
-            </ScrollView>
+                            Text="{Binding AddressLoadError}" />
+                        <Button
+                            Style="{StaticResource RefinedSecondaryActionButton}"
+                            Command="{Binding RetryAddressCommand}"
+                            Text="ลองอีกครั้ง" />
+                    </VerticalStackLayout>
+                </Border>
 
-            <Border
-                AutomationId="CreateOfferPrimaryActionBar"
-                Padding="20,12,20,28"
-                VerticalOptions="End"
-                BackgroundColor="White"
-                Stroke="{StaticResource Line}"
-                StrokeThickness="1">
+                <Border
+                    IsVisible="{Binding HasMessage}"
+                    Style="{StaticResource RefinedValidationBorder}">
+                    <Label
+                        Style="{StaticResource RefinedValidationText}"
+                        Text="{Binding Message}" />
+                </Border>
+
                 <Button
-                    AutomationId="ReviewQuickDealButton"
+                    AutomationId="ContinueFromFulfillmentButton"
                     Style="{StaticResource RefinedPrimaryButton}"
-                    Command="{Binding ReviewCommand}"
-                    SemanticProperties.Description="ตรวจข้อมูลข้อตกลงก่อนส่งให้ผู้ขาย"
-                    Text="ตรวจข้อมูลก่อนส่ง  →">
+                    Command="{Binding ContinueFromFulfillmentCommand}"
+                    Text="ถัดไป: ตรวจข้อมูล  →">
                     <Button.Triggers>
-                        <DataTrigger
-                            TargetType="Button"
-                            Binding="{Binding IsBusy}"
-                            Value="True">
-                            <Setter Property="IsEnabled" Value="False" />
-                        </DataTrigger>
                         <DataTrigger
                             TargetType="Button"
                             Binding="{Binding IsReviewPricing}"
@@ -462,279 +492,210 @@
                         </DataTrigger>
                     </Button.Triggers>
                 </Button>
-            </Border>
-        </Grid>
+                <Button
+                    Style="{StaticResource RefinedInlineButton}"
+                    Command="{Binding PreviousStepCommand}"
+                    Text="ย้อนกลับ: ข้อมูลดีล" />
+            </VerticalStackLayout>
+        </ScrollView>
 
-        <Grid
-            Grid.RowSpan="2"
-            AutomationId="QuickDealReviewSheet"
-            IsVisible="{Binding IsReviewSheetOpen}"
-            BackgroundColor="#730F172A">
-            <Border
-                Margin="12,72,12,12"
-                Padding="20"
-                VerticalOptions="End"
-                MaximumHeightRequest="720"
-                BackgroundColor="White"
-                Stroke="#D8E4F2"
-                StrokeShape="RoundRectangle 24">
-                <ScrollView>
-                    <VerticalStackLayout Spacing="{StaticResource SpacingLg}">
-                        <Grid
-                            ColumnDefinitions="*,Auto"
-                            ColumnSpacing="12">
-                            <VerticalStackLayout Spacing="3">
-                                <Label
-                                    FontAttributes="Bold"
-                                    FontSize="21"
-                                    Text="ตรวจข้อมูลก่อนส่ง" />
-                                <Label
-                                    Style="{StaticResource RefinedHelperText}"
-                                    Text="เลือกสภาพสินค้า แล้วตรวจสิ่งที่จะส่งให้ผู้ขาย" />
-                            </VerticalStackLayout>
-                            <Button
+        <ScrollView
+            x:Name="ReviewStepScroll"
+            Grid.Row="1"
+            AutomationId="CreateOfferReviewStep"
+            IsVisible="{Binding IsReviewStep}"
+            SafeAreaEdges="SoftInput">
+            <VerticalStackLayout
+                MaximumWidthRequest="720"
+                Padding="20,24,20,124"
+                Spacing="24">
+                <VerticalStackLayout Spacing="4">
+                    <Label
+                        FontAttributes="Bold"
+                        FontSize="24"
+                        Text="ตรวจและส่ง"
+                        TextColor="{StaticResource Ink}" />
+                    <Label
+                        Style="{StaticResource RefinedHelperText}"
+                        Text="ตรวจรายละเอียดก่อนส่งให้ผู้ขายตอบรับ" />
+                </VerticalStackLayout>
+
+                <Border
+                    Padding="16"
+                    BackgroundColor="White"
+                    Stroke="{StaticResource Line}"
+                    StrokeShape="RoundRectangle 18">
+                    <Label
+                        FontSize="14"
+                        LineHeight="1.5"
+                        Text="{Binding ReviewSummary}"
+                        TextColor="{StaticResource Ink}" />
+                </Border>
+
+                <Border
+                    x:Name="ReviewCostSummary"
+                    AutomationId="ReviewCostSummary"
+                    Padding="16"
+                    BackgroundColor="#F3F8FF"
+                    Stroke="#CFE2F8"
+                    StrokeShape="RoundRectangle 18">
+                    <VerticalStackLayout Spacing="10">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="ราคาสินค้า" />
+                            <Label
                                 Grid.Column="1"
-                                WidthRequest="44"
-                                HeightRequest="44"
-                                Padding="0"
-                                BackgroundColor="#EEF3F8"
-                                Command="{Binding CloseReviewCommand}"
-                                CornerRadius="22"
-                                FontSize="18"
-                                SemanticProperties.Description="ปิดหน้าตรวจข้อมูล"
-                                Text="×"
-                                TextColor="{StaticResource Ink}" />
+                                Text="{Binding CostItemPriceText}" />
                         </Grid>
-
-                        <Border
-                            Padding="14"
-                            BackgroundColor="#F4F8FC"
-                            Stroke="#D8E4F2"
-                            StrokeShape="RoundRectangle 14">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="ค่าคุ้มครองผู้ซื้อ" />
                             <Label
-                                FontAttributes="None"
-                                FontSize="13"
-                                LineHeight="1.5"
-                                Text="{Binding ReviewSummary}"
-                                TextColor="{StaticResource Ink}" />
-                        </Border>
-
-                        <Border
-                            AutomationId="ReviewCostSummary"
-                            Padding="16"
-                            BackgroundColor="#FBFDFF"
-                            Stroke="{StaticResource Line}"
-                            StrokeShape="RoundRectangle 16"
-                            SemanticProperties.Description="สรุปค่าใช้จ่ายก่อนส่งข้อเสนอ">
-                            <VerticalStackLayout Spacing="{StaticResource SpacingMd}">
-                                <Label
-                                    FontFamily="NotoSansThaiMedium"
-                                    FontAttributes="None"
-                                    FontSize="16"
-                                    Text="สรุปค่าใช้จ่าย"
-                                    TextColor="{StaticResource Ink}" />
-                                <Grid
-                                    ColumnDefinitions="*,Auto"
-                                    ColumnSpacing="12">
-                                    <Label
-                                        FontAttributes="None"
-                                        FontSize="13"
-                                        Text="ราคาสินค้า"
-                                        TextColor="{StaticResource InkSoft}" />
-                                    <Label
-                                        Grid.Column="1"
-                                        FontAttributes="None"
-                                        FontSize="14"
-                                        Text="{Binding CostItemPriceText}"
-                                        TextColor="{StaticResource Ink}" />
-                                </Grid>
-                                <Border
-                                    Padding="12"
-                                    BackgroundColor="#EAF4FF"
-                                    Stroke="#B8D9FF"
-                                    StrokeShape="RoundRectangle 14">
-                                    <Grid
-                                        ColumnDefinitions="*,Auto"
-                                        ColumnSpacing="12">
-                                        <VerticalStackLayout Spacing="2">
-                                            <Label
-                                                FontAttributes="None"
-                                                FontSize="13"
-                                                Text="ค่าคุ้มครองผู้ซื้อ"
-                                                TextColor="{StaticResource BrandBlueDeep}" />
-                                            <Label
-                                                FontAttributes="None"
-                                                FontSize="12"
-                                                LineHeight="1.3"
-                                                Text="ช่วยดูแลเมื่อไม่ได้รับของ ของเสียหาย หรือไม่ตรงตามที่ตกลง"
-                                                TextColor="{StaticResource Muted}" />
-                                        </VerticalStackLayout>
-                                        <Label
-                                            Grid.Column="1"
-                                            VerticalOptions="Center"
-                                            FontAttributes="None"
-                                            FontSize="14"
-                                            Text="{Binding CostProtectionFeeText}"
-                                            TextColor="{StaticResource BrandBlueDeep}" />
-                                    </Grid>
-                                </Border>
-                                <Grid
-                                    ColumnDefinitions="*,Auto"
-                                    ColumnSpacing="12">
-                                    <Label
-                                        FontAttributes="None"
-                                        FontSize="13"
-                                        Text="ค่าจัดส่ง"
-                                        TextColor="{StaticResource InkSoft}" />
-                                    <Label
-                                        Grid.Column="1"
-                                        FontAttributes="None"
-                                        FontSize="13"
-                                        Text="{Binding CostShippingText}"
-                                        TextColor="{StaticResource Ink}" />
-                                </Grid>
-                                <BoxView
-                                    HeightRequest="1"
-                                    Color="{StaticResource Line}" />
-                                <Grid
-                                    ColumnDefinitions="*,Auto"
-                                    ColumnSpacing="12">
-                                    <Label
-                                        FontAttributes="Bold"
-                                        FontSize="16"
-                                        Text="{Binding CostSummaryLabel}"
-                                        TextColor="{StaticResource Ink}" />
-                                    <Label
-                                        Grid.Column="1"
-                                        FontAttributes="Bold"
-                                        FontSize="18"
-                                        Text="{Binding CostTotalText}"
-                                        TextColor="{StaticResource Ink}" />
-                                </Grid>
-                                <Label
-                                    FontAttributes="None"
-                                    FontSize="12"
-                                    Text="ยังไม่ตัดเงินในขั้นตอนนี้"
-                                    TextColor="{StaticResource InkSoft}" />
-                                <Label
-                                    FontAttributes="None"
-                                    FontSize="12"
-                                    Text="คุณจะตรวจยอดสุดท้ายอีกครั้งก่อนชำระเงิน"
-                                    TextColor="{StaticResource Muted}" />
-                            </VerticalStackLayout>
-                        </Border>
-
-                        <VerticalStackLayout Spacing="{StaticResource SpacingSm}">
-                            <controls:FormLabelView
-                                IsRequired="True"
-                                Text="สภาพสินค้า" />
-                            <Grid
-                                ColumnDefinitions="*,*,*"
-                                ColumnSpacing="{StaticResource SpacingSm}">
-                                <Button
-                                    Style="{StaticResource RefinedSegmentButton}"
-                                    Command="{Binding SelectNewConditionCommand}"
-                                    FontSize="12"
-                                    SemanticProperties.Description="เลือกสินค้าใหม่"
-                                    Text="ใหม่">
-                                    <Button.Triggers>
-                                        <DataTrigger
-                                            TargetType="Button"
-                                            Binding="{Binding IsNewCondition}"
-                                            Value="True">
-                                            <Setter Property="BackgroundColor" Value="#EAF4FF" />
-                                            <Setter Property="TextColor" Value="#145FC7" />
-                                            <Setter Property="BorderColor" Value="#9CC9FF" />
-                                        </DataTrigger>
-                                    </Button.Triggers>
-                                </Button>
-                                <Button
-                                    Grid.Column="1"
-                                    Style="{StaticResource RefinedSegmentButton}"
-                                    Command="{Binding SelectUsedGoodConditionCommand}"
-                                    FontSize="12"
-                                    SemanticProperties.Description="เลือกสินค้ามือสองสภาพดี"
-                                    Text="มือสอง สภาพดี">
-                                    <Button.Triggers>
-                                        <DataTrigger
-                                            TargetType="Button"
-                                            Binding="{Binding IsUsedGoodCondition}"
-                                            Value="True">
-                                            <Setter Property="BackgroundColor" Value="#EAF4FF" />
-                                            <Setter Property="TextColor" Value="#145FC7" />
-                                            <Setter Property="BorderColor" Value="#9CC9FF" />
-                                        </DataTrigger>
-                                    </Button.Triggers>
-                                </Button>
-                                <Button
-                                    Grid.Column="2"
-                                    Style="{StaticResource RefinedSegmentButton}"
-                                    Command="{Binding SelectUsedDefectConditionCommand}"
-                                    FontSize="12"
-                                    SemanticProperties.Description="เลือกสินค้ามือสองมีตำหนิ"
-                                    Text="มีตำหนิ">
-                                    <Button.Triggers>
-                                        <DataTrigger
-                                            TargetType="Button"
-                                            Binding="{Binding IsUsedDefectCondition}"
-                                            Value="True">
-                                            <Setter Property="BackgroundColor" Value="#FFF1E8" />
-                                            <Setter Property="TextColor" Value="#A94E16" />
-                                            <Setter Property="BorderColor" Value="#F3C6A8" />
-                                        </DataTrigger>
-                                    </Button.Triggers>
-                                </Button>
-                            </Grid>
-                            <VerticalStackLayout
-                                IsVisible="{Binding HasDefectCondition}"
-                                Spacing="{StaticResource SpacingSm}">
-                                <controls:FormLabelView
-                                    IsRequired="True"
-                                    Text="ระบุตำหนิที่ผู้ขายควรรู้" />
-                                <Border Style="{StaticResource RefinedEditorBorder}">
-                                    <Editor
-                                        Style="{StaticResource RefinedEditor}"
-                                        AutoSize="TextChanges"
-                                        MaxLength="1000"
-                                        Placeholder="เช่น มีรอยมุมขวาตามรูป แต่ใช้งานปกติ"
-                                        SemanticProperties.Description="รายละเอียดตำหนิสินค้า"
-                                        Text="{Binding KnownDefects}" />
-                                </Border>
-                            </VerticalStackLayout>
-                        </VerticalStackLayout>
-
-                        <Border
-                            IsVisible="{Binding HasMessage}"
-                            Style="{StaticResource RefinedValidationBorder}">
+                                Grid.Column="1"
+                                Text="{Binding CostProtectionFeeText}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="ค่าจัดส่ง" />
                             <Label
-                                Style="{StaticResource RefinedValidationText}"
-                                Text="{Binding Message}" />
-                        </Border>
+                                Grid.Column="1"
+                                Text="{Binding CostShippingText}" />
+                        </Grid>
+                        <BoxView
+                            HeightRequest="1"
+                            Color="{StaticResource Line}" />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label
+                                FontAttributes="Bold"
+                                Text="{Binding CostSummaryLabel}" />
+                            <Label
+                                Grid.Column="1"
+                                FontAttributes="Bold"
+                                Text="{Binding CostTotalText}" />
+                        </Grid>
+                        <Label
+                            Style="{StaticResource RefinedHelperText}"
+                            Text="ยังไม่ตัดเงินในขั้นตอนนี้" />
+                        <Label
+                            Style="{StaticResource RefinedHelperText}"
+                            Text="ผู้ขายต้องตอบรับก่อน คุณจึงตรวจยอดสุดท้ายและชำระเงิน" />
+                    </VerticalStackLayout>
+                </Border>
 
+                <VerticalStackLayout Spacing="{StaticResource SpacingSm}">
+                    <controls:FormLabelView
+                        IsRequired="True"
+                        Text="สภาพสินค้า" />
+                    <Grid
+                        x:Name="ConditionPickerAnchor"
+                        ColumnDefinitions="*,*,*"
+                        ColumnSpacing="{StaticResource SpacingSm}">
                         <Button
-                            AutomationId="SubmitReviewedOfferButton"
-                            Style="{StaticResource RefinedPrimaryButton}"
-                            Command="{Binding SubmitCommand}"
-                            SemanticProperties.Description="ส่งข้อเสนอที่ตรวจแล้วให้ผู้ขาย"
-                            Text="ส่งข้อเสนอให้ผู้ขาย">
+                            x:Name="NewConditionButton"
+                            Style="{StaticResource RefinedSegmentButton}"
+                            Command="{Binding SelectNewConditionCommand}"
+                            FontSize="12"
+                            Text="ใหม่">
                             <Button.Triggers>
                                 <DataTrigger
                                     TargetType="Button"
-                                    Binding="{Binding IsBusy}"
+                                    Binding="{Binding IsNewCondition}"
                                     Value="True">
-                                    <Setter Property="IsEnabled" Value="False" />
-                                    <Setter Property="Text" Value="กำลังสร้างลิงก์..." />
+                                    <Setter Property="BackgroundColor" Value="#EAF4FF" />
+                                    <Setter Property="TextColor" Value="#145FC7" />
+                                    <Setter Property="BorderColor" Value="#9CC9FF" />
                                 </DataTrigger>
                             </Button.Triggers>
                         </Button>
                         <Button
-                            Style="{StaticResource RefinedSecondaryActionButton}"
-                            Command="{Binding CloseReviewCommand}"
-                            Text="กลับไปแก้ไข" />
+                            Grid.Column="1"
+                            Style="{StaticResource RefinedSegmentButton}"
+                            Command="{Binding SelectUsedGoodConditionCommand}"
+                            FontSize="12"
+                            Text="มือสอง สภาพดี">
+                            <Button.Triggers>
+                                <DataTrigger
+                                    TargetType="Button"
+                                    Binding="{Binding IsUsedGoodCondition}"
+                                    Value="True">
+                                    <Setter Property="BackgroundColor" Value="#EAF4FF" />
+                                    <Setter Property="TextColor" Value="#145FC7" />
+                                    <Setter Property="BorderColor" Value="#9CC9FF" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button
+                            Grid.Column="2"
+                            Style="{StaticResource RefinedSegmentButton}"
+                            Command="{Binding SelectUsedDefectConditionCommand}"
+                            FontSize="12"
+                            Text="มีตำหนิ">
+                            <Button.Triggers>
+                                <DataTrigger
+                                    TargetType="Button"
+                                    Binding="{Binding IsUsedDefectCondition}"
+                                    Value="True">
+                                    <Setter Property="BackgroundColor" Value="#FFF1E8" />
+                                    <Setter Property="TextColor" Value="#A94E16" />
+                                    <Setter Property="BorderColor" Value="#F3C6A8" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                    </Grid>
+                    <Label
+                        IsVisible="{Binding HasConditionError}"
+                        Style="{StaticResource RefinedValidationText}"
+                        Text="{Binding ConditionError}" />
+                    <VerticalStackLayout
+                        IsVisible="{Binding HasDefectCondition}"
+                        Spacing="{StaticResource SpacingSm}">
+                        <controls:FormLabelView
+                            IsRequired="True"
+                            Text="ระบุตำหนิที่ผู้ขายควรรู้" />
+                        <Border Style="{StaticResource RefinedEditorBorder}">
+                            <Editor
+                                x:Name="KnownDefectsEditor"
+                                Style="{StaticResource RefinedEditor}"
+                                AutoSize="TextChanges"
+                                MaxLength="1000"
+                                Placeholder="เช่น มีรอยมุมขวาตามรูป แต่ใช้งานปกติ"
+                                Text="{Binding KnownDefects}" />
+                        </Border>
+                        <Label
+                            IsVisible="{Binding HasKnownDefectsError}"
+                            Style="{StaticResource RefinedValidationText}"
+                            Text="{Binding KnownDefectsError}" />
                     </VerticalStackLayout>
-                </ScrollView>
-            </Border>
-        </Grid>
+                </VerticalStackLayout>
+
+                <Border
+                    IsVisible="{Binding HasMessage}"
+                    Style="{StaticResource RefinedValidationBorder}">
+                    <Label
+                        Style="{StaticResource RefinedValidationText}"
+                        Text="{Binding Message}" />
+                </Border>
+
+                <Button
+                    x:Name="SubmitReviewedOfferButton"
+                    AutomationId="SubmitReviewedOfferButton"
+                    Style="{StaticResource RefinedPrimaryButton}"
+                    Command="{Binding SubmitCommand}"
+                    SemanticProperties.Description="ส่งข้อเสนอที่ตรวจแล้วให้ผู้ขาย"
+                    Text="ส่งข้อเสนอให้ผู้ขาย">
+                    <Button.Triggers>
+                        <DataTrigger
+                            TargetType="Button"
+                            Binding="{Binding IsBusy}"
+                            Value="True">
+                            <Setter Property="IsEnabled" Value="False" />
+                            <Setter Property="Text" Value="กำลังสร้างข้อเสนอ..." />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button
+                    Style="{StaticResource RefinedInlineButton}"
+                    Command="{Binding PreviousStepCommand}"
+                    Text="ย้อนกลับ: การรับสินค้า" />
+            </VerticalStackLayout>
+        </ScrollView>
 
         <Grid
             Grid.RowSpan="2"
@@ -771,7 +732,6 @@
                                 BackgroundColor="#EEF3F8"
                                 Command="{Binding CloseAiSheetCommand}"
                                 CornerRadius="22"
-                                FontSize="18"
                                 SemanticProperties.Description="ปิดตัวช่วย AI"
                                 Text="×"
                                 TextColor="{StaticResource Ink}" />
@@ -787,41 +747,19 @@
                                 Text="+  เลือกรูปหรือภาพแชต" />
                             <Label
                                 IsVisible="{Binding HasAiSourcePhoto}"
-                                FontAttributes="None"
-                                FontSize="13"
+                                Style="{StaticResource RefinedHelperText}"
                                 Text="{Binding AiSourcePhotoName, StringFormat='เลือกแล้ว · {0}'}"
                                 TextColor="{StaticResource Success}" />
-                            <Grid
-                                ColumnDefinitions="*,Auto,*"
-                                ColumnSpacing="{StaticResource SpacingSm}">
-                                <BoxView
-                                    HeightRequest="1"
-                                    VerticalOptions="Center"
-                                    Color="{StaticResource Line}" />
-                                <Label
-                                    Grid.Column="1"
-                                    FontAttributes="None"
-                                    FontSize="12"
-                                    Text="หรือ"
-                                    TextColor="{StaticResource Muted}" />
-                                <BoxView
-                                    Grid.Column="2"
-                                    HeightRequest="1"
-                                    VerticalOptions="Center"
-                                    Color="{StaticResource Line}" />
-                            </Grid>
                             <Border Style="{StaticResource RefinedEditorBorder}">
                                 <Editor
                                     Style="{StaticResource RefinedEditor}"
                                     AutoSize="TextChanges"
                                     MaxLength="4000"
                                     Placeholder="วางข้อความที่ตกลงกัน เช่น สินค้า ราคา สภาพ และสิ่งที่รวม"
-                                    SemanticProperties.Description="ข้อความแชตสำหรับให้ AI ช่วยกรอก"
                                     Text="{Binding AiChatText}" />
                             </Border>
                             <Label
                                 Style="{StaticResource RefinedHelperText}"
-                                LineHeight="1.35"
                                 Text="AI ช่วยเตรียมข้อมูลเท่านั้น กรุณาอย่าใส่ OTP รหัสผ่าน หรือข้อมูลบัตร" />
                             <Button
                                 AutomationId="AnalyzeAiAgreementDraftButton"
@@ -838,18 +776,13 @@
                                     </DataTrigger>
                                 </Button.Triggers>
                             </Button>
-                            <ActivityIndicator
-                                IsRunning="{Binding IsAiAnalyzing}"
-                                IsVisible="{Binding IsAiAnalyzing}"
-                                Color="{StaticResource BrandBlue}" />
                         </VerticalStackLayout>
 
                         <VerticalStackLayout
                             IsVisible="{Binding HasAiDraft}"
                             Spacing="{StaticResource SpacingMd}">
                             <Label
-                                FontAttributes="None"
-                                FontSize="16"
+                                FontFamily="NotoSansThaiMedium"
                                 Text="ตรวจข้อมูลที่ AI พบ" />
                             <Border
                                 Padding="14"
@@ -857,7 +790,6 @@
                                 Stroke="#D8E4F2"
                                 StrokeShape="RoundRectangle 14">
                                 <Label
-                                    FontAttributes="None"
                                     FontSize="13"
                                     LineHeight="1.45"
                                     Text="{Binding AiDraftSummary}" />
