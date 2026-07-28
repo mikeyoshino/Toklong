@@ -36,11 +36,6 @@ public sealed class SellerOfferViewModel(
     public string ProductName => Transaction?.ProductName ?? "";
     public string AgreementDetails => Transaction?.AgreementDetails ?? "";
     public string AmountText => Transaction?.FormattedAmount ?? "";
-    public string FeeText => invitation is null
-        ? ""
-        : MoneyFormatter.Format(
-            invitation.BuyerProtectionFeeSatang,
-            "THB");
     public string NetText => invitation is null
         ? ""
         : MoneyFormatter.Format(invitation.SellerExpectedNetSatang, "THB");
@@ -225,30 +220,13 @@ public sealed class SellerOfferViewModel(
         set
         {
             if (SetProperty(ref selectedShippingQuote, value))
-            {
                 OnPropertyChanged(nameof(ShippingFeeText));
-                OnPropertyChanged(nameof(BuyerTotalText));
-            }
         }
     }
 
     public bool HasShippingQuotes => ShippingQuotes.Count > 0;
     public string ShippingFeeText =>
         SelectedShippingQuote?.FeeText ?? "—";
-    public string BuyerTotalText
-    {
-        get
-        {
-            var itemPrice = Transaction?.ItemPriceSatang > 0
-                ? Transaction.ItemPriceSatang
-                : Transaction?.AmountSatang ?? 0;
-            return MoneyFormatter.Format(
-                checked(itemPrice +
-                    (SelectedShippingQuote?.FeeSatang ?? 0) +
-                    (invitation?.BuyerProtectionFeeSatang ?? 0)),
-                "THB");
-        }
-    }
 
     public bool TransferRightsAttested
     {
@@ -600,7 +578,6 @@ public sealed class SellerOfferViewModel(
         OnPropertyChanged(nameof(ProductName));
         OnPropertyChanged(nameof(AgreementDetails));
         OnPropertyChanged(nameof(AmountText));
-        OnPropertyChanged(nameof(FeeText));
         OnPropertyChanged(nameof(NetText));
         OnPropertyChanged(nameof(DeadlineText));
         OnPropertyChanged(nameof(PhotoUrl));
@@ -609,6 +586,5 @@ public sealed class SellerOfferViewModel(
         OnPropertyChanged(nameof(IsPhysical));
         OnPropertyChanged(nameof(ShowOriginEditor));
         OnPropertyChanged(nameof(ShowSavedOrigin));
-        OnPropertyChanged(nameof(BuyerTotalText));
     }
 }

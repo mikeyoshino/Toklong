@@ -212,19 +212,44 @@
                                 TextColor="{StaticResource InkSoft}" />
                         </VerticalStackLayout>
                         <VerticalStackLayout
+                            AutomationId="SellerPayoutDisclosure"
                             IsVisible="{Binding Transaction.IsSellerRole}"
                             Spacing="7">
                             <BoxView HeightRequest="1" Color="{StaticResource Line}" />
                             <Grid ColumnDefinitions="*,Auto">
                                 <Label
                                     FontSize="13"
-                                    Text="ค่าคุ้มครองผู้ซื้อ"
+                                    Text="ราคาสินค้า"
                                     TextColor="{StaticResource Muted}" />
                                 <Label
                                     Grid.Column="1"
                                     FontSize="13"
-                                    Text="{Binding Transaction.FeeText}"
-                                    TextColor="{StaticResource InkSoft}" />
+                                    Text="{Binding Transaction.ItemPriceText}" />
+                            </Grid>
+                            <Grid
+                                IsVisible="{Binding Transaction.HasShippingFee}"
+                                ColumnDefinitions="*,Auto">
+                                <Label
+                                    FontSize="13"
+                                    Text="ค่าจัดส่ง"
+                                    TextColor="{StaticResource Muted}" />
+                                <Label
+                                    Grid.Column="1"
+                                    FontSize="13"
+                                    Text="{Binding Transaction.ShippingFeeText}" />
+                            </Grid>
+                            <Grid
+                                IsVisible="{Binding Transaction.HasShippingFee}"
+                                ColumnDefinitions="*,Auto">
+                                <Label
+                                    FontSize="13"
+                                    Text="ขนส่ง"
+                                    TextColor="{StaticResource Muted}" />
+                                <Label
+                                    Grid.Column="1"
+                                    FontAttributes="Bold"
+                                    FontSize="13"
+                                    Text="{Binding Transaction.ShippingServiceText}" />
                             </Grid>
                             <Grid ColumnDefinitions="*,Auto">
                                 <Label
@@ -235,14 +260,15 @@
                                     Grid.Column="1"
                                     FontAttributes="Bold"
                                     FontSize="14"
-                                Text="{Binding Transaction.SellerNetText}"
-                                TextColor="{StaticResource Success}" />
+                                    Text="{Binding Transaction.SellerNetText}"
+                                    TextColor="{StaticResource Success}" />
                             </Grid>
                         </VerticalStackLayout>
-                        <BoxView HeightRequest="1" Color="{StaticResource Line}" />
                         <VerticalStackLayout
-                            IsVisible="{Binding Transaction.HasShippingFee}"
+                            AutomationId="BuyerCostDisclosure"
+                            IsVisible="{Binding Transaction.IsBuyerRole}"
                             Spacing="7">
+                            <BoxView HeightRequest="1" Color="{StaticResource Line}" />
                             <Grid ColumnDefinitions="*,Auto">
                                 <Label
                                     FontSize="13"
@@ -254,6 +280,18 @@
                                     Text="{Binding Transaction.ItemPriceText}" />
                             </Grid>
                             <Grid ColumnDefinitions="*,Auto">
+                                <Label
+                                    FontSize="13"
+                                    Text="ค่าคุ้มครองผู้ซื้อ"
+                                    TextColor="{StaticResource Muted}" />
+                                <Label
+                                    Grid.Column="1"
+                                    FontSize="13"
+                                    Text="{Binding Transaction.FeeText}" />
+                            </Grid>
+                            <Grid
+                                IsVisible="{Binding Transaction.HasShippingFee}"
+                                ColumnDefinitions="*,Auto">
                                 <Label
                                     FontSize="13"
                                     Text="ค่าจัดส่ง"
@@ -275,7 +313,9 @@
                                     Text="{Binding Transaction.FormattedAmount}"
                                     TextColor="{StaticResource BrandBlueDeep}" />
                             </Grid>
-                            <Grid ColumnDefinitions="*,Auto">
+                            <Grid
+                                IsVisible="{Binding Transaction.HasShippingFee}"
+                                ColumnDefinitions="*,Auto">
                                 <Label
                                     FontSize="13"
                                     Text="ขนส่ง"

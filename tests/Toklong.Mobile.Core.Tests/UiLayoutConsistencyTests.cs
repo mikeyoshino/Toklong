@@ -682,7 +682,96 @@ public sealed class UiLayoutConsistencyTests
             detail.Descendants(),
             element =>
                 AttributeValue(element, "AutomationId") ==
-                "TransactionRecordDisclosure");
+                    "TransactionRecordDisclosure");
+    }
+
+    [Fact]
+    public void SellerOffer_HidesBuyerProtectionAndBuyerTotal()
+    {
+        var sellerOffer = Load(
+            "Ui",
+            "Pages",
+            "SellerOfferPage.xaml");
+        var labelTexts = sellerOffer
+            .Descendants(Maui + "Label")
+            .Select(label => AttributeValue(label, "Text"))
+            .ToArray();
+
+        Assert.DoesNotContain(
+            "ค่าคุ้มครองที่ผู้ซื้อจ่าย",
+            labelTexts);
+        Assert.DoesNotContain("{Binding FeeText}", labelTexts);
+        Assert.DoesNotContain("ยอดที่ผู้ซื้อชำระ", labelTexts);
+        Assert.DoesNotContain(
+            "{Binding BuyerTotalText}",
+            labelTexts);
+        Assert.Contains("ยอดที่คาดว่าจะได้รับ", labelTexts);
+        Assert.Contains("{Binding NetText}", labelTexts);
+        Assert.Contains(
+            "ค่าจัดส่งที่ผู้ซื้อจ่าย",
+            labelTexts);
+    }
+
+    [Fact]
+    public void TransactionDetail_ShowsProtectionAndTotalOnlyToBuyer()
+    {
+        var detail = Load(
+            "Ui",
+            "Pages",
+            "TransactionDetailPage.xaml");
+        var buyerCost = detail
+            .Descendants(Maui + "VerticalStackLayout")
+            .Single(stack =>
+                AttributeValue(stack, "AutomationId") ==
+                    "BuyerCostDisclosure");
+
+        Assert.Equal(
+            "{Binding Transaction.IsBuyerRole}",
+            AttributeValue(buyerCost, "IsVisible"));
+        Assert.Contains(
+            buyerCost.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                    "{Binding Transaction.ItemPriceText}");
+        Assert.Contains(
+            buyerCost.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                    "ค่าคุ้มครองผู้ซื้อ");
+        Assert.Contains(
+            buyerCost.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                    "{Binding Transaction.FeeText}");
+        Assert.Contains(
+            buyerCost.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                    "{Binding Transaction.FormattedAmount}");
+
+        var sellerPayout = detail
+            .Descendants(Maui + "VerticalStackLayout")
+            .Single(stack =>
+                AttributeValue(stack, "AutomationId") ==
+                    "SellerPayoutDisclosure");
+        Assert.Equal(
+            "{Binding Transaction.IsSellerRole}",
+            AttributeValue(sellerPayout, "IsVisible"));
+        Assert.Contains(
+            sellerPayout.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                    "{Binding Transaction.ItemPriceText}");
+        Assert.Contains(
+            sellerPayout.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                    "{Binding Transaction.SellerNetText}");
+        Assert.DoesNotContain(
+            sellerPayout.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                    "{Binding Transaction.FeeText}");
     }
 
     [Fact]

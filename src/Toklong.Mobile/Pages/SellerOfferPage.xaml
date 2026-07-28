@@ -66,10 +66,6 @@
                             Text="{Binding DeliveryRegionText}" />
                     </Grid>
                     <Grid ColumnDefinitions="*,Auto">
-                        <Label Text="ค่าคุ้มครองที่ผู้ซื้อจ่าย" TextColor="{StaticResource Muted}" />
-                        <Label Grid.Column="1" Text="{Binding FeeText}" />
-                    </Grid>
-                    <Grid ColumnDefinitions="*,Auto">
                         <Label FontAttributes="Bold" Text="ยอดที่คาดว่าจะได้รับ" />
                         <Label
                             Grid.Column="1"
@@ -255,16 +251,6 @@
                             <Label
                                 Grid.Column="1"
                                 Text="{Binding ShippingFeeText}" />
-                        </Grid>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label
-                                FontAttributes="Bold"
-                                Text="ยอดที่ผู้ซื้อชำระ" />
-                            <Label
-                                Grid.Column="1"
-                                FontAttributes="Bold"
-                                Text="{Binding BuyerTotalText}"
-                                TextColor="{StaticResource BrandBlueDeep}" />
                         </Grid>
                     </VerticalStackLayout>
                 </VerticalStackLayout>
