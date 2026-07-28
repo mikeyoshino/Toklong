@@ -743,6 +743,68 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
+    public void TransactionDetailUsesAccessibleConnectedProgressTokens()
+    {
+        var detail = Load(
+            "Ui",
+            "Pages",
+            "TransactionDetailPage.xaml");
+        var progressHost = detail
+            .Descendants()
+            .Single(element =>
+                element.Name.LocalName ==
+                    "TransactionProgressView");
+
+        Assert.Equal(
+            "{Binding Transaction}",
+            AttributeValue(progressHost, "Transaction"));
+
+        var progress = Load(
+            "Ui",
+            "Controls",
+            "TransactionProgressView.xaml");
+        var tokens = progress
+            .Descendants(Maui + "Border")
+            .Where(element =>
+                AttributeValue(element, "AutomationId") is
+                    "ProgressTokenOne" or
+                    "ProgressTokenTwo" or
+                    "ProgressTokenThree")
+            .ToArray();
+        var connectors = progress
+            .Descendants(Maui + "Border")
+            .Where(element =>
+                AttributeValue(element, "AutomationId") is
+                    "ProgressConnectorOne" or
+                    "ProgressConnectorTwo")
+            .ToArray();
+
+        Assert.Equal(3, tokens.Length);
+        Assert.All(tokens, token =>
+        {
+            Assert.Equal(
+                "48",
+                AttributeValue(token, "WidthRequest"));
+            Assert.Equal(
+                "48",
+                AttributeValue(token, "HeightRequest"));
+            Assert.Equal(
+                "RoundRectangle 24",
+                AttributeValue(token, "StrokeShape"));
+            Assert.NotNull(
+                AttributeValue(
+                    token,
+                    "SemanticProperties.Description"));
+            Assert.Single(token.Descendants(Maui + "Image"));
+            Assert.Empty(token.Descendants(Maui + "Label"));
+            Assert.Empty(token.Descendants(Maui + "Border"));
+        });
+        Assert.Equal(2, connectors.Length);
+        Assert.Empty(
+            progress.Descendants(Maui + "TapGestureRecognizer"));
+    }
+
+    [Fact]
     public void TransactionDetail_ShowsProtectionAndTotalOnlyToBuyer()
     {
         var detail = Load(

@@ -324,8 +324,10 @@ public sealed class TransactionPresentationTests
 
         Assert.Equal(1, item.ProgressCompletedThrough);
         Assert.Equal(0, item.ProgressActiveStep);
-        Assert.Equal("ui_truck_disabled.png", item.ProgressTwoIcon);
-        Assert.Equal("#98A2B3", item.ProgressTwoLabelColor);
+        Assert.Equal(
+            "progress_parcel_handoff_disabled.png",
+            item.ProgressTwo.Icon);
+        Assert.Equal("#98A2B3", item.ProgressTwo.LabelColor);
     }
 
     [Fact]

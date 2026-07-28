@@ -12,9 +12,13 @@
 - Keep buyer and seller transaction-detail screens visibly distinct: blue for
   `ซื้อ`, purple for `ขาย`, plus explicit role labels and role-specific status
   copy. Never rely on color alone.
-- In the three-step progress card, completed steps are green across icon,
-  outline, marker, and label; all incomplete steps are gray. The main status
-  card communicates the current state.
+- In the three-step progress card, use Connected Tokens: three `48 × 48`
+  circular milestones joined by two rounded connectors. Completed tokens,
+  destination connectors, and labels are green; active-but-incomplete and
+  future tokens remain gray because the main status card communicates the
+  current action. Use TOKLONG-owned rounded glyphs, role-specific buyer/seller
+  artwork, and distinct physical/digital fulfillment glyphs. Do not show
+  floating number/check badges, tap behavior, or progress animation.
 
 ## Mobile startup brand motion
 

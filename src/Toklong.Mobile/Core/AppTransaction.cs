@@ -488,15 +488,6 @@ public sealed record AppTransaction(
         _ => 0
     };
 
-    public string ProgressOneMarker => ProgressMarker(1);
-    public string ProgressTwoMarker => ProgressMarker(2);
-    public string ProgressThreeMarker => ProgressMarker(3);
-    public string ProgressOneBackground => ProgressBackground(1);
-    public string ProgressTwoBackground => ProgressBackground(2);
-    public string ProgressThreeBackground => ProgressBackground(3);
-    public string ProgressOneForeground => ProgressForeground(1);
-    public string ProgressTwoForeground => ProgressForeground(2);
-    public string ProgressThreeForeground => ProgressForeground(3);
     public string ProgressOneLabel =>
         Role == AppTransactionRole.Buyer
             ? "สร้างข้อตกลง"
@@ -537,20 +528,6 @@ public sealed record AppTransaction(
         ProgressCompletedThrough >= 3
             ? ProgressComplete
             : ProgressIncomplete;
-    public string ProgressOneIcon => ProgressIcon(1, "ui_offer.png");
-    public string ProgressTwoIcon => ProgressIcon(
-        2,
-        Role == AppTransactionRole.Buyer
-            ? "ui_money.png"
-            : "ui_truck.png");
-    public string ProgressThreeIcon => ProgressIcon(
-        3,
-        Role == AppTransactionRole.Buyer
-            ? "ui_truck.png"
-            : "ui_check_money.png");
-    public string ProgressOneLabelColor => ProgressLabelColor(1);
-    public string ProgressTwoLabelColor => ProgressLabelColor(2);
-    public string ProgressThreeLabelColor => ProgressLabelColor(3);
 
     public string ProductIcon =>
         FulfillmentType == AppFulfillmentType.Physical
@@ -576,11 +553,6 @@ public sealed record AppTransaction(
                   ThaiCulture) +
               " · บัญชีที่ยืนยันด้วยเบอร์โทร";
 
-    private string ProgressMarker(int step) =>
-        step <= ProgressCompletedThrough
-            ? "✓"
-            : step.ToString(CultureInfo.InvariantCulture);
-
     private const string ProgressComplete = "#087C68";
     private const string ProgressIncomplete = "#E4EAF1";
     private const string ProgressMuted = "#98A2B3";
@@ -602,25 +574,6 @@ public sealed record AppTransaction(
             $"{label} {(completed ? "เสร็จแล้ว" : "ยังไม่เสร็จ")}");
     }
 
-    private string ProgressBackground(int step) =>
-        step <= ProgressCompletedThrough
-            ? "#087C68"
-            : "#E4EAF1";
-
-    private string ProgressForeground(int step) =>
-        step <= ProgressCompletedThrough
-            ? "#FFFFFF"
-            : "#667085";
-
-    private string ProgressIcon(int step, string activeIcon) =>
-        step <= ProgressCompletedThrough
-            ? activeIcon.Replace(".png", "_completed.png")
-            : activeIcon.Replace(".png", "_disabled.png");
-
-    private string ProgressLabelColor(int step) =>
-        step <= ProgressCompletedThrough
-            ? "#087C68"
-            : "#98A2B3";
 }
 
 public static class MoneyFormatter

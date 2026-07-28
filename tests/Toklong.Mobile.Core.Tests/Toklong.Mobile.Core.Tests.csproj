@@ -45,6 +45,9 @@
     <None Include="../../src/Toklong.Mobile/Controls/TransactionRailMarkView.xaml"
           Link="Ui/Controls/TransactionRailMarkView.xaml"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Mobile/Controls/TransactionProgressView.xaml"
+          Link="Ui/Controls/TransactionProgressView.xaml"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../src/Toklong.Mobile/Pages/*.xaml"
           Link="Ui/Pages/%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" />
