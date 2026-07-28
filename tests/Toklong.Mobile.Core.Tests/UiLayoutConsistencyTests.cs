@@ -104,6 +104,25 @@ public sealed class UiLayoutConsistencyTests
             .Select(label => AttributeValue(label, "Text"))
             .ToArray();
         var buttons = home.Descendants(Maui + "Button").ToArray();
+        var offerBadge = home.Descendants(Maui + "Border")
+            .Single(element =>
+                AttributeValue(element, "AutomationId") ==
+                "SellerNewOfferBadge");
+        var actionableLine = home
+            .Descendants(Maui + "HorizontalStackLayout")
+            .Single(element =>
+                AttributeValue(element, "AutomationId") ==
+                "SellerActionableLine");
+        var sellerButton = buttons.Single(button =>
+            AttributeValue(button, "AutomationId") ==
+            "OpenSellingHomeButton");
+        var loadError = home.Descendants(Maui + "Label")
+            .Single(label =>
+                AttributeValue(label, "AutomationId") ==
+                "SellerSummaryLoadError");
+        var retryButton = buttons.Single(button =>
+            AttributeValue(button, "AutomationId") ==
+            "RetrySellerSummaryButton");
 
         Assert.Contains(
             home.Descendants(),
@@ -131,7 +150,29 @@ public sealed class UiLayoutConsistencyTests
                 AttributeValue(
                     button,
                     "SemanticProperties.Description") ==
-                    "ขาย ตรวจข้อเสนอ ส่งสินค้า และติดตามยอดรับ");
+                    "{Binding SellerCardSemanticText}");
+        Assert.Equal(
+            "{Binding HasNewOffers}",
+            AttributeValue(offerBadge, "IsVisible"));
+        Assert.Contains(
+            offerBadge.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                "{Binding NewOfferBadgeText}");
+        Assert.Equal(
+            "{Binding HasActionableSellerWork}",
+            AttributeValue(actionableLine, "IsVisible"));
+        Assert.Equal(
+            "{Binding SellerCardSemanticText}",
+            AttributeValue(
+                sellerButton,
+                "SemanticProperties.Description"));
+        Assert.Equal(
+            "{Binding LoadErrorText}",
+            AttributeValue(loadError, "Text"));
+        Assert.Equal(
+            "{Binding RetryCommand}",
+            AttributeValue(retryButton, "Command"));
         Assert.Contains(
             buttons,
             button =>

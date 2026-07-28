@@ -86,28 +86,66 @@
                     Stroke="Transparent"
                     StrokeShape="RoundRectangle 20">
                     <Grid MinimumHeightRequest="112">
-                        <VerticalStackLayout
+                        <Grid
+                            ColumnDefinitions="*,Auto"
                             Padding="20"
-                            Spacing="6"
-                            InputTransparent="True"
-                            AutomationProperties.IsInAccessibleTree="False">
+                            RowDefinitions="Auto,Auto,Auto"
+                            RowSpacing="6"
+                            AutomationProperties.IsInAccessibleTree="False"
+                            InputTransparent="True">
                             <Label
                                 FontAttributes="Bold"
                                 FontSize="25"
                                 Text="ขาย"
                                 TextColor="White" />
+                            <Border
+                                Grid.Column="1"
+                                AutomationId="SellerNewOfferBadge"
+                                BackgroundColor="White"
+                                IsVisible="{Binding HasNewOffers}"
+                                Margin="12,0,0,0"
+                                Padding="10,4"
+                                Stroke="Transparent"
+                                StrokeShape="RoundRectangle 12">
+                                <Label
+                                    FontAttributes="Bold"
+                                    FontSize="12"
+                                    Text="{Binding NewOfferBadgeText}"
+                                    TextColor="#6255D9" />
+                            </Border>
                             <Label
+                                Grid.Row="1"
+                                Grid.ColumnSpan="2"
                                 LineHeight="1.35"
                                 Style="{StaticResource RefinedBodyText}"
                                 Text="ตรวจข้อเสนอ ส่งสินค้า และติดตามยอดรับ"
                                 TextColor="White" />
-                        </VerticalStackLayout>
+                            <HorizontalStackLayout
+                                Grid.Row="2"
+                                Grid.ColumnSpan="2"
+                                AutomationId="SellerActionableLine"
+                                IsVisible="{Binding HasActionableSellerWork}"
+                                Spacing="8">
+                                <BoxView
+                                    BackgroundColor="{StaticResource Mint}"
+                                    CornerRadius="4"
+                                    HeightRequest="8"
+                                    VerticalOptions="Center"
+                                    WidthRequest="8" />
+                                <Label
+                                    FontAttributes="Bold"
+                                    FontSize="13"
+                                    Text="{Binding ActionableSellerWorkText}"
+                                    TextColor="White"
+                                    VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+                        </Grid>
                         <Button
                             AutomationId="OpenSellingHomeButton"
                             BackgroundColor="Transparent"
                             Clicked="OnSellingClicked"
                             CornerRadius="20"
-                            SemanticProperties.Description="ขาย ตรวจข้อเสนอ ส่งสินค้า และติดตามยอดรับ"
+                            SemanticProperties.Description="{Binding SellerCardSemanticText}"
                             Text="">
                             <VisualStateManager.VisualStateGroups>
                                 <VisualStateGroup Name="CommonStates">
@@ -124,6 +162,26 @@
                         </Button>
                     </Grid>
                 </Border>
+
+                <Grid
+                    AutomationId="SellerSummaryLoadErrorRow"
+                    ColumnDefinitions="*,Auto"
+                    ColumnSpacing="8"
+                    IsVisible="{Binding HasLoadError}">
+                    <Label
+                        AutomationId="SellerSummaryLoadError"
+                        LineBreakMode="WordWrap"
+                        Style="{StaticResource RefinedValidationText}"
+                        Text="{Binding LoadErrorText}"
+                        VerticalOptions="Center" />
+                    <Button
+                        Grid.Column="1"
+                        AutomationId="RetrySellerSummaryButton"
+                        Command="{Binding RetryCommand}"
+                        SemanticProperties.Description="ลองโหลดจำนวนรายการขายอีกครั้ง"
+                        Style="{StaticResource RefinedInlineButton}"
+                        Text="ลองอีกครั้ง" />
+                </Grid>
             </VerticalStackLayout>
 
             <Button
