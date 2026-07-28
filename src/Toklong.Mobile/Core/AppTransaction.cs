@@ -211,6 +211,8 @@ public sealed record AppTransaction(
         FirstCarrierScanAt.HasValue &&
         FirstCarrierScanAt.Value <= ShipByAt.Value;
 
+    public bool IsBuyerRole => Role == AppTransactionRole.Buyer;
+
     public bool IsSellerRole => Role == AppTransactionRole.Seller;
 
     public string SellerNetText =>

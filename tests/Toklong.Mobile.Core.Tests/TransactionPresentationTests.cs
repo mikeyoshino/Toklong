@@ -466,6 +466,18 @@ public sealed class TransactionPresentationTests
     }
 
     [Fact]
+    public void RoleVisibilityFlagsAreMutuallyExclusive()
+    {
+        var buyer = CreateItem(null);
+        var seller = buyer with { Role = AppTransactionRole.Seller };
+
+        Assert.True(buyer.IsBuyerRole);
+        Assert.False(buyer.IsSellerRole);
+        Assert.False(seller.IsBuyerRole);
+        Assert.True(seller.IsSellerRole);
+    }
+
+    [Fact]
     public void AgreementEvidenceShowsSharedHashAndBothAcceptanceStates()
     {
         var acceptedAt = new DateTimeOffset(
