@@ -73,6 +73,26 @@ public static class SellerWorkSummary
                 .Where(value => value.Category == selectedCategory)
                 .Select(value => value.Item)
                 .ToArray();
+        var ordered = visible
+            .OrderBy(Priority)
+            .ThenBy(item =>
+                Priority(item) < 3
+                    ? item.ActionDeadline ?? DateTimeOffset.MaxValue
+                    : DateTimeOffset.MaxValue)
+            .ThenByDescending(item =>
+                Priority(item) == 3
+                    ? item.UpdatedAt
+                    : item.CreatedAt)
+            .ThenBy(item => item.Id)
+            .ToArray();
+        var spotlight = ordered.FirstOrDefault(item =>
+            item.Presentation.PrimaryAction is
+                TransactionAction.ReviewSellerOffer or
+                TransactionAction.AddTracking or
+                TransactionAction.ConfirmDigitalHandoff);
+        var remaining = spotlight is null
+            ? ordered
+            : ordered.Where(item => item.Id != spotlight.Id).ToArray();
 
         return new SellerWorkSnapshot(
             seller.Length,
@@ -82,9 +102,23 @@ public static class SellerWorkSummary
             problemCount,
             newOfferCount + fulfillmentCount,
             selectedCategory,
-            null,
+            spotlight,
             seller,
-            visible,
-            visible);
+            ordered,
+            remaining);
     }
+
+    private static int Priority(AppTransaction item) =>
+        item.State is "ShipmentOverdue" ||
+        (item.State == "TrackingUnverified" &&
+         item.Presentation.PrimaryAction == TransactionAction.AddTracking)
+            ? 0
+            : item.Presentation.PrimaryAction is
+                TransactionAction.AddTracking or
+                TransactionAction.ConfirmDigitalHandoff
+                ? 1
+                : item.Presentation.PrimaryAction ==
+                  TransactionAction.ReviewSellerOffer
+                    ? 2
+                    : 3;
 }
