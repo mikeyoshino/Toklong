@@ -4,7 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
-    xmlns:core="clr-namespace:Toklong.Mobile.Core"
+    xmlns:theme="clr-namespace:Toklong.Mobile.Theming"
     Title="{Binding DetailHeadline}"
     SafeAreaEdges="Container"
     Shell.NavBarIsVisible="True"
@@ -552,8 +552,8 @@
                         <Border
                             AutomationId="ManagedShippingLabelCard"
                             Padding="14"
-                            BackgroundColor="{x:Static core:SellerColorPalette.Surface}"
-                            Stroke="{x:Static core:SellerColorPalette.Border}"
+                            BackgroundColor="{x:Static theme:SellerColorPaletteColors.Surface}"
+                            Stroke="{x:Static theme:SellerColorPaletteColors.BorderBrush}"
                             StrokeShape="RoundRectangle 14">
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer
@@ -565,7 +565,7 @@
                                 <Border
                                     WidthRequest="42"
                                     HeightRequest="42"
-                                    BackgroundColor="{x:Static core:SellerColorPalette.Secondary}"
+                                    BackgroundColor="{x:Static theme:SellerColorPaletteColors.Secondary}"
                                     StrokeThickness="0"
                                     StrokeShape="RoundRectangle 12">
                                     <Image
@@ -588,7 +588,7 @@
                                     VerticalOptions="Center"
                                     FontSize="22"
                                     Text="›"
-                                    TextColor="{x:Static core:SellerColorPalette.Role}" />
+                                    TextColor="{x:Static theme:SellerColorPaletteColors.Role}" />
                             </Grid>
                         </Border>
                         <Button
@@ -596,7 +596,7 @@
                             Style="{StaticResource RefinedInlineButton}"
                             Command="{Binding OpenShippingLabelCommand}"
                             Text="แตะเพื่อดูใบปะหน้าเต็มจอ"
-                            TextColor="{x:Static core:SellerColorPalette.Role}" />
+                            TextColor="{x:Static theme:SellerColorPaletteColors.Role}" />
                     </VerticalStackLayout>
                     <Label
                         IsVisible="{Binding Transaction.HasTrackingNumber}"

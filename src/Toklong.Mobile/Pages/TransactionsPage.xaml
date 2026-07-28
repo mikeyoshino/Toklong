@@ -5,6 +5,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:core="clr-namespace:Toklong.Mobile.Core"
+    xmlns:theme="clr-namespace:Toklong.Mobile.Theming"
     SafeAreaEdges="Container"
     Shell.NavBarIsVisible="False">
     <ContentPage.Background>
@@ -87,7 +88,7 @@
                                             Binding="{Binding IsSelling}"
                                             Value="True">
                                             <Setter Property="BackgroundColor" Value="White" />
-                                            <Setter Property="TextColor" Value="{x:Static core:SellerColorPalette.Role}" />
+                                            <Setter Property="TextColor" Value="{x:Static theme:SellerColorPaletteColors.Role}" />
                                         </DataTrigger>
                                     </Button.Triggers>
                                 </Button>
@@ -172,7 +173,7 @@
                                     FontSize="12"
                                     SemanticProperties.Description="แสดงงานขายทั้งหมด"
                                     Text="ดูทั้งหมด"
-                                    TextColor="{x:Static core:SellerColorPalette.Role}" />
+                                    TextColor="{x:Static theme:SellerColorPaletteColors.Role}" />
                             </Grid>
 
                             <Grid
@@ -183,16 +184,25 @@
                                 <Grid>
                                     <Border
                                         AutomationId="SellerNewOffersTile"
-                                        BackgroundColor="#FFF4DC"
-                                        Stroke="#F2C66D"
+                                        BackgroundColor="White"
+                                        Stroke="{x:Static theme:SellerColorPaletteColors.NewOfferBorderBrush}"
+                                        StrokeThickness="1.5"
                                         StrokeShape="RoundRectangle 16">
                                         <Border.Triggers>
                                             <DataTrigger
                                                 TargetType="Border"
                                                 Binding="{Binding IsSellerNewOffersSelected}"
                                                 Value="True">
-                                                <Setter Property="BackgroundColor" Value="#6548C7" />
-                                                <Setter Property="Stroke" Value="#6548C7" />
+                                                <Setter Property="StrokeThickness" Value="2.5" />
+                                                <Setter Property="Shadow">
+                                                    <Setter.Value>
+                                                        <Shadow
+                                                            Brush="{x:Static theme:SellerColorPaletteColors.NewOfferTextBrush}"
+                                                            Offset="0,4"
+                                                            Opacity="0.13"
+                                                            Radius="12" />
+                                                    </Setter.Value>
+                                                </Setter>
                                             </DataTrigger>
                                         </Border.Triggers>
                                         <VerticalStackLayout
@@ -205,33 +215,34 @@
                                                 FontAttributes="Bold"
                                                 FontSize="22"
                                                 Text="{Binding NewOfferCountText}"
-                                                TextColor="#7A4A00">
-                                                <Label.Triggers>
-                                                    <DataTrigger
-                                                        TargetType="Label"
-                                                        Binding="{Binding IsSellerNewOffersSelected}"
-                                                        Value="True">
-                                                        <Setter Property="TextColor" Value="White" />
-                                                    </DataTrigger>
-                                                </Label.Triggers>
-                                            </Label>
+                                                TextColor="{x:Static theme:SellerColorPaletteColors.NewOfferText}" />
                                             <Label
                                                 HorizontalTextAlignment="Center"
                                                 FontAttributes="Bold"
                                                 FontSize="12"
                                                 Text="รอตอบ"
-                                                TextColor="#7A4A00">
-                                                <Label.Triggers>
-                                                    <DataTrigger
-                                                        TargetType="Label"
-                                                        Binding="{Binding IsSellerNewOffersSelected}"
-                                                        Value="True">
-                                                        <Setter Property="TextColor" Value="White" />
-                                                    </DataTrigger>
-                                                </Label.Triggers>
-                                            </Label>
+                                                TextColor="{x:Static theme:SellerColorPaletteColors.NewOfferText}" />
                                         </VerticalStackLayout>
                                     </Border>
+                                    <Label
+                                        AutomationId="SellerNewOffersSelectedMarker"
+                                        AutomationProperties.IsInAccessibleTree="False"
+                                        HorizontalOptions="End"
+                                        InputTransparent="True"
+                                        IsVisible="False"
+                                        Margin="0,7,8,0"
+                                        Text="●"
+                                        TextColor="{x:Static theme:SellerColorPaletteColors.NewOfferText}"
+                                        VerticalOptions="Start">
+                                        <Label.Triggers>
+                                            <DataTrigger
+                                                TargetType="Label"
+                                                Binding="{Binding IsSellerNewOffersSelected}"
+                                                Value="True">
+                                                <Setter Property="IsVisible" Value="True" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
                                     <Button
                                         MinimumHeightRequest="{StaticResource CompactControlMinimumHeight}"
                                         BackgroundColor="Transparent"
@@ -244,16 +255,25 @@
                                 <Grid Grid.Column="1">
                                     <Border
                                         AutomationId="SellerFulfillmentTile"
-                                        BackgroundColor="#F1ECFF"
-                                        Stroke="#D7CBFF"
+                                        BackgroundColor="White"
+                                        Stroke="{x:Static theme:SellerColorPaletteColors.FulfillmentBorderBrush}"
+                                        StrokeThickness="1.5"
                                         StrokeShape="RoundRectangle 16">
                                         <Border.Triggers>
                                             <DataTrigger
                                                 TargetType="Border"
                                                 Binding="{Binding IsSellerFulfillmentSelected}"
                                                 Value="True">
-                                                <Setter Property="BackgroundColor" Value="#6548C7" />
-                                                <Setter Property="Stroke" Value="#6548C7" />
+                                                <Setter Property="StrokeThickness" Value="2.5" />
+                                                <Setter Property="Shadow">
+                                                    <Setter.Value>
+                                                        <Shadow
+                                                            Brush="{x:Static theme:SellerColorPaletteColors.RoleBrush}"
+                                                            Offset="0,4"
+                                                            Opacity="0.13"
+                                                            Radius="12" />
+                                                    </Setter.Value>
+                                                </Setter>
                                             </DataTrigger>
                                         </Border.Triggers>
                                         <VerticalStackLayout
@@ -266,33 +286,34 @@
                                                 FontAttributes="Bold"
                                                 FontSize="22"
                                                 Text="{Binding FulfillmentCountText}"
-                                                TextColor="#6548C7">
-                                                <Label.Triggers>
-                                                    <DataTrigger
-                                                        TargetType="Label"
-                                                        Binding="{Binding IsSellerFulfillmentSelected}"
-                                                        Value="True">
-                                                        <Setter Property="TextColor" Value="White" />
-                                                    </DataTrigger>
-                                                </Label.Triggers>
-                                            </Label>
+                                                TextColor="{x:Static theme:SellerColorPaletteColors.Role}" />
                                             <Label
                                                 HorizontalTextAlignment="Center"
                                                 FontAttributes="Bold"
                                                 FontSize="12"
                                                 Text="ต้องส่ง"
-                                                TextColor="#6548C7">
-                                                <Label.Triggers>
-                                                    <DataTrigger
-                                                        TargetType="Label"
-                                                        Binding="{Binding IsSellerFulfillmentSelected}"
-                                                        Value="True">
-                                                        <Setter Property="TextColor" Value="White" />
-                                                    </DataTrigger>
-                                                </Label.Triggers>
-                                            </Label>
+                                                TextColor="{x:Static theme:SellerColorPaletteColors.Role}" />
                                         </VerticalStackLayout>
                                     </Border>
+                                    <Label
+                                        AutomationId="SellerFulfillmentSelectedMarker"
+                                        AutomationProperties.IsInAccessibleTree="False"
+                                        HorizontalOptions="End"
+                                        InputTransparent="True"
+                                        IsVisible="False"
+                                        Margin="0,7,8,0"
+                                        Text="●"
+                                        TextColor="{x:Static theme:SellerColorPaletteColors.Role}"
+                                        VerticalOptions="Start">
+                                        <Label.Triggers>
+                                            <DataTrigger
+                                                TargetType="Label"
+                                                Binding="{Binding IsSellerFulfillmentSelected}"
+                                                Value="True">
+                                                <Setter Property="IsVisible" Value="True" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
                                     <Button
                                         MinimumHeightRequest="{StaticResource CompactControlMinimumHeight}"
                                         BackgroundColor="Transparent"
@@ -305,16 +326,25 @@
                                 <Grid Grid.Column="2">
                                     <Border
                                         AutomationId="SellerInProgressTile"
-                                        BackgroundColor="#EAF4FF"
-                                        Stroke="#B9D8FF"
+                                        BackgroundColor="White"
+                                        Stroke="{x:Static theme:SellerColorPaletteColors.InProgressBorderBrush}"
+                                        StrokeThickness="1.5"
                                         StrokeShape="RoundRectangle 16">
                                         <Border.Triggers>
                                             <DataTrigger
                                                 TargetType="Border"
                                                 Binding="{Binding IsSellerInProgressSelected}"
                                                 Value="True">
-                                                <Setter Property="BackgroundColor" Value="#6548C7" />
-                                                <Setter Property="Stroke" Value="#6548C7" />
+                                                <Setter Property="StrokeThickness" Value="2.5" />
+                                                <Setter Property="Shadow">
+                                                    <Setter.Value>
+                                                        <Shadow
+                                                            Brush="#145FC7"
+                                                            Offset="0,4"
+                                                            Opacity="0.13"
+                                                            Radius="12" />
+                                                    </Setter.Value>
+                                                </Setter>
                                             </DataTrigger>
                                         </Border.Triggers>
                                         <VerticalStackLayout
@@ -327,33 +357,34 @@
                                                 FontAttributes="Bold"
                                                 FontSize="22"
                                                 Text="{Binding InProgressCountText}"
-                                                TextColor="#145FC7">
-                                                <Label.Triggers>
-                                                    <DataTrigger
-                                                        TargetType="Label"
-                                                        Binding="{Binding IsSellerInProgressSelected}"
-                                                        Value="True">
-                                                        <Setter Property="TextColor" Value="White" />
-                                                    </DataTrigger>
-                                                </Label.Triggers>
-                                            </Label>
+                                                TextColor="#145FC7" />
                                             <Label
                                                 HorizontalTextAlignment="Center"
                                                 FontAttributes="Bold"
                                                 FontSize="12"
                                                 Text="กำลังไปต่อ"
-                                                TextColor="#145FC7">
-                                                <Label.Triggers>
-                                                    <DataTrigger
-                                                        TargetType="Label"
-                                                        Binding="{Binding IsSellerInProgressSelected}"
-                                                        Value="True">
-                                                        <Setter Property="TextColor" Value="White" />
-                                                    </DataTrigger>
-                                                </Label.Triggers>
-                                            </Label>
+                                                TextColor="#145FC7" />
                                         </VerticalStackLayout>
                                     </Border>
+                                    <Label
+                                        AutomationId="SellerInProgressSelectedMarker"
+                                        AutomationProperties.IsInAccessibleTree="False"
+                                        HorizontalOptions="End"
+                                        InputTransparent="True"
+                                        IsVisible="False"
+                                        Margin="0,7,8,0"
+                                        Text="●"
+                                        TextColor="#145FC7"
+                                        VerticalOptions="Start">
+                                        <Label.Triggers>
+                                            <DataTrigger
+                                                TargetType="Label"
+                                                Binding="{Binding IsSellerInProgressSelected}"
+                                                Value="True">
+                                                <Setter Property="IsVisible" Value="True" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
                                     <Button
                                         MinimumHeightRequest="{StaticResource CompactControlMinimumHeight}"
                                         BackgroundColor="Transparent"
@@ -764,7 +795,7 @@
                                 StrokeShape="RoundRectangle 20">
                                 <Border.Shadow>
                                     <Shadow
-                                        Brush="{x:Static core:SellerColorPalette.Role}"
+                                        Brush="{x:Static theme:SellerColorPaletteColors.RoleBrush}"
                                         Offset="0,7"
                                         Opacity="0.08"
                                         Radius="18" />
@@ -784,7 +815,7 @@
                                         WidthRequest="64"
                                         HeightRequest="64"
                                         VerticalOptions="Start"
-                                        BackgroundColor="{x:Static core:SellerColorPalette.Surface}"
+                                        BackgroundColor="{x:Static theme:SellerColorPaletteColors.Surface}"
                                         StrokeThickness="0"
                                         StrokeShape="RoundRectangle 17">
                                         <Image Margin="7" Source="{Binding ProductVisual}" />
@@ -854,7 +885,7 @@
                                             FontAttributes="Bold"
                                             FontSize="12"
                                             Text="{Binding PrimaryActionLabel}"
-                                            TextColor="{x:Static core:SellerColorPalette.Role}" />
+                                            TextColor="{x:Static theme:SellerColorPaletteColors.Role}" />
                                         <Label
                                             Grid.Row="1"
                                             Grid.ColumnSpan="2"

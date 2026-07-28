@@ -522,9 +522,9 @@ public sealed class UiLayoutConsistencyTests
         Assert.Equal(
             new[]
             {
-                "{x:Static core:SellerColorPalette.HeaderStart}",
-                "{x:Static core:SellerColorPalette.HeaderMiddle}",
-                "{x:Static core:SellerColorPalette.HeaderEnd}"
+                "{x:Static theme:SellerColorPaletteColors.HeaderStart}",
+                "{x:Static theme:SellerColorPaletteColors.HeaderMiddle}",
+                "{x:Static theme:SellerColorPaletteColors.HeaderEnd}"
             },
             sellerHome.Descendants(Maui + "GradientStop")
                 .Select(stop => AttributeValue(stop, "Color")));
@@ -543,7 +543,7 @@ public sealed class UiLayoutConsistencyTests
             .Descendants(Maui + "Setter")
             .Single(setter => AttributeValue(setter, "Property") == "TextColor");
         Assert.Equal(
-            "{x:Static core:SellerColorPalette.Role}",
+            "{x:Static theme:SellerColorPaletteColors.Role}",
             AttributeValue(sellerModeSetter, "Value"));
 
         var compactSeller = transactions.Descendants(Maui + "Border")
@@ -556,7 +556,7 @@ public sealed class UiLayoutConsistencyTests
                 AttributeValue(element, "Text") ==
                     "{Binding PrimaryActionLabel}" &&
                 AttributeValue(element, "TextColor") ==
-                    "{x:Static core:SellerColorPalette.Role}");
+                    "{x:Static theme:SellerColorPaletteColors.Role}");
 
         var saveButton = label.Descendants(Maui + "Button")
             .Single(element =>
@@ -567,13 +567,13 @@ public sealed class UiLayoutConsistencyTests
                 AttributeValue(element, "AutomationId") ==
                 "ShareOrPrintShippingLabelButton");
         Assert.Equal(
-            "{x:Static core:SellerColorPalette.Border}",
+            "{x:Static theme:SellerColorPaletteColors.Border}",
             AttributeValue(saveButton, "BorderColor"));
         Assert.Equal(
-            "{x:Static core:SellerColorPalette.Role}",
+            "{x:Static theme:SellerColorPaletteColors.Role}",
             AttributeValue(saveButton, "TextColor"));
         Assert.Equal(
-            "{x:Static core:SellerColorPalette.Role}",
+            "{x:Static theme:SellerColorPaletteColors.Role}",
             AttributeValue(shareButton, "BackgroundColor"));
 
         Assert.Contains(
@@ -581,6 +581,85 @@ public sealed class UiLayoutConsistencyTests
             stop =>
                 AttributeValue(stop, "Color") ==
                 "{Binding Transaction.RoleHeaderStart, FallbackValue=#3C8AF1, TargetNullValue=#3C8AF1}");
+    }
+
+    [Fact]
+    public void Seller_summary_tiles_stay_white_and_show_selection_without_fill()
+    {
+        var page = Load("Ui", "Pages", "TransactionsPage.xaml");
+        var expected = new[]
+        {
+            (
+                Tile: "SellerNewOffersTile",
+                Border: "{x:Static theme:SellerColorPaletteColors.NewOfferBorderBrush}",
+                Text: "{x:Static theme:SellerColorPaletteColors.NewOfferText}",
+                Marker: "SellerNewOffersSelectedMarker",
+                Binding: "{Binding IsSellerNewOffersSelected}"),
+            (
+                Tile: "SellerFulfillmentTile",
+                Border: "{x:Static theme:SellerColorPaletteColors.FulfillmentBorderBrush}",
+                Text: "{x:Static theme:SellerColorPaletteColors.Role}",
+                Marker: "SellerFulfillmentSelectedMarker",
+                Binding: "{Binding IsSellerFulfillmentSelected}"),
+            (
+                Tile: "SellerInProgressTile",
+                Border: "{x:Static theme:SellerColorPaletteColors.InProgressBorderBrush}",
+                Text: "#145FC7",
+                Marker: "SellerInProgressSelectedMarker",
+                Binding: "{Binding IsSellerInProgressSelected}")
+        };
+
+        foreach (var item in expected)
+        {
+            var tile = page.Descendants(Maui + "Border")
+                .Single(element =>
+                    AttributeValue(element, "AutomationId") == item.Tile);
+            Assert.Equal("White", AttributeValue(tile, "BackgroundColor"));
+            Assert.Equal(item.Border, AttributeValue(tile, "Stroke"));
+            Assert.Equal("1.5", AttributeValue(tile, "StrokeThickness"));
+
+            var selection = tile.Descendants(Maui + "DataTrigger")
+                .Single(trigger =>
+                    AttributeValue(trigger, "Binding") == item.Binding &&
+                    AttributeValue(trigger, "Value") == "True");
+            Assert.DoesNotContain(
+                selection.Descendants(Maui + "Setter"),
+                setter =>
+                    AttributeValue(setter, "Property") ==
+                    "BackgroundColor");
+            Assert.Contains(
+                selection.Descendants(Maui + "Setter"),
+                setter =>
+                    AttributeValue(setter, "Property") ==
+                        "StrokeThickness" &&
+                    AttributeValue(setter, "Value") == "2.5");
+            Assert.Contains(
+                selection.Descendants(Maui + "Setter"),
+                setter =>
+                    AttributeValue(setter, "Property") == "Shadow");
+
+            Assert.All(
+                tile.Descendants(Maui + "Label")
+                    .Where(label =>
+                        AttributeValue(label, "Text") is not "●"),
+                label => Assert.Equal(
+                    item.Text,
+                    AttributeValue(label, "TextColor")));
+
+            var marker = page.Descendants(Maui + "Label")
+                .Single(label =>
+                    AttributeValue(label, "AutomationId") ==
+                    item.Marker);
+            Assert.Equal("●", AttributeValue(marker, "Text"));
+            Assert.Equal("False", AttributeValue(marker, "IsVisible"));
+            Assert.Contains(
+                marker.Descendants(Maui + "DataTrigger"),
+                trigger =>
+                    AttributeValue(trigger, "Binding") ==
+                        item.Binding &&
+                    AttributeValue(trigger, "Value") ==
+                        "True");
+        }
     }
 
     [Fact]

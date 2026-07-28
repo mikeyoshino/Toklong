@@ -3,7 +3,7 @@
     x:Class="Toklong.Mobile.Pages.ShippingLabelPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:core="clr-namespace:Toklong.Mobile.Core"
+    xmlns:theme="clr-namespace:Toklong.Mobile.Theming"
     Title="ใบปะหน้า"
     SafeAreaEdges="Container"
     Shell.NavBarIsVisible="True"
@@ -82,16 +82,16 @@
                 AutomationId="SaveShippingLabelButton"
                 Style="{StaticResource RefinedSecondaryActionButton}"
                 BackgroundColor="White"
-                BorderColor="{x:Static core:SellerColorPalette.Border}"
+                BorderColor="{x:Static theme:SellerColorPaletteColors.Border}"
                 Command="{Binding SaveCommand}"
                 IsEnabled="{Binding CanUseLabel}"
                 Text="บันทึกลงเครื่อง"
-                TextColor="{x:Static core:SellerColorPalette.Role}" />
+                TextColor="{x:Static theme:SellerColorPaletteColors.Role}" />
             <Button
                 Grid.Column="1"
                 AutomationId="ShareOrPrintShippingLabelButton"
                 Style="{StaticResource RefinedPrimaryButton}"
-                BackgroundColor="{x:Static core:SellerColorPalette.Role}"
+                BackgroundColor="{x:Static theme:SellerColorPaletteColors.Role}"
                 Command="{Binding ShareOrPrintCommand}"
                 IsEnabled="{Binding CanUseLabel}"
                 Text="แชร์หรือพิมพ์" />
