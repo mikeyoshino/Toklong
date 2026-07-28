@@ -24,6 +24,12 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
     public DbSet<ExternalEvent> ExternalEvents => Set<ExternalEvent>();
     public DbSet<ActivationRiskEvent> ActivationRiskEvents => Set<ActivationRiskEvent>();
     public DbSet<BuyerAccount> Buyers => Set<BuyerAccount>();
+    public DbSet<BuyerEmailChangeChallenge>
+        BuyerEmailChangeChallenges =>
+        Set<BuyerEmailChangeChallenge>();
+    public DbSet<BuyerEmailChangeAuditEvent>
+        BuyerEmailChangeAuditEvents =>
+        Set<BuyerEmailChangeAuditEvent>();
     public DbSet<SellerAccount> Sellers => Set<SellerAccount>();
     public DbSet<SellerPayoutAccount> SellerPayoutAccounts => Set<SellerPayoutAccount>();
     public DbSet<MobileSession> MobileSessions => Set<MobileSession>();
@@ -360,6 +366,62 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         buyer.Property(x => x.SavedSubdistrictName).HasMaxLength(100);
         buyer.Property(x => x.SavedPostalCode).HasMaxLength(5);
 
+        var buyerEmailChangeChallenge =
+            modelBuilder.Entity<BuyerEmailChangeChallenge>();
+        buyerEmailChangeChallenge.ToTable(
+            "buyer_email_change_challenges");
+        buyerEmailChangeChallenge.HasKey(x => x.Id);
+        buyerEmailChangeChallenge.HasIndex(x => x.BuyerId)
+            .IsUnique()
+            .HasFilter(
+                "\"Status\" IN ('PendingSend', 'Active')");
+        buyerEmailChangeChallenge.HasIndex(x => new
+        {
+            x.BuyerId,
+            x.RequestIdempotencyKey
+        }).IsUnique();
+        buyerEmailChangeChallenge.HasIndex(x => x.ExpiresAt);
+        buyerEmailChangeChallenge.Property(x => x.Status)
+            .HasConversion<string>()
+            .HasMaxLength(24);
+        buyerEmailChangeChallenge.Property(x => x.PendingEmail)
+            .HasMaxLength(254);
+        buyerEmailChangeChallenge.Property(x => x.MaskedPendingEmail)
+            .HasMaxLength(254);
+        buyerEmailChangeChallenge.Property(x => x.CodeDigest)
+            .HasMaxLength(64);
+        buyerEmailChangeChallenge.Property(
+                x => x.RequestIdempotencyKey)
+            .HasMaxLength(32);
+        buyerEmailChangeChallenge.Property(
+                x => x.VerificationIdempotencyKey)
+            .HasMaxLength(32);
+        buyerEmailChangeChallenge.Property(x => x.Version)
+            .IsConcurrencyToken();
+        buyerEmailChangeChallenge.HasOne<BuyerAccount>()
+            .WithMany()
+            .HasForeignKey(x => x.BuyerId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        var buyerEmailChangeAudit =
+            modelBuilder.Entity<BuyerEmailChangeAuditEvent>();
+        buyerEmailChangeAudit.ToTable(
+            "buyer_email_change_audit_events");
+        buyerEmailChangeAudit.HasKey(x => x.Id);
+        buyerEmailChangeAudit.HasIndex(x => x.ChallengeId);
+        buyerEmailChangeAudit.Property(x => x.Name)
+            .HasMaxLength(100);
+        buyerEmailChangeAudit.Property(x => x.DestinationHash)
+            .HasMaxLength(64);
+        buyerEmailChangeAudit.Property(x => x.MaskedDestination)
+            .HasMaxLength(254);
+        buyerEmailChangeAudit.Property(x => x.Result)
+            .HasMaxLength(100);
+        buyerEmailChangeAudit.HasOne<BuyerAccount>()
+            .WithMany()
+            .HasForeignKey(x => x.BuyerId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         transaction.HasIndex(x => x.SellerId);
         transaction.HasIndex(x => x.BuyerId);
         transaction.HasIndex(x => x.ShippingProviderTrackingCode)
@@ -448,5 +510,14 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
                     EntityState.Deleted))
             throw new InvalidOperationException(
                 "Mobile account terms acceptance records are append-only.");
+
+        if (ChangeTracker
+            .Entries<BuyerEmailChangeAuditEvent>()
+            .Any(entry =>
+                entry.State is
+                    EntityState.Modified or
+                    EntityState.Deleted))
+            throw new InvalidOperationException(
+                "Buyer email change audit records are append-only.");
     }
 }

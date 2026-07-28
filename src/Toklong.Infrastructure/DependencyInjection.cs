@@ -22,6 +22,9 @@ public static class DependencyInjection
         services.AddScoped<ITransactionRepository, TransactionRepository>();
         services.AddScoped<IRetentionRepository, RetentionRepository>();
         services.AddScoped<IBuyerRepository, BuyerRepository>();
+        services.AddScoped<
+            IBuyerEmailChangeRepository,
+            BuyerEmailChangeRepository>();
         services.AddScoped<ISellerRepository, SellerRepository>();
         services.AddScoped<IMobileSessionRepository, MobileSessionRepository>();
         services.AddScoped<
