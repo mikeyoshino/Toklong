@@ -1,7 +1,7 @@
 # TOKLONG Rail Morph Icon Family Design
 
 Date: 2026-07-28  
-Status: Approved visual direction; awaiting written-spec review
+Status: Approved
 
 ## Goal
 
