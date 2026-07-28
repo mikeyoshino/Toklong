@@ -53,6 +53,14 @@ public sealed class BuyerAccount
     public void UpdateEmail(string email) =>
         Email = NormalizeEmail(email);
 
+    public void ActivateVerifiedEmail(string email)
+    {
+        var normalized = NormalizeEmail(email);
+        if (string.Equals(Email, normalized, StringComparison.OrdinalIgnoreCase))
+            throw new DomainException("อีเมลนี้เป็นอีเมลปัจจุบันของคุณแล้ว");
+        Email = normalized;
+    }
+
     public void UpdatePhoneVerification(
         string phoneNumber,
         DateTimeOffset verifiedAt)
