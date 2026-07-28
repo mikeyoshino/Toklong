@@ -29,7 +29,6 @@ public sealed class CreateOfferViewModel(
     private bool isAiSheetOpen;
     private bool isAiAnalyzing;
     private bool showOptionalDetails;
-    private bool isReviewSheetOpen;
     private string message = "";
     private bool isBusy;
     private AddressOption? selectedProvince;
@@ -45,6 +44,17 @@ public sealed class CreateOfferViewModel(
     private bool isReviewPricing;
     private CancellationTokenSource? reviewPricingCancellation;
     private readonly BuyerCostPreviewRequestTracker costPreviewTracker = new();
+    private readonly CreateOfferWizardState wizard = new();
+    private bool isInitializing;
+    private string sellerPhoneError = "";
+    private string productNameError = "";
+    private string productPhotoError = "";
+    private string amountError = "";
+    private string deliveryAddressError = "";
+    private string conditionError = "";
+    private string knownDefectsError = "";
+
+    public event EventHandler<CreateOfferValidationTarget>? ValidationFailed;
 
     public string AgreementDetails
     {
@@ -55,6 +65,7 @@ public sealed class CreateOfferViewModel(
             {
                 OnPropertyChanged(nameof(OptionalDetailsLabel));
                 OnPropertyChanged(nameof(OptionalDetailsSummary));
+                MarkWizardDirty();
             }
         }
     }
@@ -62,15 +73,29 @@ public sealed class CreateOfferViewModel(
     public string SellerPhoneNumber
     {
         get => sellerPhoneNumber;
-        set => SetProperty(
-            ref sellerPhoneNumber,
-            ThaiMobilePhoneInput.Format(value));
+        set
+        {
+            if (SetProperty(
+                    ref sellerPhoneNumber,
+                    ThaiMobilePhoneInput.Format(value)))
+            {
+                SellerPhoneError = "";
+                MarkWizardDirty();
+            }
+        }
     }
 
     public string ProductName
     {
         get => productName;
-        set => SetProperty(ref productName, value ?? "");
+        set
+        {
+            if (SetProperty(ref productName, value ?? ""))
+            {
+                ProductNameError = "";
+                MarkWizardDirty();
+            }
+        }
     }
 
     public IReadOnlyList<string> ConditionOptions { get; } =
@@ -88,6 +113,10 @@ public sealed class CreateOfferViewModel(
                 OnPropertyChanged(nameof(IsUsedGoodCondition));
                 OnPropertyChanged(nameof(IsUsedDefectCondition));
                 OnPropertyChanged(nameof(ReviewSummary));
+                ConditionError = "";
+                if (!HasDefectCondition)
+                    KnownDefectsError = "";
+                MarkWizardDirty();
             }
         }
     }
@@ -98,7 +127,11 @@ public sealed class CreateOfferViewModel(
         set
         {
             if (SetProperty(ref knownDefects, value ?? ""))
+            {
                 OnPropertyChanged(nameof(ReviewSummary));
+                KnownDefectsError = "";
+                MarkWizardDirty();
+            }
         }
     }
 
@@ -108,7 +141,11 @@ public sealed class CreateOfferViewModel(
         set
         {
             if (SetProperty(ref amountBaht, value ?? ""))
+            {
                 InvalidateReviewPricing();
+                AmountError = "";
+                MarkWizardDirty();
+            }
         }
     }
 
@@ -165,6 +202,103 @@ public sealed class CreateOfferViewModel(
 
     public bool HasMessage => !string.IsNullOrWhiteSpace(Message);
 
+    public CreateOfferStep CurrentStep => wizard.CurrentStep;
+    public bool IsDealStep => CurrentStep == CreateOfferStep.Deal;
+    public bool IsFulfillmentStep =>
+        CurrentStep == CreateOfferStep.Fulfillment;
+    public bool IsReviewStep => CurrentStep == CreateOfferStep.Review;
+    public bool IsWizardDirty => wizard.IsDirty;
+    public string ProgressText => CurrentStep switch
+    {
+        CreateOfferStep.Deal => "ขั้นที่ 1 จาก 3",
+        CreateOfferStep.Fulfillment => "ขั้นที่ 2 จาก 3",
+        _ => "ขั้นที่ 3 จาก 3"
+    };
+
+    public string SellerPhoneError
+    {
+        get => sellerPhoneError;
+        private set => SetValidationError(
+            ref sellerPhoneError,
+            value,
+            nameof(HasSellerPhoneError));
+    }
+
+    public bool HasSellerPhoneError =>
+        !string.IsNullOrWhiteSpace(SellerPhoneError);
+
+    public string ProductNameError
+    {
+        get => productNameError;
+        private set => SetValidationError(
+            ref productNameError,
+            value,
+            nameof(HasProductNameError));
+    }
+
+    public bool HasProductNameError =>
+        !string.IsNullOrWhiteSpace(ProductNameError);
+
+    public string ProductPhotoError
+    {
+        get => productPhotoError;
+        private set => SetValidationError(
+            ref productPhotoError,
+            value,
+            nameof(HasProductPhotoError));
+    }
+
+    public bool HasProductPhotoError =>
+        !string.IsNullOrWhiteSpace(ProductPhotoError);
+
+    public string AmountError
+    {
+        get => amountError;
+        private set => SetValidationError(
+            ref amountError,
+            value,
+            nameof(HasAmountError));
+    }
+
+    public bool HasAmountError =>
+        !string.IsNullOrWhiteSpace(AmountError);
+
+    public string DeliveryAddressError
+    {
+        get => deliveryAddressError;
+        private set => SetValidationError(
+            ref deliveryAddressError,
+            value,
+            nameof(HasDeliveryAddressError));
+    }
+
+    public bool HasDeliveryAddressError =>
+        !string.IsNullOrWhiteSpace(DeliveryAddressError);
+
+    public string ConditionError
+    {
+        get => conditionError;
+        private set => SetValidationError(
+            ref conditionError,
+            value,
+            nameof(HasConditionError));
+    }
+
+    public bool HasConditionError =>
+        !string.IsNullOrWhiteSpace(ConditionError);
+
+    public string KnownDefectsError
+    {
+        get => knownDefectsError;
+        private set => SetValidationError(
+            ref knownDefectsError,
+            value,
+            nameof(HasKnownDefectsError));
+    }
+
+    public bool HasKnownDefectsError =>
+        !string.IsNullOrWhiteSpace(KnownDefectsError);
+
     public bool IsPhysical => fulfillmentType == AppFulfillmentType.Physical;
     public bool IsDigital => fulfillmentType == AppFulfillmentType.Digital;
     public string FulfillmentTypeLabel =>
@@ -205,6 +339,8 @@ public sealed class CreateOfferViewModel(
                     nameof(ShowSavedAddressSummary));
                 OnPropertyChanged(nameof(ReviewDeliveryText));
                 OnPropertyChanged(nameof(ReviewSummary));
+                DeliveryAddressError = "";
+                MarkWizardDirty();
             }
         }
     }
@@ -234,17 +370,24 @@ public sealed class CreateOfferViewModel(
     public string AddressLine
     {
         get => addressLine;
-        set => SetProperty(
-            ref addressLine,
-            value);
+        set
+        {
+            if (SetProperty(ref addressLine, value ?? ""))
+            {
+                DeliveryAddressError = "";
+                MarkWizardDirty();
+            }
+        }
     }
 
     public bool RememberAddress
     {
         get => rememberAddress;
-        set => SetProperty(
-            ref rememberAddress,
-            value);
+        set
+        {
+            if (SetProperty(ref rememberAddress, value))
+                MarkWizardDirty();
+        }
     }
 
     public ObservableCollection<AddressOption> Provinces { get; } = [];
@@ -260,6 +403,8 @@ public sealed class CreateOfferViewModel(
                 return;
             OnPropertyChanged(nameof(ReviewDeliveryText));
             OnPropertyChanged(nameof(ReviewSummary));
+            DeliveryAddressError = "";
+            MarkWizardDirty();
             SelectedDistrict = null;
             Districts.Clear();
             Subdistricts.Clear();
@@ -275,6 +420,8 @@ public sealed class CreateOfferViewModel(
         {
             if (!SetProperty(ref selectedDistrict, value))
                 return;
+            DeliveryAddressError = "";
+            MarkWizardDirty();
             SelectedSubdistrict = null;
             Subdistricts.Clear();
             if (value is not null)
@@ -292,6 +439,8 @@ public sealed class CreateOfferViewModel(
                 OnPropertyChanged(nameof(DeliveryRegionText));
                 OnPropertyChanged(nameof(ReviewDeliveryText));
                 OnPropertyChanged(nameof(ReviewSummary));
+                DeliveryAddressError = "";
+                MarkWizardDirty();
             }
         }
     }
@@ -411,11 +560,7 @@ public sealed class CreateOfferViewModel(
     public string OptionalDetailsChevron =>
         ShowOptionalDetails ? "⌃" : "⌄";
 
-    public bool IsReviewSheetOpen
-    {
-        get => isReviewSheetOpen;
-        private set => SetProperty(ref isReviewSheetOpen, value);
-    }
+    public bool IsReviewSheetOpen => IsReviewStep;
 
     public bool HasDefectCondition =>
         SelectedConditionIndex == 2;
@@ -492,9 +637,15 @@ public sealed class CreateOfferViewModel(
     public ICommand UseSavedAddressCommand =>
         new Command(() => UseSavedAddress = true);
     public ICommand ReviewCommand =>
-        new AsyncCommand(OpenReviewAsync);
+        new AsyncCommand(ContinueFromFulfillmentAsync);
     public ICommand CloseReviewCommand =>
-        new Command(CloseReview);
+        new Command(MoveToPreviousStep);
+    public ICommand ContinueFromDealCommand =>
+        new Command(ContinueFromDeal);
+    public ICommand ContinueFromFulfillmentCommand =>
+        new AsyncCommand(ContinueFromFulfillmentAsync);
+    public ICommand PreviousStepCommand =>
+        new Command(MoveToPreviousStep);
     public ICommand SelectNewConditionCommand =>
         new Command(() => SelectedConditionIndex = 0);
     public ICommand SelectUsedGoodConditionCommand =>
@@ -519,20 +670,28 @@ public sealed class CreateOfferViewModel(
     {
         if (addressDataLoaded)
             return;
-        var profile =
-            await authentication.GetProfileAsync();
-        SavedAddress =
-            profile.SavedAddress ?? "";
-        HasSavedAddress =
-            !string.IsNullOrWhiteSpace(
-                SavedAddress);
-        UseSavedAddress =
-            HasSavedAddress;
-        var items = await addresses.GetProvincesAsync();
-        Provinces.Clear();
-        foreach (var item in items)
-            Provinces.Add(item);
-        addressDataLoaded = true;
+        isInitializing = true;
+        try
+        {
+            var profile =
+                await authentication.GetProfileAsync();
+            SavedAddress =
+                profile.SavedAddress ?? "";
+            HasSavedAddress =
+                !string.IsNullOrWhiteSpace(
+                    SavedAddress);
+            UseSavedAddress =
+                HasSavedAddress;
+            var items = await addresses.GetProvincesAsync();
+            Provinces.Clear();
+            foreach (var item in items)
+                Provinces.Add(item);
+            addressDataLoaded = true;
+        }
+        finally
+        {
+            isInitializing = false;
+        }
     }
 
     private void SelectFulfillment(AppFulfillmentType value)
@@ -542,6 +701,8 @@ public sealed class CreateOfferViewModel(
 
         InvalidateReviewPricing();
         fulfillmentType = value;
+        DeliveryAddressError = "";
+        MarkWizardDirty();
         OnPropertyChanged(nameof(IsPhysical));
         OnPropertyChanged(nameof(IsDigital));
         OnPropertyChanged(nameof(FulfillmentTypeLabel));
@@ -566,13 +727,23 @@ public sealed class CreateOfferViewModel(
         costPreviewTracker.Invalidate();
         CostPreview = null;
         IsReviewPricing = false;
-        IsReviewSheetOpen = false;
     }
 
-    private async Task OpenReviewAsync()
+    private void ContinueFromDeal()
     {
         Message = "";
-        if (!ValidateQuickDeal(out _, out var amount))
+        if (!ValidateDealStep(out _, out _))
+            return;
+
+        if (wizard.MoveNext())
+            RaiseWizardProperties();
+    }
+
+    private async Task ContinueFromFulfillmentAsync()
+    {
+        Message = "";
+        if (!ValidateDealStep(out _, out var amount) ||
+            !ValidateFulfillmentStep())
             return;
 
         var itemPriceSatang =
@@ -599,7 +770,11 @@ public sealed class CreateOfferViewModel(
             OnPropertyChanged(nameof(ReviewSummary));
             OnPropertyChanged(nameof(FormattedReviewAmount));
             OnPropertyChanged(nameof(ReviewDeliveryText));
-            IsReviewSheetOpen = true;
+            while (wizard.CurrentStep != CreateOfferStep.Review &&
+                   wizard.MoveNext())
+            {
+            }
+            RaiseWizardProperties();
         }
         catch (OperationCanceledException)
         {
@@ -635,32 +810,43 @@ public sealed class CreateOfferViewModel(
         return true;
     }
 
-    private void CloseReview()
+    private void MoveToPreviousStep()
     {
-        InvalidateReviewPricing();
         Message = "";
+        if (wizard.CurrentStep == CreateOfferStep.Review)
+            InvalidateReviewPricing();
+        if (wizard.MoveBack())
+            RaiseWizardProperties();
     }
 
     private async Task SubmitAsync()
     {
+        if (IsBusy)
+            return;
+
         Message = "";
-        if (!ValidateQuickDeal(
+        if (!IsReviewStep ||
+            !ValidateDealStep(
                 out var cleanSellerPhone,
-                out var amount))
+                out var amount) ||
+            !ValidateFulfillmentStep())
             return;
-        if (SelectedConditionIndex is < 0 or > 2)
-        {
-            Message = "เลือกสภาพสินค้า";
+
+        if (!ValidateReviewStep())
             return;
-        }
-        if (HasDefectCondition &&
-            string.IsNullOrWhiteSpace(KnownDefects))
+
+        var satang = checked((long)(amount * 100m));
+        if (CostPreview is null ||
+            CostPreview.ItemPriceSatang != satang)
         {
-            Message = "ระบุตำหนิที่ตกลงกัน";
+            Message =
+                "ข้อมูลค่าใช้จ่ายเปลี่ยนแล้ว กรุณากลับไปตรวจข้อมูลอีกครั้ง";
+            ValidationFailed?.Invoke(
+                this,
+                CreateOfferValidationTarget.CostPreview);
             return;
         }
 
-        var satang = checked((long)(amount * 100m));
         IsBusy = true;
         try
         {
@@ -710,8 +896,11 @@ public sealed class CreateOfferViewModel(
             draftPhotoStore.Delete(selectedPhotoPath);
             selectedPhotoPath = "";
             SelectedPhotoName = "";
-            IsReviewSheetOpen = false;
-            await Shell.Current.GoToAsync("//transactions");
+            wizard.Reset();
+            RaiseWizardProperties();
+            await Shell.Current.GoToAsync(
+                AuthenticatedHomeRoutes.Transactions(
+                    TransactionRoleRoute.Buying));
             await Shell.Current.GoToAsync(
                 nameof(TransactionDetailPage),
                 new Dictionary<string, object>
@@ -729,59 +918,100 @@ public sealed class CreateOfferViewModel(
         }
     }
 
-    private bool ValidateQuickDeal(
+    private bool ValidateDealStep(
         out string cleanSellerPhone,
         out decimal amount)
     {
-        cleanSellerPhone =
-            ThaiMobilePhoneInput.Sanitize(SellerPhoneNumber);
-        amount = 0;
-        if (!ThaiMobilePhoneInput.IsValid(cleanSellerPhone))
+        SellerPhoneError = "";
+        ProductNameError = "";
+        ProductPhotoError = "";
+        AmountError = "";
+        var hasSelectedPhoto =
+            !string.IsNullOrWhiteSpace(selectedPhotoPath);
+        var result = CreateOfferStepValidator.ValidateDeal(
+            SellerPhoneNumber,
+            ProductName,
+            hasSelectedPhoto,
+            hasSelectedPhoto && File.Exists(selectedPhotoPath),
+            AmountBaht);
+        cleanSellerPhone = result.CleanSellerPhone;
+        amount = result.AmountBaht;
+
+        foreach (var error in result.Errors)
         {
-            Message =
-                "กรอกเบอร์มือถือผู้ขาย 10 หลัก เช่น 081-234-5678";
-            return false;
+            switch (error.Target)
+            {
+                case CreateOfferValidationTarget.SellerPhone:
+                    SellerPhoneError = error.Message;
+                    break;
+                case CreateOfferValidationTarget.ProductName:
+                    ProductNameError = error.Message;
+                    break;
+                case CreateOfferValidationTarget.ProductPhoto:
+                    ProductPhotoError = error.Message;
+                    break;
+                case CreateOfferValidationTarget.Amount:
+                    AmountError = error.Message;
+                    break;
+            }
         }
-        if (string.IsNullOrWhiteSpace(ProductName))
-        {
-            Message = "ใส่ชื่อสินค้า";
-            return false;
-        }
-        if (IsPhysical &&
-            (!HasSavedAddress ||
-             !UseSavedAddress) &&
-            (string.IsNullOrWhiteSpace(AddressLine) ||
-             SelectedProvince is null ||
-             SelectedDistrict is null ||
-             SelectedSubdistrict is null))
-        {
-            Message =
-                "กรอกบ้านเลขที่และเลือกพื้นที่จัดส่งให้ครบ";
-            return false;
-        }
-        if (!string.IsNullOrWhiteSpace(
-                selectedPhotoPath) &&
+
+        if (hasSelectedPhoto &&
             !File.Exists(selectedPhotoPath))
         {
             draftPhotoStore.Delete(selectedPhotoPath);
             selectedPhotoPath = "";
             SelectedPhotoName = "";
-            Message = "ไม่พบรูปที่เลือก กรุณาเลือกรูปใหม่";
-            return false;
         }
-        if (!TryParseAmount(out amount))
+
+        NotifyFirstInvalid(result.FirstInvalidTarget);
+        return result.IsValid;
+    }
+
+    private bool ValidateFulfillmentStep()
+    {
+        DeliveryAddressError = "";
+        var result =
+            CreateOfferStepValidator.ValidateFulfillment(
+                IsPhysical,
+                HasSavedAddress && UseSavedAddress,
+                !string.IsNullOrWhiteSpace(AddressLine),
+                SelectedProvince is not null,
+                SelectedDistrict is not null,
+                SelectedSubdistrict is not null);
+        if (!result.IsValid)
         {
-            Message = "ใส่ราคาที่ตกลงกันให้ถูกต้อง";
-            return false;
+            DeliveryAddressError =
+                result.Errors[0].Message;
         }
-        if (amount is < 1_000 or > 30_000 ||
-            decimal.Round(amount, 2) != amount)
+
+        NotifyFirstInvalid(result.FirstInvalidTarget);
+        return result.IsValid;
+    }
+
+    private bool ValidateReviewStep()
+    {
+        ConditionError = "";
+        KnownDefectsError = "";
+        var result = CreateOfferStepValidator.ValidateReview(
+            SelectedConditionIndex,
+            KnownDefects);
+        if (!result.IsValid)
         {
-            Message =
-                "ราคาต้องอยู่ระหว่าง 1,000–30,000 บาท และมีทศนิยมไม่เกิน 2 ตำแหน่ง";
-            return false;
+            var error = result.Errors[0];
+            if (error.Target ==
+                CreateOfferValidationTarget.Condition)
+            {
+                ConditionError = error.Message;
+            }
+            else
+            {
+                KnownDefectsError = error.Message;
+            }
         }
-        return true;
+
+        NotifyFirstInvalid(result.FirstInvalidTarget);
+        return result.IsValid;
     }
 
     private bool TryParseAmount(out decimal amount) =>
@@ -795,6 +1025,93 @@ public sealed class CreateOfferViewModel(
             NumberStyles.Number,
             CultureInfo.InvariantCulture,
             out amount);
+
+    public void DiscardDraft()
+    {
+        CancelReviewPricing();
+        draftPhotoStore.Delete(selectedPhotoPath);
+        selectedPhotoPath = "";
+        DiscardAiSource();
+
+        isInitializing = true;
+        try
+        {
+            SellerPhoneNumber = "";
+            ProductName = "";
+            AgreementDetails = "";
+            AmountBaht = "";
+            SelectedConditionIndex = -1;
+            KnownDefects = "";
+            AddressLine = "";
+            RememberAddress = false;
+            SelectedProvince = null;
+            SelectedDistrict = null;
+            SelectedSubdistrict = null;
+            UseSavedAddress = HasSavedAddress;
+            if (!IsPhysical)
+                SelectFulfillment(AppFulfillmentType.Physical);
+            SelectedPhotoName = "";
+            AiChatText = "";
+            AiDraft = null;
+            IsAiSheetOpen = false;
+            Message = "";
+            ClearValidationErrors();
+        }
+        finally
+        {
+            isInitializing = false;
+        }
+
+        wizard.Reset();
+        RaiseWizardProperties();
+    }
+
+    private void MarkWizardDirty()
+    {
+        if (isInitializing || wizard.IsDirty)
+            return;
+
+        wizard.MarkDirty();
+        OnPropertyChanged(nameof(IsWizardDirty));
+    }
+
+    private void RaiseWizardProperties()
+    {
+        OnPropertyChanged(nameof(CurrentStep));
+        OnPropertyChanged(nameof(IsDealStep));
+        OnPropertyChanged(nameof(IsFulfillmentStep));
+        OnPropertyChanged(nameof(IsReviewStep));
+        OnPropertyChanged(nameof(IsReviewSheetOpen));
+        OnPropertyChanged(nameof(IsWizardDirty));
+        OnPropertyChanged(nameof(ProgressText));
+    }
+
+    private void SetValidationError(
+        ref string storage,
+        string value,
+        string hasErrorProperty)
+    {
+        if (SetProperty(ref storage, value))
+            OnPropertyChanged(hasErrorProperty);
+    }
+
+    private void NotifyFirstInvalid(
+        CreateOfferValidationTarget? target)
+    {
+        if (target.HasValue)
+            ValidationFailed?.Invoke(this, target.Value);
+    }
+
+    private void ClearValidationErrors()
+    {
+        SellerPhoneError = "";
+        ProductNameError = "";
+        ProductPhotoError = "";
+        AmountError = "";
+        DeliveryAddressError = "";
+        ConditionError = "";
+        KnownDefectsError = "";
+    }
 
     private async Task PickPhotoAsync()
     {
@@ -813,6 +1130,8 @@ public sealed class CreateOfferViewModel(
             draftPhotoStore.Delete(selectedPhotoPath);
             selectedPhotoPath = savedPath;
             SelectedPhotoName = photo.FileName;
+            ProductPhotoError = "";
+            MarkWizardDirty();
             Message = "";
         }
         catch (Exception exception)
