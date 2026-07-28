@@ -509,6 +509,34 @@ public sealed record AppTransaction(
         Role == AppTransactionRole.Buyer
             ? "ได้รับของ"
             : "รับเงิน";
+    public TransactionProgressStep ProgressOne =>
+        CreateProgressStep(1, ProgressOneLabel, "agreement");
+    public TransactionProgressStep ProgressTwo =>
+        CreateProgressStep(
+            2,
+            ProgressTwoLabel,
+            Role == AppTransactionRole.Buyer
+                ? "payment"
+                : FulfillmentType == AppFulfillmentType.Physical
+                    ? "parcel_handoff"
+                    : "digital_handoff");
+    public TransactionProgressStep ProgressThree =>
+        CreateProgressStep(
+            3,
+            ProgressThreeLabel,
+            Role == AppTransactionRole.Seller
+                ? "payout"
+                : FulfillmentType == AppFulfillmentType.Physical
+                    ? "parcel_received"
+                    : "digital_handoff");
+    public string ProgressConnectorOneColor =>
+        ProgressCompletedThrough >= 2
+            ? ProgressComplete
+            : ProgressIncomplete;
+    public string ProgressConnectorTwoColor =>
+        ProgressCompletedThrough >= 3
+            ? ProgressComplete
+            : ProgressIncomplete;
     public string ProgressOneIcon => ProgressIcon(1, "ui_offer.png");
     public string ProgressTwoIcon => ProgressIcon(
         2,
@@ -552,6 +580,27 @@ public sealed record AppTransaction(
         step <= ProgressCompletedThrough
             ? "✓"
             : step.ToString(CultureInfo.InvariantCulture);
+
+    private const string ProgressComplete = "#087C68";
+    private const string ProgressIncomplete = "#E4EAF1";
+    private const string ProgressMuted = "#98A2B3";
+
+    private TransactionProgressStep CreateProgressStep(
+        int step,
+        string label,
+        string glyph)
+    {
+        var completed = step <= ProgressCompletedThrough;
+        var suffix = completed ? "completed" : "disabled";
+
+        return new TransactionProgressStep(
+            label,
+            $"progress_{glyph}_{suffix}.png",
+            completed ? ProgressComplete : "#FFFFFF",
+            completed ? ProgressComplete : ProgressIncomplete,
+            completed ? ProgressComplete : ProgressMuted,
+            $"{label} {(completed ? "เสร็จแล้ว" : "ยังไม่เสร็จ")}");
+    }
 
     private string ProgressBackground(int step) =>
         step <= ProgressCompletedThrough

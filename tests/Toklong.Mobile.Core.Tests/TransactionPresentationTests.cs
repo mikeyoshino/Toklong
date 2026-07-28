@@ -189,68 +189,92 @@ public sealed class TransactionPresentationTests
     }
 
     [Fact]
-    public void FutureProgressStepsUseDisabledIconsAndGrayLabels()
+    public void ConnectedProgressMapsBuyerPhysicalGlyphsAndSemantics()
     {
-        var item = new AppTransaction(
-            Guid.NewGuid(),
-            "สินค้า",
-            10000,
-            "THB",
-            AppTransactionRole.Buyer,
-            AppFulfillmentType.Physical,
-            "AwaitingSellerAcceptance",
-            DateTimeOffset.UtcNow,
-            null,
-            "คู่รายการ");
+        var item = CreateItem(null) with
+        {
+            Role = AppTransactionRole.Buyer,
+            FulfillmentType = AppFulfillmentType.Physical,
+            State = "AwaitingSellerAcceptance"
+        };
 
-        Assert.Equal("ui_offer_completed.png", item.ProgressOneIcon);
-        Assert.Equal("#087C68", item.ProgressOneLabelColor);
-        Assert.Equal("ui_money_disabled.png", item.ProgressTwoIcon);
-        Assert.Equal("ui_truck_disabled.png", item.ProgressThreeIcon);
-        Assert.Equal("#98A2B3", item.ProgressTwoLabelColor);
-        Assert.Equal("#98A2B3", item.ProgressThreeLabelColor);
+        Assert.Equal("progress_agreement_completed.png", item.ProgressOne.Icon);
+        Assert.Equal("progress_payment_disabled.png", item.ProgressTwo.Icon);
+        Assert.Equal("progress_parcel_received_disabled.png", item.ProgressThree.Icon);
+        Assert.Equal("สร้างข้อตกลง เสร็จแล้ว", item.ProgressOne.SemanticDescription);
+        Assert.Equal("จ่ายเงิน ยังไม่เสร็จ", item.ProgressTwo.SemanticDescription);
+        Assert.Equal("#087C68", item.ProgressOne.BackgroundColor);
+        Assert.Equal("#FFFFFF", item.ProgressTwo.BackgroundColor);
+        Assert.Equal("#E4EAF1", item.ProgressTwo.StrokeColor);
+    }
+
+    [Theory]
+    [InlineData(
+        AppTransactionRole.Buyer,
+        AppFulfillmentType.Digital,
+        "progress_payment_disabled.png",
+        "progress_digital_handoff_disabled.png")]
+    [InlineData(
+        AppTransactionRole.Seller,
+        AppFulfillmentType.Physical,
+        "progress_parcel_handoff_disabled.png",
+        "progress_payout_disabled.png")]
+    [InlineData(
+        AppTransactionRole.Seller,
+        AppFulfillmentType.Digital,
+        "progress_digital_handoff_disabled.png",
+        "progress_payout_disabled.png")]
+    public void ConnectedProgressUsesRoleAndFulfillmentGlyphs(
+        AppTransactionRole role,
+        AppFulfillmentType fulfillmentType,
+        string expectedSecond,
+        string expectedThird)
+    {
+        var item = CreateItem(null) with
+        {
+            Role = role,
+            FulfillmentType = fulfillmentType,
+            State = "AwaitingSellerAcceptance"
+        };
+
+        Assert.Equal(expectedSecond, item.ProgressTwo.Icon);
+        Assert.Equal(expectedThird, item.ProgressThree.Icon);
     }
 
     [Fact]
-    public void Active_but_incomplete_progress_step_stays_gray()
+    public void ConnectedProgressColorsOnlyCompletedDestinationSegments()
     {
-        var item = new AppTransaction(
-            Guid.NewGuid(),
-            "สินค้า",
-            10000,
-            "THB",
-            AppTransactionRole.Buyer,
-            AppFulfillmentType.Physical,
-            "DeliveredDisputeWindow",
-            DateTimeOffset.UtcNow,
-            null,
-            "ผู้ขาย");
+        var firstComplete = CreateItem(null) with
+        {
+            Role = AppTransactionRole.Buyer,
+            State = "AwaitingSellerAcceptance"
+        };
+        var secondComplete = firstComplete with { State = "PaidAwaitingShipment" };
+        var thirdComplete = firstComplete with { State = "PayoutPending" };
+
+        Assert.Equal("#E4EAF1", firstComplete.ProgressConnectorOneColor);
+        Assert.Equal("#E4EAF1", firstComplete.ProgressConnectorTwoColor);
+        Assert.Equal("#087C68", secondComplete.ProgressConnectorOneColor);
+        Assert.Equal("#E4EAF1", secondComplete.ProgressConnectorTwoColor);
+        Assert.Equal("#087C68", thirdComplete.ProgressConnectorOneColor);
+        Assert.Equal("#087C68", thirdComplete.ProgressConnectorTwoColor);
+    }
+
+    [Fact]
+    public void ActiveButIncompleteConnectedTokenStaysGray()
+    {
+        var item = CreateItem(null) with
+        {
+            Role = AppTransactionRole.Buyer,
+            State = "DeliveredDisputeWindow"
+        };
 
         Assert.Equal(3, item.ProgressActiveStep);
-        Assert.Equal("ui_truck_disabled.png", item.ProgressThreeIcon);
-        Assert.Equal("#E4EAF1", item.ProgressThreeBackground);
-        Assert.Equal("#98A2B3", item.ProgressThreeLabelColor);
-    }
-
-    [Fact]
-    public void Completed_progress_step_uses_green_icon_badge_and_label()
-    {
-        var item = new AppTransaction(
-            Guid.NewGuid(),
-            "สินค้า",
-            10000,
-            "THB",
-            AppTransactionRole.Buyer,
-            AppFulfillmentType.Physical,
-            "PayoutPending",
-            DateTimeOffset.UtcNow,
-            null,
-            "ผู้ขาย");
-
-        Assert.Equal("ui_truck_completed.png", item.ProgressThreeIcon);
-        Assert.Equal("#087C68", item.ProgressThreeBackground);
-        Assert.Equal("#087C68", item.ProgressThreeLabelColor);
-        Assert.Equal("✓", item.ProgressThreeMarker);
+        Assert.Equal("progress_parcel_received_disabled.png", item.ProgressThree.Icon);
+        Assert.Equal("#FFFFFF", item.ProgressThree.BackgroundColor);
+        Assert.Equal("#E4EAF1", item.ProgressThree.StrokeColor);
+        Assert.Equal("#98A2B3", item.ProgressThree.LabelColor);
+        Assert.Equal("ได้รับของ ยังไม่เสร็จ", item.ProgressThree.SemanticDescription);
     }
 
     [Fact]
