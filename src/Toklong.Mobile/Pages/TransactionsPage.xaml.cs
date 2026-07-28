@@ -1,8 +1,11 @@
+using Toklong.Mobile.Core;
 using Toklong.Mobile.ViewModels;
 
 namespace Toklong.Mobile.Pages;
 
-public partial class TransactionsPage : ContentPage
+public partial class TransactionsPage :
+    ContentPage,
+    IQueryAttributable
 {
     private readonly TransactionsViewModel viewModel;
     private CancellationTokenSource? refreshLoop;
@@ -11,6 +14,18 @@ public partial class TransactionsPage : ContentPage
     {
         InitializeComponent();
         BindingContext = this.viewModel = viewModel;
+    }
+
+    public void ApplyQueryAttributes(
+        IDictionary<string, object> query)
+    {
+        if (query.TryGetValue("role", out var raw) &&
+            AuthenticatedHomeRoutes.TryParseRole(
+                raw?.ToString(),
+                out var role))
+        {
+            viewModel.ApplyRoleNavigation(role);
+        }
     }
 
     protected override async void OnAppearing()

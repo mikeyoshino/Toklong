@@ -32,4 +32,13 @@ public static class AuthenticatedHomeRoutes
         };
         return value is "buying" or "selling";
     }
+
+    public static RoleFilter ToRoleFilter(
+        TransactionRoleRoute role) =>
+        role switch
+        {
+            TransactionRoleRoute.Buying => RoleFilter.Buying,
+            TransactionRoleRoute.Selling => RoleFilter.Selling,
+            _ => throw new ArgumentOutOfRangeException(nameof(role))
+        };
 }

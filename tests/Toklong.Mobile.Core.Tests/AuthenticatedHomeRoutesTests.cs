@@ -33,4 +33,14 @@ public sealed class AuthenticatedHomeRoutesTests
         string? value) =>
         Assert.False(
             AuthenticatedHomeRoutes.TryParseRole(value, out _));
+
+    [Theory]
+    [InlineData(TransactionRoleRoute.Buying, RoleFilter.Buying)]
+    [InlineData(TransactionRoleRoute.Selling, RoleFilter.Selling)]
+    public void TransactionFilter_maps_navigation_role_to_visible_mode(
+        TransactionRoleRoute route,
+        RoleFilter expected) =>
+        Assert.Equal(
+            expected,
+            AuthenticatedHomeRoutes.ToRoleFilter(route));
 }

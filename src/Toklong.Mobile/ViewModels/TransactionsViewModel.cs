@@ -175,6 +175,9 @@ public sealed class TransactionsViewModel : ObservableViewModel
         }
     }
 
+    public void ApplyRoleNavigation(TransactionRoleRoute role) =>
+        SelectRole(AuthenticatedHomeRoutes.ToRoleFilter(role));
+
     private async Task RefreshAsync()
     {
         IsRefreshing = true;
