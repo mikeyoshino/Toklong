@@ -775,6 +775,65 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
+    public void BuyerPayment_IsInlineAndRendersTheLockedAddressOnce()
+    {
+        var detail = Load(
+            "Ui",
+            "Pages",
+            "TransactionDetailPage.xaml");
+        var labels = detail
+            .Descendants(Maui + "Label")
+            .Select(label => AttributeValue(label, "Text"))
+            .ToArray();
+        var payment = detail
+            .Descendants(Maui + "VerticalStackLayout")
+            .Single(stack =>
+                AttributeValue(stack, "AutomationId") ==
+                    "BuyerPaymentControls");
+
+        Assert.Equal(
+            "{Binding IsPaymentAction}",
+            AttributeValue(payment, "IsVisible"));
+        Assert.DoesNotContain(
+            "เช็กให้ครบก่อนจ่าย",
+            labels);
+        Assert.DoesNotContain(
+            "ระบบใช้อีเมลจากบัญชีของคุณส่งใบเสร็จและขั้นตอนคืนเงิน",
+            labels);
+        Assert.DoesNotContain(
+            "ที่อยู่จัดส่งที่ล็อกกับดีล",
+            labels);
+        Assert.DoesNotContain(
+            "ที่อยู่นี้เลือกไว้ตั้งแต่สร้างดีลและแก้ในขั้นชำระไม่ได้ หากไม่ถูกต้องให้สร้างข้อเสนอใหม่",
+            labels);
+        Assert.Single(
+            detail.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                    "{Binding Transaction.DeliveryAddressText}");
+        Assert.Contains(
+            payment.Descendants(Maui + "CheckBox"),
+            checkBox =>
+                AttributeValue(checkBox, "IsChecked") ==
+                    "{Binding AcceptedTerms}" &&
+                AttributeValue(
+                    checkBox,
+                    "SemanticProperties.Description") ==
+                    "ยืนยันว่าได้ตรวจรายละเอียดและเงื่อนไขแล้ว");
+        Assert.Contains(
+            payment.Descendants(Maui + "Button"),
+            button =>
+                AttributeValue(button, "Command") ==
+                    "{Binding PrimaryActionCommand}" &&
+                AttributeValue(button, "Text") ==
+                    "{Binding Transaction.FormattedAmount, StringFormat='ชำระ {0}'}" &&
+                AttributeValue(
+                    button,
+                    "SemanticProperties.Description") ==
+                    "{Binding Transaction.FormattedAmount, StringFormat='เปิดหน้าจ่ายเงินยอด {0}'}");
+    }
+
+    [Fact]
     public void TransactionDetailGradients_HaveColorsBeforeTransactionLoads()
     {
         var detail = Load(
