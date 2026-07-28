@@ -35,7 +35,7 @@ public sealed class SellerOfferViewModel(
     public AppTransaction? Transaction => invitation?.Transaction;
     public string ProductName => Transaction?.ProductName ?? "";
     public string AgreementDetails => Transaction?.AgreementDetails ?? "";
-    public string AmountText => Transaction?.FormattedAmount ?? "";
+    public string ItemPriceText => Transaction?.ItemPriceText ?? "";
     public string NetText => invitation is null
         ? ""
         : MoneyFormatter.Format(invitation.SellerExpectedNetSatang, "THB");
@@ -577,7 +577,7 @@ public sealed class SellerOfferViewModel(
         OnPropertyChanged(nameof(Transaction));
         OnPropertyChanged(nameof(ProductName));
         OnPropertyChanged(nameof(AgreementDetails));
-        OnPropertyChanged(nameof(AmountText));
+        OnPropertyChanged(nameof(ItemPriceText));
         OnPropertyChanged(nameof(NetText));
         OnPropertyChanged(nameof(DeadlineText));
         OnPropertyChanged(nameof(PhotoUrl));

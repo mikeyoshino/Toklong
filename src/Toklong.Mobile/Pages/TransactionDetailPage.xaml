@@ -105,13 +105,13 @@
                         <VerticalStackLayout Spacing="2">
                             <Label
                                 FontSize="12"
-                                Text="ยอดรวม"
+                                Text="{Binding Transaction.RoleAmountLabel}"
                                 TextColor="{Binding Transaction.RoleHeaderSecondary}" />
                             <Label
                                 FontAttributes="Bold"
                                 FontSize="27"
                                 CharacterSpacing="-0.5"
-                                Text="{Binding Transaction.FormattedAmount}"
+                                Text="{Binding Transaction.RoleAmountText}"
                                 TextColor="White" />
                         </VerticalStackLayout>
                         <VerticalStackLayout

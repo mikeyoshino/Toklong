@@ -179,6 +179,12 @@ public sealed record AppTransaction(
 
     public string FormattedAmount => MoneyFormatter.Format(AmountSatang, Currency);
 
+    public string RoleAmountLabel =>
+        IsSellerRole ? "ยอดที่จะได้รับ" : "ยอดรวม";
+
+    public string RoleAmountText =>
+        IsSellerRole ? SellerNetText : FormattedAmount;
+
     public string ItemPriceText =>
         MoneyFormatter.Format(
             ItemPriceSatang > 0

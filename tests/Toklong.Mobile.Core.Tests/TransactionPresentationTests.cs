@@ -478,6 +478,23 @@ public sealed class TransactionPresentationTests
     }
 
     [Fact]
+    public void RoleHeaderAmountDoesNotExposeBuyerTotalToSeller()
+    {
+        var buyer = CreateItem(null) with
+        {
+            AmountSatang = 594845,
+            ItemPriceSatang = 500000,
+            SellerExpectedNetSatang = 500000
+        };
+        var seller = buyer with { Role = AppTransactionRole.Seller };
+
+        Assert.Equal("ยอดรวม", buyer.RoleAmountLabel);
+        Assert.Equal("฿5,948.45", buyer.RoleAmountText);
+        Assert.Equal("ยอดที่จะได้รับ", seller.RoleAmountLabel);
+        Assert.Equal("฿5,000", seller.RoleAmountText);
+    }
+
+    [Fact]
     public void AgreementEvidenceShowsSharedHashAndBothAcceptanceStates()
     {
         var acceptedAt = new DateTimeOffset(

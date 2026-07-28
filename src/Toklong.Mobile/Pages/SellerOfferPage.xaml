@@ -36,7 +36,7 @@
                         <Label
                             FontAttributes="Bold"
                             FontSize="23"
-                            Text="{Binding AmountText}"
+                            Text="{Binding ItemPriceText}"
                             TextColor="{StaticResource BrandBlueDeep}" />
                         <Label
                             FontSize="12"

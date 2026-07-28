@@ -710,6 +710,36 @@ public sealed class UiLayoutConsistencyTests
         Assert.Contains(
             "ค่าจัดส่งที่ผู้ซื้อจ่าย",
             labelTexts);
+        Assert.Contains(
+            sellerOffer.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                    "{Binding ItemPriceText}");
+        Assert.DoesNotContain(
+            sellerOffer.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                    "{Binding AmountText}");
+    }
+
+    [Fact]
+    public void TransactionHeaderUsesRoleSpecificAmount()
+    {
+        var detail = Load(
+            "Ui",
+            "Pages",
+            "TransactionDetailPage.xaml");
+
+        Assert.Contains(
+            detail.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                    "{Binding Transaction.RoleAmountLabel}");
+        Assert.Contains(
+            detail.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                    "{Binding Transaction.RoleAmountText}");
     }
 
     [Fact]
