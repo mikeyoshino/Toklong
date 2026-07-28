@@ -235,6 +235,22 @@ public sealed class BrandAssetConsistencyTests
                 "data-logo-mark=\"transaction-rail\"").Count);
     }
 
+    [Fact]
+    public void Shipping_label_icon_uses_graphite_role_color()
+    {
+        var content = File.ReadAllText(
+            Path.Combine(BrandDirectory(), "ui_shipping_label.svg"));
+
+        Assert.Contains(
+            SellerColorPalette.Role,
+            content,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(
+            "#6548C7",
+            content,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string Read(string fileName) =>
         File.ReadAllText(BrandPath(fileName));
 

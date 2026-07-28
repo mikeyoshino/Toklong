@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
+    xmlns:core="clr-namespace:Toklong.Mobile.Core"
     Title="{Binding DetailHeadline}"
     SafeAreaEdges="Container"
     Shell.NavBarIsVisible="True"
@@ -551,8 +552,8 @@
                         <Border
                             AutomationId="ManagedShippingLabelCard"
                             Padding="14"
-                            BackgroundColor="White"
-                            Stroke="#D8D1F5"
+                            BackgroundColor="{x:Static core:SellerColorPalette.Surface}"
+                            Stroke="{x:Static core:SellerColorPalette.Border}"
                             StrokeShape="RoundRectangle 14">
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer
@@ -564,7 +565,7 @@
                                 <Border
                                     WidthRequest="42"
                                     HeightRequest="42"
-                                    BackgroundColor="#F1ECFF"
+                                    BackgroundColor="{x:Static core:SellerColorPalette.Secondary}"
                                     StrokeThickness="0"
                                     StrokeShape="RoundRectangle 12">
                                     <Image
@@ -587,7 +588,7 @@
                                     VerticalOptions="Center"
                                     FontSize="22"
                                     Text="›"
-                                    TextColor="#6548C7" />
+                                    TextColor="{x:Static core:SellerColorPalette.Role}" />
                             </Grid>
                         </Border>
                         <Button
@@ -595,7 +596,7 @@
                             Style="{StaticResource RefinedInlineButton}"
                             Command="{Binding OpenShippingLabelCommand}"
                             Text="แตะเพื่อดูใบปะหน้าเต็มจอ"
-                            TextColor="#6548C7" />
+                            TextColor="{x:Static core:SellerColorPalette.Role}" />
                     </VerticalStackLayout>
                     <Label
                         IsVisible="{Binding Transaction.HasTrackingNumber}"

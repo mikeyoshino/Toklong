@@ -508,6 +508,82 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
+    public void Seller_surfaces_use_graphite_palette_without_changing_buyer()
+    {
+        var home = Load("Ui", "Pages", "AuthenticatedHomePage.xaml");
+        var transactions = Load("Ui", "Pages", "TransactionsPage.xaml");
+        var detail = Load("Ui", "Pages", "TransactionDetailPage.xaml");
+        var label = Load("Ui", "Pages", "ShippingLabelPage.xaml");
+
+        var sellerHome = home.Descendants(Maui + "Border")
+            .Single(element =>
+                AttributeValue(element, "AutomationId") ==
+                "SellerHomeCard");
+        Assert.Equal(
+            new[]
+            {
+                "{x:Static core:SellerColorPalette.HeaderStart}",
+                "{x:Static core:SellerColorPalette.HeaderMiddle}",
+                "{x:Static core:SellerColorPalette.HeaderEnd}"
+            },
+            sellerHome.Descendants(Maui + "GradientStop")
+                .Select(stop => AttributeValue(stop, "Color")));
+
+        var buyerHome = home.Descendants(Maui + "Border")
+            .Single(element =>
+                AttributeValue(element, "AutomationId") ==
+                "BuyerHomeCard");
+        Assert.Equal(
+            "{StaticResource BrandBlue}",
+            AttributeValue(buyerHome, "BackgroundColor"));
+
+        var sellerModeSetter = transactions
+            .Descendants(Maui + "Button")
+            .Single(button => AttributeValue(button, "Text") == "ขาย")
+            .Descendants(Maui + "Setter")
+            .Single(setter => AttributeValue(setter, "Property") == "TextColor");
+        Assert.Equal(
+            "{x:Static core:SellerColorPalette.Role}",
+            AttributeValue(sellerModeSetter, "Value"));
+
+        var compactSeller = transactions.Descendants(Maui + "Border")
+            .Single(element =>
+                AttributeValue(element, "AutomationId") ==
+                "CompactSellerTransactionCard");
+        Assert.Contains(
+            compactSeller.Descendants(Maui + "Label"),
+            element =>
+                AttributeValue(element, "Text") ==
+                    "{Binding PrimaryActionLabel}" &&
+                AttributeValue(element, "TextColor") ==
+                    "{x:Static core:SellerColorPalette.Role}");
+
+        var saveButton = label.Descendants(Maui + "Button")
+            .Single(element =>
+                AttributeValue(element, "AutomationId") ==
+                "SaveShippingLabelButton");
+        var shareButton = label.Descendants(Maui + "Button")
+            .Single(element =>
+                AttributeValue(element, "AutomationId") ==
+                "ShareOrPrintShippingLabelButton");
+        Assert.Equal(
+            "{x:Static core:SellerColorPalette.Border}",
+            AttributeValue(saveButton, "BorderColor"));
+        Assert.Equal(
+            "{x:Static core:SellerColorPalette.Role}",
+            AttributeValue(saveButton, "TextColor"));
+        Assert.Equal(
+            "{x:Static core:SellerColorPalette.Role}",
+            AttributeValue(shareButton, "BackgroundColor"));
+
+        Assert.Contains(
+            detail.Descendants(Maui + "GradientStop"),
+            stop =>
+                AttributeValue(stop, "Color") ==
+                "{Binding Transaction.RoleHeaderStart, FallbackValue=#3C8AF1, TargetNullValue=#3C8AF1}");
+    }
+
+    [Fact]
     public void TransactionDeadlines_UseFullWidthWrappingRows()
     {
         var page = Load("Ui", "Pages", "TransactionsPage.xaml");

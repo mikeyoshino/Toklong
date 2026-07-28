@@ -87,7 +87,7 @@
                                             Binding="{Binding IsSelling}"
                                             Value="True">
                                             <Setter Property="BackgroundColor" Value="White" />
-                                            <Setter Property="TextColor" Value="#6548C7" />
+                                            <Setter Property="TextColor" Value="{x:Static core:SellerColorPalette.Role}" />
                                         </DataTrigger>
                                     </Button.Triggers>
                                 </Button>
@@ -172,7 +172,7 @@
                                     FontSize="12"
                                     SemanticProperties.Description="แสดงงานขายทั้งหมด"
                                     Text="ดูทั้งหมด"
-                                    TextColor="#6548C7" />
+                                    TextColor="{x:Static core:SellerColorPalette.Role}" />
                             </Grid>
 
                             <Grid
@@ -764,9 +764,9 @@
                                 StrokeShape="RoundRectangle 20">
                                 <Border.Shadow>
                                     <Shadow
-                                        Brush="#2A6548C7"
+                                        Brush="{x:Static core:SellerColorPalette.Role}"
                                         Offset="0,7"
-                                        Opacity="0.12"
+                                        Opacity="0.08"
                                         Radius="18" />
                                 </Border.Shadow>
                                 <Border.GestureRecognizers>
@@ -784,7 +784,7 @@
                                         WidthRequest="64"
                                         HeightRequest="64"
                                         VerticalOptions="Start"
-                                        BackgroundColor="#F1ECFF"
+                                        BackgroundColor="{x:Static core:SellerColorPalette.Surface}"
                                         StrokeThickness="0"
                                         StrokeShape="RoundRectangle 17">
                                         <Image Margin="7" Source="{Binding ProductVisual}" />
@@ -854,7 +854,7 @@
                                             FontAttributes="Bold"
                                             FontSize="12"
                                             Text="{Binding PrimaryActionLabel}"
-                                            TextColor="#6548C7" />
+                                            TextColor="{x:Static core:SellerColorPalette.Role}" />
                                         <Label
                                             Grid.Row="1"
                                             Grid.ColumnSpan="2"

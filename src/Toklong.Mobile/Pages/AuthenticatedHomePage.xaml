@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
+    xmlns:core="clr-namespace:Toklong.Mobile.Core"
     SafeAreaEdges="Container"
     Shell.NavBarIsVisible="False"
     Shell.TabBarIsVisible="False">
@@ -38,6 +39,7 @@
 
             <VerticalStackLayout Spacing="14">
                 <Border
+                    AutomationId="BuyerHomeCard"
                     BackgroundColor="{StaticResource BrandBlue}"
                     Stroke="Transparent"
                     StrokeShape="RoundRectangle 20">
@@ -82,9 +84,22 @@
                 </Border>
 
                 <Border
-                    BackgroundColor="#6255D9"
+                    AutomationId="SellerHomeCard"
                     Stroke="Transparent"
                     StrokeShape="RoundRectangle 20">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop
+                                Color="{x:Static core:SellerColorPalette.HeaderStart}"
+                                Offset="0" />
+                            <GradientStop
+                                Color="{x:Static core:SellerColorPalette.HeaderMiddle}"
+                                Offset="0.58" />
+                            <GradientStop
+                                Color="{x:Static core:SellerColorPalette.HeaderEnd}"
+                                Offset="1" />
+                        </LinearGradientBrush>
+                    </Border.Background>
                     <Grid MinimumHeightRequest="112">
                         <Grid
                             ColumnDefinitions="*,Auto"
@@ -101,7 +116,7 @@
                             <Border
                                 Grid.Column="1"
                                 AutomationId="SellerNewOfferBadge"
-                                BackgroundColor="White"
+                                BackgroundColor="{x:Static core:SellerColorPalette.BadgeSurface}"
                                 IsVisible="{Binding HasNewOffers}"
                                 Margin="12,0,0,0"
                                 Padding="10,4"
@@ -111,7 +126,7 @@
                                     FontAttributes="Bold"
                                     FontSize="12"
                                     Text="{Binding NewOfferBadgeText}"
-                                    TextColor="#6255D9" />
+                                    TextColor="{x:Static core:SellerColorPalette.Role}" />
                             </Border>
                             <Label
                                 Grid.Row="1"
@@ -129,7 +144,7 @@
                                 IsVisible="{Binding HasActionableSellerWork}"
                                 VerticalOptions="Center">
                                 <BoxView
-                                    BackgroundColor="{StaticResource Mint}"
+                                    BackgroundColor="{x:Static core:SellerColorPalette.Accent}"
                                     CornerRadius="4"
                                     HeightRequest="8"
                                     VerticalOptions="Center"

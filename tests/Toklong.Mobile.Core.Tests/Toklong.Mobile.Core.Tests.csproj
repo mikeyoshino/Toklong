@@ -77,6 +77,9 @@
     <None Include="../../src/Toklong.Mobile/Resources/Images/ui_ai_assist.svg"
           Link="Brand/ui_ai_assist.svg"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Mobile/Resources/Images/ui_shipping_label.svg"
+          Link="Brand/ui_shipping_label.svg"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../src/Toklong.Mobile/Resources/Images/progress_*.svg"
           Link="Brand/%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" />
