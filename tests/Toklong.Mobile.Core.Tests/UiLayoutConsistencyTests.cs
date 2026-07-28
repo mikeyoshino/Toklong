@@ -93,6 +93,78 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
+    public void AuthenticatedHome_UsesCenteredBrandAndBuyerFirstActions()
+    {
+        var home = Load(
+            "Ui",
+            "Pages",
+            "AuthenticatedHomePage.xaml");
+        var labels = home
+            .Descendants(Maui + "Label")
+            .Select(label => AttributeValue(label, "Text"))
+            .ToArray();
+        var buttons = home.Descendants(Maui + "Button").ToArray();
+
+        Assert.Contains(
+            home.Descendants(),
+            element =>
+                element.Name.LocalName ==
+                "CenteredAuthBrandView");
+        Assert.Contains("เริ่มดีลอย่างมั่นใจ", labels);
+        Assert.Contains(
+            "สร้างข้อเสนอซื้อ หรือจัดการรายการขาย",
+            labels);
+        Assert.Contains(
+            buttons,
+            button =>
+                AttributeValue(button, "AutomationId") ==
+                    "OpenBuyingHomeButton" &&
+                AttributeValue(
+                    button,
+                    "SemanticProperties.Description") ==
+                    "ซื้อ สร้างข้อเสนอ ตรวจรายละเอียด และติดตามรายการ");
+        Assert.Contains(
+            buttons,
+            button =>
+                AttributeValue(button, "AutomationId") ==
+                    "OpenSellingHomeButton" &&
+                AttributeValue(
+                    button,
+                    "SemanticProperties.Description") ==
+                    "ขาย ตรวจข้อเสนอ ส่งสินค้า และติดตามยอดรับ");
+        Assert.Contains(
+            buttons,
+            button =>
+                AttributeValue(button, "AutomationId") ==
+                    "OpenAllTransactionsButton" &&
+                AttributeValue(button, "Text") ==
+                    "รายการของฉัน");
+        Assert.DoesNotContain("เข้าสู่ระบบ", labels);
+        Assert.DoesNotContain("สมัครสมาชิก", labels);
+        Assert.DoesNotContain("สร้างลิงก์ขาย", labels);
+    }
+
+    [Fact]
+    public void Shell_RegistersAuthenticatedHomeOutsideTheMainTabBar()
+    {
+        var shell = Load("Ui", "AppShell.xaml");
+        var home = shell
+            .Descendants(Maui + "ShellContent")
+            .Single(element =>
+                AttributeValue(element, "Route") == "home");
+
+        Assert.Equal(
+            "{DataTemplate pages:AuthenticatedHomePage}",
+            AttributeValue(home, "ContentTemplate"));
+        Assert.Equal(
+            "False",
+            AttributeValue(home, "Shell.FlyoutItemIsVisible"));
+        Assert.DoesNotContain(
+            home.Ancestors(),
+            element => element.Name.LocalName == "TabBar");
+    }
+
+    [Fact]
     public void RegistrationCompletionCollectsEmail_AndCheckoutDoesNotRenderAnEmailField()
     {
         var completion = Load(

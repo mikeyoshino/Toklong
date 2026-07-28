@@ -201,6 +201,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<AccountViewModel>();
 
         builder.Services.AddSingleton<WelcomePage>();
+        builder.Services.AddSingleton<AuthenticatedHomePage>();
         builder.Services.AddTransient<SignInPage>();
         builder.Services.AddTransient<SignUpPage>();
         builder.Services.AddTransient<VerifyCodePage>();

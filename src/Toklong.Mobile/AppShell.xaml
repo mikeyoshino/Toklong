@@ -23,6 +23,11 @@
         Shell.NavBarIsVisible="False"
         ContentTemplate="{DataTemplate pages:SignInPage}"
         Shell.FlyoutItemIsVisible="False" />
+    <ShellContent
+        Route="home"
+        Shell.NavBarIsVisible="False"
+        ContentTemplate="{DataTemplate pages:AuthenticatedHomePage}"
+        Shell.FlyoutItemIsVisible="False" />
     <TabBar Route="main">
         <ShellContent
             Title="รายการ"

@@ -124,7 +124,8 @@ public sealed class CompleteRegistrationViewModel(
                 cleanEmail,
                 TermsVersion);
             await pushRegistration.InitializeAsync();
-            await Shell.Current.GoToAsync("//transactions");
+            await Shell.Current.GoToAsync(
+                AuthenticatedHomeRoutes.Home);
             await deepLinks.ResumePendingAsync();
         }
         catch (Exception exception)

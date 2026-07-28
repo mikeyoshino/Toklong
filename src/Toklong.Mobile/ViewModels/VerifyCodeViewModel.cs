@@ -120,7 +120,8 @@ public sealed class VerifyCodeViewModel(
             {
                 case SessionVerificationResult:
                     await pushRegistration.InitializeAsync();
-                    await Shell.Current.GoToAsync("//transactions");
+                    await Shell.Current.GoToAsync(
+                        AuthenticatedHomeRoutes.Home);
                     await deepLinks.ResumePendingAsync();
                     break;
                 case RegistrationRequiredVerificationResult:

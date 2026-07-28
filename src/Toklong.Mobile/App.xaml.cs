@@ -78,7 +78,7 @@ public partial class App : Application
 
             window.Page = shell;
             await shell.GoToAsync(result.Route, false);
-            if (result.Route == "//transactions")
+            if (result.Route == AuthenticatedHomeRoutes.Home)
                 _ = InitializeAuthenticatedServicesAsync();
         }
         catch (OperationCanceledException)
