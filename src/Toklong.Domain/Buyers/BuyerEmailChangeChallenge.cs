@@ -62,12 +62,16 @@ public sealed class BuyerEmailChangeChallenge
         if (buyerId == Guid.Empty)
             throw new DomainException("บัญชีผู้ใช้ไม่ถูกต้อง");
 
+        var normalizedPendingEmail = BuyerAccount.NormalizeEmail(pendingEmail);
+
         return new BuyerEmailChangeChallenge
         {
             Id = id,
             BuyerId = buyerId,
-            PendingEmail = BuyerAccount.NormalizeEmail(pendingEmail),
-            MaskedPendingEmail = MaskedEmail(maskedPendingEmail),
+            PendingEmail = normalizedPendingEmail,
+            MaskedPendingEmail = BuyerEmailChangeMask.ValidateForPendingEmail(
+                normalizedPendingEmail,
+                maskedPendingEmail),
             CodeDigest = ValidDigest(codeDigest),
             RequestIdempotencyKey = NormalizedIdempotencyKey(requestIdempotencyKey),
             CreatedAt = createdAt,
@@ -187,19 +191,47 @@ public sealed class BuyerEmailChangeChallenge
         return parsed.ToString("N");
     }
 
-    private static string MaskedEmail(string value)
+}
+
+internal static class BuyerEmailChangeMask
+{
+    public static string ValidateForPendingEmail(
+        string pendingEmail,
+        string maskedEmail)
+    {
+        var clean = Validate(maskedEmail);
+        var at = clean.IndexOf('@');
+        var pendingAt = pendingEmail.IndexOf('@');
+        var local = clean[..at];
+        var pendingLocal = pendingEmail[..pendingAt];
+        var maskStart = local.IndexOfAny(['*', '•']);
+        if (pendingLocal.Length < maskStart ||
+            !string.Equals(
+                pendingEmail[(pendingAt + 1)..],
+                clean[(at + 1)..],
+                StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(
+                pendingLocal[..maskStart],
+                local[..maskStart],
+                StringComparison.OrdinalIgnoreCase))
+            throw new DomainException("อีเมลที่ปกปิดแล้วไม่ถูกต้อง");
+
+        return clean;
+    }
+
+    public static string Validate(string value)
     {
         var clean = (value ?? "").Trim();
         var at = clean.IndexOf('@');
-        if (clean.Length is 0 or > 254 || at is < 2 or >= 254)
+        if (clean.Length is 0 or > 254 ||
+            at is < 2 or >= 254 ||
+            clean.IndexOf('@', at + 1) >= 0)
             throw new DomainException("อีเมลที่ปกปิดแล้วไม่ถูกต้อง");
 
         var local = clean[..at];
         var domain = clean[(at + 1)..];
         var maskStart = local.IndexOfAny(['*', '•']);
-        if (domain.Length == 0 ||
-            domain.Any(character => char.IsWhiteSpace(character) ||
-                                    character is '*' or '•') ||
+        if (Uri.CheckHostName(domain) == UriHostNameType.Unknown ||
             maskStart is < 1 or > 2 ||
             local[maskStart..].Any(character => character != local[maskStart]))
             throw new DomainException("อีเมลที่ปกปิดแล้วไม่ถูกต้อง");

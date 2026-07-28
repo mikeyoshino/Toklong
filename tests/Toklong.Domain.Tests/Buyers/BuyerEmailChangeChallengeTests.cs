@@ -214,6 +214,14 @@ public sealed class BuyerEmailChangeChallengeTests
             "next@example.com*",
             Now,
             "accepted"));
+        Assert.Throws<DomainException>(() => new BuyerEmailChangeAuditEvent(
+            BuyerId,
+            Guid.NewGuid(),
+            "account.email_change_requested",
+            CorrectDigest,
+            "n***@next@example.com",
+            Now,
+            "accepted"));
     }
 
     [Fact]
@@ -224,6 +232,35 @@ public sealed class BuyerEmailChangeChallengeTests
             BuyerId,
             "next@example.com",
             "next@example.com*",
+            CorrectDigest,
+            NewRequestKey(),
+            Now));
+    }
+
+    [Fact]
+    public void Challenge_mask_must_match_its_pending_email()
+    {
+        Assert.Throws<DomainException>(() => BuyerEmailChangeChallenge.Create(
+            Guid.NewGuid(),
+            BuyerId,
+            "next@example.com",
+            "n***@next@example.com",
+            CorrectDigest,
+            NewRequestKey(),
+            Now));
+        Assert.Throws<DomainException>(() => BuyerEmailChangeChallenge.Create(
+            Guid.NewGuid(),
+            BuyerId,
+            "next@example.com",
+            "n***@other.example",
+            CorrectDigest,
+            NewRequestKey(),
+            Now));
+        Assert.Throws<DomainException>(() => BuyerEmailChangeChallenge.Create(
+            Guid.NewGuid(),
+            BuyerId,
+            "next@example.com",
+            "x***@example.com",
             CorrectDigest,
             NewRequestKey(),
             Now));

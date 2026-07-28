@@ -24,7 +24,7 @@ public sealed class BuyerEmailChangeAuditEvent
         ChallengeId = challengeId;
         Name = Required(name, "ชื่อเหตุการณ์", 100);
         DestinationHash = ValidDigest(destinationHash);
-        MaskedDestination = MaskedEmail(maskedDestination);
+        MaskedDestination = BuyerEmailChangeMask.Validate(maskedDestination);
         CreatedAt = createdAt;
         Result = Required(result, "ผลลัพธ์", 100);
     }
@@ -44,26 +44,6 @@ public sealed class BuyerEmailChangeAuditEvent
         if (clean.Length != 64 || clean.Any(character => !Uri.IsHexDigit(character)))
             throw new DomainException("ข้อมูลอ้างอิงปลายทางไม่ถูกต้อง");
         return clean.ToLowerInvariant();
-    }
-
-    private static string MaskedEmail(string value)
-    {
-        var clean = (value ?? "").Trim();
-        var at = clean.IndexOf('@');
-        if (clean.Length is 0 or > 254 || at is < 2 or >= 254)
-            throw new DomainException("อีเมลที่ปกปิดแล้วไม่ถูกต้อง");
-
-        var local = clean[..at];
-        var domain = clean[(at + 1)..];
-        var maskStart = local.IndexOfAny(['*', '•']);
-        if (domain.Length == 0 ||
-            domain.Any(character => char.IsWhiteSpace(character) ||
-                                    character is '*' or '•') ||
-            maskStart is < 1 or > 2 ||
-            local[maskStart..].Any(character => character != local[maskStart]))
-            throw new DomainException("อีเมลที่ปกปิดแล้วไม่ถูกต้อง");
-
-        return clean;
     }
 
     private static string Required(string value, string label, int maximumLength)
