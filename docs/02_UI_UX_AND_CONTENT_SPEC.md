@@ -13,12 +13,15 @@
   `ซื้อ`, purple for `ขาย`, plus explicit role labels and role-specific status
   copy. Never rely on color alone.
 - In the three-step progress card, use Connected Tokens: three `48 × 48`
-  circular milestones joined by two rounded connectors. Completed tokens,
-  destination connectors, and labels are green; active-but-incomplete and
-  future tokens remain gray because the main status card communicates the
-  current action. Use TOKLONG-owned rounded glyphs, role-specific buyer/seller
-  artwork, and distinct physical/digital fulfillment glyphs. Do not show
-  floating number/check badges, tap behavior, or progress animation.
+  circular milestones joined by two rounded connectors. Completed buyer tokens,
+  labels, and destination connectors use Buyer Blue (`#145FC7`) on
+  `#EAF4FF`; completed seller tokens, labels, and destination connectors use
+  Seller Purple (`#6548C7`) on `#F1ECFF`. Active-but-incomplete and future
+  tokens remain neutral (`#98A2B3`, `#E4EAF1`, and white) because the main
+  status card communicates the current action. Use the TOKLONG Rail Morph
+  family with role-specific completed artwork and distinct physical/digital
+  fulfillment glyphs. Do not show floating number/check badges, tap behavior,
+  or progress animation.
 
 ## Mobile startup brand motion
 

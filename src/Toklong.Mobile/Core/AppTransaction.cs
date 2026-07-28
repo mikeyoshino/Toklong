@@ -509,7 +509,7 @@ public sealed record AppTransaction(
             Role == AppTransactionRole.Buyer
                 ? "payment"
                 : FulfillmentType == AppFulfillmentType.Physical
-                    ? "parcel_handoff"
+                    ? "physical_handoff"
                     : "digital_handoff");
     public TransactionProgressStep ProgressThree =>
         CreateProgressStep(
@@ -518,15 +518,15 @@ public sealed record AppTransaction(
             Role == AppTransactionRole.Seller
                 ? "payout"
                 : FulfillmentType == AppFulfillmentType.Physical
-                    ? "parcel_received"
+                    ? "physical_receipt"
                     : "digital_handoff");
     public string ProgressConnectorOneColor =>
         ProgressCompletedThrough >= 2
-            ? ProgressComplete
+            ? CompletedProgressColor
             : ProgressIncomplete;
     public string ProgressConnectorTwoColor =>
         ProgressCompletedThrough >= 3
-            ? ProgressComplete
+            ? CompletedProgressColor
             : ProgressIncomplete;
 
     public string ProductIcon =>
@@ -553,9 +553,27 @@ public sealed record AppTransaction(
                   ThaiCulture) +
               " · บัญชีที่ยืนยันด้วยเบอร์โทร";
 
-    private const string ProgressComplete = "#087C68";
+    private const string BuyerProgress = "#145FC7";
+    private const string BuyerProgressBackground = "#EAF4FF";
+    private const string SellerProgress = "#6548C7";
+    private const string SellerProgressBackground = "#F1ECFF";
     private const string ProgressIncomplete = "#E4EAF1";
     private const string ProgressMuted = "#98A2B3";
+
+    private string CompletedProgressColor =>
+        Role == AppTransactionRole.Buyer
+            ? BuyerProgress
+            : SellerProgress;
+
+    private string CompletedProgressBackground =>
+        Role == AppTransactionRole.Buyer
+            ? BuyerProgressBackground
+            : SellerProgressBackground;
+
+    private string CompletedProgressVariant =>
+        Role == AppTransactionRole.Buyer
+            ? "buyer_completed"
+            : "seller_completed";
 
     private TransactionProgressStep CreateProgressStep(
         int step,
@@ -563,14 +581,16 @@ public sealed record AppTransaction(
         string glyph)
     {
         var completed = step <= ProgressCompletedThrough;
-        var suffix = completed ? "completed" : "disabled";
+        var suffix = completed
+            ? CompletedProgressVariant
+            : "disabled";
 
         return new TransactionProgressStep(
             label,
             $"progress_{glyph}_{suffix}.png",
-            completed ? ProgressComplete : "#FFFFFF",
-            completed ? ProgressComplete : ProgressIncomplete,
-            completed ? ProgressComplete : ProgressMuted,
+            completed ? CompletedProgressBackground : "#FFFFFF",
+            completed ? CompletedProgressColor : ProgressIncomplete,
+            completed ? CompletedProgressColor : ProgressMuted,
             $"{label} {(completed ? "เสร็จแล้ว" : "ยังไม่เสร็จ")}");
     }
 

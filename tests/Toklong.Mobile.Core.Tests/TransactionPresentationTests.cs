@@ -198,14 +198,35 @@ public sealed class TransactionPresentationTests
             State = "AwaitingSellerAcceptance"
         };
 
-        Assert.Equal("progress_agreement_completed.png", item.ProgressOne.Icon);
+        Assert.Equal("progress_agreement_buyer_completed.png", item.ProgressOne.Icon);
         Assert.Equal("progress_payment_disabled.png", item.ProgressTwo.Icon);
-        Assert.Equal("progress_parcel_received_disabled.png", item.ProgressThree.Icon);
+        Assert.Equal("progress_physical_receipt_disabled.png", item.ProgressThree.Icon);
         Assert.Equal("สร้างข้อตกลง เสร็จแล้ว", item.ProgressOne.SemanticDescription);
         Assert.Equal("จ่ายเงิน ยังไม่เสร็จ", item.ProgressTwo.SemanticDescription);
-        Assert.Equal("#087C68", item.ProgressOne.BackgroundColor);
+        Assert.Equal("#EAF4FF", item.ProgressOne.BackgroundColor);
+        Assert.Equal("#145FC7", item.ProgressOne.StrokeColor);
+        Assert.Equal("#145FC7", item.ProgressOne.LabelColor);
         Assert.Equal("#FFFFFF", item.ProgressTwo.BackgroundColor);
         Assert.Equal("#E4EAF1", item.ProgressTwo.StrokeColor);
+        Assert.Equal("#98A2B3", item.ProgressTwo.LabelColor);
+    }
+
+    [Fact]
+    public void ConnectedProgressUsesSellerCompletedVariantAndPalette()
+    {
+        var item = CreateItem(null) with
+        {
+            Role = AppTransactionRole.Seller,
+            FulfillmentType = AppFulfillmentType.Physical,
+            State = "TrackingSubmitted"
+        };
+
+        Assert.Equal("progress_agreement_seller_completed.png", item.ProgressOne.Icon);
+        Assert.Equal("progress_physical_handoff_seller_completed.png", item.ProgressTwo.Icon);
+        Assert.Equal("progress_payout_disabled.png", item.ProgressThree.Icon);
+        Assert.Equal("#F1ECFF", item.ProgressTwo.BackgroundColor);
+        Assert.Equal("#6548C7", item.ProgressTwo.StrokeColor);
+        Assert.Equal("#6548C7", item.ProgressTwo.LabelColor);
     }
 
     [Theory]
@@ -217,7 +238,7 @@ public sealed class TransactionPresentationTests
     [InlineData(
         AppTransactionRole.Seller,
         AppFulfillmentType.Physical,
-        "progress_parcel_handoff_disabled.png",
+        "progress_physical_handoff_disabled.png",
         "progress_payout_disabled.png")]
     [InlineData(
         AppTransactionRole.Seller,
@@ -254,10 +275,18 @@ public sealed class TransactionPresentationTests
 
         Assert.Equal("#E4EAF1", firstComplete.ProgressConnectorOneColor);
         Assert.Equal("#E4EAF1", firstComplete.ProgressConnectorTwoColor);
-        Assert.Equal("#087C68", secondComplete.ProgressConnectorOneColor);
+        Assert.Equal("#145FC7", secondComplete.ProgressConnectorOneColor);
         Assert.Equal("#E4EAF1", secondComplete.ProgressConnectorTwoColor);
-        Assert.Equal("#087C68", thirdComplete.ProgressConnectorOneColor);
-        Assert.Equal("#087C68", thirdComplete.ProgressConnectorTwoColor);
+        Assert.Equal("#145FC7", thirdComplete.ProgressConnectorOneColor);
+        Assert.Equal("#145FC7", thirdComplete.ProgressConnectorTwoColor);
+
+        var seller = thirdComplete with
+        {
+            Role = AppTransactionRole.Seller,
+            State = "PaidOut"
+        };
+        Assert.Equal("#6548C7", seller.ProgressConnectorOneColor);
+        Assert.Equal("#6548C7", seller.ProgressConnectorTwoColor);
     }
 
     [Fact]
@@ -270,7 +299,7 @@ public sealed class TransactionPresentationTests
         };
 
         Assert.Equal(3, item.ProgressActiveStep);
-        Assert.Equal("progress_parcel_received_disabled.png", item.ProgressThree.Icon);
+        Assert.Equal("progress_physical_receipt_disabled.png", item.ProgressThree.Icon);
         Assert.Equal("#FFFFFF", item.ProgressThree.BackgroundColor);
         Assert.Equal("#E4EAF1", item.ProgressThree.StrokeColor);
         Assert.Equal("#98A2B3", item.ProgressThree.LabelColor);
@@ -325,7 +354,7 @@ public sealed class TransactionPresentationTests
         Assert.Equal(1, item.ProgressCompletedThrough);
         Assert.Equal(0, item.ProgressActiveStep);
         Assert.Equal(
-            "progress_parcel_handoff_disabled.png",
+            "progress_physical_handoff_disabled.png",
             item.ProgressTwo.Icon);
         Assert.Equal("#98A2B3", item.ProgressTwo.LabelColor);
     }
