@@ -5,21 +5,34 @@ namespace Toklong.Mobile.Core.Tests;
 
 public sealed class BrandAssetConsistencyTests
 {
-    public static TheoryData<string> ProgressAssets => new()
+    private static readonly string[] ProgressSemantics =
+    [
+        "agreement",
+        "payment",
+        "physical_handoff",
+        "physical_receipt",
+        "digital_handoff",
+        "payout"
+    ];
+
+    private static readonly string[] ProgressVariants =
+    [
+        "buyer_completed",
+        "seller_completed",
+        "disabled"
+    ];
+
+    public static TheoryData<string> ProgressAssets
     {
-        "progress_agreement_completed.svg",
-        "progress_agreement_disabled.svg",
-        "progress_payment_completed.svg",
-        "progress_payment_disabled.svg",
-        "progress_parcel_handoff_completed.svg",
-        "progress_parcel_handoff_disabled.svg",
-        "progress_parcel_received_completed.svg",
-        "progress_parcel_received_disabled.svg",
-        "progress_digital_handoff_completed.svg",
-        "progress_digital_handoff_disabled.svg",
-        "progress_payout_completed.svg",
-        "progress_payout_disabled.svg"
-    };
+        get
+        {
+            var data = new TheoryData<string>();
+            foreach (var semantic in ProgressSemantics)
+            foreach (var variant in ProgressVariants)
+                data.Add($"progress_{semantic}_{variant}.svg");
+            return data;
+        }
+    }
 
     [Theory]
     [InlineData("brand_mark.svg")]
@@ -78,53 +91,136 @@ public sealed class BrandAssetConsistencyTests
     public void ProgressAssetUsesApprovedRoundedGeometry(string fileName)
     {
         var document = XDocument.Load(BrandPath(fileName));
-        var svg = document.Root!;
         var content = Read(fileName);
-        var strokeWidths = document
+        var primary = document
             .Descendants()
-            .Select(element =>
-                (string?)element.Attribute("stroke-width"))
-            .Where(value =>
-                !string.IsNullOrWhiteSpace(value))
-            .Select(value =>
-                decimal.Parse(
-                    value!,
-                    System.Globalization.CultureInfo.InvariantCulture))
-            .ToArray();
+            .Single(element =>
+                (string?)element.Attribute("id") == "rail-primary");
+        var secondary = document
+            .Descendants()
+            .Single(element =>
+                (string?)element.Attribute("id") == "rail-secondary");
+        var node = document
+            .Descendants()
+            .Single(element =>
+                (string?)element.Attribute("id") == "rail-node");
 
-        Assert.Equal("0 0 48 48", (string?)svg.Attribute("viewBox"));
-        Assert.Contains("stroke-linecap=\"round\"", content);
-        Assert.NotEmpty(strokeWidths);
-        Assert.All(
-            strokeWidths,
-            width => Assert.InRange(width, 0.1m, 3m));
+        Assert.Equal(
+            "0 0 48 48",
+            (string?)document.Root!.Attribute("viewBox"));
+        Assert.Equal("round", Attr(primary, "stroke-linecap"));
+        Assert.Equal("round", Attr(primary, "stroke-linejoin"));
+        Assert.Equal("round", Attr(secondary, "stroke-linecap"));
+        Assert.Equal("round", Attr(secondary, "stroke-linejoin"));
+        Assert.InRange(ParseStroke(primary), 2.5m, 3m);
+        Assert.InRange(ParseStroke(secondary), 2.5m, 3m);
+        Assert.Equal("circle", node.Name.LocalName);
+        Assert.InRange(ParseDecimal(node, "r"), 3.5m, 4.5m);
         Assert.DoesNotContain(
             "<text",
             content,
             StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain(
-            "#2B7FFF",
-            content,
-            StringComparison.OrdinalIgnoreCase);
 
-        if (fileName.EndsWith("_completed.svg", StringComparison.Ordinal))
+        if (fileName.EndsWith(
+                "_buyer_completed.svg",
+                StringComparison.Ordinal))
         {
-            Assert.Contains(
-                "#FFFFFF",
+            Assert.Equal(
+                "#145FC7",
+                Attr(primary, "stroke"),
+                ignoreCase: true);
+            Assert.Equal(
+                "#2B7FFF",
+                Attr(secondary, "stroke"),
+                ignoreCase: true);
+            Assert.Equal(
+                "#65D6BF",
+                Attr(node, "fill"),
+                ignoreCase: true);
+            Assert.DoesNotContain(
+                "#6548C7",
+                content,
+                StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(
+                "#8067DE",
+                content,
+                StringComparison.OrdinalIgnoreCase);
+        }
+        else if (fileName.EndsWith(
+                     "_seller_completed.svg",
+                     StringComparison.Ordinal))
+        {
+            Assert.Equal(
+                "#6548C7",
+                Attr(primary, "stroke"),
+                ignoreCase: true);
+            Assert.Equal(
+                "#8067DE",
+                Attr(secondary, "stroke"),
+                ignoreCase: true);
+            Assert.Equal(
+                "#65D6BF",
+                Attr(node, "fill"),
+                ignoreCase: true);
+            Assert.DoesNotContain(
+                "#145FC7",
+                content,
+                StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(
+                "#2B7FFF",
                 content,
                 StringComparison.OrdinalIgnoreCase);
         }
         else
         {
-            Assert.Contains(
+            Assert.Equal(
                 "#98A2B3",
-                content,
-                StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain(
-                "#65D6BF",
-                content,
-                StringComparison.OrdinalIgnoreCase);
+                Attr(primary, "stroke"),
+                ignoreCase: true);
+            Assert.Equal(
+                "#98A2B3",
+                Attr(secondary, "stroke"),
+                ignoreCase: true);
+            Assert.Equal(
+                "#D6DCE5",
+                Attr(node, "fill"),
+                ignoreCase: true);
+
+            foreach (var forbidden in new[]
+                     {
+                         "#145FC7",
+                         "#2B7FFF",
+                         "#6548C7",
+                         "#8067DE",
+                         "#65D6BF",
+                         "#087C68"
+                     })
+            {
+                Assert.DoesNotContain(
+                    forbidden,
+                    content,
+                    StringComparison.OrdinalIgnoreCase);
+            }
         }
+    }
+
+    [Fact]
+    public void ProgressAssetManifestContainsOnlyRailMorphFamily()
+    {
+        var actual = Directory
+            .GetFiles(BrandDirectory(), "progress_*.svg")
+            .Select(Path.GetFileName)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        var expected = ProgressSemantics
+            .SelectMany(semantic =>
+                ProgressVariants.Select(
+                    variant =>
+                        $"progress_{semantic}_{variant}.svg"))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
@@ -143,8 +239,23 @@ public sealed class BrandAssetConsistencyTests
         File.ReadAllText(BrandPath(fileName));
 
     private static string BrandPath(string fileName) =>
-        Path.Combine(
-            AppContext.BaseDirectory,
-            "Brand",
-            fileName);
+        Path.Combine(BrandDirectory(), fileName);
+
+    private static string BrandDirectory() =>
+        Path.Combine(AppContext.BaseDirectory, "Brand");
+
+    private static string Attr(XElement element, string name) =>
+        (string?)element.Attribute(name)
+        ?? throw new Xunit.Sdk.XunitException(
+            $"Missing {name} on {element.Name}");
+
+    private static decimal ParseDecimal(
+        XElement element,
+        string name) =>
+        decimal.Parse(
+            Attr(element, name),
+            System.Globalization.CultureInfo.InvariantCulture);
+
+    private static decimal ParseStroke(XElement element) =>
+        ParseDecimal(element, "stroke-width");
 }

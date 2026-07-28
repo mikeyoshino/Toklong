@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <path id="rail-primary" d="M8 28 C12 28 14 18 20 18 C23 18 25 20 28 23 C31 26 33 28 36 28 C38 28 40 26 40 24" fill="none" stroke="#6548C7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path id="rail-secondary" d="M8 24 C8 22 10 20 12 20 C15 20 17 22 20 25 C23 28 25 30 28 30 C34 30 36 20 40 20" fill="none" stroke="#8067DE" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle id="rail-node" cx="24" cy="24" r="4" fill="#65D6BF" stroke="#FFFFFF" stroke-width="1.5"/>
+</svg>
