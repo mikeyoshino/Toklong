@@ -104,6 +104,9 @@ public static class MauiProgram
             });
 
         builder.Services.AddSingleton<AppShell>();
+        builder.Services.AddSingleton<
+            IMobileAnalytics,
+            LoggingMobileAnalytics>();
         builder.Services.AddSingleton<IStartupMotionPreference, StartupMotionPreference>();
         builder.Services.AddSingleton<StartupCoordinator>();
         builder.Services.AddSingleton<StartupLogoPage>();
