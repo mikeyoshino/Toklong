@@ -221,6 +221,27 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
+    public void SellerWorkspace_DoesNotShowBuyerEmptySpotlightPanel()
+    {
+        var transactions = Load(
+            "Ui",
+            "Pages",
+            "TransactionsPage.xaml");
+        var emptyState = transactions
+            .Descendants(Maui + "Grid")
+            .Single(element =>
+                AttributeValue(element, "AutomationId") ==
+                "ActionSpotlightEmptyState");
+
+        Assert.Equal(
+            "{Binding ShowBuyerSpotlightEmptyState}",
+            AttributeValue(emptyState, "IsVisible"));
+        Assert.NotEqual(
+            "{Binding HasNoSpotlight}",
+            AttributeValue(emptyState, "IsVisible"));
+    }
+
+    [Fact]
     public void TransactionsUseTopLevelBuySellModes()
     {
         var transactions = Load(

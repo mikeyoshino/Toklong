@@ -527,7 +527,7 @@
 
                         <Grid
                             AutomationId="ActionSpotlightEmptyState"
-                            IsVisible="{Binding HasNoSpotlight}"
+                            IsVisible="{Binding ShowBuyerSpotlightEmptyState}"
                             MinimumHeightRequest="236"
                             Padding="20,22">
                             <Label

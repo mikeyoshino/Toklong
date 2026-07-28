@@ -137,6 +137,50 @@ public sealed class TransactionFilterTests
                 BucketFilter.Completed)).Id);
     }
 
+    [Theory]
+    [InlineData(RoleFilter.Buying, false, true)]
+    [InlineData(RoleFilter.Buying, true, false)]
+    [InlineData(RoleFilter.Selling, false, false)]
+    [InlineData(RoleFilter.Selling, true, false)]
+    public void SpotlightEmptyStatePresentation_IsBuyerOnly(
+        RoleFilter role,
+        bool hasSpotlight,
+        bool expected)
+    {
+        var state = new SpotlightEmptyStatePresentation(
+            role,
+            hasSpotlight);
+
+        Assert.Equal(
+            expected,
+            state.ShowBuyerSpotlightEmptyState);
+    }
+
+    [Fact]
+    public void SpotlightEmptyStatePresentation_NotifiesRoleAndSpotlightChanges()
+    {
+        var state = new SpotlightEmptyStatePresentation(
+            RoleFilter.Buying,
+            hasSpotlight: false);
+        var notifications = new List<string?>();
+        state.PropertyChanged += (_, eventArgs) =>
+            notifications.Add(eventArgs.PropertyName);
+
+        state.SetRole(RoleFilter.Selling);
+        state.SetRole(RoleFilter.Buying);
+        state.SetHasSpotlight(true);
+        state.SetHasSpotlight(false);
+
+        Assert.Equal(
+            [
+                nameof(state.ShowBuyerSpotlightEmptyState),
+                nameof(state.ShowBuyerSpotlightEmptyState),
+                nameof(state.ShowBuyerSpotlightEmptyState),
+                nameof(state.ShowBuyerSpotlightEmptyState)
+            ],
+            notifications);
+    }
+
     private static AppTransaction Item(
         AppTransactionRole role,
         string state,

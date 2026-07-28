@@ -11,6 +11,7 @@ public sealed class TransactionsViewModel : ObservableViewModel
     private readonly IDeepLinkCoordinator deepLinks;
     private readonly SellerWorkspaceState sellerState = new();
     private readonly IMobileAnalytics analytics;
+    private readonly SpotlightEmptyStatePresentation spotlightEmptyState;
     private IReadOnlyList<AppTransaction> allTransactions = [];
     private RoleFilter roleFilter;
     private BucketFilter bucketFilter;
@@ -35,6 +36,12 @@ public sealed class TransactionsViewModel : ObservableViewModel
             nameof(RoleFilter.Selling)
                 ? RoleFilter.Selling
                 : RoleFilter.Buying;
+        spotlightEmptyState = new(
+            roleFilter,
+            hasSpotlight: false);
+        spotlightEmptyState.PropertyChanged +=
+            (_, eventArgs) =>
+                OnPropertyChanged(eventArgs.PropertyName);
         SelectBuyingCommand = new Command(() => SelectRole(RoleFilter.Buying));
         SelectSellingCommand = new Command(() => SelectRole(RoleFilter.Selling));
         SelectAllBucketsCommand = new Command(() => SelectBucket(BucketFilter.All));
@@ -120,6 +127,8 @@ public sealed class TransactionsViewModel : ObservableViewModel
             {
                 OnPropertyChanged(nameof(HasSpotlight));
                 OnPropertyChanged(nameof(HasNoSpotlight));
+                spotlightEmptyState.SetHasSpotlight(
+                    value is not null);
                 OnPropertyChanged(nameof(SpotlightAmountText));
             }
         }
@@ -127,6 +136,8 @@ public sealed class TransactionsViewModel : ObservableViewModel
 
     public bool HasSpotlight => SpotlightTransaction is not null;
     public bool HasNoSpotlight => SpotlightTransaction is null;
+    public bool ShowBuyerSpotlightEmptyState =>
+        spotlightEmptyState.ShowBuyerSpotlightEmptyState;
 
     public bool IsBuying => roleFilter == RoleFilter.Buying;
     public bool IsSelling => roleFilter == RoleFilter.Selling;
@@ -267,6 +278,7 @@ public sealed class TransactionsViewModel : ObservableViewModel
             (RoleFilter.Buying or RoleFilter.Selling))
             return;
         roleFilter = value;
+        spotlightEmptyState.SetRole(value);
         bucketFilter = BucketFilter.All;
         sellerState.Select(SellerWorkCategory.All);
         Preferences.Default.Set(
