@@ -245,6 +245,52 @@ public sealed class SellerWorkSummaryTests
         Assert.Null(problems.Spotlight);
     }
 
+    [Fact]
+    public void Provider_managed_overdue_shipment_stays_in_progress_without_spotlight()
+    {
+        var managedOverdue = Item(
+            "00000000-0000-0000-0000-000000000061",
+            AppTransactionRole.Seller,
+            "ShipmentOverdue",
+            Now.AddHours(-1),
+            shippingManagedByProvider: true);
+
+        var result = SellerWorkSummary.Create([managedOverdue]);
+
+        Assert.Equal(
+            TransactionAction.ViewStatus,
+            managedOverdue.Presentation.PrimaryAction);
+        Assert.Equal(
+            SellerWorkCategory.InProgress,
+            SellerWorkSummary.CategoryOf(managedOverdue));
+        Assert.Null(result.Spotlight);
+        Assert.Equal(
+            [managedOverdue.Id],
+            result.VisibleTransactions.Select(item => item.Id));
+    }
+
+    [Fact]
+    public void Manual_tracking_correction_outranks_ordinary_paid_fulfillment()
+    {
+        var paid = Item(
+            "00000000-0000-0000-0000-000000000071",
+            AppTransactionRole.Seller,
+            "PaidAwaitingShipment",
+            Now.AddHours(1));
+        var correction = Item(
+            "00000000-0000-0000-0000-000000000072",
+            AppTransactionRole.Seller,
+            "TrackingUnverified",
+            Now.AddHours(12));
+
+        var result = SellerWorkSummary.Create([paid, correction]);
+
+        Assert.Equal(correction.Id, result.Spotlight?.Id);
+        Assert.Equal(
+            [correction.Id, paid.Id],
+            result.VisibleTransactions.Select(item => item.Id));
+    }
+
     private static AppTransaction Item(
         string id,
         AppTransactionRole role,

@@ -124,6 +124,14 @@ public sealed record AppTransaction(
                     PrimaryAction = TransactionAction.ViewStatus,
                     PrimaryActionLabel = "ดูสถานะ"
                 };
+            if (ShippingManagedByProvider &&
+                State == "ShipmentOverdue")
+                return presentation with
+                {
+                    Bucket = TransactionBucket.InProgress,
+                    PrimaryAction = TransactionAction.ViewStatus,
+                    PrimaryActionLabel = "ดูสถานะ"
+                };
             if (State == "RefundPending" &&
                 Role == AppTransactionRole.Buyer &&
                 RefundProviderStatus == "requires_action")
