@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Toklong.Application.Abstractions;
 using Toklong.Application.Pricing;
+using Toklong.Infrastructure.Email;
 using Toklong.Infrastructure.Persistence;
 using Toklong.Infrastructure.Payments;
 using Toklong.Infrastructure.Pricing;
@@ -58,6 +59,38 @@ public static class DependencyInjection
         services.AddSingleton<
             IDisputeEvidenceStore,
             EncryptedDisputeEvidenceStore>();
+        var emailVerificationOptions =
+            EmailVerificationOptions.From(configuration);
+        services.AddSingleton(emailVerificationOptions);
+        services.AddSingleton<
+            IEmailVerificationTemplate,
+            ToklongEmailVerificationTemplate>();
+        if (string.Equals(
+                emailVerificationOptions.Provider,
+                "Development",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<
+                IEmailVerificationCodeService,
+                DevelopmentEmailVerificationCodeService>();
+            services.AddSingleton<
+                DevelopmentTransactionalEmailSender>();
+            services.AddSingleton<ITransactionalEmailSender>(
+                provider => provider.GetRequiredService<
+                    DevelopmentTransactionalEmailSender>());
+            services.AddSingleton<IDevelopmentEmailInbox>(
+                provider => provider.GetRequiredService<
+                    DevelopmentTransactionalEmailSender>());
+        }
+        else
+        {
+            services.AddSingleton<
+                IEmailVerificationCodeService,
+                HmacEmailVerificationCodeService>();
+            services.AddSingleton<
+                ITransactionalEmailSender,
+                UnavailableTransactionalEmailSender>();
+        }
         var otpOptions = OtpProviderOptions.From(configuration);
         services.AddSingleton(otpOptions);
         if (string.Equals(

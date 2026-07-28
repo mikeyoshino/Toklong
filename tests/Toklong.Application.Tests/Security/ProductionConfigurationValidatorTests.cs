@@ -92,6 +92,70 @@ public sealed class ProductionConfigurationValidatorTests
     }
 
     [Fact]
+    public void Production_rejects_development_email_delivery()
+    {
+        var values = SafeProductionValues();
+        values["EmailVerification:Provider"] = "Development";
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(values)
+            .Build();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(
+                configuration,
+                new TestEnvironment("Production"),
+                requireMobileLinks: false,
+                requirePersistentStorage: true));
+
+        Assert.Contains(
+            "EmailVerification:Provider must not be Development",
+            exception.Message);
+    }
+
+    [Fact]
+    public void Production_requires_email_digest_key_from_secret_storage()
+    {
+        var values = SafeProductionValues();
+        values.Remove("EmailVerification:DigestKey");
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(values)
+            .Build();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(
+                configuration,
+                new TestEnvironment("Production"),
+                requireMobileLinks: false,
+                requirePersistentStorage: true));
+
+        Assert.Contains(
+            "EmailVerification:DigestKey must be at least 32 characters",
+            exception.Message);
+    }
+
+    [Fact]
+    public void Production_requires_32_email_digest_key_characters()
+    {
+        var values = SafeProductionValues();
+        values["EmailVerification:DigestKey"] =
+            "กขคงจฉชซฌญฎฏฐฑฒณ";
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(values)
+            .Build();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(
+                configuration,
+                new TestEnvironment("Production"),
+                requireMobileLinks: false,
+                requirePersistentStorage: true));
+
+        Assert.Contains(
+            "EmailVerification:DigestKey must be at least 32 characters",
+            exception.Message);
+    }
+
+    [Fact]
     public void Production_rejects_unknown_shippop_service()
     {
         var values = SafeProductionValues();
@@ -165,6 +229,9 @@ public sealed class ProductionConfigurationValidatorTests
             ["Otp:Provider"] = "Http",
             ["Otp:BaseUrl"] = "https://otp.example.com",
             ["Otp:ApiKey"] = "otp-key-long-enough",
+            ["EmailVerification:Provider"] = "Unavailable",
+            ["EmailVerification:DigestKey"] =
+                "email-digest-key-at-least-32-characters",
             ["Notifications:Enabled"] = "true",
             ["Notifications:BaseUrl"] =
                 "https://notifications.example.com",

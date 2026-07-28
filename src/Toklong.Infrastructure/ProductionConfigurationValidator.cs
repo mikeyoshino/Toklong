@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using Toklong.Infrastructure.Email;
 using Toklong.Infrastructure.Payments;
 using Toklong.Infrastructure.Pricing;
 using Toklong.Infrastructure.Services;
@@ -19,6 +20,18 @@ public static class ProductionConfigurationValidator
             return;
 
         var errors = new List<string>();
+        var emailVerification =
+            EmailVerificationOptions.From(configuration);
+        if (string.Equals(
+                emailVerification.Provider,
+                "Development",
+                StringComparison.OrdinalIgnoreCase))
+            errors.Add(
+                "EmailVerification:Provider must not be Development outside Development or Testing");
+        if (emailVerification.DigestKey.Length < 32)
+            errors.Add(
+                "EmailVerification:DigestKey must be at least 32 characters");
+
         var otp = OtpProviderOptions.From(configuration);
         var usesThaiBulkSms = string.Equals(
             otp.Provider,
