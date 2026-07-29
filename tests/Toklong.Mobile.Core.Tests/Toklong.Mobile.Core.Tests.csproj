@@ -65,6 +65,12 @@
     <None Include="../../src/Toklong.Mobile/Controls/OtpCodeInput.xaml"
           Link="Ui/Controls/OtpCodeInput.xaml"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Mobile/Controls/OtpVerificationFormView.xaml"
+          Link="Ui/Controls/OtpVerificationFormView.xaml"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Mobile/Controls/OtpVerificationFormView.xaml.cs"
+          Link="Ui/Controls/OtpVerificationFormView.xaml.cs"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../src/Toklong.Mobile/Controls/ThaiMobilePhoneField.xaml"
           Link="Ui/Controls/ThaiMobilePhoneField.xaml"
           CopyToOutputDirectory="PreserveNewest" />

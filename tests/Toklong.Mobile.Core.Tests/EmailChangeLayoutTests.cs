@@ -440,6 +440,38 @@ public sealed class EmailChangeLayoutTests
     }
 
     [Fact]
+    public void Shared_otp_form_has_one_input_one_action_and_no_workflow_state()
+    {
+        var form = LoadUi("Controls", "OtpVerificationFormView.xaml");
+        var codeInput = Assert.Single(
+            form.Descendants(),
+            element => element.Name.LocalName == "OtpCodeInput");
+        var confirm = Assert.Single(form.Descendants(Maui + "Button"));
+        var source = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "Ui",
+            "Controls",
+            "OtpVerificationFormView.xaml.cs"));
+
+        Assert.Equal(
+            "{Binding Code, Source={x:Reference Root}, Mode=TwoWay}",
+            AttributeValue(codeInput, "Code"));
+        Assert.Equal(
+            "{Binding ConfirmCommand, Source={x:Reference Root}}",
+            AttributeValue(confirm, "Command"));
+        Assert.Equal(
+            "{Binding CanConfirm, Source={x:Reference Root}}",
+            AttributeValue(confirm, "IsEnabled"));
+        Assert.Equal(
+            "{Binding DisplayedConfirmText, Source={x:Reference Root}}",
+            AttributeValue(confirm, "Text"));
+        Assert.DoesNotContain("ViewModel", source);
+        Assert.DoesNotContain("INavigation", source);
+        Assert.DoesNotContain("Resend", source);
+        Assert.DoesNotContain("TimeProvider", source);
+    }
+
+    [Fact]
     public void Account_and_email_verification_reference_only_declared_resources()
     {
         var app = LoadUi("App.xaml");
