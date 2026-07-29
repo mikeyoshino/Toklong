@@ -238,30 +238,19 @@ public sealed class MobileAuthenticationApiTests
         Assert.NotNull(profile);
         Assert.Equal("buyer@example.com", profile.Email);
 
-        using var invalidEmailResponse = await client.PutAsJsonAsync(
-            "/api/mobile/me/email",
-            new { Email = "not-an-email" });
-        Assert.Equal(
-            HttpStatusCode.BadRequest,
-            invalidEmailResponse.StatusCode);
-        var invalidEmailProblem = await invalidEmailResponse.Content
-            .ReadFromJsonAsync<ProblemDetails>();
-        Assert.NotNull(invalidEmailProblem);
-        Assert.Equal(
-            "กรุณากรอกอีเมลให้ถูกต้อง",
-            invalidEmailProblem.Detail);
-
-        using var updateEmailResponse = await client.PutAsJsonAsync(
+        using var removedEmailUpdateResponse = await client.PutAsJsonAsync(
             "/api/mobile/me/email",
             new { Email = "updated-buyer@example.com" });
-        updateEmailResponse.EnsureSuccessStatusCode();
-        using var updatedProfileResponse = await client.GetAsync(
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            removedEmailUpdateResponse.StatusCode);
+        using var unchangedProfileResponse = await client.GetAsync(
             "/api/mobile/me");
-        updatedProfileResponse.EnsureSuccessStatusCode();
-        var updatedProfile = await updatedProfileResponse.Content
+        unchangedProfileResponse.EnsureSuccessStatusCode();
+        var unchangedProfile = await unchangedProfileResponse.Content
             .ReadFromJsonAsync<ProfileResponse>();
-        Assert.NotNull(updatedProfile);
-        Assert.Equal("updated-buyer@example.com", updatedProfile.Email);
+        Assert.NotNull(unchangedProfile);
+        Assert.Equal("buyer@example.com", unchangedProfile.Email);
 
         client.DefaultRequestHeaders.Authorization = null;
         using var refreshResponse = await client.PostAsJsonAsync(

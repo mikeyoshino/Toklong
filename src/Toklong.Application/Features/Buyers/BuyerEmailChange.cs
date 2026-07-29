@@ -221,6 +221,23 @@ public sealed class VerifyBuyerEmailChangeHandler(
         BuyerEmailChangeOperations.EnsureOwnership(
             challenge,
             request.BuyerId);
+        var verificationKey =
+            BuyerEmailChangeOperations.NormalizeIdempotencyKey(
+                request.IdempotencyKey);
+        var submittedDigest = codes.Digest(
+            challenge.Id,
+            request.Code);
+        var replay = await emailChanges.GetVerificationAttemptAsync(
+            request.BuyerId,
+            challenge.Id,
+            verificationKey,
+            cancellationToken);
+        if (replay is not null)
+            return BuyerEmailChangeOperations.ReplayVerification(
+                challenge,
+                replay,
+                submittedDigest);
+
         var buyer = await buyers.GetByIdAsync(
                 request.BuyerId,
                 cancellationToken)
@@ -231,16 +248,44 @@ public sealed class VerifyBuyerEmailChangeHandler(
         try
         {
             outcome = challenge.Verify(
-                codes.Digest(challenge.Id, request.Code),
-                request.IdempotencyKey,
+                submittedDigest,
+                verificationKey,
                 clock.UtcNow);
         }
         catch (DomainException) when (
             challenge.Status == BuyerEmailChangeStatus.Expired)
         {
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-            throw new DomainException(
-                "รหัสหมดอายุแล้ว กรุณาขอรหัสใหม่");
+            var expiredAttempt =
+                BuyerEmailChangeOperations.VerificationAttempt(
+                    challenge,
+                    verificationKey,
+                    submittedDigest,
+                    BuyerEmailVerificationAttemptOutcome.Expired,
+                    clock.UtcNow);
+            await emailChanges.AddVerificationAttemptAsync(
+                expiredAttempt,
+                cancellationToken);
+            try
+            {
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+            catch (Exception exception) when (
+                emailChanges.IsPersistenceConflict(exception))
+            {
+                return await BuyerEmailChangeOperations
+                    .RecoverVerificationConflictAsync(
+                        request.BuyerId,
+                        challenge.Id,
+                        verificationKey,
+                        submittedDigest,
+                        emailChanges,
+                        cancellationToken);
+            }
+
+            return BuyerEmailChangeOperations.ReplayVerification(
+                challenge,
+                expiredAttempt,
+                submittedDigest);
         }
 
         if (outcome == BuyerEmailVerificationOutcome.ExactReplay)
@@ -250,41 +295,72 @@ public sealed class VerifyBuyerEmailChangeHandler(
                 challenge.VerifiedAt!.Value);
         }
 
-        if (outcome is BuyerEmailVerificationOutcome.Incorrect or
-            BuyerEmailVerificationOutcome.Locked)
+        var attemptOutcome = outcome switch
         {
-            if (outcome == BuyerEmailVerificationOutcome.Locked)
-            {
-                await emailChanges.AddAuditAsync(
-                    BuyerEmailChangeOperations.Audit(
-                        challenge,
-                        "account.email_change_locked",
-                        "locked",
-                        codes,
-                        clock.UtcNow),
-                    cancellationToken);
-            }
+            BuyerEmailVerificationOutcome.Verified =>
+                BuyerEmailVerificationAttemptOutcome.Verified,
+            BuyerEmailVerificationOutcome.Incorrect =>
+                BuyerEmailVerificationAttemptOutcome.Incorrect,
+            BuyerEmailVerificationOutcome.Locked =>
+                BuyerEmailVerificationAttemptOutcome.Locked,
+            _ => throw new InvalidOperationException(
+                "Unsupported email verification outcome.")
+        };
+        var attempt = BuyerEmailChangeOperations.VerificationAttempt(
+            challenge,
+            verificationKey,
+            submittedDigest,
+            attemptOutcome,
+            clock.UtcNow);
+        await emailChanges.AddVerificationAttemptAsync(
+            attempt,
+            cancellationToken);
 
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-            throw new DomainException(
-                outcome == BuyerEmailVerificationOutcome.Locked
-                    ? "กรอกรหัสไม่ถูกต้องครบจำนวนแล้ว กรุณาขอรหัสใหม่"
-                    : "รหัสไม่ถูกต้อง ลองตรวจสอบแล้วกรอกอีกครั้ง");
+        if (outcome == BuyerEmailVerificationOutcome.Locked)
+        {
+            await emailChanges.AddAuditAsync(
+                BuyerEmailChangeOperations.Audit(
+                    challenge,
+                    "account.email_change_locked",
+                    "locked",
+                    codes,
+                    clock.UtcNow),
+                cancellationToken);
+        }
+        else if (outcome == BuyerEmailVerificationOutcome.Verified)
+        {
+            buyer.ActivateVerifiedEmail(challenge.PendingEmail);
+            await emailChanges.AddAuditAsync(
+                BuyerEmailChangeOperations.Audit(
+                    challenge,
+                    "account.email_change_verified",
+                    "verified",
+                    codes,
+                    clock.UtcNow),
+                cancellationToken);
         }
 
-        buyer.ActivateVerifiedEmail(challenge.PendingEmail);
-        await emailChanges.AddAuditAsync(
-            BuyerEmailChangeOperations.Audit(
-                challenge,
-                "account.email_change_verified",
-                "verified",
-                codes,
-                clock.UtcNow),
-            cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-        return new VerifiedBuyerEmailChangeView(
-            buyer.Email!,
-            challenge.VerifiedAt!.Value);
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception exception) when (
+            emailChanges.IsPersistenceConflict(exception))
+        {
+            return await BuyerEmailChangeOperations
+                .RecoverVerificationConflictAsync(
+                    request.BuyerId,
+                    challenge.Id,
+                    verificationKey,
+                    submittedDigest,
+                    emailChanges,
+                    cancellationToken);
+        }
+
+        return BuyerEmailChangeOperations.ReplayVerification(
+            challenge,
+            attempt,
+            submittedDigest);
     }
 }
 
@@ -321,7 +397,21 @@ internal static class BuyerEmailChangeOperations
             clock.UtcNow,
             sourceChallengeId);
         await emailChanges.AddAsync(challenge, cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception exception) when (
+            emailChanges.IsPersistenceConflict(exception))
+        {
+            return await RecoverSendConflictAsync(
+                buyerId,
+                normalizedEmail,
+                requestKey,
+                sourceChallengeId,
+                emailChanges,
+                cancellationToken);
+        }
 
         var rendered = template.Render(code.Code);
         try
@@ -334,7 +424,7 @@ internal static class BuyerEmailChangeOperations
                     rendered.HtmlBody,
                     MessagePurpose,
                     challenge.Id.ToString("N"),
-                    requestKey),
+                    challenge.Id.ToString("N")),
                 cancellationToken);
         }
         catch (TransactionalEmailSendException exception)
@@ -348,7 +438,21 @@ internal static class BuyerEmailChangeOperations
                     codes,
                     clock.UtcNow),
                 cancellationToken);
-            await unitOfWork.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+            catch (Exception saveException) when (
+                emailChanges.IsPersistenceConflict(saveException))
+            {
+                return await RecoverSendConflictAsync(
+                    buyerId,
+                    normalizedEmail,
+                    requestKey,
+                    sourceChallengeId,
+                    emailChanges,
+                    cancellationToken);
+            }
             throw new DomainException(SenderError);
         }
 
@@ -361,8 +465,102 @@ internal static class BuyerEmailChangeOperations
                 codes,
                 clock.UtcNow),
             cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception exception) when (
+            emailChanges.IsPersistenceConflict(exception))
+        {
+            return await RecoverSendConflictAsync(
+                buyerId,
+                normalizedEmail,
+                requestKey,
+                sourceChallengeId,
+                emailChanges,
+                cancellationToken);
+        }
         return ToView(challenge);
+    }
+
+    public static BuyerEmailVerificationAttempt VerificationAttempt(
+        BuyerEmailChangeChallenge challenge,
+        string verificationKey,
+        string submittedDigest,
+        BuyerEmailVerificationAttemptOutcome outcome,
+        DateTimeOffset createdAt) =>
+        new(
+            Guid.NewGuid(),
+            challenge.BuyerId,
+            challenge.Id,
+            verificationKey,
+            submittedDigest,
+            outcome,
+            challenge.RemainingAttempts,
+            createdAt,
+            outcome == BuyerEmailVerificationAttemptOutcome.Verified
+                ? challenge.VerifiedAt
+                : null);
+
+    public static VerifiedBuyerEmailChangeView ReplayVerification(
+        BuyerEmailChangeChallenge challenge,
+        BuyerEmailVerificationAttempt attempt,
+        string submittedDigest)
+    {
+        if (!string.Equals(
+                attempt.SubmittedDigest,
+                submittedDigest,
+                StringComparison.OrdinalIgnoreCase))
+            throw NonExactReplay();
+
+        return attempt.Outcome switch
+        {
+            BuyerEmailVerificationAttemptOutcome.Verified =>
+                new VerifiedBuyerEmailChangeView(
+                    challenge.PendingEmail,
+                    attempt.CompletedAt!.Value),
+            BuyerEmailVerificationAttemptOutcome.Incorrect =>
+                throw new DomainException(
+                    "รหัสไม่ถูกต้อง ลองตรวจสอบแล้วกรอกอีกครั้ง"),
+            BuyerEmailVerificationAttemptOutcome.Locked =>
+                throw new DomainException(
+                    "กรอกรหัสไม่ถูกต้องครบจำนวนแล้ว กรุณาขอรหัสใหม่"),
+            BuyerEmailVerificationAttemptOutcome.Expired =>
+                throw new DomainException(
+                    "รหัสหมดอายุแล้ว กรุณาขอรหัสใหม่"),
+            _ => throw new InvalidOperationException(
+                "Unsupported email verification attempt outcome.")
+        };
+    }
+
+    public static async Task<VerifiedBuyerEmailChangeView>
+        RecoverVerificationConflictAsync(
+            Guid buyerId,
+            Guid challengeId,
+            string verificationKey,
+            string submittedDigest,
+            IBuyerEmailChangeRepository emailChanges,
+            CancellationToken cancellationToken)
+    {
+        emailChanges.DiscardPendingChanges();
+        var attempt =
+            await emailChanges.GetVerificationAttemptAsync(
+                buyerId,
+                challengeId,
+                verificationKey,
+                cancellationToken);
+        if (attempt is null)
+            throw NonExactReplay();
+        var challenge = await emailChanges.GetByIdAsync(
+                challengeId,
+                cancellationToken)
+            ?? throw new NotFoundException(
+                "ไม่พบคำขอเปลี่ยนอีเมล");
+        EnsureOwnership(challenge, buyerId);
+        return ReplayVerification(
+            challenge,
+            attempt,
+            submittedDigest);
     }
 
     public static BuyerEmailChangeView ToView(
@@ -380,6 +578,30 @@ internal static class BuyerEmailChangeOperations
         if (challenge.SendAcceptedAt is null)
             throw new DomainException(SenderError);
         return ToView(challenge);
+    }
+
+    private static async Task<BuyerEmailChangeView>
+        RecoverSendConflictAsync(
+            Guid buyerId,
+            string normalizedEmail,
+            string requestKey,
+            Guid? sourceChallengeId,
+            IBuyerEmailChangeRepository emailChanges,
+            CancellationToken cancellationToken)
+    {
+        emailChanges.DiscardPendingChanges();
+        var replay = await emailChanges.GetByRequestKeyAsync(
+            buyerId,
+            requestKey,
+            cancellationToken);
+        if (replay is null ||
+            replay.SourceChallengeId != sourceChallengeId ||
+            !string.Equals(
+                replay.PendingEmail,
+                normalizedEmail,
+                StringComparison.OrdinalIgnoreCase))
+            throw NonExactReplay();
+        return SuccessfulSendReplay(replay);
     }
 
     public static void EnsureOwnership(

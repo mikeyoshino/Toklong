@@ -30,6 +30,9 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
     public DbSet<BuyerEmailChangeAuditEvent>
         BuyerEmailChangeAuditEvents =>
         Set<BuyerEmailChangeAuditEvent>();
+    public DbSet<BuyerEmailVerificationAttempt>
+        BuyerEmailVerificationAttempts =>
+        Set<BuyerEmailVerificationAttempt>();
     public DbSet<SellerAccount> Sellers => Set<SellerAccount>();
     public DbSet<SellerPayoutAccount> SellerPayoutAccounts => Set<SellerPayoutAccount>();
     public DbSet<MobileSession> MobileSessions => Set<MobileSession>();
@@ -424,6 +427,34 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
             .HasForeignKey(x => x.BuyerId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        var buyerEmailVerificationAttempt =
+            modelBuilder.Entity<BuyerEmailVerificationAttempt>();
+        buyerEmailVerificationAttempt.ToTable(
+            "buyer_email_verification_attempts");
+        buyerEmailVerificationAttempt.HasKey(x => x.Id);
+        buyerEmailVerificationAttempt.HasIndex(x => new
+        {
+            x.BuyerId,
+            x.ChallengeId,
+            x.IdempotencyKey
+        }).IsUnique();
+        buyerEmailVerificationAttempt.Property(x => x.IdempotencyKey)
+            .HasMaxLength(32);
+        buyerEmailVerificationAttempt.Property(x => x.SubmittedDigest)
+            .HasMaxLength(64);
+        buyerEmailVerificationAttempt.Property(x => x.Outcome)
+            .HasConversion<string>()
+            .HasMaxLength(16);
+        buyerEmailVerificationAttempt.HasOne<BuyerAccount>()
+            .WithMany()
+            .HasForeignKey(x => x.BuyerId)
+            .OnDelete(DeleteBehavior.Restrict);
+        buyerEmailVerificationAttempt
+            .HasOne<BuyerEmailChangeChallenge>()
+            .WithMany()
+            .HasForeignKey(x => x.ChallengeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         transaction.HasIndex(x => x.SellerId);
         transaction.HasIndex(x => x.BuyerId);
         transaction.HasIndex(x => x.ShippingProviderTrackingCode)
@@ -521,5 +552,14 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
                     EntityState.Deleted))
             throw new InvalidOperationException(
                 "Buyer email change audit records are append-only.");
+
+        if (ChangeTracker
+            .Entries<BuyerEmailVerificationAttempt>()
+            .Any(entry =>
+                entry.State is
+                    EntityState.Modified or
+                    EntityState.Deleted))
+            throw new InvalidOperationException(
+                "Buyer email verification attempt records are append-only.");
     }
 }

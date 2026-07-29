@@ -203,6 +203,33 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
+    public void Account_ShowsConfirmedEmailWithoutLegacyDirectEditAction()
+    {
+        var account = Load("Ui", "Pages", "AccountPage.xaml");
+
+        Assert.Contains(
+            account.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                "{Binding Email}");
+        Assert.Contains(
+            account.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                "ยืนยันแล้ว");
+        Assert.DoesNotContain(
+            account.Descendants(Maui + "Entry"),
+            entry =>
+                AttributeValue(entry, "Text") ==
+                "{Binding Email}");
+        Assert.DoesNotContain(
+            account.Descendants(Maui + "Button"),
+            button =>
+                AttributeValue(button, "Command") ==
+                "{Binding SaveEmailCommand}");
+    }
+
+    [Fact]
     public void Shell_RegistersAuthenticatedHomeOutsideTheMainTabBar()
     {
         var shell = Load("Ui", "AppShell.xaml");

@@ -119,7 +119,6 @@ public static class MobileApi
             });
 
         authenticated.MapGet("/me", GetProfileAsync);
-        authenticated.MapPut("/me/email", UpdateProfileEmailAsync);
         authenticated.MapPost("/auth/logout", LogoutAsync);
         authenticated.MapGet("/addresses/provinces", (
             IThaiAddressCatalog catalog) => Results.Ok(catalog.Provinces));
@@ -445,21 +444,6 @@ public static class MobileApi
             seller?.PayoutAccounts.FirstOrDefault()?.MaskedNumber,
             buyer is not null,
             seller is not null));
-    }
-
-    private static async Task<IResult> UpdateProfileEmailAsync(
-        MobileEmailUpdateRequest request,
-        ClaimsPrincipal principal,
-        ISender sender,
-        CancellationToken cancellationToken)
-    {
-        var buyerId = PartyIds.From(principal).BuyerId
-            ?? throw new DomainException(
-                "บัญชีนี้ไม่มีโปรไฟล์ผู้ซื้อสำหรับบันทึกอีเมล");
-        var buyer = await sender.Send(
-            new UpdateBuyerEmailCommand(buyerId, request.Email),
-            cancellationToken);
-        return Results.Ok(new MobileEmailUpdateResponse(buyer.Email!));
     }
 
     private static async Task<IResult> ListTransactionsAsync(
@@ -1490,10 +1474,6 @@ public sealed record MobileProfileResponse(
     string? PayoutMaskedNumber,
     bool CanBuy,
     bool CanSell);
-
-public sealed record MobileEmailUpdateRequest(string Email);
-
-public sealed record MobileEmailUpdateResponse(string Email);
 
 public sealed record MobileBuyerProtectionPreviewResponse(
     long ItemPriceSatang,

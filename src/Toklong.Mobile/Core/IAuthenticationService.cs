@@ -56,10 +56,6 @@ public interface IAuthenticationService
     Task<MobileProfile> GetProfileAsync(
         CancellationToken cancellationToken = default);
 
-    Task<string> UpdateEmailAsync(
-        string email,
-        CancellationToken cancellationToken = default);
-
     Task SignOutAsync(CancellationToken cancellationToken = default);
 }
 

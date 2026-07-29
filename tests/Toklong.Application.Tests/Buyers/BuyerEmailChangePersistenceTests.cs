@@ -35,6 +35,8 @@ public sealed class BuyerEmailChangePersistenceTests
             typeof(BuyerEmailChangeChallenge))!;
         var audit = database.Model.FindEntityType(
             typeof(BuyerEmailChangeAuditEvent))!;
+        var attempt = database.Model.FindEntityType(
+            typeof(BuyerEmailVerificationAttempt))!;
 
         Assert.Equal(
             24,
@@ -101,6 +103,30 @@ public sealed class BuyerEmailChangePersistenceTests
                     foreignKey.Properties.Single().Name ==
                     nameof(BuyerEmailChangeAuditEvent.BuyerId))
                 .DeleteBehavior);
+        Assert.Equal(
+            32,
+            attempt.FindProperty(
+                nameof(BuyerEmailVerificationAttempt.IdempotencyKey))!
+                .GetMaxLength());
+        Assert.Equal(
+            64,
+            attempt.FindProperty(
+                nameof(BuyerEmailVerificationAttempt.SubmittedDigest))!
+                .GetMaxLength());
+        Assert.Equal(
+            16,
+            attempt.FindProperty(
+                nameof(BuyerEmailVerificationAttempt.Outcome))!
+                .GetMaxLength());
+        Assert.Contains(
+            attempt.GetIndexes(),
+            index => index.IsUnique &&
+                     index.Properties.Select(property => property.Name)
+                         .SequenceEqual([
+                             nameof(BuyerEmailVerificationAttempt.BuyerId),
+                             nameof(BuyerEmailVerificationAttempt.ChallengeId),
+                             nameof(BuyerEmailVerificationAttempt.IdempotencyKey)
+                         ]));
     }
 
     [Fact]
@@ -201,6 +227,39 @@ public sealed class BuyerEmailChangePersistenceTests
             database.BuyerEmailChangeAuditEvents.Single().ChallengeId);
     }
 
+    [Fact]
+    public async Task Repository_round_trips_verification_attempt_by_exact_key()
+    {
+        await using var database = CreateDatabase();
+        var repository = new BuyerEmailChangeRepository(database);
+        var challenge = NewChallenge(Now);
+        var attempt = new BuyerEmailVerificationAttempt(
+            Guid.NewGuid(),
+            challenge.BuyerId,
+            challenge.Id,
+            Guid.NewGuid().ToString("N"),
+            new string('c', 64),
+            BuyerEmailVerificationAttemptOutcome.Incorrect,
+            4,
+            Now,
+            null);
+        await repository.AddAsync(challenge, default);
+        await repository.AddVerificationAttemptAsync(attempt, default);
+        await database.SaveChangesAsync();
+        database.ChangeTracker.Clear();
+
+        var stored = await repository.GetVerificationAttemptAsync(
+            attempt.BuyerId,
+            attempt.ChallengeId,
+            attempt.IdempotencyKey,
+            default);
+
+        Assert.Equal(attempt.Id, stored?.Id);
+        Assert.Equal(attempt.SubmittedDigest, stored?.SubmittedDigest);
+        Assert.Equal(attempt.Outcome, stored?.Outcome);
+        Assert.Equal(4, stored?.RemainingAttempts);
+    }
+
     [Theory]
     [InlineData(EntityState.Modified)]
     [InlineData(EntityState.Deleted)]
@@ -213,6 +272,32 @@ public sealed class BuyerEmailChangePersistenceTests
         await database.SaveChangesAsync();
         database.Entry(
             database.BuyerEmailChangeAuditEvents.Single()).State = state;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => database.SaveChangesAsync());
+    }
+
+    [Theory]
+    [InlineData(EntityState.Modified)]
+    [InlineData(EntityState.Deleted)]
+    public async Task Verification_attempt_is_append_only(EntityState state)
+    {
+        await using var database = CreateDatabase();
+        var challenge = NewChallenge(Now);
+        var attempt = new BuyerEmailVerificationAttempt(
+            Guid.NewGuid(),
+            challenge.BuyerId,
+            challenge.Id,
+            Guid.NewGuid().ToString("N"),
+            new string('c', 64),
+            BuyerEmailVerificationAttemptOutcome.Incorrect,
+            4,
+            Now,
+            null);
+        database.BuyerEmailChangeChallenges.Add(challenge);
+        database.BuyerEmailVerificationAttempts.Add(attempt);
+        await database.SaveChangesAsync();
+        database.Entry(attempt).State = state;
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => database.SaveChangesAsync());

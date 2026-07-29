@@ -293,9 +293,5 @@ public sealed class ViewModelSessionBoundaryTests
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task<string> UpdateEmailAsync(
-            string email,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
     }
 }

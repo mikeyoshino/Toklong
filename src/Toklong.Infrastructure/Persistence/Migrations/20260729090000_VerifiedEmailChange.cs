@@ -69,6 +69,37 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                         onDelete: ReferentialAction.Restrict);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "buyer_email_verification_attempts",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    BuyerId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ChallengeId = table.Column<Guid>(type: "uuid", nullable: false),
+                    IdempotencyKey = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
+                    SubmittedDigest = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
+                    Outcome = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: false),
+                    RemainingAttempts = table.Column<int>(type: "integer", nullable: false),
+                    CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    CompletedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_buyer_email_verification_attempts", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_buyer_email_verification_attempts_buyer_email_change_challe~",
+                        column: x => x.ChallengeId,
+                        principalTable: "buyer_email_change_challenges",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_buyer_email_verification_attempts_buyers_BuyerId",
+                        column: x => x.BuyerId,
+                        principalTable: "buyers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
             migrationBuilder.CreateIndex(
                 name: "IX_buyer_email_change_audit_events_BuyerId",
                 table: "buyer_email_change_audit_events",
@@ -96,11 +127,25 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                 name: "IX_buyer_email_change_challenges_ExpiresAt",
                 table: "buyer_email_change_challenges",
                 column: "ExpiresAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_buyer_email_verification_attempts_BuyerId_ChallengeId_Idemp~",
+                table: "buyer_email_verification_attempts",
+                columns: new[] { "BuyerId", "ChallengeId", "IdempotencyKey" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_buyer_email_verification_attempts_ChallengeId",
+                table: "buyer_email_verification_attempts",
+                column: "ChallengeId");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "buyer_email_verification_attempts");
+
             migrationBuilder.DropTable(
                 name: "buyer_email_change_audit_events");
 

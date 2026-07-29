@@ -100,19 +100,26 @@
                         <Label
                             Style="{StaticResource RefinedHelperText}"
                             Text="ใช้รับใบเสร็จและขั้นตอนคืนเงิน โดยไม่ต้องกรอกซ้ำตอนจ่าย" />
-                        <Border Style="{StaticResource RefinedInputBorder}">
-                            <Entry
-                                Style="{StaticResource RefinedEntry}"
-                                Keyboard="Email"
-                                MaxLength="254"
-                                Placeholder="name@example.com"
-                                SemanticProperties.Description="อีเมลสำหรับการชำระเงินและคืนเงิน"
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Label
+                                VerticalOptions="Center"
+                                Style="{StaticResource RefinedBodyText}"
+                                SemanticProperties.Description="อีเมลที่ยืนยันแล้วสำหรับการชำระเงินและคืนเงิน"
                                 Text="{Binding Email}" />
-                        </Border>
-                        <Button
-                            Style="{StaticResource RefinedSecondaryActionButton}"
-                            Command="{Binding SaveEmailCommand}"
-                            Text="บันทึกอีเมล" />
+                            <Border
+                                Grid.Column="1"
+                                VerticalOptions="Center"
+                                Padding="9,4"
+                                BackgroundColor="{StaticResource BrandBlueSoft}"
+                                Stroke="Transparent"
+                                StrokeShape="RoundRectangle 99">
+                                <Label
+                                    FontAttributes="Bold"
+                                    FontSize="12"
+                                    Text="ยืนยันแล้ว"
+                                    TextColor="{StaticResource BrandBlueDeep}" />
+                            </Border>
+                        </Grid>
                     </VerticalStackLayout>
                 </Border>
             </VerticalStackLayout>

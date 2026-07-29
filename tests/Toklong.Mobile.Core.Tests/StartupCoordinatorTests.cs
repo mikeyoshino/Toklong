@@ -203,11 +203,6 @@ public sealed class StartupCoordinatorTests
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task<string> UpdateEmailAsync(
-            string email,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
         public Task SignOutAsync(
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();

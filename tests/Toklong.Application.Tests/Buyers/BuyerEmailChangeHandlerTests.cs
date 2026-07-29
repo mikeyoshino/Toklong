@@ -33,7 +33,7 @@ public sealed class BuyerEmailChangeHandlerTests
             JsonSerializer.Serialize(challenge));
         var message = Assert.Single(scenario.Sender.Messages);
         Assert.Equal("new@example.com", message.Recipient);
-        Assert.Equal(command.IdempotencyKey, message.IdempotencyKey);
+        Assert.Equal(challenge.Id.ToString("N"), message.IdempotencyKey);
         Assert.Equal(challenge.Id.ToString("N"), message.CorrelationId);
         Assert.Equal(2, scenario.UnitOfWork.SaveCount);
     }
@@ -343,6 +343,84 @@ public sealed class BuyerEmailChangeHandlerTests
         Assert.Equal(4, stored.RemainingAttempts);
         Assert.Equal(BuyerEmailChangeStatus.Active, stored.Status);
         Assert.Equal("old@example.com", scenario.Buyer.Email);
+    }
+
+    [Fact]
+    public async Task Exact_wrong_attempt_replay_returns_the_same_error_without_consuming_an_attempt()
+    {
+        await using var scenario = await Scenario.CreateAsync();
+        var requested = await scenario.RequestHandler().Handle(
+            scenario.RequestCommand(),
+            default);
+        var command = new VerifyBuyerEmailChangeCommand(
+            scenario.Buyer.Id,
+            requested.ChallengeId,
+            "000000",
+            Scenario.NewKey());
+        scenario.UnitOfWork.Reset();
+
+        var first = await Assert.ThrowsAsync<DomainException>(
+            () => scenario.VerifyHandler().Handle(command, default));
+        var replay = await Assert.ThrowsAsync<DomainException>(
+            () => scenario.VerifyHandler().Handle(command, default));
+
+        Assert.Equal(first.Message, replay.Message);
+        Assert.Equal(1, scenario.UnitOfWork.SaveCount);
+        var stored = Assert.Single(
+            scenario.Database.BuyerEmailChangeChallenges,
+            challenge => challenge.Id == requested.ChallengeId);
+        Assert.Equal(1, stored.IncorrectAttempts);
+        var attempt = Assert.Single(
+            scenario.Database.BuyerEmailVerificationAttempts);
+        Assert.Equal(command.IdempotencyKey, attempt.IdempotencyKey);
+        Assert.Equal(
+            BuyerEmailVerificationAttemptOutcome.Incorrect,
+            attempt.Outcome);
+        Assert.Equal(4, attempt.RemainingAttempts);
+        var serialized = JsonSerializer.Serialize(attempt);
+        Assert.DoesNotContain("000000", serialized);
+        Assert.DoesNotContain("new@example.com", serialized);
+    }
+
+    [Fact]
+    public async Task Wrong_attempt_key_reused_with_a_different_code_is_rejected()
+    {
+        await using var scenario = await Scenario.CreateAsync();
+        var requested = await scenario.RequestHandler().Handle(
+            scenario.RequestCommand(),
+            default);
+        var key = Scenario.NewKey();
+        await Assert.ThrowsAsync<DomainException>(() =>
+            scenario.VerifyHandler().Handle(
+                new VerifyBuyerEmailChangeCommand(
+                    scenario.Buyer.Id,
+                    requested.ChallengeId,
+                    "000000",
+                    key),
+                default));
+        scenario.UnitOfWork.Reset();
+
+        var mismatch = await Assert.ThrowsAsync<DomainException>(() =>
+            scenario.VerifyHandler().Handle(
+                new VerifyBuyerEmailChangeCommand(
+                    scenario.Buyer.Id,
+                    requested.ChallengeId,
+                    "123456",
+                    key),
+                default));
+
+        Assert.Equal(
+            "คำขอนี้ไม่ตรงกับข้อมูลเดิม กรุณาลองใหม่",
+            mismatch.Message);
+        Assert.Equal(0, scenario.UnitOfWork.SaveCount);
+        Assert.Equal("old@example.com", scenario.Buyer.Email);
+        Assert.Single(scenario.Database.BuyerEmailVerificationAttempts);
+        Assert.Equal(
+            1,
+            scenario.Database.BuyerEmailChangeChallenges
+                .Single(challenge =>
+                    challenge.Id == requested.ChallengeId)
+                .IncorrectAttempts);
     }
 
     [Fact]

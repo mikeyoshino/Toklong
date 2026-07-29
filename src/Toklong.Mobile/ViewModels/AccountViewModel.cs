@@ -8,7 +8,6 @@ public sealed class AccountViewModel(
     AuthenticatedSessionBoundary session) : ObservableViewModel
 {
     private MobileProfile? profile;
-    private string email = "";
     private string message = "";
     private bool isBusy;
 
@@ -28,11 +27,7 @@ public sealed class AccountViewModel(
 
     public string PhoneNumber => profile?.PhoneNumber ?? "";
     public bool CanBuy => profile?.CanBuy == true;
-    public string Email
-    {
-        get => email;
-        set => SetProperty(ref email, value);
-    }
+    public string Email => profile?.Email ?? "";
     public bool HasPayoutAccount =>
         !string.IsNullOrWhiteSpace(profile?.PayoutMaskedNumber);
     public string PayoutText => HasPayoutAccount
@@ -69,7 +64,6 @@ public sealed class AccountViewModel(
     }
 
     public ICommand SignOutCommand => new AsyncCommand(SignOutAsync);
-    public ICommand SaveEmailCommand => new AsyncCommand(SaveEmailAsync);
     public ICommand OpenPayoutSettingsCommand =>
         new AsyncCommand(() =>
             Shell.Current.GoToAsync(
@@ -82,32 +76,7 @@ public sealed class AccountViewModel(
         try
         {
             profile = await authentication.GetProfileAsync();
-            Email = profile.Email ?? "";
             RaiseProfileChanged();
-        }
-        catch (Exception exception)
-        {
-            Message = exception.Message;
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-    }
-
-    private async Task SaveEmailAsync()
-    {
-        if (IsBusy)
-            return;
-        IsBusy = true;
-        Message = "";
-        try
-        {
-            var savedEmail = await authentication.UpdateEmailAsync(Email);
-            Email = savedEmail;
-            if (profile is not null)
-                profile = profile with { Email = savedEmail };
-            Message = "บันทึกอีเมลแล้ว";
         }
         catch (Exception exception)
         {
@@ -124,7 +93,6 @@ public sealed class AccountViewModel(
         IsBusy = true;
         Message = "";
         profile = null;
-        Email = "";
         RaiseProfileChanged();
         session.Reset();
         try

@@ -147,26 +147,6 @@ public sealed class MobileAuthenticationService(
                ?? throw new InvalidOperationException("ไม่พบข้อมูลบัญชี");
     }
 
-    public async Task<string> UpdateEmailAsync(
-        string email,
-        CancellationToken cancellationToken = default)
-    {
-        using var response = await api.SendAuthenticatedAsync(
-            () => new HttpRequestMessage(
-                HttpMethod.Put,
-                "api/mobile/me/email")
-            {
-                Content = JsonContent.Create(new { Email = email.Trim() })
-            },
-            cancellationToken);
-        await MobileApiClient.EnsureSuccessAsync(response, cancellationToken);
-        var result = await response.Content
-            .ReadFromJsonAsync<EmailUpdateResponse>(
-                cancellationToken: cancellationToken)
-            ?? throw new InvalidOperationException("บันทึกอีเมลไม่สำเร็จ");
-        return result.Email;
-    }
-
     public async Task SignOutAsync(
         CancellationToken cancellationToken = default)
     {
@@ -201,8 +181,6 @@ public sealed class MobileAuthenticationService(
             issued.AccessToken,
             issued.RefreshToken,
             issued.AccessTokenExpiresAt));
-
-    private sealed record EmailUpdateResponse(string Email);
 
     private sealed record VerificationResponse(
         string Outcome,

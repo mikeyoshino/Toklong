@@ -364,6 +364,52 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                     b.ToTable("buyer_email_change_challenges", (string)null);
                 });
 
+            modelBuilder.Entity("Toklong.Domain.Buyers.BuyerEmailVerificationAttempt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BuyerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ChallengeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<int>("RemainingAttempts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SubmittedDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChallengeId");
+
+                    b.HasIndex("BuyerId", "ChallengeId", "IdempotencyKey")
+                        .IsUnique();
+
+                    b.ToTable("buyer_email_verification_attempts", (string)null);
+                });
+
             modelBuilder.Entity("Toklong.Domain.Notifications.NotificationOutboxMessage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1381,6 +1427,21 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                     b.HasOne("Toklong.Domain.Buyers.BuyerAccount", null)
                         .WithMany()
                         .HasForeignKey("BuyerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Toklong.Domain.Buyers.BuyerEmailVerificationAttempt", b =>
+                {
+                    b.HasOne("Toklong.Domain.Buyers.BuyerAccount", null)
+                        .WithMany()
+                        .HasForeignKey("BuyerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Toklong.Domain.Buyers.BuyerEmailChangeChallenge", null)
+                        .WithMany()
+                        .HasForeignKey("ChallengeId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
