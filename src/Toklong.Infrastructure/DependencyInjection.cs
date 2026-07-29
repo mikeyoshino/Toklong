@@ -21,6 +21,9 @@ public static class DependencyInjection
                 configuration.GetConnectionString("ToklongDatabase"),
                 npgsql => npgsql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)));
         services.AddScoped<ITransactionRepository, TransactionRepository>();
+        services.AddScoped<
+            IShippingOperationRepository,
+            ShippingOperationRepository>();
         services.AddScoped<IRetentionRepository, RetentionRepository>();
         services.AddScoped<IBuyerRepository, BuyerRepository>();
         services.AddScoped<

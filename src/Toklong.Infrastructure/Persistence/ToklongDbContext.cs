@@ -45,6 +45,15 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         Set<NotificationOutboxMessage>();
     public DbSet<DisputeEvidence> DisputeEvidence =>
         Set<DisputeEvidence>();
+    public DbSet<ManagedShipment> ManagedShipments =>
+        Set<ManagedShipment>();
+    public DbSet<ShippingOperation> ShippingOperations =>
+        Set<ShippingOperation>();
+    public DbSet<ProviderShippingAdjustment>
+        ProviderShippingAdjustments =>
+        Set<ProviderShippingAdjustment>();
+    public DbSet<ShippingInsuranceCase> ShippingInsuranceCases =>
+        Set<ShippingInsuranceCase>();
 
     public override int SaveChanges(
         bool acceptAllChangesOnSuccess)
@@ -125,6 +134,8 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
             .HasMaxLength(80);
         transaction.Property(x => x.ShippingServiceName)
             .HasMaxLength(160);
+        transaction.Property(x => x.ShippingInsuranceCode)
+            .HasMaxLength(80);
         transaction.Property(x => x.ShippingPurchaseReference)
             .HasMaxLength(160);
         transaction.Property(x => x.ShippingProviderTrackingCode)
@@ -171,6 +182,22 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
             .WithOne()
             .HasForeignKey(x => x.TransactionId)
             .OnDelete(DeleteBehavior.Cascade);
+        transaction.HasMany(x => x.ManagedShipments)
+            .WithOne()
+            .HasForeignKey(x => x.TransactionId)
+            .OnDelete(DeleteBehavior.Cascade);
+        transaction.HasMany(x => x.ShippingOperations)
+            .WithOne()
+            .HasForeignKey(x => x.TransactionId)
+            .OnDelete(DeleteBehavior.Cascade);
+        transaction.HasMany(x => x.ProviderShippingAdjustments)
+            .WithOne()
+            .HasForeignKey(x => x.TransactionId)
+            .OnDelete(DeleteBehavior.Cascade);
+        transaction.HasMany(x => x.ShippingInsuranceCases)
+            .WithOne()
+            .HasForeignKey(x => x.TransactionId)
+            .OnDelete(DeleteBehavior.Cascade);
         transaction.Navigation(nameof(SaleTransaction.AuditEvents)).UsePropertyAccessMode(PropertyAccessMode.Field);
         transaction.Navigation(nameof(SaleTransaction.AgreementAcceptances))
             .UsePropertyAccessMode(PropertyAccessMode.Field);
@@ -178,6 +205,17 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         transaction.Navigation(nameof(SaleTransaction.Notifications)).UsePropertyAccessMode(PropertyAccessMode.Field);
         transaction.Navigation(nameof(SaleTransaction.DisputeEvidence))
             .UsePropertyAccessMode(PropertyAccessMode.Field);
+        transaction.Navigation(nameof(SaleTransaction.ManagedShipments))
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+        transaction.Navigation(nameof(SaleTransaction.ShippingOperations))
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+        transaction.Navigation(
+                nameof(SaleTransaction.ProviderShippingAdjustments))
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+        transaction.Navigation(nameof(SaleTransaction.ShippingInsuranceCases))
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        ConfigureManagedShipping(modelBuilder);
 
         var financialRetention =
             modelBuilder.Entity<FinancialRetentionRecord>();
@@ -561,5 +599,114 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
                     EntityState.Deleted))
             throw new InvalidOperationException(
                 "Buyer email verification attempt records are append-only.");
+    }
+
+    private static void ConfigureManagedShipping(
+        ModelBuilder modelBuilder)
+    {
+        var shipment = modelBuilder.Entity<ManagedShipment>();
+        shipment.ToTable("managed_shipments");
+        shipment.HasKey(x => x.Id);
+        shipment.HasIndex(x => new
+        {
+            x.TransactionId,
+            x.Direction
+        }).IsUnique();
+        shipment.Property(x => x.Direction)
+            .HasConversion<string>()
+            .HasMaxLength(20);
+        shipment.Property(x => x.Status)
+            .HasConversion<string>()
+            .HasMaxLength(40);
+        shipment.Property(x => x.Provider).HasMaxLength(80);
+        shipment.Property(x => x.OriginPrivateSnapshotReference)
+            .HasMaxLength(160);
+        shipment.Property(x => x.DestinationPrivateSnapshotReference)
+            .HasMaxLength(160);
+        shipment.Property(x => x.ParcelName).HasMaxLength(180);
+        shipment.Property(x => x.CarrierCode).HasMaxLength(40);
+        shipment.Property(x => x.ServiceCode).HasMaxLength(80);
+        shipment.Property(x => x.ServiceName).HasMaxLength(160);
+        shipment.Property(x => x.HandoffMode).HasMaxLength(20);
+        shipment.Property(x => x.InsuranceCode).HasMaxLength(80);
+        shipment.Property(x => x.QuoteReference).HasMaxLength(160);
+        shipment.Property(x => x.PurchaseReference).HasMaxLength(160);
+        shipment.Property(x => x.ProviderTrackingCode).HasMaxLength(120);
+        shipment.Property(x => x.CourierTrackingCode).HasMaxLength(120);
+        shipment.Property(x => x.LastProviderStatus).HasMaxLength(40);
+        shipment.Property(x => x.Version).IsConcurrencyToken();
+
+        var operation = modelBuilder.Entity<ShippingOperation>();
+        operation.ToTable("shipping_operations");
+        operation.HasKey(x => x.Id);
+        operation.HasIndex(x => x.IdempotencyKey).IsUnique();
+        operation.HasIndex(x => new
+        {
+            x.Status,
+            x.NextAttemptAt
+        });
+        operation.HasIndex(x => x.LeaseExpiresAt);
+        operation.Property(x => x.OperationType)
+            .HasConversion<string>()
+            .HasMaxLength(40);
+        operation.Property(x => x.Status)
+            .HasConversion<string>()
+            .HasMaxLength(30);
+        operation.Property(x => x.IdempotencyKey).HasMaxLength(160);
+        operation.Property(x => x.RequestFingerprint).HasMaxLength(64);
+        operation.Property(x => x.ProviderPurchaseReference)
+            .HasMaxLength(160);
+        operation.Property(x => x.ProviderTrackingReference)
+            .HasMaxLength(160);
+        operation.Property(x => x.LeaseOwner).HasMaxLength(120);
+        operation.Property(x => x.LastSanitizedErrorCode)
+            .HasMaxLength(100);
+        operation.Property(x => x.Version).IsConcurrencyToken();
+        operation.HasOne<ManagedShipment>()
+            .WithMany()
+            .HasForeignKey(x => x.ManagedShipmentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var adjustment =
+            modelBuilder.Entity<ProviderShippingAdjustment>();
+        adjustment.ToTable("provider_shipping_adjustments");
+        adjustment.HasKey(x => x.Id);
+        adjustment.HasIndex(x => x.ProviderReference).IsUnique();
+        adjustment.Property(x => x.Provider).HasMaxLength(80);
+        adjustment.Property(x => x.ProviderReference).HasMaxLength(160);
+        adjustment.Property(x => x.Currency).HasMaxLength(3);
+        adjustment.Property(x => x.CrmCaseReference).HasMaxLength(160);
+        adjustment.Property(x => x.ReasonCode).HasMaxLength(100);
+        adjustment.HasOne<ManagedShipment>()
+            .WithMany()
+            .HasForeignKey(x => x.ManagedShipmentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var insurance =
+            modelBuilder.Entity<ShippingInsuranceCase>();
+        insurance.ToTable("shipping_insurance_cases");
+        insurance.HasKey(x => x.Id);
+        insurance.HasIndex(x => x.ProviderCaseReference).IsUnique();
+        insurance.Property(x => x.Provider).HasMaxLength(80);
+        insurance.Property(x => x.ProviderCaseReference)
+            .HasMaxLength(160);
+        insurance.Property(x => x.ReasonCode).HasMaxLength(100);
+        insurance.Property(x => x.Currency).HasMaxLength(3);
+        insurance.Property(x => x.CrmCaseReference).HasMaxLength(160);
+        insurance.Property(x => x.OpenedBy).HasMaxLength(120);
+        insurance.Property(x => x.Status)
+            .HasConversion<string>()
+            .HasMaxLength(20);
+        insurance.Property(x => x.ResolvedBy).HasMaxLength(120);
+        insurance.Property(x => x.ProviderResultCode)
+            .HasMaxLength(100);
+        insurance.Property(x => x.ProviderResolutionReference)
+            .HasMaxLength(160);
+        insurance.Property(x => x.Version).IsConcurrencyToken();
+        insurance.Ignore(x => x.TransactionOutcome);
+        insurance.HasOne<ManagedShipment>()
+            .WithMany()
+            .HasForeignKey(x => x.ManagedShipmentId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
