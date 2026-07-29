@@ -67,6 +67,10 @@ Add seller-specific glyph enum values and drawing functions instead of
 changing glyphs shared by the buyer. Select those glyphs only when
 `AppTransaction.Role` is `Seller`.
 
+The approved shipment vehicle applies to physical fulfillment. Seller digital
+fulfillment retains the existing digital handoff glyph so a digital item never
+appears to require a carrier.
+
 Do not add image assets or a new icon dependency. Continue drawing through the
 existing `TransactionProgressIconView` graphics view.
 
