@@ -119,6 +119,21 @@ public static class MobileApi
             });
 
         authenticated.MapGet("/me", GetProfileAsync);
+        authenticated.MapGet(
+            "/me/email-change",
+            GetPendingEmailChangeAsync);
+        authenticated.MapPost(
+                "/me/email-change",
+                RequestEmailChangeAsync)
+            .RequireRateLimiting("email-change-request");
+        authenticated.MapPost(
+                "/me/email-change/{challengeId:guid}/resend",
+                ResendEmailChangeAsync)
+            .RequireRateLimiting("email-change-request");
+        authenticated.MapPost(
+                "/me/email-change/{challengeId:guid}/verify",
+                VerifyEmailChangeAsync)
+            .RequireRateLimiting("email-change-verify");
         authenticated.MapPost("/auth/logout", LogoutAsync);
         authenticated.MapGet("/addresses/provinces", (
             IThaiAddressCatalog catalog) => Results.Ok(catalog.Provinces));
@@ -445,6 +460,86 @@ public static class MobileApi
             buyer is not null,
             seller is not null));
     }
+
+    private static async Task<IResult> GetPendingEmailChangeAsync(
+        ClaimsPrincipal principal,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        var pending = await sender.Send(
+            new GetPendingBuyerEmailChangeQuery(
+                RequiredEmailChangeBuyerId(principal)),
+            cancellationToken);
+        return pending is null
+            ? Results.NoContent()
+            : Results.Ok(ToMobileEmailChange(pending));
+    }
+
+    private static async Task<IResult> RequestEmailChangeAsync(
+        MobileEmailChangeRequest request,
+        ClaimsPrincipal principal,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        var pending = await sender.Send(
+            new RequestBuyerEmailChangeCommand(
+                RequiredEmailChangeBuyerId(principal),
+                request.Email,
+                request.IdempotencyKey),
+            cancellationToken);
+        return Results.Ok(ToMobileEmailChange(pending));
+    }
+
+    private static async Task<IResult> ResendEmailChangeAsync(
+        Guid challengeId,
+        MobileEmailChangeResendRequest request,
+        ClaimsPrincipal principal,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        var pending = await sender.Send(
+            new ResendBuyerEmailChangeCommand(
+                RequiredEmailChangeBuyerId(principal),
+                challengeId,
+                request.IdempotencyKey),
+            cancellationToken);
+        return Results.Ok(ToMobileEmailChange(pending));
+    }
+
+    private static async Task<IResult> VerifyEmailChangeAsync(
+        Guid challengeId,
+        MobileEmailChangeVerifyRequest request,
+        ClaimsPrincipal principal,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        var verified = await sender.Send(
+            new VerifyBuyerEmailChangeCommand(
+                RequiredEmailChangeBuyerId(principal),
+                challengeId,
+                request.Code,
+                request.IdempotencyKey),
+            cancellationToken);
+        return Results.Ok(
+            new MobileEmailChangeVerifiedResponse(
+                verified.Email,
+                verified.CompletedAt));
+    }
+
+    private static MobileEmailChangeResponse ToMobileEmailChange(
+        BuyerEmailChangeView pending) =>
+        new(
+            pending.ChallengeId,
+            pending.MaskedEmail,
+            pending.ExpiresAt,
+            pending.ResendAvailableAt,
+            pending.RemainingAttempts);
+
+    private static Guid RequiredEmailChangeBuyerId(
+        ClaimsPrincipal principal) =>
+        PartyIds.From(principal).BuyerId
+        ?? throw new DomainException(
+            "บัญชีนี้ไม่มีสิทธิ์เปลี่ยนอีเมล");
 
     private static async Task<IResult> ListTransactionsAsync(
         HttpRequest request,
@@ -1474,6 +1569,28 @@ public sealed record MobileProfileResponse(
     string? PayoutMaskedNumber,
     bool CanBuy,
     bool CanSell);
+
+public sealed record MobileEmailChangeRequest(
+    string Email,
+    string IdempotencyKey);
+
+public sealed record MobileEmailChangeResendRequest(
+    string IdempotencyKey);
+
+public sealed record MobileEmailChangeVerifyRequest(
+    string Code,
+    string IdempotencyKey);
+
+public sealed record MobileEmailChangeResponse(
+    Guid ChallengeId,
+    string MaskedEmail,
+    DateTimeOffset ExpiresAt,
+    DateTimeOffset ResendAvailableAt,
+    int RemainingAttempts);
+
+public sealed record MobileEmailChangeVerifiedResponse(
+    string Email,
+    DateTimeOffset CompletedAt);
 
 public sealed record MobileBuyerProtectionPreviewResponse(
     long ItemPriceSatang,

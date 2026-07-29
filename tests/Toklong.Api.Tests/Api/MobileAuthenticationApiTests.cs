@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -448,9 +449,14 @@ public sealed class MobileAuthenticationApiTests
 public sealed class MobileApiFactory : WebApplicationFactory<Program>
 {
     private readonly RecordingLoggerProvider recordingLogger = new();
+    private readonly ConcurrentQueue<TestPaymentIntentRequest>
+        paymentIntentRequests = new();
 
     public IReadOnlyCollection<string> LogMessages =>
         recordingLogger.Messages;
+    public IReadOnlyCollection<TestPaymentIntentRequest>
+        PaymentIntentRequests =>
+        paymentIntentRequests.ToArray();
 
     protected override void ConfigureWebHost(
         IWebHostBuilder builder)
@@ -467,6 +473,12 @@ public sealed class MobileApiFactory : WebApplicationFactory<Program>
         builder.UseSetting(
             "RateLimits:RegistrationCompletePermitLimit",
             "100");
+        builder.UseSetting(
+            "EmailVerification:Provider",
+            "Development");
+        builder.UseSetting(
+            "EmailVerification:DigestKey",
+            "integration-email-digest-key-at-least-32-characters");
         builder.ConfigureAppConfiguration((_, configuration) =>
             configuration.AddInMemoryCollection(
                 new Dictionary<string, string?>
@@ -505,6 +517,9 @@ public sealed class MobileApiFactory : WebApplicationFactory<Program>
                 DevelopmentShippingQuoteProvider>();
             services.RemoveAll<StripePaymentOptions>();
             services.RemoveAll<ReconciliationOptions>();
+            services.AddSingleton<
+                IStartupFilter,
+                TestRemoteAddressStartupFilter>();
             var databaseName = Guid.NewGuid().ToString("N");
             services.AddDbContext<ToklongDbContext>(options =>
                 options.UseInMemoryDatabase(
@@ -520,9 +535,9 @@ public sealed class MobileApiFactory : WebApplicationFactory<Program>
             services.AddSingleton<IShipmentProvider>(
                 provider => provider.GetRequiredService<
                     DevelopmentShippingQuoteProvider>());
-            services.AddSingleton<
-                IPaymentIntentProvider,
-                TestPaymentIntentProvider>();
+            services.AddSingleton<IPaymentIntentProvider>(
+                new TestPaymentIntentProvider(
+                    paymentIntentRequests));
             services.AddSingleton(new BuyerProtectionFeeOptions
             {
                 Enabled = true,
@@ -568,7 +583,8 @@ public sealed class MobileApiFactory : WebApplicationFactory<Program>
                     : null);
     }
 
-    private sealed class TestPaymentIntentProvider
+    private sealed class TestPaymentIntentProvider(
+        ConcurrentQueue<TestPaymentIntentRequest> requests)
         : IPaymentIntentProvider
     {
         public Task<PaymentIntentPreparation> PrepareAsync(
@@ -578,13 +594,43 @@ public sealed class MobileApiFactory : WebApplicationFactory<Program>
             FulfillmentType fulfillmentType,
             string receiptEmail,
             string? existingProviderReference,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(
+            CancellationToken cancellationToken)
+        {
+            requests.Enqueue(new TestPaymentIntentRequest(
+                transactionId,
+                receiptEmail));
+            return Task.FromResult(
                 new PaymentIntentPreparation(
                     existingProviderReference ??
                     $"pi_local_{transactionId:N}",
                     $"pi_local_{transactionId:N}_secret_test",
                     "pk_test_local"));
+        }
+    }
+
+    private sealed class TestRemoteAddressStartupFilter
+        : IStartupFilter
+    {
+        public Action<IApplicationBuilder> Configure(
+            Action<IApplicationBuilder> next) =>
+            app =>
+            {
+                app.Use(async (context, nextMiddleware) =>
+                {
+                    if (context.Request.Headers.TryGetValue(
+                            "X-Test-Remote-Address",
+                            out var value) &&
+                        IPAddress.TryParse(
+                            value.ToString(),
+                            out var address))
+                    {
+                        context.Connection.RemoteIpAddress = address;
+                    }
+
+                    await nextMiddleware();
+                });
+                next(app);
+            };
     }
 
     private sealed class RecordingLoggerProvider : ILoggerProvider
@@ -624,3 +670,7 @@ public sealed class MobileApiFactory : WebApplicationFactory<Program>
         }
     }
 }
+
+public sealed record TestPaymentIntentRequest(
+    Guid TransactionId,
+    string ReceiptEmail);

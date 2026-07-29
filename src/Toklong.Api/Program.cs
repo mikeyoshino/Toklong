@@ -101,6 +101,14 @@ var registrationCompletePermitLimit =
     builder.Configuration.GetValue(
         "RateLimits:RegistrationCompletePermitLimit",
         10);
+var emailChangeRequestPermitLimit =
+    builder.Configuration.GetValue(
+        "RateLimits:EmailChangeRequestPermitLimit",
+        5);
+var emailChangeVerifyPermitLimit =
+    builder.Configuration.GetValue(
+        "RateLimits:EmailChangeVerifyPermitLimit",
+        10);
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -169,6 +177,30 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0,
                 AutoReplenishment = true
             }));
+    options.AddPolicy("email-change-request", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            AuthenticatedBuyerRateLimitKey(
+                context,
+                rateLimiterPartitionSecret),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = emailChangeRequestPermitLimit,
+                Window = TimeSpan.FromSeconds(60),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+    options.AddPolicy("email-change-verify", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            AuthenticatedBuyerRateLimitKey(
+                context,
+                rateLimiterPartitionSecret),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = emailChangeVerifyPermitLimit,
+                Window = TimeSpan.FromMinutes(10),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
 });
 
 var app = builder.Build();
@@ -201,7 +233,6 @@ app.Use(async (context, next) =>
         context.Response.Headers.CacheControl = "no-store";
     await next(context);
 });
-app.UseRateLimiter();
 var importedImagesPath = ImportedProductImageStore.ResolveStoragePath(
     app.Environment,
     app.Configuration);
@@ -219,6 +250,7 @@ app.UseStaticFiles(new StaticFileOptions
     }
 });
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 app.UseMobileApiErrors();
 app.MapMobileApi();
@@ -247,6 +279,16 @@ static string RateLimitKey(
         .RemoteIpAddress?.GetAddressBytes() ?? [];
     return Convert.ToHexString(
         HMACSHA256.HashData(secret, address));
+}
+
+static string AuthenticatedBuyerRateLimitKey(
+    HttpContext context,
+    byte[] secret)
+{
+    var buyerId = context.User.FindFirst(
+        MobileAuthenticationDefaults.BuyerIdClaim)?.Value
+        ?? "no-buyer";
+    return $"{buyerId}:{RateLimitKey(context, secret)}";
 }
 
 static async Task ApplyDatabaseMigrationsAsync(WebApplication app)
