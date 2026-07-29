@@ -20,16 +20,17 @@ this slice because it blocks access to the email-change flow.
    the app.
 2. Both OTP pages use `OtpCodeInput`, but each page builds the surrounding
    form independently.
-3. The email-change version wraps the input in `RefinedFormCard` and adds a
-   duplicate field label. On a phone with the numeric keyboard open this
-   produces a tall empty card that does not match the login OTP pattern.
+3. The email-change version uses `RefinedFormCard` and adds a duplicate field
+   label. It does not match the compact Login OTP card built with
+   `AuthFormCard`.
 
 ## Chosen design
 
 Create a reusable `OtpVerificationFormView` presentation component.
 
-The component owns only the shared form layout:
+The component owns the complete Login OTP card presentation:
 
+- the Login `AuthFormCard` border;
 - the existing `OtpCodeInput`;
 - the primary confirmation button;
 - the busy label/disabled behavior for that button; and
@@ -43,6 +44,7 @@ Pages provide values using bindable properties and commands:
 - `Code`;
 - `ConfirmCommand`;
 - `CanConfirm`;
+- `IsConfirmVisible`;
 - `IsBusy`;
 - `ConfirmText`;
 - `BusyText`;
@@ -52,6 +54,8 @@ Pages provide values using bindable properties and commands:
 
 `Code` uses two-way binding. All other inputs flow from the page binding
 context. The component contains no network call and no navigation.
+`IsConfirmVisible` affects only the confirmation button; it never hides the
+OTP input or the card.
 
 ## Page responsibilities
 
@@ -78,7 +82,8 @@ Neither page shares a view model or state object with the other.
 
 Both pages use the Login OTP form pattern:
 
-- no tall white `RefinedFormCard` around the six digits;
+- one compact white `AuthFormCard` containing the form;
+- no email-specific `RefinedFormCard`;
 - no duplicate “รหัสยืนยัน 6 หลัก” form label above the digits;
 - six digit positions rendered by `OtpCodeInput`;
 - confirmation button directly below the input; and
@@ -86,6 +91,10 @@ Both pages use the Login OTP form pattern:
 
 The email destination card, resend controls, terminal-state actions, and error
 summary remain outside the shared component.
+
+The card itself remains visible whenever the page is displayed. Workflow
+availability may hide only the confirmation button through
+`IsConfirmVisible`; the page continues to own that state.
 
 ## Crash correction
 
@@ -113,9 +122,13 @@ Add or update tests that prove:
    resources.
 2. Login and email verification both use `OtpVerificationFormView`.
 3. The pages no longer duplicate the OTP input and primary confirmation form.
-4. Required bindings are wired correctly for each workflow.
-5. Existing email lifecycle, accessibility, and mobile tests remain green.
-6. The iOS build succeeds and the Account tab plus email-verification form can
+4. The shared component contains exactly one `AuthFormCard`, one OTP input,
+   and one primary confirmation button.
+5. Email challenge availability controls only the confirmation button and
+   never the whole form.
+6. Required bindings are wired correctly for each workflow.
+7. Existing email lifecycle, accessibility, and mobile tests remain green.
+8. The iOS build succeeds and the Account tab plus email-verification form can
    be opened on the connected physical device without a crash.
 
 ## Non-goals
