@@ -439,6 +439,42 @@ public sealed class EmailChangeLayoutTests
         }
     }
 
+    [Fact]
+    public void Account_and_email_verification_reference_only_declared_resources()
+    {
+        var app = LoadUi("App.xaml");
+        var declaredKeys = app
+            .Descendants()
+            .Select(element => AttributeValue(element, "Key"))
+            .Where(key => !string.IsNullOrWhiteSpace(key))
+            .ToHashSet(StringComparer.Ordinal);
+        const string prefix = "{StaticResource ";
+
+        foreach (var pageName in new[]
+                 {
+                     "AccountPage.xaml",
+                     "VerifyEmailChangePage.xaml"
+                 })
+        {
+            var missingKeys = LoadPage(pageName)
+                .Descendants()
+                .Attributes()
+                .Select(attribute => attribute.Value)
+                .Where(value =>
+                    value.StartsWith(prefix, StringComparison.Ordinal) &&
+                    value.EndsWith('}'))
+                .Select(value => value[prefix.Length..^1])
+                .Distinct(StringComparer.Ordinal)
+                .Where(key => !declaredKeys.Contains(key))
+                .ToArray();
+
+            Assert.True(
+                missingKeys.Length == 0,
+                $"{pageName} references missing resources: " +
+                string.Join(", ", missingKeys));
+        }
+    }
+
     private static XDocument LoadPage(string fileName) =>
         LoadUi("Pages", fileName);
 

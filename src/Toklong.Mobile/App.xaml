@@ -14,6 +14,7 @@
             <Color x:Key="SurfaceSoft">#F6F9FC</Color>
             <Color x:Key="SurfaceBlue">#EEF7FF</Color>
             <Color x:Key="BrandBlue">#2B7FFF</Color>
+            <Color x:Key="BrandBlueSoft">#EEF7FF</Color>
             <Color x:Key="BrandBlueDeep">#145FC7</Color>
             <Color x:Key="Mint">#65D6BF</Color>
             <Color x:Key="Danger">#C52F4D</Color>
