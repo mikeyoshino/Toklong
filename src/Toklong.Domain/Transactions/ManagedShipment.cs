@@ -179,6 +179,141 @@ public sealed class ManagedShipment
         };
     }
 
+    public void RecordReservation(
+        string purchaseReference,
+        string providerTrackingCode,
+        string? courierTrackingCode,
+        DateTimeOffset reservedAt)
+    {
+        if (Status != ManagedShipmentStatus.PendingBooking)
+            throw new DomainException(
+                "รายการจัดส่งนี้สร้างกับผู้ให้บริการแล้ว");
+        PurchaseReference = Required(
+            purchaseReference,
+            "เลขอ้างอิงรายการขนส่ง",
+            160);
+        ProviderTrackingCode = Required(
+            providerTrackingCode,
+            "เลขติดตามจากผู้ให้บริการ",
+            120);
+        CourierTrackingCode = Optional(
+            courierTrackingCode,
+            120);
+        ReservedAt = reservedAt;
+        LastProviderStatus = "wait";
+        LastReconciledAt = reservedAt;
+        Status = ManagedShipmentStatus.Reserved;
+        Version++;
+    }
+
+    public void RecordConfirmation(
+        string courierTrackingCode,
+        string providerStatus,
+        DateTimeOffset confirmedAt)
+    {
+        if (Status != ManagedShipmentStatus.Reserved)
+            throw new DomainException(
+                "รายการจัดส่งยังยืนยันไม่ได้");
+        CourierTrackingCode = Required(
+            courierTrackingCode,
+            "เลขพัสดุ",
+            120);
+        LastProviderStatus = Required(
+            providerStatus,
+            "สถานะผู้ให้บริการ",
+            40);
+        ConfirmedAt = confirmedAt;
+        LastReconciledAt = confirmedAt;
+        Status = ManagedShipmentStatus.Confirmed;
+        Version++;
+    }
+
+    public void RecordCancellation(
+        DateTimeOffset cancelledAt)
+    {
+        if (FirstCarrierScanAt.HasValue ||
+            Status is ManagedShipmentStatus.Delivered or
+                ManagedShipmentStatus.Cancelled)
+            throw new DomainException(
+                "รายการจัดส่งนี้ยกเลิกไม่ได้");
+        CancelledAt = cancelledAt;
+        LastReconciledAt = cancelledAt;
+        Status = ManagedShipmentStatus.Cancelled;
+        Version++;
+    }
+
+    public void RecordCarrierAccepted(
+        string providerStatus,
+        DateTimeOffset occurredAt,
+        DateTimeOffset reconciledAt)
+    {
+        if (Status is ManagedShipmentStatus.Cancelled or
+            ManagedShipmentStatus.Delivered)
+            return;
+        FirstCarrierScanAt ??= occurredAt;
+        LastProviderStatus = Required(
+            providerStatus,
+            "สถานะผู้ให้บริการ",
+            40);
+        LastReconciledAt = reconciledAt;
+        Status = ManagedShipmentStatus.CarrierAccepted;
+        Version++;
+    }
+
+    public void RecordInTransit(
+        string providerStatus,
+        DateTimeOffset occurredAt,
+        DateTimeOffset reconciledAt)
+    {
+        if (Status is ManagedShipmentStatus.Cancelled or
+            ManagedShipmentStatus.Delivered)
+            return;
+        FirstCarrierScanAt ??= occurredAt;
+        InTransitAt ??= occurredAt;
+        LastProviderStatus = Required(
+            providerStatus,
+            "สถานะผู้ให้บริการ",
+            40);
+        LastReconciledAt = reconciledAt;
+        Status = ManagedShipmentStatus.InTransit;
+        Version++;
+    }
+
+    public void RecordTrustedDelivery(
+        string providerStatus,
+        DateTimeOffset occurredAt,
+        DateTimeOffset reconciledAt)
+    {
+        if (Status == ManagedShipmentStatus.Delivered)
+            return;
+        if (occurredAt == default ||
+            occurredAt > reconciledAt)
+            throw new DomainException(
+                "เวลาส่งถึงจากขนส่งไม่ถูกต้อง");
+        FirstCarrierScanAt ??= occurredAt;
+        DeliveredAt = occurredAt;
+        LastProviderStatus = Required(
+            providerStatus,
+            "สถานะผู้ให้บริการ",
+            40);
+        LastReconciledAt = reconciledAt;
+        Status = ManagedShipmentStatus.Delivered;
+        Version++;
+    }
+
+    private static string? Optional(
+        string? value,
+        int maximumLength)
+    {
+        var clean = value?.Trim();
+        if (string.IsNullOrWhiteSpace(clean))
+            return null;
+        if (clean.Length > maximumLength)
+            throw new DomainException(
+                "ข้อมูลรายการจัดส่งยาวเกินกำหนด");
+        return clean;
+    }
+
     private static string Required(
         string? value,
         string label,

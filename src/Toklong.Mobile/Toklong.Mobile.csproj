@@ -39,9 +39,13 @@
               ForegroundFile="Resources/AppIcon/appiconfg.svg"
               Color="#2B7FFF" />
     <MauiSplashScreen Include="Resources/Splash/splash.svg"
-                      Condition="'$(TargetFramework)' != 'net10.0-ios' OR '$(Configuration)' != 'Debug' OR '$(RuntimeIdentifier)' != 'iossimulator-arm64'"
+                      Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'ios'"
                       Color="#F6FAFF"
                       BaseSize="128,128" />
+    <MauiSplashScreen Include="Resources/Splash/splash_ios.svg"
+                      Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'"
+                      Color="#F6FAFF"
+                      BaseSize="1,1" />
     <MauiImage Include="Resources/Images/*" />
     <MauiImage Update="Resources/Images/ui_ai_assist.svg"
                BaseSize="24,24" />

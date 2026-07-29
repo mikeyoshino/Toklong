@@ -2,6 +2,7 @@ using MediatR;
 using Toklong.Application.Abstractions;
 using Toklong.Application.Common;
 using Toklong.Application.Transactions;
+using Toklong.Application.Features.Shipping;
 using Toklong.Domain.Transactions;
 
 namespace Toklong.Application.Features.ExternalEvents;
@@ -57,6 +58,11 @@ public sealed class ConfirmManualPaymentHandler(
                 request.EventId))
             return new(true, TransactionView.From(transaction));
         transaction.ConfirmPayment(request.EventId, request.ConfirmedAt, transitions);
+        ManagedShippingOperationQueue.QueueConfirmationIfRequired(
+            transaction,
+            request.ConfirmedAt,
+            ActorRole.Reconciliation,
+            "manual-bank");
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return new(false, TransactionView.From(transaction));
     }
@@ -130,6 +136,11 @@ public sealed class ConfirmStripePaymentHandler(
             request.ConfirmedAt,
             clock.UtcNow,
             transitions);
+        ManagedShippingOperationQueue.QueueConfirmationIfRequired(
+            transaction,
+            clock.UtcNow,
+            ActorRole.PaymentProvider,
+            "stripe");
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return new(false, TransactionView.From(transaction));
     }

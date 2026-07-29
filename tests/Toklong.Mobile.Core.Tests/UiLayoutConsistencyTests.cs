@@ -1228,7 +1228,7 @@ public sealed class UiLayoutConsistencyTests
             .Descendants(Maui + "Label")
             .Single(label =>
                 AttributeValue(label, "Text") ==
-                    "ตอนนี้ถึงขั้นไหน");
+                    "สถานะการซื้อขาย");
         var progressHost = detail
             .Descendants()
             .Single(element =>
@@ -1391,7 +1391,9 @@ public sealed class UiLayoutConsistencyTests
             sellerPayout.Descendants(Maui + "Label"),
             label =>
                 AttributeValue(label, "Text") ==
-                    "{Binding Transaction.ItemPriceText}");
+                    "{Binding Transaction.ItemPriceText}" &&
+                AttributeValue(label, "TextColor") ==
+                    "{StaticResource Ink}");
         Assert.Contains(
             sellerPayout.Descendants(Maui + "Label"),
             label =>
@@ -1402,6 +1404,26 @@ public sealed class UiLayoutConsistencyTests
             label =>
                 AttributeValue(label, "Text") ==
                     "{Binding Transaction.FeeText}");
+        Assert.DoesNotContain(
+            detail.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                    "พื้นที่จัดส่งที่ตกลง");
+        foreach (var binding in new[]
+                 {
+                     "{Binding Transaction.ConditionLabel}",
+                     "{Binding Transaction.FulfillmentConsumerLabel}",
+                     "{Binding Transaction.ShippingFeeText}",
+                     "{Binding Transaction.ShippingServiceText}"
+                 })
+        {
+            Assert.Contains(
+                detail.Descendants(Maui + "Label"),
+                label =>
+                    AttributeValue(label, "Text") == binding &&
+                    AttributeValue(label, "TextColor") ==
+                        "{StaticResource Ink}");
+        }
     }
 
     [Fact]

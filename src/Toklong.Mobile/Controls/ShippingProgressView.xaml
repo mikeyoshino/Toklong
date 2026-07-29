@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Toklong.Mobile.Controls.ShippingProgressView"
+    x:Name="Root"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Toklong.Mobile.Controls">
+    <Grid
+        BindingContext="{x:Reference Root}"
+        ColumnDefinitions="44,*,44,*,44,*,44"
+        RowDefinitions="48,Auto"
+        RowSpacing="8">
+        <BoxView
+            Grid.Column="1"
+            HeightRequest="2"
+            VerticalOptions="Center"
+            Color="{Binding ConnectorOneColor}" />
+        <BoxView
+            Grid.Column="3"
+            HeightRequest="2"
+            VerticalOptions="Center"
+            Color="{Binding ConnectorTwoColor}" />
+        <BoxView
+            Grid.Column="5"
+            HeightRequest="2"
+            VerticalOptions="Center"
+            Color="{Binding ConnectorThreeColor}" />
+
+        <Border
+            Grid.Column="0"
+            WidthRequest="44"
+            HeightRequest="44"
+            BackgroundColor="{Binding StepOneBackground}"
+            Stroke="{Binding StepOneColor}"
+            StrokeThickness="2"
+            StrokeShape="RoundRectangle 22"
+            SemanticProperties.Description="ขั้นที่ 1 จาก 4 เตรียมจัดส่ง">
+            <controls:ShippingProgressIconView
+                Kind="Preparing"
+                IconColor="{Binding StepOneColor}" />
+        </Border>
+        <Border
+            Grid.Column="2"
+            WidthRequest="44"
+            HeightRequest="44"
+            BackgroundColor="{Binding StepTwoBackground}"
+            Stroke="{Binding StepTwoColor}"
+            StrokeThickness="2"
+            StrokeShape="RoundRectangle 22"
+            SemanticProperties.Description="ขั้นที่ 2 จาก 4 ขนส่งรับพัสดุแล้ว">
+            <controls:ShippingProgressIconView
+                Kind="Accepted"
+                IconColor="{Binding StepTwoColor}" />
+        </Border>
+        <Border
+            Grid.Column="4"
+            WidthRequest="44"
+            HeightRequest="44"
+            BackgroundColor="{Binding StepThreeBackground}"
+            Stroke="{Binding StepThreeColor}"
+            StrokeThickness="2"
+            StrokeShape="RoundRectangle 22"
+            SemanticProperties.Description="ขั้นที่ 3 จาก 4 กำลังจัดส่ง">
+            <controls:ShippingProgressIconView
+                Kind="InTransit"
+                IconColor="{Binding StepThreeColor}" />
+        </Border>
+        <Border
+            Grid.Column="6"
+            WidthRequest="44"
+            HeightRequest="44"
+            BackgroundColor="{Binding StepFourBackground}"
+            Stroke="{Binding StepFourColor}"
+            StrokeThickness="2"
+            StrokeShape="RoundRectangle 22"
+            SemanticProperties.Description="ขั้นที่ 4 จาก 4 ส่งถึงแล้ว">
+            <controls:ShippingProgressIconView
+                Kind="Delivered"
+                IconColor="{Binding StepFourColor}" />
+        </Border>
+
+        <Label
+            Grid.Row="1"
+            Grid.Column="0"
+            HorizontalTextAlignment="Center"
+            FontSize="11"
+            MaxLines="2"
+            Text="เตรียม&#xA;จัดส่ง"
+            TextColor="{Binding StepOneColor}" />
+        <Label
+            Grid.Row="1"
+            Grid.Column="2"
+            HorizontalTextAlignment="Center"
+            FontSize="11"
+            MaxLines="2"
+            Text="ขนส่งรับ&#xA;พัสดุแล้ว"
+            TextColor="{Binding StepTwoColor}" />
+        <Label
+            Grid.Row="1"
+            Grid.Column="4"
+            HorizontalTextAlignment="Center"
+            FontSize="11"
+            MaxLines="2"
+            Text="กำลัง&#xA;จัดส่ง"
+            TextColor="{Binding StepThreeColor}" />
+        <Label
+            Grid.Row="1"
+            Grid.Column="6"
+            HorizontalTextAlignment="Center"
+            FontSize="11"
+            MaxLines="2"
+            Text="ส่งถึง&#xA;แล้ว"
+            TextColor="{Binding StepFourColor}" />
+    </Grid>
+</ContentView>

@@ -85,7 +85,10 @@ public sealed record AppTransaction(
     DateTimeOffset? RefundActionRequiredAt = null,
     DateTimeOffset? RefundActionExpiresAt = null,
     DateTimeOffset? RefundInstructionsSentAt = null,
-    DateTimeOffset CreatedAt = default)
+    DateTimeOffset CreatedAt = default,
+    long ParcelInsuranceFeeSatang = 0,
+    long ShippingDeclaredValueSatang = 0,
+    string? ShippingOperationStatus = null)
 {
     private static readonly CultureInfo ThaiCulture =
         CultureInfo.GetCultureInfo("th-TH");
@@ -100,6 +103,27 @@ public sealed record AppTransaction(
             Role,
             FulfillmentType,
             ExpirationReason);
+            if (ShippingOperationStatus is
+                "Pending" or "Processing" or
+                "RetryScheduled")
+                return presentation with
+                {
+                    StatusLabel =
+                        "กำลังเตรียมรายการจัดส่ง",
+                    Bucket = TransactionBucket.InProgress,
+                    PrimaryAction = TransactionAction.ViewStatus,
+                    PrimaryActionLabel = "ดูสถานะ"
+                };
+            if (ShippingOperationStatus is
+                "OutcomeUnknown" or "NeedsReview")
+                return presentation with
+                {
+                    StatusLabel =
+                        "การจัดส่งต้องตรวจสอบ",
+                    Bucket = TransactionBucket.InProgress,
+                    PrimaryAction = TransactionAction.ViewStatus,
+                    PrimaryActionLabel = "ดูรายละเอียด"
+                };
             if (ShippingManagedByProvider &&
                 Role == AppTransactionRole.Seller &&
                 State == "PaidAwaitingShipment")
@@ -152,6 +176,33 @@ public sealed record AppTransaction(
     }
 
     public string RoleLabel => Role == AppTransactionRole.Buyer ? "ซื้อ" : "ขาย";
+
+    public bool ShowShippingProgress =>
+        FulfillmentType == AppFulfillmentType.Physical &&
+        (ShippingManagedByProvider ||
+         ShippingOperationStatus is not null);
+
+    public int ShippingProgressCompletedThrough =>
+        State is "DeliveredDisputeWindow" or
+            "BuyerConfirmedReceipt" or "PayoutEligible" or
+            "PayoutPending" or "PaidOut"
+            ? 4
+            : State == "InTransit" ||
+              (State == "CarrierException" &&
+               FirstCarrierScanAt.HasValue)
+                ? 2
+                : FirstCarrierScanAt.HasValue
+                    ? 1
+                    : 0;
+
+    public int ShippingProgressActiveStep =>
+        ShippingProgressCompletedThrough switch
+        {
+            >= 4 => 0,
+            2 => 3,
+            1 => 2,
+            _ => 1
+        };
 
     public string RoleColor =>
         Role == AppTransactionRole.Buyer
@@ -227,6 +278,20 @@ public sealed record AppTransaction(
     public bool HasShippingFee =>
         FulfillmentType == AppFulfillmentType.Physical &&
         ShippingFeeSatang > 0;
+
+    public bool HasParcelInsurance =>
+        FulfillmentType == AppFulfillmentType.Physical &&
+        ParcelInsuranceFeeSatang > 0;
+
+    public string ParcelInsuranceFeeText =>
+        MoneyFormatter.Format(
+            ParcelInsuranceFeeSatang,
+            Currency);
+
+    public string ShippingDeclaredValueText =>
+        MoneyFormatter.Format(
+            ShippingDeclaredValueSatang,
+            Currency);
 
     public string ShippingServiceText =>
         string.IsNullOrWhiteSpace(ShippingServiceName)
@@ -465,7 +530,7 @@ public sealed record AppTransaction(
                 "TrackingSubmitted" or "TrackingUnverified" or "InTransit" or
                 "DigitalDeliverySubmitted" or "ShipmentOverdue" or
                 "DeliveredDisputeWindow" or "Disputed" or
-                "ResolutionPending" => 2,
+                "ResolutionPending" or "CarrierException" => 2,
             "BuyerConfirmedReceipt" or "PayoutEligible" or "PayoutPending" or
                 "PaidOut" => 3,
             "RefundPending" or "Refunded" => 2,
@@ -481,7 +546,8 @@ public sealed record AppTransaction(
             "TrackingSubmitted" or "TrackingUnverified" or "InTransit" or
                 "DigitalDeliverySubmitted" or "DeliveredDisputeWindow" or
                 "BuyerConfirmedReceipt" or "Disputed" or
-                "ResolutionPending" or "PayoutEligible" or
+                "ResolutionPending" or "CarrierException" or
+                "PayoutEligible" or
                 "PayoutPending" => 2,
             "PaidOut" => 3,
             _ => ExpirationReason == "BuyerDidNotPay" ? 1 : 0
@@ -500,7 +566,7 @@ public sealed record AppTransaction(
                 "TrackingSubmitted" or "TrackingUnverified" or "InTransit" or
                 "DigitalDeliverySubmitted" or "ShipmentOverdue" or
                 "DeliveredDisputeWindow" or "Disputed" or
-                "ResolutionPending" => 3,
+                "ResolutionPending" or "CarrierException" => 3,
             _ => 0
         },
         AppTransactionRole.Seller => State switch
@@ -510,7 +576,8 @@ public sealed record AppTransaction(
                 "ShipmentOverdue" => 2,
             "TrackingSubmitted" or "TrackingUnverified" or "InTransit" or
                 "DigitalDeliverySubmitted" or "DeliveredDisputeWindow" or
-                "BuyerConfirmedReceipt" or "PayoutEligible" or
+                "BuyerConfirmedReceipt" or "CarrierException" or
+                "PayoutEligible" or
                 "PayoutPending" => 3,
             _ => 0
         },

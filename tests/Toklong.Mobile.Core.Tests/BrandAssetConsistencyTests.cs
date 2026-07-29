@@ -86,6 +86,25 @@ public sealed class BrandAssetConsistencyTests
         Assert.Contains("#F6FAFF", Read("splash.svg"));
     }
 
+    [Fact]
+    public void IosLaunchAsset_IsBackgroundOnlyBeforeStartupMotion()
+    {
+        var document = XDocument.Load(BrandPath("splash_ios.svg"));
+
+        Assert.DoesNotContain(
+            document.Descendants(),
+            element =>
+                (string?)element.Attribute("id") ==
+                "transaction-rail");
+        var background = Assert.Single(
+            document.Descendants(),
+            element => element.Name.LocalName == "rect");
+        Assert.Equal(
+            "#F6FAFF",
+            (string?)background.Attribute("fill"),
+            ignoreCase: true);
+    }
+
     [Theory]
     [MemberData(nameof(ProgressAssets))]
     public void ProgressAssetUsesApprovedRoundedGeometry(string fileName)

@@ -2,6 +2,7 @@ using Toklong.Application;
 using Toklong.Infrastructure;
 using Toklong.Worker;
 using Toklong.Infrastructure.Services;
+using Toklong.Application.Features.Shipping.ProcessShippingOperations;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -16,6 +17,9 @@ DisputeEvidenceStoreOptions.ValidateConfiguration(
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.Configure<ShippingWorkerOptions>(
+    builder.Configuration.GetSection(
+        ShippingWorkerOptions.SectionName));
 builder.Services.AddHostedService<DeadlineWorker>();
 builder.Services.AddHostedService<FinancialOperationsWorker>();
 builder.Services.AddHostedService<ShippingOperationsWorker>();

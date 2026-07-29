@@ -144,6 +144,8 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
             .HasMaxLength(120);
         transaction.Property(x => x.ShippingLastProviderStatus)
             .HasMaxLength(40);
+        transaction.Property(x => x.ManualReturnResolutionReference)
+            .HasMaxLength(160);
         transaction.Property(x => x.LegalHoldReference)
             .HasMaxLength(160);
         transaction.Property(x => x.LegalHoldReason)

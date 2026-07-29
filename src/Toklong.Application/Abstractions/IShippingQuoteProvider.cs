@@ -93,6 +93,25 @@ public sealed record ShipmentLabelRequest(
     ShippingContactAddress Destination,
     int WeightGrams);
 
+public enum ShipmentMutationOutcome
+{
+    DefiniteFailure,
+    OutcomeUnknown
+}
+
+public sealed class ShipmentMutationException(
+    ShipmentMutationOutcome outcome,
+    string sanitizedCode) : Exception(sanitizedCode)
+{
+    public ShipmentMutationOutcome Outcome { get; } = outcome;
+    public string SanitizedCode { get; } =
+        string.IsNullOrWhiteSpace(sanitizedCode)
+            ? "provider-mutation-failed"
+            : sanitizedCode.Trim()[..Math.Min(
+                sanitizedCode.Trim().Length,
+                100)];
+}
+
 public interface IShipmentProvider
 {
     string ProviderName { get; }

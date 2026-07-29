@@ -151,12 +151,17 @@ public sealed class MobileSellerOfferApiTests
             using var invitationResponse = await client.GetAsync(
                 $"/api/mobile/seller-offers/{publicToken}");
             invitationResponse.EnsureSuccessStatusCode();
-            var invitation = await invitationResponse.Content
-                .ReadFromJsonAsync<SellerOfferResponse>();
+            var invitationJson =
+                await invitationResponse.Content.ReadAsStringAsync();
+            Assert.DoesNotContain(
+                "\"BuyerProtectionFeeSatang\"",
+                invitationJson,
+                StringComparison.Ordinal);
+            var invitation = JsonSerializer.Deserialize<SellerOfferResponse>(
+                invitationJson,
+                new JsonSerializerOptions(JsonSerializerDefaults.Web));
             Assert.NotNull(invitation);
-            Assert.Equal(
-                example.FeeSatang,
-                invitation.BuyerProtectionFeeSatang);
+            Assert.Equal(0, invitation.BuyerProtectionFeeSatang);
             Assert.Equal(0, invitation.PlatformFeeSatang);
             Assert.Equal(
                 example.ItemPriceSatang,
@@ -225,13 +230,9 @@ public sealed class MobileSellerOfferApiTests
             var accepted = await acceptResponse.Content
                 .ReadFromJsonAsync<SellerOfferActionResponse>();
             Assert.NotNull(accepted);
+            Assert.Equal(0, accepted.Transaction.BuyerProtectionFeeSatang);
             Assert.Equal(
-                example.FeeSatang,
-                accepted.Transaction.BuyerProtectionFeeSatang);
-            Assert.Equal(
-                example.ItemPriceSatang +
-                quote.FeeSatang +
-                example.FeeSatang,
+                example.ItemPriceSatang,
                 accepted.Transaction.AmountSatang);
 
             client.DefaultRequestHeaders.Authorization =
@@ -277,6 +278,7 @@ public sealed class MobileSellerOfferApiTests
             Assert.Equal(
                 example.ItemPriceSatang +
                 quote.FeeSatang +
+                stored.ParcelInsuranceFeeSatang +
                 example.FeeSatang,
                 stored.BuyerTotalSatang);
             Assert.Equal(
@@ -329,12 +331,17 @@ public sealed class MobileSellerOfferApiTests
                 "ผู้ซื้อ Historical",
                 "historical-v1@example.com",
                 now);
+            var verifiedSellerAccount = BuyerAccount.Create(
+                "+66920000002",
+                "สมชาย ใจดี",
+                "historical-seller@example.com",
+                now);
             var transaction =
                 TestTransactionFactory.CreateBuyerOffer(
                     buyer.Id,
                     buyer.FullName,
                     buyer.PhoneNumber,
-                    "+66812345678",
+                    verifiedSellerAccount.PhoneNumber,
                     FulfillmentType.PhysicalShipment,
                     "กล้อง Historical v1",
                     "กล้องพร้อมเลนส์ ใช้งานได้ปกติ",
@@ -347,8 +354,8 @@ public sealed class MobileSellerOfferApiTests
                     transitions);
             transaction.AcceptBuyerOffer(
                 Guid.NewGuid(),
-                "ผู้ขาย Historical",
-                "+66812345678",
+                "ผู้ขาย 0002",
+                verifiedSellerAccount.PhoneNumber,
                 "KBANK",
                 "ผู้ขาย Historical",
                 "1234567890",
@@ -372,7 +379,9 @@ public sealed class MobileSellerOfferApiTests
                 0,
                 450_000,
                 "buyer-protection-v1");
-            database.Buyers.Add(buyer);
+            database.Buyers.AddRange(
+                buyer,
+                verifiedSellerAccount);
             database.Transactions.Add(transaction);
             await database.SaveChangesAsync();
             transactionId = transaction.Id;
@@ -406,6 +415,9 @@ public sealed class MobileSellerOfferApiTests
             .ReadFromJsonAsync<TransactionResponse>();
 
         Assert.NotNull(historical);
+        Assert.Equal(
+            "สมชาย ใจดี",
+            historical.CounterpartyName);
         Assert.Equal(
             "buyer-protection-v1",
             historical.FeePolicyVersion);
@@ -563,9 +575,7 @@ public sealed class MobileSellerOfferApiTests
             accepted.Transaction.State);
         Assert.True(accepted.Session.CanSell);
         Assert.Equal(
-            450_000 +
-            quote.FeeSatang +
-            invitation.BuyerProtectionFeeSatang,
+            450_000,
             accepted.Transaction.AmountSatang);
         Assert.Equal(
             quote.FeeSatang,
@@ -942,6 +952,7 @@ public sealed class MobileSellerOfferApiTests
     private sealed record TransactionResponse(
         Guid Id,
         string State,
+        string CounterpartyName,
         long AmountSatang,
         long ItemPriceSatang,
         long ShippingFeeSatang,

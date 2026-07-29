@@ -20,7 +20,7 @@ public sealed class EvaluateDuePayoutsHandler(
         foreach (var transaction in due)
         {
             transaction.EvaluateDeadline(now, transitions);
-            if (transaction.State == TransactionState.PayoutEligible)
+            if (transaction.IsPayoutEligible)
             {
                 var payout = await payoutProvider.CreateInstructionAsync(
                     transaction.Id,

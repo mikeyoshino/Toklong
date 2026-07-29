@@ -1,4 +1,7 @@
 using MediatR;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using Toklong.Application.Abstractions;
 using Toklong.Application.Common;
 using Toklong.Application.Pricing;
@@ -73,9 +76,7 @@ public sealed class AcceptBuyerOfferHandler(
             x => x.Id == request.PayoutAccountId)
             ?? throw new DomainException("กรุณาเลือกบัญชีรับเงินของคุณ");
         var fees = feePolicy.GetDisclosure(transaction.PriceSatang);
-        if (fees.BuyerProtectionFeeSatang !=
-                request.DisclosedBuyerProtectionFeeSatang ||
-            fees.PlatformFeeSatang !=
+        if (fees.PlatformFeeSatang !=
                 request.DisclosedPlatformFeeSatang ||
             fees.SellerExpectedNetSatang !=
                 request.DisclosedSellerExpectedNetSatang ||
@@ -100,21 +101,78 @@ public sealed class AcceptBuyerOfferHandler(
             throw new DomainException(
                 "รายการดิจิทัลไม่ใช้ข้อมูลจัดส่ง");
 
-        transaction.AcceptBuyerOffer(
-            seller.Id,
-            seller.DisplayName,
-            seller.PhoneNumber,
-            payout.BankCode,
-            payout.AccountName,
-            payout.AccountNumber,
-            request.TransferRightsAttested,
-            now,
-            transitions,
-            fees.BuyerProtectionFeeSatang,
-            fees.PlatformFeeSatang,
-            fees.SellerExpectedNetSatang,
-            fees.PolicyVersion,
-            acceptedShipping);
+        if (acceptedShipping is not null &&
+            string.Equals(
+                acceptedShipping.Provider,
+                "shippop",
+                StringComparison.Ordinal))
+        {
+            var shipment = ManagedShipment.CreateOutbound(
+                transaction.Id,
+                new ManagedShipmentDraft(
+                    acceptedShipping.Provider,
+                    $"shipping-origin:{transaction.Id:N}",
+                    $"shipping-destination:{transaction.Id:N}",
+                    transaction.ProductName,
+                    acceptedShipping.WeightGrams,
+                    acceptedShipping.WidthCentimeters,
+                    acceptedShipping.LengthCentimeters,
+                    acceptedShipping.HeightCentimeters,
+                    acceptedShipping.CarrierCode,
+                    acceptedShipping.ServiceCode,
+                    acceptedShipping.ServiceName,
+                    acceptedShipping.FeeSatang,
+                    acceptedShipping.InsuranceFeeSatang,
+                    acceptedShipping.DeclaredValueSatang,
+                    acceptedShipping.InsuranceCode ??
+                    throw new DomainException(
+                        "บริการ SHIPPOP ต้องมีประกันเต็มมูลค่า"),
+                    acceptedShipping.QuoteReference,
+                    acceptedShipping.ExpiresAt),
+                now);
+            var fingerprint = ShippingFingerprint(shipment);
+            var operation = ShippingOperation.Queue(
+                transaction.Id,
+                shipment.Id,
+                ShippingOperationType.BookOutbound,
+                $"book-outbound:{transaction.Id:N}:{fingerprint}",
+                fingerprint,
+                now);
+            transaction.BeginManagedSellerAcceptance(
+                seller.Id,
+                seller.DisplayName,
+                seller.PhoneNumber,
+                payout.BankCode,
+                payout.AccountName,
+                payout.AccountNumber,
+                request.TransferRightsAttested,
+                now,
+                fees.BuyerProtectionFeeSatang,
+                fees.PlatformFeeSatang,
+                fees.SellerExpectedNetSatang,
+                fees.PolicyVersion,
+                acceptedShipping,
+                shipment,
+                operation);
+        }
+        else
+        {
+            transaction.AcceptBuyerOffer(
+                seller.Id,
+                seller.DisplayName,
+                seller.PhoneNumber,
+                payout.BankCode,
+                payout.AccountName,
+                payout.AccountNumber,
+                request.TransferRightsAttested,
+                now,
+                transitions,
+                fees.BuyerProtectionFeeSatang,
+                fees.PlatformFeeSatang,
+                fees.SellerExpectedNetSatang,
+                fees.PolicyVersion,
+                acceptedShipping);
+        }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return TransactionView.From(transaction);
@@ -197,35 +255,42 @@ public sealed class AcceptBuyerOfferHandler(
                 StringComparison.Ordinal))
             throw new DomainException(
                 "ผู้ให้บริการสร้างรายการจัดส่งไม่ตรงกับราคาที่เลือก");
-        var reservation = await shipmentProvider.ReserveAsync(
-            new ShipmentReservationRequest(
-                transaction.Id,
-                quoteRequest,
-                quote),
-            cancellationToken);
+        ShipmentReservation? reservation = null;
         if (!string.Equals(
-                reservation.Provider,
                 quote.Provider,
-                StringComparison.Ordinal) ||
-            !string.Equals(
-                reservation.CarrierCode,
-                quote.CarrierCode,
-                StringComparison.Ordinal) ||
-            !string.Equals(
-                reservation.ServiceCode,
-                quote.ServiceCode,
-                StringComparison.Ordinal) ||
-            reservation.FeeSatang != quote.FeeSatang ||
-            reservation.InsuranceFeeSatang !=
-                quote.InsuranceFeeSatang ||
-            reservation.DeclaredValueSatang !=
-                quote.DeclaredValueSatang ||
-            !string.Equals(
-                reservation.InsuranceCode,
-                quote.InsuranceCode,
+                "shippop",
                 StringComparison.Ordinal))
-            throw new DomainException(
-                "รายการจัดส่งไม่ตรงกับราคาที่เลือก กรุณาดูราคาใหม่");
+        {
+            reservation = await shipmentProvider.ReserveAsync(
+                new ShipmentReservationRequest(
+                    transaction.Id,
+                    quoteRequest,
+                    quote),
+                cancellationToken);
+            if (!string.Equals(
+                    reservation.Provider,
+                    quote.Provider,
+                    StringComparison.Ordinal) ||
+                !string.Equals(
+                    reservation.CarrierCode,
+                    quote.CarrierCode,
+                    StringComparison.Ordinal) ||
+                !string.Equals(
+                    reservation.ServiceCode,
+                    quote.ServiceCode,
+                    StringComparison.Ordinal) ||
+                reservation.FeeSatang != quote.FeeSatang ||
+                reservation.InsuranceFeeSatang !=
+                    quote.InsuranceFeeSatang ||
+                reservation.DeclaredValueSatang !=
+                    quote.DeclaredValueSatang ||
+                !string.Equals(
+                    reservation.InsuranceCode,
+                    quote.InsuranceCode,
+                    StringComparison.Ordinal))
+                throw new DomainException(
+                    "รายการจัดส่งไม่ตรงกับราคาที่เลือก กรุณาดูราคาใหม่");
+        }
         if (input.RememberOrigin &&
             !input.UseSavedOrigin)
             seller.UpdateSavedShippingOrigin(
@@ -252,11 +317,38 @@ public sealed class AcceptBuyerOfferHandler(
             quote.ExpiresAt,
             origin.DistrictName,
             origin.SubdistrictName,
-            reservation.PurchaseReference,
-            reservation.ProviderTrackingCode,
-            reservation.CourierTrackingCode,
-            reservation.ReservedAt,
+            reservation?.PurchaseReference,
+            reservation?.ProviderTrackingCode,
+            reservation?.CourierTrackingCode,
+            reservation?.ReservedAt,
             origin.AddressLine);
+    }
+
+    private static string ShippingFingerprint(
+        ManagedShipment shipment)
+    {
+        var json = JsonSerializer.Serialize(new
+        {
+            shipment.TransactionId,
+            shipment.Direction,
+            shipment.Provider,
+            shipment.ParcelName,
+            shipment.WeightGrams,
+            shipment.WidthCentimeters,
+            shipment.LengthCentimeters,
+            shipment.HeightCentimeters,
+            shipment.CarrierCode,
+            shipment.ServiceCode,
+            shipment.BaseShippingFeeSatang,
+            shipment.InsuranceFeeSatang,
+            shipment.DeclaredValueSatang,
+            shipment.InsuranceCode,
+            shipment.QuoteReference
+        });
+        return Convert.ToHexString(
+                SHA256.HashData(
+                    Encoding.UTF8.GetBytes(json)))
+            .ToLowerInvariant();
     }
 
     private SellerShippingOriginAddress ResolveOrigin(

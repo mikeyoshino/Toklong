@@ -72,6 +72,34 @@ public sealed class ManagedShipmentTests
                 Now));
     }
 
+    [Fact]
+    public void Reservation_and_confirmation_are_recorded_in_order()
+    {
+        var shipment = ManagedShipment.CreateOutbound(
+            Guid.NewGuid(),
+            Draft(),
+            Now);
+
+        shipment.RecordReservation(
+            "purchase-001",
+            "provider-track-001",
+            null,
+            Now.AddMinutes(1));
+        shipment.RecordConfirmation(
+            "courier-track-001",
+            "booking",
+            Now.AddMinutes(2));
+
+        Assert.Equal(
+            ManagedShipmentStatus.Confirmed,
+            shipment.Status);
+        Assert.Equal("purchase-001", shipment.PurchaseReference);
+        Assert.Equal(
+            "courier-track-001",
+            shipment.CourierTrackingCode);
+        Assert.Equal(2, shipment.Version);
+    }
+
     private static ManagedShipmentDraft Draft() =>
         new(
             "shippop",

@@ -12,6 +12,7 @@ using Toklong.Crm.Authentication;
 using Toklong.Crm.Accounts;
 using Toklong.Crm.Components;
 using Toklong.Crm.Disputes;
+using Toklong.Crm.Shipping;
 using Toklong.Crm.Persistence;
 using Toklong.Application;
 using Toklong.Infrastructure;
@@ -70,6 +71,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<CrmDisputeOperations>();
+builder.Services.AddScoped<CrmShippingOperations>();
 builder.Services.AddScoped<CrmAccountOperations>();
 
 builder.Services.AddDbContextFactory<CrmDbContext>(options =>

@@ -136,6 +136,21 @@
             </Border>
 
             <Border
+                IsVisible="{Binding Transaction.ShowShippingProgress}"
+                Style="{StaticResource SurfaceCard}"
+                Padding="17">
+                <VerticalStackLayout Spacing="14">
+                    <Label
+                        Style="{StaticResource SectionTitle}"
+                        FontSize="15"
+                        Text="สถานะการจัดส่ง" />
+                    <controls:ShippingProgressView
+                        AutomationId="ShippingProgress"
+                        Transaction="{Binding Transaction}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border
                 Style="{StaticResource SurfaceCard}"
                 Padding="18">
                 <VerticalStackLayout Spacing="11">
@@ -197,7 +212,8 @@
                                 Grid.Column="1"
                                 FontAttributes="Bold"
                                 FontSize="13"
-                                Text="{Binding Transaction.ConditionLabel}" />
+                                Text="{Binding Transaction.ConditionLabel}"
+                                TextColor="{StaticResource Ink}" />
                         </Grid>
                         <VerticalStackLayout
                             IsVisible="{Binding Transaction.HasKnownDefects}"
@@ -221,20 +237,8 @@
                                 Grid.Column="1"
                                 FontAttributes="Bold"
                                 FontSize="13"
-                                Text="{Binding Transaction.FulfillmentConsumerLabel}" />
-                        </Grid>
-                        <Grid
-                            IsVisible="{Binding Transaction.HasDeliveryRegion}"
-                            ColumnDefinitions="*,Auto">
-                            <Label
-                                FontSize="13"
-                                Text="พื้นที่จัดส่งที่ตกลง"
-                                TextColor="{StaticResource Muted}" />
-                            <Label
-                                Grid.Column="1"
-                                FontAttributes="Bold"
-                                FontSize="13"
-                                Text="{Binding Transaction.DeliveryRegionText}" />
+                                Text="{Binding Transaction.FulfillmentConsumerLabel}"
+                                TextColor="{StaticResource Ink}" />
                         </Grid>
                         <VerticalStackLayout
                             IsVisible="{Binding Transaction.HasDeliveryAddress}"
@@ -262,7 +266,8 @@
                                 <Label
                                     Grid.Column="1"
                                     FontSize="13"
-                                    Text="{Binding Transaction.ItemPriceText}" />
+                                    Text="{Binding Transaction.ItemPriceText}"
+                                    TextColor="{StaticResource Ink}" />
                             </Grid>
                             <Grid
                                 IsVisible="{Binding Transaction.HasShippingFee}"
@@ -274,7 +279,34 @@
                                 <Label
                                     Grid.Column="1"
                                     FontSize="13"
-                                    Text="{Binding Transaction.ShippingFeeText}" />
+                                    Text="{Binding Transaction.ShippingFeeText}"
+                                    TextColor="{StaticResource Ink}" />
+                            </Grid>
+                            <Grid
+                                IsVisible="{Binding Transaction.HasParcelInsurance}"
+                                ColumnDefinitions="*,Auto">
+                                <Label
+                                    FontSize="13"
+                                    Text="ประกันพัสดุ"
+                                    TextColor="{StaticResource Muted}" />
+                                <Label
+                                    Grid.Column="1"
+                                    FontSize="13"
+                                    Text="{Binding Transaction.ParcelInsuranceFeeText}"
+                                    TextColor="{StaticResource Ink}" />
+                            </Grid>
+                            <Grid
+                                IsVisible="{Binding Transaction.HasParcelInsurance}"
+                                ColumnDefinitions="*,Auto">
+                                <Label
+                                    FontSize="13"
+                                    Text="มูลค่าที่เอาประกัน"
+                                    TextColor="{StaticResource Muted}" />
+                                <Label
+                                    Grid.Column="1"
+                                    FontSize="13"
+                                    Text="{Binding Transaction.ShippingDeclaredValueText}"
+                                    TextColor="{StaticResource Ink}" />
                             </Grid>
                             <Grid
                                 IsVisible="{Binding Transaction.HasShippingFee}"
@@ -287,13 +319,15 @@
                                     Grid.Column="1"
                                     FontAttributes="Bold"
                                     FontSize="13"
-                                    Text="{Binding Transaction.ShippingServiceText}" />
+                                    Text="{Binding Transaction.ShippingServiceText}"
+                                    TextColor="{StaticResource Ink}" />
                             </Grid>
                             <Grid ColumnDefinitions="*,Auto">
                                 <Label
                                     FontAttributes="Bold"
                                     FontSize="14"
-                                    Text="ยอดที่คุณจะได้รับ" />
+                                    Text="ยอดที่คุณจะได้รับ"
+                                    TextColor="{StaticResource Ink}" />
                                 <Label
                                     Grid.Column="1"
                                     FontAttributes="Bold"
@@ -338,6 +372,18 @@
                                     Grid.Column="1"
                                     FontSize="13"
                                     Text="{Binding Transaction.ShippingFeeText}" />
+                            </Grid>
+                            <Grid
+                                IsVisible="{Binding Transaction.HasParcelInsurance}"
+                                ColumnDefinitions="*,Auto">
+                                <Label
+                                    FontSize="13"
+                                    Text="ประกันพัสดุ"
+                                    TextColor="{StaticResource Muted}" />
+                                <Label
+                                    Grid.Column="1"
+                                    FontSize="13"
+                                    Text="{Binding Transaction.ParcelInsuranceFeeText}" />
                             </Grid>
                             <Grid ColumnDefinitions="*,Auto">
                                 <Label
@@ -827,7 +873,7 @@
                 Style="{StaticResource SurfaceCard}"
                 Padding="17">
                 <VerticalStackLayout Spacing="14">
-                    <Label Style="{StaticResource SectionTitle}" FontSize="15" Text="ตอนนี้ถึงขั้นไหน" />
+                    <Label Style="{StaticResource SectionTitle}" FontSize="15" Text="สถานะการซื้อขาย" />
                     <controls:TransactionProgressView
                         AutomationId="TransactionProgress"
                         Transaction="{Binding Transaction}" />

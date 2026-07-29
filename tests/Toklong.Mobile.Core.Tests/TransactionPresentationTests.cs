@@ -95,6 +95,29 @@ public sealed class TransactionPresentationTests
     }
 
     [Fact]
+    public void BuyerCanRetryPaymentAfterClosingPaymentSheet()
+    {
+        var buyerPresentation = TransactionStatePresenter.Present(
+            "PaymentPending",
+            AppTransactionRole.Buyer,
+            AppFulfillmentType.Physical);
+        var sellerPresentation = TransactionStatePresenter.Present(
+            "PaymentPending",
+            AppTransactionRole.Seller,
+            AppFulfillmentType.Physical);
+
+        Assert.Equal(
+            TransactionBucket.ActionRequired,
+            buyerPresentation.Bucket);
+        Assert.Equal(
+            TransactionAction.ReviewAndPay,
+            buyerPresentation.PrimaryAction);
+        Assert.Equal(
+            TransactionAction.ViewStatus,
+            sellerPresentation.PrimaryAction);
+    }
+
+    [Fact]
     public void SellerSeesFulfillmentOnlyAfterConfirmedPhysicalPayment()
     {
         var beforePayment = TransactionStatePresenter.Present(

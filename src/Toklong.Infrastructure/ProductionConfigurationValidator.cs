@@ -4,6 +4,7 @@ using Toklong.Infrastructure.Email;
 using Toklong.Infrastructure.Payments;
 using Toklong.Infrastructure.Pricing;
 using Toklong.Infrastructure.Services;
+using Toklong.Domain.Transactions;
 
 namespace Toklong.Infrastructure;
 
@@ -107,6 +108,47 @@ public static class ProductionConfigurationValidator
                             .SupportedServiceCodes.Contains(code)))
                 errors.Add(
                     "Shippop:ServiceCodes contains an unsupported service");
+            foreach (var serviceCode in shippop.ServiceCodes)
+            {
+                var profile = shippop.Profile(serviceCode);
+                if (profile is null)
+                {
+                    errors.Add(
+                        $"Shippop:Services:{serviceCode} profile is required");
+                    continue;
+                }
+                var anyCapability =
+                    profile.QuoteEnabled ||
+                    profile.BookOutboundEnabled ||
+                    profile.ConfirmEnabled ||
+                    profile.ReturnEnabled ||
+                    profile.InsuranceEnabled;
+                if (anyCapability &&
+                    string.IsNullOrWhiteSpace(
+                        profile.CertificationReference))
+                    errors.Add(
+                        $"Shippop service {serviceCode} requires a certification reference");
+                if (!string.Equals(
+                        profile.HandoffMode,
+                        "DropOff",
+                        StringComparison.Ordinal))
+                    errors.Add(
+                        $"Shippop service {serviceCode} must use DropOff handoff");
+                if (anyCapability &&
+                    profile.MaximumCoverageSatang <
+                    SaleTransaction
+                        .MaximumProtectedItemPriceSatang)
+                    errors.Add(
+                        $"Shippop service {serviceCode} coverage is below the supported maximum");
+                if (profile.BookOutboundEnabled &&
+                    !profile.OperationLookupEnabled)
+                    errors.Add(
+                        $"Shippop service {serviceCode} booking requires operation lookup");
+                if (profile.BookOutboundEnabled &&
+                    !profile.InsuranceEnabled)
+                    errors.Add(
+                        $"Shippop service {serviceCode} booking requires full-value insurance");
+            }
         }
 
         var payout = BankPayoutOptions.From(configuration);

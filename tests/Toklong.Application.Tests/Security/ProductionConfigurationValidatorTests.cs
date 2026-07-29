@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Toklong.Infrastructure;
+using Toklong.Domain.Transactions;
 
 namespace Toklong.Application.Tests.Security;
 
@@ -177,6 +178,36 @@ public sealed class ProductionConfigurationValidatorTests
     }
 
     [Fact]
+    public void Production_rejects_booking_without_safe_lookup_and_insurance()
+    {
+        var values = SafeProductionValues();
+        values["Shippop:Services:EMST:BookOutboundEnabled"] =
+            "true";
+        values["Shippop:Services:EMST:CertificationReference"] =
+            "CERT-2026-001";
+        values["Shippop:Services:EMST:MaximumCoverageSatang"] =
+            SaleTransaction.MaximumProtectedItemPriceSatang
+                .ToString();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(values)
+            .Build();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(
+                configuration,
+                new TestEnvironment("Production"),
+                requireMobileLinks: false,
+                requirePersistentStorage: true));
+
+        Assert.Contains(
+            "booking requires operation lookup",
+            exception.Message);
+        Assert.Contains(
+            "booking requires full-value insurance",
+            exception.Message);
+    }
+
+    [Fact]
     public void Safe_single_host_production_shape_is_accepted()
     {
         var configuration = new ConfigurationBuilder()
@@ -250,7 +281,23 @@ public sealed class ProductionConfigurationValidatorTests
                 "shipping@toklong.co.th",
             ["Shippop:QuoteSigningSecret"] =
                 "shippop-quote-signing-secret-at-least-32-characters",
-            ["Shippop:ServiceCodes:0"] = "EMST"
+            ["Shippop:ServiceCodes:0"] = "EMST",
+            ["Shippop:Services:EMST:QuoteEnabled"] = "false",
+            ["Shippop:Services:EMST:BookOutboundEnabled"] =
+                "false",
+            ["Shippop:Services:EMST:ConfirmEnabled"] =
+                "false",
+            ["Shippop:Services:EMST:ReturnEnabled"] =
+                "false",
+            ["Shippop:Services:EMST:InsuranceEnabled"] =
+                "false",
+            ["Shippop:Services:EMST:OperationLookupEnabled"] =
+                "false",
+            ["Shippop:Services:EMST:HandoffMode"] = "DropOff",
+            ["Shippop:Services:EMST:MaximumCoverageSatang"] =
+                "0",
+            ["Shippop:Services:EMST:CertificationReference"] =
+                ""
         };
 
     private sealed class TestEnvironment(string name)

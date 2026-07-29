@@ -1,6 +1,7 @@
 using MediatR;
 using Toklong.Application.Abstractions;
 using Toklong.Domain.Transactions;
+using Toklong.Application.Features.Shipping;
 
 namespace Toklong.Application.Features.Transactions.EvaluateDueExpirations;
 
@@ -26,7 +27,13 @@ public sealed class EvaluateDueExpirationsHandler(
         foreach (var transaction in due)
         {
             if (transaction.ExpireIfDue(now, transitions))
+            {
+                ManagedShippingOperationQueue
+                    .QueueCancellationIfRequired(
+                        transaction,
+                        now);
                 changed++;
+            }
         }
 
         if (changed > 0)

@@ -1,6 +1,7 @@
 using MediatR;
 using Toklong.Application.Abstractions;
 using Toklong.Domain.Transactions;
+using Toklong.Application.Features.Shipping;
 
 namespace Toklong.Application.Features.Payments.ReconcilePayments;
 
@@ -43,6 +44,11 @@ public sealed class ReconcilePendingPaymentsHandler(
                 result.OccurredAt,
                 clock.UtcNow,
                 transitions);
+            ManagedShippingOperationQueue.QueueConfirmationIfRequired(
+                transaction,
+                clock.UtcNow,
+                ActorRole.Reconciliation,
+                "stripe-reconciliation");
             changed++;
         }
 

@@ -9,6 +9,7 @@ using Toklong.Infrastructure.Payments;
 using Toklong.Infrastructure.Pricing;
 using Toklong.Infrastructure.Security;
 using Toklong.Infrastructure.Services;
+using Toklong.Application.Features.Shipping.ProcessShippingOperations;
 
 namespace Toklong.Infrastructure;
 
@@ -24,6 +25,7 @@ public static class DependencyInjection
         services.AddScoped<
             IShippingOperationRepository,
             ShippingOperationRepository>();
+        services.AddSingleton<ShippingOperationMetrics>();
         services.AddScoped<IRetentionRepository, RetentionRepository>();
         services.AddScoped<IBuyerRepository, BuyerRepository>();
         services.AddScoped<

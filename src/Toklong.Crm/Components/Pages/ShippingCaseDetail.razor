@@ -1,0 +1,75 @@
+@page "/shipping/{TransactionId:guid}"
+@attribute [Authorize(Policy = CrmPolicies.DisputeReader)]
+@inject CrmShippingOperations Operations
+
+<PageTitle>เคสขนส่ง · TOKLONG CRM</PageTitle>
+
+@if (_detail is null)
+{
+    <p role="status">@(_error ?? "กำลังโหลดเคสขนส่ง…")</p>
+}
+else
+{
+    <h1>เคสขนส่ง</h1>
+    <section class="case-summary">
+        <h2>@_detail.ProductName</h2>
+        <dl>
+            <dt>สถานะ</dt><dd>@_detail.State</dd>
+            <dt>บริการ</dt><dd>@(_detail.ServiceName ?? "—")</dd>
+            <dt>เลขพัสดุ</dt><dd>@(_detail.TrackingNumber ?? "—")</dd>
+        </dl>
+    </section>
+
+    <h2>ยอดปรับจากผู้ให้บริการ</h2>
+    @foreach (var item in _detail.Adjustments)
+    {
+        <article>
+            <strong>@item.ReasonCode</strong>
+            <span>@item.AmountSatang @item.Currency</span>
+            <small>@item.CrmCaseReference</small>
+        </article>
+    }
+
+    <h2>ประกันพัสดุ</h2>
+    @foreach (var item in _detail.InsuranceCases)
+    {
+        <article>
+            <strong>@item.Status · @item.ReasonCode</strong>
+            <span>@item.ClaimedAmountSatang / @item.DeclaredValueSatang @item.Currency</span>
+            <small>@item.CrmCaseReference</small>
+        </article>
+    }
+
+    <h2>ประวัติ</h2>
+    @foreach (var item in _detail.AuditEvents)
+    {
+        <article>
+            <strong>@item.Name</strong>
+            <time>@item.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</time>
+        </article>
+    }
+}
+
+@code {
+    [Parameter] public Guid TransactionId { get; set; }
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+    private CrmShippingCaseDetail? _detail;
+    private string? _error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            var state = await AuthenticationStateTask!;
+            _detail = await Operations.GetAsync(
+                TransactionId,
+                state.User,
+                CancellationToken.None);
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+        }
+    }
+}

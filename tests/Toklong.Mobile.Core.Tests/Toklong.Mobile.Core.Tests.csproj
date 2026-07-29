@@ -80,6 +80,9 @@
     <None Include="../../src/Toklong.Mobile/Controls/TransactionProgressView.xaml"
           Link="Ui/Controls/TransactionProgressView.xaml"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Mobile/Controls/ShippingProgressView.xaml"
+          Link="Ui/Controls/ShippingProgressView.xaml"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../src/Toklong.Mobile/Pages/*.xaml"
           Link="Ui/Pages/%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" />
@@ -97,6 +100,9 @@
           CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../src/Toklong.Mobile/Resources/Splash/splash.svg"
           Link="Brand/splash.svg"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Mobile/Resources/Splash/splash_ios.svg"
+          Link="Brand/splash_ios.svg"
           CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../src/Toklong.Mobile/Resources/Images/ui_ai_assist.svg"
           Link="Brand/ui_ai_assist.svg"

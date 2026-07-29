@@ -108,6 +108,21 @@ public sealed class SellerOnboardingTests
     }
 
     [Fact]
+    public void Seller_profile_uses_registered_full_name_instead_of_phone()
+    {
+        var seller = SellerAccount.Create(
+            "+66812345678",
+            DateTimeOffset.UtcNow,
+            "สมชาย   ใจดี");
+
+        Assert.Equal("สมชาย ใจดี", seller.DisplayName);
+
+        seller.UpdateDisplayName("สมชาย ใจเย็น");
+
+        Assert.Equal("สมชาย ใจเย็น", seller.DisplayName);
+    }
+
+    [Fact]
     public void Seller_cannot_update_an_account_outside_their_profile()
     {
         var seller = SellerAccount.Create(

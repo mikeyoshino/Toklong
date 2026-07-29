@@ -15,5 +15,6 @@
     <Project Path="tests/Toklong.Crm.Tests/Toklong.Crm.Tests.csproj" />
     <Project Path="tests/Toklong.Domain.Tests/Toklong.Domain.Tests.csproj" />
     <Project Path="tests/Toklong.Mobile.Core.Tests/Toklong.Mobile.Core.Tests.csproj" />
+    <Project Path="tests/Toklong.Shippop.Certification/Toklong.Shippop.Certification.csproj" />
   </Folder>
 </Solution>

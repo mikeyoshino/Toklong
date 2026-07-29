@@ -37,6 +37,11 @@ public static class TransactionStatePresenter
                 Action("จ่ายเงินได้", "ดูรายละเอียดแล้วจ่าย", TransactionAction.ReviewAndPay),
             "SellerAcceptedAwaitingPayment" =>
                 Progress("รอผู้ซื้อจ่ายเงิน"),
+            "PaymentPending" when role == AppTransactionRole.Buyer =>
+                Action(
+                    "กำลังเช็กการจ่ายเงิน",
+                    "จ่ายเงินต่อ",
+                    TransactionAction.ReviewAndPay),
             "CheckoutStarted" or "PaymentPending" =>
                 Progress("กำลังเช็กการจ่ายเงิน"),
             "PaidAwaitingShipment" when role == AppTransactionRole.Seller =>
@@ -57,6 +62,13 @@ public static class TransactionStatePresenter
                 Progress("กำลังเช็กเลขพัสดุ"),
             "InTransit" =>
                 Progress("กำลังจัดส่ง"),
+            "CarrierException" =>
+                Progress("การจัดส่งต้องตรวจสอบ") with
+                {
+                    PrimaryAction =
+                        TransactionAction.ViewStatus,
+                    PrimaryActionLabel = "ดูรายละเอียด"
+                },
             "DigitalDeliverySubmitted" =>
                 Progress("รอผู้ซื้อยืนยันรับของ"),
             "DeliveredDisputeWindow" =>

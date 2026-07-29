@@ -15,6 +15,7 @@ public enum TransactionState
     TrackingSubmitted,
     TrackingUnverified,
     InTransit,
+    CarrierException,
     DeliveredDisputeWindow,
     BuyerConfirmedReceipt,
     Disputed,

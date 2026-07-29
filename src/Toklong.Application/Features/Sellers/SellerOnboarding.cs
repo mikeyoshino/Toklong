@@ -94,6 +94,7 @@ public sealed class GetSellerProfileByPhoneHandler(
 
 public sealed class EnsureSellerProfileHandler(
     ISellerRepository sellers,
+    IBuyerRepository buyers,
     IUnitOfWork unitOfWork,
     IClock clock)
     : IRequestHandler<EnsureSellerProfileCommand, SellerProfile>
@@ -106,14 +107,23 @@ public sealed class EnsureSellerProfileHandler(
         var seller = await sellers.GetByPhoneAsync(
             phone,
             cancellationToken);
+        var registeredAccount = await buyers.GetByPhoneAsync(
+            phone,
+            cancellationToken);
         if (seller is null)
         {
-            seller = SellerAccount.Create(phone, clock.UtcNow);
+            seller = SellerAccount.Create(
+                phone,
+                clock.UtcNow,
+                registeredAccount?.FullName);
             await sellers.AddAsync(seller, cancellationToken);
         }
         else
         {
             seller.MarkPhoneVerified(clock.UtcNow);
+            if (registeredAccount is not null)
+                seller.UpdateDisplayName(
+                    registeredAccount.FullName);
         }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);

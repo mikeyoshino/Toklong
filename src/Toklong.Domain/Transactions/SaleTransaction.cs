@@ -100,6 +100,9 @@ public sealed class SaleTransaction
     public string? ShippingLastProviderStatus { get; private set; }
     public DateTimeOffset? ShippingLastReconciledAt { get; private set; }
     public DateTimeOffset? ShippingCancelledAt { get; private set; }
+    public bool ReturnRequired { get; private set; }
+    public DateTimeOffset? ReturnDeliveredAt { get; private set; }
+    public string? ManualReturnResolutionReference { get; private set; }
     public DateTimeOffset? BuyerAcceptedAt { get; private set; }
     public string? AgreementCoreSnapshotJson { get; private set; }
     public string? AgreementCoreSnapshotHash { get; private set; }
@@ -188,6 +191,28 @@ public sealed class SaleTransaction
         FirstCarrierScanAt.HasValue &&
         ShipByAt.HasValue &&
         FirstCarrierScanAt.Value <= ShipByAt.Value;
+    public bool HasOpenShippingException =>
+        State == TransactionState.CarrierException ||
+        _shippingOperations.Any(operation =>
+            operation.Status is
+                ShippingOperationStatus.OutcomeUnknown or
+                ShippingOperationStatus.NeedsReview) ||
+        _shippingInsuranceCases.Any(insuranceCase =>
+            insuranceCase.Status ==
+                ShippingInsuranceCaseStatus.Open) ||
+        _providerShippingAdjustments.Count > 0;
+    public bool IsPayoutEligible =>
+        State == TransactionState.PayoutEligible &&
+        !HasOpenShippingException &&
+        !(DisputeOpenedAt.HasValue &&
+          !DisputeResolvedAt.HasValue);
+    public bool IsAutomaticRefundEligible =>
+        State == TransactionState.RefundPending &&
+        !HasOpenShippingException &&
+        (!ReturnRequired ||
+         ReturnDeliveredAt.HasValue ||
+         !string.IsNullOrWhiteSpace(
+             ManualReturnResolutionReference));
 
     public void QueueManagedShipment(
         ManagedShipment shipment,
@@ -240,6 +265,313 @@ public sealed class SaleTransaction
                 shipment.Direction,
                 operationId = operation.Id,
                 operation.OperationType
+            })));
+        Version++;
+    }
+
+    public void QueueShippingOperation(
+        ShippingOperation operation,
+        ActorRole actorRole,
+        string actorId,
+        DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        if (actorRole is not (
+                ActorRole.System or
+                ActorRole.Reconciliation or
+                ActorRole.PaymentProvider))
+            throw new DomainException(
+                "ไม่มีสิทธิ์สร้างงานจัดส่ง");
+        if (operation.TransactionId != Id ||
+            _managedShipments.All(item =>
+                item.Id != operation.ManagedShipmentId))
+            throw new DomainException(
+                "งานจัดส่งไม่ตรงกับรายการซื้อขาย");
+        if (_shippingOperations.Any(item =>
+                string.Equals(
+                    item.IdempotencyKey,
+                    operation.IdempotencyKey,
+                    StringComparison.Ordinal)))
+            return;
+
+        var cleanActor = Required(actorId, "ผู้สร้างงานจัดส่ง");
+        _shippingOperations.Add(operation);
+        _auditEvents.Add(new AuditEvent(
+            Id,
+            actorRole,
+            cleanActor,
+            "shipping.operation_queued",
+            State,
+            State,
+            now,
+            operation.Id.ToString("N"),
+            operation.IdempotencyKey,
+            JsonSerializer.Serialize(new
+            {
+                shipmentId = operation.ManagedShipmentId,
+                operationId = operation.Id,
+                operation.OperationType
+            })));
+        Version++;
+    }
+
+    public void RecordProviderShippingAdjustment(
+        ProviderShippingAdjustment adjustment,
+        string actorId,
+        DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(adjustment);
+        if (adjustment.TransactionId != Id ||
+            _managedShipments.All(item =>
+                item.Id != adjustment.ManagedShipmentId))
+            throw new DomainException(
+                "ยอดปรับค่าจัดส่งไม่ตรงกับรายการ");
+        if (_providerShippingAdjustments.Any(item =>
+                string.Equals(
+                    item.ProviderReference,
+                    adjustment.ProviderReference,
+                    StringComparison.Ordinal)))
+            return;
+        _providerShippingAdjustments.Add(adjustment);
+        _auditEvents.Add(new AuditEvent(
+            Id,
+            ActorRole.Reconciliation,
+            Required(actorId, "ผู้บันทึกยอดปรับ"),
+            "shipping.adjustment_recorded",
+            State,
+            State,
+            now,
+            adjustment.CrmCaseReference,
+            $"shipping-adjustment:{adjustment.ProviderReference}",
+            JsonSerializer.Serialize(new
+            {
+                adjustment.Id,
+                adjustment.ManagedShipmentId,
+                adjustment.Provider,
+                adjustment.ProviderReference,
+                adjustment.AmountSatang,
+                adjustment.Currency,
+                adjustment.ReasonCode
+            })));
+        Version++;
+    }
+
+    public void OpenShippingInsuranceCase(
+        ShippingInsuranceCase insuranceCase,
+        string actorId,
+        DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(insuranceCase);
+        if (insuranceCase.TransactionId != Id ||
+            _managedShipments.All(item =>
+                item.Id != insuranceCase.ManagedShipmentId))
+            throw new DomainException(
+                "เคสประกันไม่ตรงกับรายการ");
+        if (_shippingInsuranceCases.Any(item =>
+                string.Equals(
+                    item.ProviderCaseReference,
+                    insuranceCase.ProviderCaseReference,
+                    StringComparison.Ordinal)))
+            return;
+        _shippingInsuranceCases.Add(insuranceCase);
+        _auditEvents.Add(new AuditEvent(
+            Id,
+            ActorRole.Reconciliation,
+            Required(actorId, "ผู้เปิดเคส"),
+            "shipping.insurance_case_opened",
+            State,
+            State,
+            now,
+            insuranceCase.CrmCaseReference,
+            $"shipping-insurance:{insuranceCase.ProviderCaseReference}",
+            JsonSerializer.Serialize(new
+            {
+                insuranceCase.Id,
+                insuranceCase.ManagedShipmentId,
+                insuranceCase.Provider,
+                insuranceCase.ProviderCaseReference,
+                insuranceCase.ReasonCode,
+                insuranceCase.DeclaredValueSatang,
+                insuranceCase.ClaimedAmountSatang,
+                insuranceCase.Currency
+            })));
+        Version++;
+    }
+
+    public void OpenCarrierException(
+        ActorRole actorRole,
+        string actorId,
+        string reasonCode,
+        string caseReference,
+        string idempotencyKey,
+        DateTimeOffset now,
+        TransactionTransitionService transitions)
+    {
+        if (actorRole is not (
+                ActorRole.CarrierProvider or
+                ActorRole.Reconciliation or
+                ActorRole.System))
+            throw new DomainException(
+                "ไม่มีสิทธิ์เปิดเคสขนส่ง");
+        transitions.Transition(
+            this,
+            TransactionState.CarrierException,
+            actorRole,
+            Required(actorId, "ผู้เปิดเคส"),
+            "shipping.carrier_exception_opened",
+            now,
+            Required(caseReference, "เลขเคส"),
+            Required(idempotencyKey, "idempotency key"),
+            JsonSerializer.Serialize(new
+            {
+                reasonCode = Required(reasonCode, "เหตุผล"),
+                caseReference
+            }));
+    }
+
+    public void ResolveCarrierException(
+        TransactionState targetState,
+        string actorId,
+        string reason,
+        string caseReference,
+        string idempotencyKey,
+        DateTimeOffset now,
+        TransactionTransitionService transitions)
+    {
+        if (State != TransactionState.CarrierException ||
+            targetState is not (
+                TransactionState.TrackingUnverified or
+                TransactionState.RefundPending or
+                TransactionState.ResolutionPending))
+            throw new DomainException(
+                "เส้นทางหลังตรวจเคสขนส่งไม่ถูกต้อง");
+        transitions.Transition(
+            this,
+            targetState,
+            ActorRole.Reconciliation,
+            Required(actorId, "ผู้ปิดเคส"),
+            "shipping.carrier_exception_resolved",
+            now,
+            Required(caseReference, "เลขเคส"),
+            Required(idempotencyKey, "idempotency key"),
+            JsonSerializer.Serialize(new
+            {
+                reason = Required(reason, "เหตุผล"),
+                caseReference,
+                targetState
+            }));
+    }
+
+    public void AuthorizeManagedReturn(
+        ManagedShipment shipment,
+        ShippingOperation operation,
+        string actorId,
+        string caseReference,
+        string reason,
+        string idempotencyKey,
+        DateTimeOffset now)
+    {
+        if (State != TransactionState.ResolutionPending)
+            throw new DomainException(
+                "รายการนี้ยังไม่อยู่ในขั้นตอนอนุมัติส่งคืน");
+        if (shipment.Direction != ShipmentDirection.Return ||
+            operation.OperationType !=
+                ShippingOperationType.BookReturn)
+            throw new DomainException(
+                "ข้อมูลจัดส่งคืนไม่ถูกต้อง");
+        ReturnRequired = true;
+        QueueManagedShipment(
+            shipment,
+            operation,
+            ActorRole.Reconciliation,
+            Required(actorId, "ผู้อนุมัติส่งคืน"),
+            now);
+        _auditEvents.Add(new AuditEvent(
+            Id,
+            ActorRole.Reconciliation,
+            actorId.Trim(),
+            "shipping.return_authorized",
+            State,
+            State,
+            now,
+            Required(caseReference, "เลขเคส"),
+            Required(idempotencyKey, "idempotency key"),
+            JsonSerializer.Serialize(new
+            {
+                reason = Required(reason, "เหตุผล"),
+                shipmentId = shipment.Id
+            })));
+        Version++;
+    }
+
+    public void RecordTrustedReturnDelivery(
+        Guid managedShipmentId,
+        string eventId,
+        DateTimeOffset deliveredAt,
+        string actorId,
+        DateTimeOffset receivedAt)
+    {
+        var shipment = _managedShipments.SingleOrDefault(
+            item => item.Id == managedShipmentId &&
+                    item.Direction == ShipmentDirection.Return)
+            ?? throw new DomainException(
+                "ไม่พบรายการจัดส่งคืน");
+        if (deliveredAt == default ||
+            deliveredAt > receivedAt)
+            throw new DomainException(
+                "เวลาส่งคืนจากขนส่งไม่ถูกต้อง");
+        if (ReturnDeliveredAt.HasValue)
+            return;
+        shipment.RecordTrustedDelivery(
+            "complete",
+            deliveredAt,
+            receivedAt);
+        ReturnDeliveredAt = deliveredAt;
+        _auditEvents.Add(new AuditEvent(
+            Id,
+            ActorRole.CarrierProvider,
+            Required(actorId, "ผู้ให้บริการขนส่ง"),
+            "shipping.return_delivered",
+            State,
+            State,
+            receivedAt,
+            Required(eventId, "เลขเหตุการณ์"),
+            $"return-delivered:{shipment.Id:N}:{eventId}",
+            JsonSerializer.Serialize(new
+            {
+                shipmentId = shipment.Id,
+                deliveredAt
+            })));
+        Version++;
+    }
+
+    public void AuthorizeManualReturnResolution(
+        string reference,
+        string actorId,
+        string reason,
+        string idempotencyKey,
+        DateTimeOffset now)
+    {
+        if (!ReturnRequired ||
+            State != TransactionState.ResolutionPending)
+            throw new DomainException(
+                "รายการนี้ไม่ต้องอนุมัติผลส่งคืน");
+        ManualReturnResolutionReference = Required(
+            reference,
+            "เลขอ้างอิงการตรวจส่งคืน");
+        _auditEvents.Add(new AuditEvent(
+            Id,
+            ActorRole.Reconciliation,
+            Required(actorId, "ผู้อนุมัติ"),
+            "shipping.return_manually_resolved",
+            State,
+            State,
+            now,
+            ManualReturnResolutionReference,
+            Required(idempotencyKey, "idempotency key"),
+            JsonSerializer.Serialize(new
+            {
+                reason = Required(reason, "เหตุผล")
             })));
         Version++;
     }
@@ -449,6 +781,184 @@ public sealed class SaleTransaction
             verifiedPhoneNumber.Trim(),
             StringComparison.Ordinal);
 
+    public void BeginManagedSellerAcceptance(
+        Guid sellerId,
+        string sellerDisplayName,
+        string sellerContact,
+        string payoutBankCode,
+        string payoutAccountName,
+        string payoutAccountNumber,
+        bool transferRightsAttested,
+        DateTimeOffset now,
+        long buyerProtectionFeeSatang,
+        long platformFeeSatang,
+        long sellerExpectedNetSatang,
+        string feePolicyVersion,
+        AcceptedShippingQuote shipping,
+        ManagedShipment shipment,
+        ShippingOperation operation)
+    {
+        if (_shippingOperations.Any(item =>
+                string.Equals(
+                    item.IdempotencyKey,
+                    operation.IdempotencyKey,
+                    StringComparison.Ordinal)))
+            return;
+        if (InitiatorRole != InitiatorRole.Buyer ||
+            State != TransactionState.AwaitingSellerAcceptance)
+            throw new DomainException(
+                "ข้อเสนอนี้ไม่อยู่ในสถานะที่ผู้ขายยอมรับได้");
+        EnsureSellerAcceptanceWindowOpen(now);
+        if (string.IsNullOrWhiteSpace(Description))
+            throw new DomainException(
+                "ข้อเสนอนี้มีรายละเอียดสินค้าไม่ครบ กรุณาปฏิเสธและให้ผู้ซื้อสร้างข้อเสนอใหม่");
+        if (!transferRightsAttested)
+            throw new DomainException(
+                "กรุณายืนยันว่าคุณครอบครอง มีสิทธิ์โอน และรายการไม่ต้องห้าม");
+        if (sellerId == Guid.Empty)
+            throw new DomainException(
+                "ไม่พบบัญชีผู้ขายที่ยืนยันตัวตน");
+        if (!string.IsNullOrWhiteSpace(BuyerContact) &&
+            SecureEquals(BuyerContact, sellerContact))
+            throw new DomainException(
+                "ผู้ซื้อและผู้ขายต้องเป็นคนละบัญชี");
+
+        var normalizedAccountNumber = new string(
+            payoutAccountNumber.Where(char.IsDigit).ToArray());
+        if (normalizedAccountNumber.Length is < 10 or > 15)
+            throw new DomainException(
+                "เลขบัญชีรับเงินต้องมีตัวเลข 10–15 หลัก");
+        if (buyerProtectionFeeSatang < 0 ||
+            platformFeeSatang < 0 ||
+            platformFeeSatang > PriceSatang ||
+            sellerExpectedNetSatang < 0 ||
+            sellerExpectedNetSatang + platformFeeSatang !=
+                PriceSatang)
+            throw new DomainException(
+                "ข้อมูลค่าบริการไม่ถูกต้อง");
+
+        SellerId = sellerId;
+        SellerDisplayName = Required(
+            sellerDisplayName,
+            "ชื่อผู้ขาย");
+        SellerContact = Required(
+            sellerContact,
+            "ช่องทางติดต่อผู้ขาย");
+        PayoutBankCode = Required(
+            payoutBankCode,
+            "ธนาคารรับเงิน");
+        PayoutAccountName = Required(
+            payoutAccountName,
+            "ชื่อบัญชีรับเงิน");
+        PayoutAccountNumber = normalizedAccountNumber;
+        BuyerProtectionFeeSatang = buyerProtectionFeeSatang;
+        PlatformFeeSatang = platformFeeSatang;
+        SellerExpectedNetSatang = sellerExpectedNetSatang;
+        FeePolicyVersion = Required(
+            feePolicyVersion,
+            "เวอร์ชันค่าบริการ");
+        ApplyAcceptedShippingQuote(
+            shipping,
+            now,
+            requireProviderReservation: false);
+        QueueManagedShipment(
+            shipment,
+            operation,
+            ActorRole.System,
+            "shipping-orchestrator",
+            now);
+    }
+
+    public void CompleteManagedSellerAcceptance(
+        Guid managedShipmentId,
+        string provider,
+        string purchaseReference,
+        string providerTrackingCode,
+        string? courierTrackingCode,
+        string carrierCode,
+        string serviceCode,
+        long feeSatang,
+        long insuranceFeeSatang,
+        long declaredValueSatang,
+        string? insuranceCode,
+        DateTimeOffset reservedAt,
+        DateTimeOffset completedAt,
+        TransactionTransitionService transitions)
+    {
+        if (State ==
+                TransactionState.SellerAcceptedAwaitingPayment &&
+            ShippingReservedAt.HasValue)
+            return;
+        if (State != TransactionState.AwaitingSellerAcceptance)
+            throw new DomainException(
+                "ข้อเสนอนี้ไม่อยู่ในสถานะที่ยืนยันการจัดส่งได้");
+        var shipment = _managedShipments.SingleOrDefault(
+            item => item.Id == managedShipmentId &&
+                    item.Direction ==
+                        ShipmentDirection.Outbound)
+            ?? throw new DomainException(
+                "ไม่พบรายการจัดส่งขาออก");
+        if (!string.Equals(
+                provider,
+                shipment.Provider,
+                StringComparison.Ordinal) ||
+            !string.Equals(
+                carrierCode,
+                shipment.CarrierCode,
+                StringComparison.Ordinal) ||
+            !string.Equals(
+                serviceCode,
+                shipment.ServiceCode,
+                StringComparison.Ordinal) ||
+            feeSatang !=
+                shipment.BaseShippingFeeSatang ||
+            insuranceFeeSatang !=
+                shipment.InsuranceFeeSatang ||
+            declaredValueSatang !=
+                shipment.DeclaredValueSatang ||
+            !string.Equals(
+                insuranceCode,
+                shipment.InsuranceCode,
+                StringComparison.Ordinal))
+            throw new DomainException(
+                "ผลสร้างรายการจัดส่งไม่ตรงกับราคาที่ผู้ขายเลือก");
+
+        shipment.RecordReservation(
+            purchaseReference,
+            providerTrackingCode,
+            courierTrackingCode,
+            reservedAt);
+        ShippingPurchaseReference =
+            purchaseReference;
+        ShippingProviderTrackingCode =
+            providerTrackingCode;
+        ShippingCourierTrackingCode =
+            courierTrackingCode;
+        ShippingReservedAt = reservedAt;
+        ShippingLastProviderStatus = "wait";
+        ShippingLastReconciledAt =
+            reservedAt;
+        SellerAcceptedAt = completedAt;
+        BuyerPaymentDeadlineAt =
+            completedAt.AddHours(BuyerPaymentWindowHours);
+        CreateSellerAcceptanceEvidence(
+            SellerId ??
+            throw new DomainException(
+                "ไม่พบบัญชีผู้ขาย"),
+            completedAt);
+        transitions.Transition(
+            this,
+            TransactionState.SellerAcceptedAwaitingPayment,
+            ActorRole.Seller,
+            SellerId.Value.ToString("N"),
+            "buyer_offer.seller_accepted",
+            completedAt,
+            Id.ToString("N"),
+            $"buyer-offer-accept:{Id:N}",
+            AcceptanceAuditMetadata(
+                AgreementAcceptanceRole.Seller));
+    }
+
     public void AcceptBuyerOffer(
         Guid sellerId,
         string sellerDisplayName,
@@ -555,7 +1065,8 @@ public sealed class SaleTransaction
 
     private void ApplyAcceptedShippingQuote(
         AcceptedShippingQuote? shipping,
-        DateTimeOffset acceptedAt)
+        DateTimeOffset acceptedAt,
+        bool requireProviderReservation = true)
     {
         if (FulfillmentType == FulfillmentType.DigitalHandoff)
         {
@@ -658,6 +1169,7 @@ public sealed class SaleTransaction
                 shipping.Provider,
                 "shippop",
                 StringComparison.Ordinal) &&
+            requireProviderReservation &&
             (string.IsNullOrWhiteSpace(
                  shipping.PurchaseReference) ||
              string.IsNullOrWhiteSpace(
@@ -1119,7 +1631,10 @@ public sealed class SaleTransaction
         string provider,
         DateTimeOffset cancelledAt)
     {
-        if (State != TransactionState.RefundPending ||
+        if ((State != TransactionState.RefundPending &&
+             !(State == TransactionState.Expired &&
+               ExpirationReason ==
+                   TransactionExpirationReason.BuyerDidNotPay)) ||
             !IsProviderManagedShipment ||
             !string.Equals(
                 ShippingQuoteProvider,
@@ -1362,6 +1877,9 @@ public sealed class SaleTransaction
         EnsureBuyer(buyerToken);
         if (DisputeOpenedAt is not null)
             throw new DomainException("รายการนี้มีข้อโต้แย้งอยู่ จึงยังจ่ายเงินไม่ได้");
+        if (HasOpenShippingException)
+            throw new DomainException(
+                "ยังมีเคสขนส่งที่ต้องตรวจสอบ จึงยังยืนยันเพื่อจ่ายเงินไม่ได้");
         EnsureAgreementSnapshotIntegrity();
         BuyerConfirmedAt = now;
         PayoutReleaseReason =
@@ -1601,6 +2119,9 @@ public sealed class SaleTransaction
     {
         if (DisputeOpenedAt is null)
             throw new DomainException("รายการนี้ไม่มีข้อโต้แย้ง");
+        if (HasOpenShippingException)
+            throw new DomainException(
+                "ยังมีเคสขนส่งที่ต้องตรวจสอบ จึงยังจ่ายเงินไม่ได้");
         DisputeResolvedAt = now;
         DisputeResolutionReference = Required(
             reviewReference,
@@ -1692,6 +2213,8 @@ public sealed class SaleTransaction
         if (DisputeOpenedAt is not null &&
             DisputeResolvedAt is null)
             throw new DomainException("ข้อโต้แย้งที่เปิดอยู่บล็อกการจ่ายเงิน");
+        if (HasOpenShippingException)
+            return;
         EnsureAgreementSnapshotIntegrity();
         PayoutReleaseReason =
             Toklong.Domain.Transactions.PayoutReleaseReason
@@ -1728,6 +2251,9 @@ public sealed class SaleTransaction
         if (DisputeOpenedAt is not null &&
             DisputeResolvedAt is null)
             throw new DomainException("ข้อโต้แย้งที่เปิดอยู่บล็อกการจ่ายเงิน");
+        if (HasOpenShippingException)
+            throw new DomainException(
+                "ยังมีเคสขนส่งที่ต้องตรวจสอบ จึงยังเริ่มจ่ายเงินไม่ได้");
         EnsureAgreementSnapshotIntegrity();
         if (string.IsNullOrWhiteSpace(PayoutBankCode) ||
             string.IsNullOrWhiteSpace(PayoutAccountName) ||

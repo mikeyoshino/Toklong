@@ -1502,6 +1502,64 @@ public sealed class SaleTransactionTests
     }
 
     [Fact]
+    public void Unknown_shipping_operation_blocks_an_otherwise_eligible_payout()
+    {
+        var transaction = Delivered();
+        var deadline = transaction.DisputeWindowEndsAt!.Value;
+        transaction.EvaluateDeadline(deadline, _transitions);
+        var shipment = ManagedShipment.CreateOutbound(
+            transaction.Id,
+            new ManagedShipmentDraft(
+                "shippop",
+                "seller-origin-snapshot",
+                "buyer-destination-snapshot",
+                "กล้องพร้อมเลนส์",
+                1_200,
+                20,
+                30,
+                15,
+                "THAIPOST",
+                "EMST",
+                "ไปรษณีย์ไทย EMS",
+                5_200,
+                1_100,
+                450_000,
+                "FULL_VALUE",
+                "quote-reference",
+                deadline.AddHours(2)),
+            deadline);
+        var operation = ShippingOperation.Queue(
+            transaction.Id,
+            shipment.Id,
+            ShippingOperationType.BookOutbound,
+            $"book-outbound:{transaction.Id:N}:payout-guard",
+            new string('a', 64),
+            deadline);
+        transaction.QueueManagedShipment(
+            shipment,
+            operation,
+            ActorRole.Reconciliation,
+            "shipping-reconciliation",
+            deadline);
+        operation.Claim(
+            "worker-a",
+            deadline,
+            TimeSpan.FromMinutes(5));
+        operation.MarkOutcomeUnknown(
+            "worker-a",
+            "provider-timeout",
+            deadline.AddSeconds(20));
+
+        Assert.True(transaction.HasOpenShippingException);
+        Assert.False(transaction.IsPayoutEligible);
+        Assert.Throws<DomainException>(() =>
+            transaction.StartPayout(
+                "PAYOUT-BLOCKED",
+                deadline.AddMinutes(1),
+                _transitions));
+    }
+
+    [Fact]
     public void Payout_is_complete_only_after_confirmed_external_event()
     {
         var transaction = Delivered();

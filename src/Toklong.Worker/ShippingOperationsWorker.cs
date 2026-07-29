@@ -1,18 +1,27 @@
 using MediatR;
+using Microsoft.Extensions.Options;
+using Toklong.Application.Features.Shipping.ProcessShippingOperations;
 using Toklong.Application.Features.Shipping.ProcessProviderShipments;
 
 namespace Toklong.Worker;
 
 public sealed class ShippingOperationsWorker(
     IServiceScopeFactory scopeFactory,
+    IOptions<ShippingWorkerOptions> configuredOptions,
     ILogger<ShippingOperationsWorker> logger)
     : BackgroundService
 {
     protected override async Task ExecuteAsync(
         CancellationToken stoppingToken)
     {
-        using var timer =
-            new PeriodicTimer(TimeSpan.FromSeconds(15));
+        var options = configuredOptions.Value;
+        using var timer = new PeriodicTimer(
+            TimeSpan.FromSeconds(
+                Math.Clamp(
+                    options.OperationIdleSeconds,
+                    1,
+                    60)));
+        var nextTrackingAt = DateTimeOffset.UtcNow;
         do
         {
             try
@@ -21,6 +30,18 @@ public sealed class ShippingOperationsWorker(
                     scopeFactory.CreateAsyncScope();
                 var sender = scope.ServiceProvider
                     .GetRequiredService<ISender>();
+                var processedOperation = await sender.Send(
+                    new ProcessNextShippingOperationCommand(
+                        Environment.MachineName,
+                        options.LeaseSeconds,
+                        options.MaximumAttempts),
+                    stoppingToken);
+                if (processedOperation)
+                    logger.LogInformation(
+                        "Processed one durable shipping operation");
+
+                if (DateTimeOffset.UtcNow < nextTrackingAt)
+                    continue;
                 var confirmations = await sender.Send(
                     new ConfirmProviderShipmentsCommand(),
                     stoppingToken);
@@ -46,6 +67,20 @@ public sealed class ShippingOperationsWorker(
                     logger.LogWarning(
                         "Shipping pass will retry {FailureCount} failed operations",
                         failures);
+                var jitterRange = Math.Clamp(
+                    options.TrackingJitterSeconds,
+                    0,
+                    120);
+                var jitter = jitterRange == 0
+                    ? 0
+                    : Random.Shared.Next(
+                        0,
+                        jitterRange + 1);
+                nextTrackingAt = DateTimeOffset.UtcNow.AddSeconds(
+                    Math.Clamp(
+                        options.TrackingIntervalSeconds,
+                        30,
+                        3_600) + jitter);
             }
             catch (OperationCanceledException)
                 when (stoppingToken.IsCancellationRequested)

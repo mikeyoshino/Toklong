@@ -26,23 +26,31 @@ public sealed class SellerAccount
 
     public static SellerAccount Create(
         string phoneNumber,
-        DateTimeOffset verifiedAt)
+        DateTimeOffset verifiedAt,
+        string? displayName = null)
     {
         if (string.IsNullOrWhiteSpace(phoneNumber))
             throw new DomainException("หมายเลขโทรศัพท์ไม่ถูกต้อง");
 
-        return new SellerAccount
+        var seller = new SellerAccount
         {
             Id = Guid.NewGuid(),
             PhoneNumber = phoneNumber.Trim(),
-            DisplayName = $"ผู้ขาย {phoneNumber[^4..]}",
             PhoneVerifiedAt = verifiedAt,
             CreatedAt = verifiedAt
         };
+        seller.DisplayName =
+            string.IsNullOrWhiteSpace(displayName)
+                ? $"ผู้ขาย {phoneNumber[^4..]}"
+                : NormalizeDisplayName(displayName);
+        return seller;
     }
 
     public void MarkPhoneVerified(DateTimeOffset verifiedAt) =>
         PhoneVerifiedAt = verifiedAt;
+
+    public void UpdateDisplayName(string displayName) =>
+        DisplayName = NormalizeDisplayName(displayName);
 
     public void UpdateSavedShippingOrigin(
         SellerShippingOriginAddress address,
@@ -106,6 +114,24 @@ public sealed class SellerAccount
             Id, bankCode, accountName, normalized, _payoutAccounts.Count == 0, now);
         _payoutAccounts.Add(account);
         return account;
+    }
+
+    private static string NormalizeDisplayName(string value)
+    {
+        var normalized = string.Join(
+            ' ',
+            (value ?? "")
+                .Split(
+                    ' ',
+                    StringSplitOptions.RemoveEmptyEntries |
+                    StringSplitOptions.TrimEntries));
+        if (string.IsNullOrWhiteSpace(normalized))
+            throw new DomainException(
+                "กรุณากรอกชื่อและนามสกุล");
+        if (normalized.Length > 120)
+            throw new DomainException(
+                "ชื่อและนามสกุลยาวเกิน 120 ตัวอักษร");
+        return normalized;
     }
 }
 

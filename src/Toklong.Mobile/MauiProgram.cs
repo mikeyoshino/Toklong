@@ -140,11 +140,12 @@ public static class MauiProgram
 #if DEBUG && IOS
         if (DeviceInfo.DeviceType == DeviceType.Virtual)
         {
-            // Xcode 26 simulators without an Apple signing identity cannot
-            // persist Keychain values. Keep test credentials in memory only.
             builder.Services.AddSingleton<
-                IMobileSessionStore,
-                InMemoryMobileSessionStore>();
+                IMobileSessionStore>(
+                new DevelopmentSimulatorMobileSessionStore(
+                    Path.Combine(
+                        FileSystem.AppDataDirectory,
+                        "development-mobile-session.json")));
             builder.Services.AddSingleton<
                 IPendingRegistrationStore,
                 InMemoryPendingRegistrationStore>();

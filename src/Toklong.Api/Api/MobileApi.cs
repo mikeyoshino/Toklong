@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json.Serialization;
 using MediatR;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -545,6 +546,7 @@ public static class MobileApi
         HttpRequest request,
         ClaimsPrincipal principal,
         ISender sender,
+        IBuyerRepository buyers,
         IConfiguration configuration,
         CancellationToken cancellationToken)
     {
@@ -555,12 +557,21 @@ public static class MobileApi
                 ids.SellerId,
                 ids.PhoneNumber),
             cancellationToken);
+        var verifiedSellerNames =
+            await ResolveVerifiedSellerNamesAsync(
+                transactions,
+                ids,
+                buyers,
+                cancellationToken);
         return Results.Ok(transactions.Select(
             transaction => ToMobileTransaction(
                 request,
                 transaction,
                 ids,
-                configuration)));
+                configuration,
+                VerifiedSellerName(
+                    transaction,
+                    verifiedSellerNames))));
     }
 
     private static async Task<IResult> GetTransactionAsync(
@@ -568,6 +579,7 @@ public static class MobileApi
         HttpRequest request,
         ClaimsPrincipal principal,
         ISender sender,
+        IBuyerRepository buyers,
         IConfiguration configuration,
         CancellationToken cancellationToken)
     {
@@ -581,11 +593,20 @@ public static class MobileApi
         var transaction = transactions.SingleOrDefault(
             candidate => candidate.Id == transactionId)
             ?? throw new NotFoundException("ไม่พบรายการ");
+        var verifiedSellerNames =
+            await ResolveVerifiedSellerNamesAsync(
+                [transaction],
+                ids,
+                buyers,
+                cancellationToken);
         return Results.Ok(ToMobileTransaction(
             request,
             transaction,
             ids,
-            configuration));
+            configuration,
+            VerifiedSellerName(
+                transaction,
+                verifiedSellerNames)));
     }
 
     private static async Task<IResult> DownloadAgreementEvidenceAsync(
@@ -808,7 +829,7 @@ public static class MobileApi
                     seller?.Id,
                     RequiredPhone(principal)),
                 configuration),
-            fees.BuyerProtectionFeeSatang,
+            null,
             fees.PlatformFeeSatang,
             fees.SellerExpectedNetSatang,
             fees.PolicyVersion,
@@ -953,7 +974,7 @@ public static class MobileApi
             tokens,
             cancellationToken);
 
-        return Results.Ok(new MobileSellerOfferActionResponse(
+        var response = new MobileSellerOfferActionResponse(
             ToMobileTransaction(
                 httpRequest,
                 transaction,
@@ -962,7 +983,13 @@ public static class MobileApi
                     seller.Id,
                     RequiredPhone(principal)),
                 configuration),
-            ToResponse(issued)));
+            ToResponse(issued));
+        return transaction.ShippingOperationStatus is
+            ShippingOperationStatus.Pending or
+            ShippingOperationStatus.Processing or
+            ShippingOperationStatus.RetryScheduled
+                ? Results.Json(response, statusCode: 202)
+                : Results.Ok(response);
     }
 
     private static async Task<IResult> DeclineSellerOfferAsync(
@@ -1287,13 +1314,16 @@ public static class MobileApi
         HttpRequest request,
         TransactionView transaction,
         PartyIds ids,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        string? verifiedSellerName = null)
     {
         var isBuyer = ids.BuyerId.HasValue &&
                       transaction.BuyerId == ids.BuyerId;
         var role = isBuyer ? "Buyer" : "Seller";
         var counterparty = isBuyer
-            ? transaction.SellerDisplayName
+            ? BuyerFacingSellerName(
+                transaction,
+                verifiedSellerName)
             : transaction.BuyerDisplayName ?? "ผู้ซื้อ";
         var deadline = transaction.State switch
         {
@@ -1338,7 +1368,9 @@ public static class MobileApi
         return new MobileTransactionResponse(
             transaction.Id,
             transaction.ProductName,
-            transaction.BuyerTotalSatang,
+            isBuyer
+                ? transaction.BuyerTotalSatang
+                : transaction.SellerExpectedNetSatang,
             transaction.PriceSatang,
             transaction.ShippingFeeSatang,
             transaction.Currency,
@@ -1353,9 +1385,15 @@ public static class MobileApi
             photoUrl,
             transaction.Description,
             transaction.TermsVersion,
-            transaction.BuyerProtectionFeeSatang,
-            transaction.PlatformFeeSatang,
-            transaction.SellerExpectedNetSatang,
+            isBuyer
+                ? transaction.BuyerProtectionFeeSatang
+                : null,
+            isBuyer
+                ? null
+                : transaction.PlatformFeeSatang,
+            isBuyer
+                ? null
+                : transaction.SellerExpectedNetSatang,
             transaction.FeePolicyVersion,
             transaction.ExpirationReason?.ToString(),
             isBuyer
@@ -1394,7 +1432,80 @@ public static class MobileApi
             transaction.RefundActionRequiredAt,
             transaction.RefundActionExpiresAt,
             transaction.RefundInstructionsSentAt,
-            transaction.CreatedAt);
+            transaction.CreatedAt,
+            transaction.ParcelInsuranceFeeSatang,
+            transaction.ShippingDeclaredValueSatang,
+            transaction.ShippingOperationStatus?.ToString());
+    }
+
+    private static async Task<Dictionary<string, string>>
+        ResolveVerifiedSellerNamesAsync(
+            IEnumerable<TransactionView> transactions,
+            PartyIds ids,
+            IBuyerRepository buyers,
+            CancellationToken cancellationToken)
+    {
+        var names = new Dictionary<string, string>(
+            StringComparer.Ordinal);
+        if (!ids.BuyerId.HasValue)
+            return names;
+
+        var phones = transactions
+            .Where(transaction =>
+                transaction.BuyerId == ids.BuyerId &&
+                !string.IsNullOrWhiteSpace(
+                    transaction.SellerContact))
+            .Select(transaction =>
+                transaction.SellerContact)
+            .Distinct(StringComparer.Ordinal);
+        foreach (var phone in phones)
+        {
+            var account = await buyers.GetByPhoneAsync(
+                phone,
+                cancellationToken);
+            if (account is not null)
+                names[phone] = account.FullName;
+        }
+
+        return names;
+    }
+
+    private static string? VerifiedSellerName(
+        TransactionView transaction,
+        IReadOnlyDictionary<string, string> names) =>
+        string.IsNullOrWhiteSpace(
+            transaction.SellerContact)
+            ? null
+            : names.GetValueOrDefault(
+                transaction.SellerContact);
+
+    private static string BuyerFacingSellerName(
+        TransactionView transaction,
+        string? verifiedSellerName)
+    {
+        if (!string.IsNullOrWhiteSpace(
+                verifiedSellerName))
+            return verifiedSellerName.Trim();
+
+        var snapshotName =
+            transaction.SellerDisplayName?.Trim() ?? "";
+        var isPhoneDerivedPlaceholder =
+            snapshotName.StartsWith(
+                "ผู้ขาย ",
+                StringComparison.Ordinal) &&
+            snapshotName.Any(char.IsDigit);
+        var isRawPhone =
+            !string.IsNullOrWhiteSpace(
+                transaction.SellerContact) &&
+            string.Equals(
+                snapshotName,
+                transaction.SellerContact,
+                StringComparison.Ordinal);
+        return string.IsNullOrWhiteSpace(snapshotName) ||
+               isPhoneDerivedPlaceholder ||
+               isRawPhone
+            ? "ผู้ขาย"
+            : snapshotName;
     }
 
     private static string? ResolvePublicPhotoUrl(
@@ -1610,7 +1721,9 @@ public sealed record MobilePayoutAccountResponse(
 
 public sealed record MobileSellerOfferResponse(
     MobileTransactionResponse Transaction,
-    long BuyerProtectionFeeSatang,
+    [property: JsonIgnore(
+        Condition = JsonIgnoreCondition.WhenWritingNull)]
+    long? BuyerProtectionFeeSatang,
     long PlatformFeeSatang,
     long SellerExpectedNetSatang,
     string FeePolicyVersion,
@@ -1706,9 +1819,15 @@ public sealed record MobileTransactionResponse(
     string? PhotoUrl,
     string AgreementDetails,
     string TermsVersion,
-    long BuyerProtectionFeeSatang,
-    long PlatformFeeSatang,
-    long SellerExpectedNetSatang,
+    [property: JsonIgnore(
+        Condition = JsonIgnoreCondition.WhenWritingNull)]
+    long? BuyerProtectionFeeSatang,
+    [property: JsonIgnore(
+        Condition = JsonIgnoreCondition.WhenWritingNull)]
+    long? PlatformFeeSatang,
+    [property: JsonIgnore(
+        Condition = JsonIgnoreCondition.WhenWritingNull)]
+    long? SellerExpectedNetSatang,
     string FeePolicyVersion,
     string? ExpirationReason,
     string? SellerInvitationUrl,
@@ -1731,7 +1850,10 @@ public sealed record MobileTransactionResponse(
     DateTimeOffset? RefundActionRequiredAt,
     DateTimeOffset? RefundActionExpiresAt,
     DateTimeOffset? RefundInstructionsSentAt,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    long ParcelInsuranceFeeSatang,
+    long ShippingDeclaredValueSatang,
+    string? ShippingOperationStatus);
 
 public sealed record MobilePaymentSheetRequest(bool AcceptedTerms);
 

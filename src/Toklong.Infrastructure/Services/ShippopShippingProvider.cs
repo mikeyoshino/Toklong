@@ -25,6 +25,10 @@ public sealed class ShippopShippingOptions
     public int QuoteLifetimeMinutes { get; init; } = 120;
     public IReadOnlyList<string> ServiceCodes { get; init; } =
         [];
+    public IReadOnlyDictionary<string, ShippopServiceProfile>
+        ServiceProfiles { get; init; } =
+        new Dictionary<string, ShippopServiceProfile>(
+            StringComparer.Ordinal);
 
     public static ShippopShippingOptions From(
         IConfiguration configuration)
@@ -37,6 +41,16 @@ public sealed class ShippopShippingOptions
             .Cast<string>()
             .Distinct(StringComparer.Ordinal)
             .ToArray();
+        var profiles = configuration
+            .GetSection($"{SectionName}:Services")
+            .GetChildren()
+            .Select(section =>
+                ShippopServiceProfile.From(
+                    section.Key.Trim().ToUpperInvariant(),
+                    section))
+            .ToDictionary(
+                profile => profile.ServiceCode,
+                StringComparer.Ordinal);
         return new ShippopShippingOptions
         {
             BaseUrl =
@@ -55,9 +69,42 @@ public sealed class ShippopShippingOptions
                     120),
                 61,
                 240),
-            ServiceCodes = configuredServices
+            ServiceCodes = configuredServices,
+            ServiceProfiles = profiles
         };
     }
+
+    public ShippopServiceProfile? Profile(string serviceCode) =>
+        ServiceProfiles.GetValueOrDefault(
+            serviceCode.Trim().ToUpperInvariant());
+}
+
+public sealed record ShippopServiceProfile(
+    string ServiceCode,
+    bool QuoteEnabled,
+    bool BookOutboundEnabled,
+    bool ConfirmEnabled,
+    bool ReturnEnabled,
+    bool InsuranceEnabled,
+    bool OperationLookupEnabled,
+    string HandoffMode,
+    long MaximumCoverageSatang,
+    string CertificationReference)
+{
+    internal static ShippopServiceProfile From(
+        string serviceCode,
+        IConfigurationSection section) =>
+        new(
+            serviceCode,
+            section.GetValue<bool>("QuoteEnabled"),
+            section.GetValue<bool>("BookOutboundEnabled"),
+            section.GetValue<bool>("ConfirmEnabled"),
+            section.GetValue<bool>("ReturnEnabled"),
+            section.GetValue<bool>("InsuranceEnabled"),
+            section.GetValue<bool>("OperationLookupEnabled"),
+            section["HandoffMode"]?.Trim() ?? "",
+            section.GetValue<long>("MaximumCoverageSatang"),
+            section["CertificationReference"]?.Trim() ?? "");
 }
 
 public sealed class ShippopShippingProvider(
@@ -85,6 +132,9 @@ public sealed class ShippopShippingProvider(
         foreach (var serviceCode in options.ServiceCodes)
         {
             if (TryMapService(serviceCode) is null)
+                continue;
+            if (options.Profile(serviceCode) is { } profile &&
+                !profile.QuoteEnabled)
                 continue;
             data[(index++).ToString(CultureInfo.InvariantCulture)] =
                 ShipmentPayload(
@@ -242,6 +292,10 @@ public sealed class ShippopShippingProvider(
         CancellationToken cancellationToken)
     {
         EnsureConfigured();
+        EnsureCapability(
+            request.Quote.ServiceCode,
+            profile => profile.BookOutboundEnabled,
+            "outbound booking");
         ValidateRequest(request.Shipment);
         if (!string.Equals(
                 request.Quote.Provider,
@@ -343,6 +397,16 @@ public sealed class ShippopShippingProvider(
         CancellationToken cancellationToken)
     {
         EnsureConfigured();
+        var configuredServiceCode =
+            options.ServiceCodes.SingleOrDefault(
+            configured =>
+                TryMapService(configured)?.CarrierCode ==
+                carrierCode);
+        if (configuredServiceCode is not null)
+            EnsureCapability(
+                configuredServiceCode,
+                profile => profile.ConfirmEnabled,
+                "confirmation");
         using var content = new MultipartFormDataContent
         {
             { new StringContent(options.ApiKey), "api_key" },
@@ -739,6 +803,18 @@ public sealed class ShippopShippingProvider(
             options.QuoteSigningSecret.Length < 32)
             throw new InvalidOperationException(
                 "การตั้งค่า SHIPPOP ยังไม่ครบ");
+    }
+
+    private void EnsureCapability(
+        string serviceCode,
+        Func<ShippopServiceProfile, bool> enabled,
+        string capability)
+    {
+        var profile = options.Profile(serviceCode);
+        if (profile is not null &&
+            !enabled(profile))
+            throw new InvalidOperationException(
+                $"SHIPPOP {capability} is disabled for {serviceCode}");
     }
 
     private static void ValidateRequest(

@@ -109,6 +109,12 @@ public sealed record TransactionView(
     IReadOnlyList<AuditView> AuditEvents,
     DateTimeOffset CreatedAt)
 {
+    public ShippingOperationStatus? ShippingOperationStatus
+    {
+        get;
+        init;
+    }
+
     public bool IsProviderManagedShipment =>
         FulfillmentType ==
             Toklong.Domain.Transactions.FulfillmentType
@@ -240,7 +246,14 @@ public sealed record TransactionView(
         transaction.AuditEvents.OrderByDescending(x => x.CreatedAt)
             .Select(x => new AuditView(x.Name, x.FromState, x.ToState, x.ActorRole, x.CreatedAt))
             .ToList(),
-        transaction.CreatedAt);
+        transaction.CreatedAt)
+    {
+        ShippingOperationStatus = transaction.ShippingOperations
+            .OrderByDescending(operation => operation.CreatedAt)
+            .Select(operation =>
+                (ShippingOperationStatus?)operation.Status)
+            .FirstOrDefault()
+    };
 
     private static string ThaiStateLabel(
         TransactionState state,
@@ -257,6 +270,8 @@ public sealed record TransactionView(
         TransactionState.TrackingSubmitted => "รอขนส่งตรวจสอบ Tracking",
         TransactionState.TrackingUnverified => "Tracking ยังตรวจสอบไม่ได้",
         TransactionState.InTransit => "กำลังจัดส่ง",
+        TransactionState.CarrierException =>
+            "การจัดส่งต้องตรวจสอบ",
         TransactionState.DeliveredDisputeWindow => "พัสดุถึงแล้ว · อยู่ในช่วงตรวจสินค้า",
         TransactionState.BuyerConfirmedReceipt => "ผู้ซื้อยืนยันรับสินค้าแล้ว",
         TransactionState.Disputed or TransactionState.ResolutionPending => "พักการจ่ายระหว่างตรวจสอบ",

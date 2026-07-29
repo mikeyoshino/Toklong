@@ -18,10 +18,12 @@ public sealed class TransactionTransitionService
             [TransactionState.PaidAwaitingShipment] = [TransactionState.TrackingSubmitted, TransactionState.ShipmentOverdue, TransactionState.RefundPending],
             [TransactionState.PaidAwaitingDigitalDelivery] = [TransactionState.DigitalDeliverySubmitted, TransactionState.ShipmentOverdue, TransactionState.RefundPending],
             [TransactionState.DigitalDeliverySubmitted] = [TransactionState.BuyerConfirmedReceipt, TransactionState.Disputed, TransactionState.PayoutEligible, TransactionState.RefundPending],
-            [TransactionState.TrackingSubmitted] = [TransactionState.InTransit, TransactionState.TrackingUnverified, TransactionState.DeliveredDisputeWindow, TransactionState.ShipmentOverdue],
+            [TransactionState.TrackingSubmitted] = [TransactionState.InTransit, TransactionState.TrackingUnverified, TransactionState.CarrierException, TransactionState.DeliveredDisputeWindow, TransactionState.ShipmentOverdue],
             [TransactionState.TrackingUnverified] =
-                [TransactionState.TrackingSubmitted, TransactionState.InTransit, TransactionState.DeliveredDisputeWindow, TransactionState.PayoutEligible, TransactionState.ShipmentOverdue, TransactionState.RefundPending],
-            [TransactionState.InTransit] = [TransactionState.DeliveredDisputeWindow, TransactionState.TrackingUnverified],
+                [TransactionState.TrackingSubmitted, TransactionState.InTransit, TransactionState.CarrierException, TransactionState.DeliveredDisputeWindow, TransactionState.PayoutEligible, TransactionState.ShipmentOverdue, TransactionState.RefundPending],
+            [TransactionState.InTransit] = [TransactionState.DeliveredDisputeWindow, TransactionState.TrackingUnverified, TransactionState.CarrierException],
+            [TransactionState.CarrierException] =
+                [TransactionState.TrackingUnverified, TransactionState.RefundPending, TransactionState.ResolutionPending],
             [TransactionState.DeliveredDisputeWindow] = [TransactionState.BuyerConfirmedReceipt, TransactionState.Disputed, TransactionState.PayoutEligible],
             [TransactionState.BuyerConfirmedReceipt] = [TransactionState.PayoutEligible],
             [TransactionState.Disputed] = [TransactionState.ResolutionPending],
@@ -30,7 +32,7 @@ public sealed class TransactionTransitionService
             [TransactionState.PayoutPending] = [TransactionState.PaidOut],
             [TransactionState.ShipmentOverdue] = [TransactionState.RefundPending],
             [TransactionState.RefundPending] =
-                [TransactionState.TrackingUnverified, TransactionState.Refunded],
+                [TransactionState.TrackingUnverified, TransactionState.CarrierException, TransactionState.Refunded],
             [TransactionState.Expired] = [TransactionState.PaidAwaitingShipment, TransactionState.PaidAwaitingDigitalDelivery, TransactionState.RefundPending]
         };
 
@@ -48,6 +50,8 @@ public sealed class TransactionTransitionService
                 [ActorRole.Seller, ActorRole.Reconciliation],
             [TransactionState.TrackingUnverified] = [ActorRole.CarrierProvider, ActorRole.Reconciliation, ActorRole.System],
             [TransactionState.InTransit] = [ActorRole.CarrierProvider, ActorRole.Reconciliation],
+            [TransactionState.CarrierException] =
+                [ActorRole.CarrierProvider, ActorRole.Reconciliation, ActorRole.System],
             [TransactionState.DeliveredDisputeWindow] = [ActorRole.CarrierProvider, ActorRole.Reconciliation],
             [TransactionState.BuyerConfirmedReceipt] = [ActorRole.Buyer],
             [TransactionState.Disputed] = [ActorRole.Buyer],
