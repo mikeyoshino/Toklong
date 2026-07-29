@@ -61,10 +61,20 @@ public sealed class MobileApiClient(
         catch (JsonException)
         {
         }
-        throw new InvalidOperationException(
+        var retryAfter =
+            response.Headers.RetryAfter?.Delta ??
+            (response.Headers.RetryAfter?.Date is { } retryAt
+                ? TimeSpan.FromSeconds(Math.Max(
+                    0,
+                    (retryAt - DateTimeOffset.UtcNow)
+                    .TotalSeconds))
+                : null);
+        throw new MobileApiRequestException(
+            response.StatusCode,
             string.IsNullOrWhiteSpace(message)
                 ? "เชื่อมต่อ TOKLONG ไม่สำเร็จ กรุณาลองอีกครั้ง"
-                : message);
+                : message,
+            retryAfter);
     }
 
     private async Task<StoredMobileSession?> EnsureFreshSessionAsync(

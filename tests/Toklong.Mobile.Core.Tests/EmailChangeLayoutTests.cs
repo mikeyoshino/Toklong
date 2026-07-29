@@ -130,6 +130,15 @@ public sealed class EmailChangeLayoutTests
                 AttributeValue(button, "Style") ==
                 "{StaticResource RefinedPrimaryButton}")
             .ToArray();
+        var confirm = primaryButtons.Single(button =>
+            AttributeValue(button, "Command") ==
+            "{Binding ConfirmCommand}");
+        var newRequest = primaryButtons.Single(button =>
+            AttributeValue(button, "Command") ==
+            "{Binding StartNewRequestCommand}");
+        var returnToAccount = primaryButtons.Single(button =>
+            AttributeValue(button, "Command") ==
+            "{Binding ReturnToAccountCommand}");
         var maskedDestination = verify
             .Descendants()
             .Single(element =>
@@ -159,10 +168,19 @@ public sealed class EmailChangeLayoutTests
             label =>
                 AttributeValue(label, "Text") ==
                 "ยืนยันอีเมลใหม่");
-        Assert.Single(primaryButtons);
+        Assert.Equal(3, primaryButtons.Length);
         Assert.Equal(
-            "{Binding ConfirmCommand}",
-            AttributeValue(primaryButtons[0], "Command"));
+            "{Binding CanUseChallenge}",
+            AttributeValue(confirm, "IsVisible"));
+        Assert.Equal(
+            "{Binding CanConfirm}",
+            AttributeValue(confirm, "IsEnabled"));
+        Assert.Equal(
+            "{Binding RequiresNewRequest}",
+            AttributeValue(newRequest, "IsVisible"));
+        Assert.Equal(
+            "{Binding RequiresAccountReturn}",
+            AttributeValue(returnToAccount, "IsVisible"));
         Assert.Equal(
             "{Binding Code, Mode=TwoWay}",
             AttributeValue(codeInput, "Code"));
@@ -191,6 +209,9 @@ public sealed class EmailChangeLayoutTests
             "{Binding CanResend}",
             AttributeValue(resend, "IsEnabled"));
         Assert.Equal(
+            "{Binding CanUseChallenge}",
+            AttributeValue(resend, "IsVisible"));
+        Assert.Equal(
             "{Binding ResendButtonText}",
             AttributeValue(resend, "Text"));
     }
@@ -208,7 +229,27 @@ public sealed class EmailChangeLayoutTests
                 "DigitsLayout");
         var codeEntry = Assert.Single(
             control.Descendants(Maui + "Entry"));
+        var controlHost = control
+            .Descendants(Maui + "Grid")
+            .First();
 
+        Assert.Null(
+            AttributeValue(
+                controlHost,
+                "HeightRequest"));
+        Assert.Equal(
+            "64",
+            AttributeValue(
+                controlHost,
+                "MinimumHeightRequest"));
+        Assert.All(
+            visibleDigits
+                .Elements(Maui + "Grid"),
+            digit => Assert.Equal(
+                "Auto,3",
+                AttributeValue(
+                    digit,
+                    "RowDefinitions")));
         Assert.Equal(
             "False",
             AttributeValue(
@@ -267,6 +308,80 @@ public sealed class EmailChangeLayoutTests
         Assert.Contains(
             "AddSingleton(TimeProvider.System)",
             program);
+    }
+
+    [Fact]
+    public void Both_email_change_pages_bind_operations_to_page_lifetime()
+    {
+        foreach (var fileName in new[]
+                 {
+                     "ChangeEmailPage.xaml.cs",
+                     "VerifyEmailChangePage.xaml.cs"
+                 })
+        {
+            var source = File.ReadAllText(Path.Combine(
+                AppContext.BaseDirectory,
+                "Ui",
+                "Pages",
+                fileName));
+
+            Assert.Contains(
+                "viewModel.Activate();",
+                source);
+            Assert.Contains(
+                "viewModel.Deactivate();",
+                source);
+        }
+    }
+
+    [Fact]
+    public void Email_change_errors_have_one_semantic_summary_and_page_focus_bridge()
+    {
+        foreach (var pageName in new[]
+                 {
+                     "ChangeEmailPage",
+                     "VerifyEmailChangePage"
+                 })
+        {
+            var page = LoadPage($"{pageName}.xaml");
+            var summary = page
+                .Descendants()
+                .Single(element =>
+                    AttributeValue(
+                        element,
+                        "AutomationId") ==
+                    "EmailChangeErrorSummary");
+            var source = File.ReadAllText(Path.Combine(
+                AppContext.BaseDirectory,
+                "Ui",
+                "Pages",
+                $"{pageName}.xaml.cs"));
+
+            Assert.Equal(
+                "{Binding Message}",
+                AttributeValue(
+                    summary,
+                    "SemanticProperties.Description"));
+            Assert.All(
+                summary.Descendants(Maui + "Label"),
+                label => Assert.Equal(
+                    "False",
+                    AttributeValue(
+                        label,
+                        "AutomationProperties.IsInAccessibleTree")));
+            Assert.Contains(
+                "ErrorPresented += OnErrorPresented",
+                source);
+            Assert.Contains(
+                "SemanticScreenReader.Announce",
+                source);
+            Assert.Contains(
+                "ScrollToAsync",
+                source);
+            Assert.Contains(
+                ".Focus()",
+                source);
+        }
     }
 
     private static XDocument LoadPage(string fileName) =>

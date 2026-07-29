@@ -74,6 +74,40 @@ public sealed class MobileAuthenticationServiceEmailChangeTests
     }
 
     [Fact]
+    public async Task Rate_limited_resend_preserves_status_and_retry_after_for_ui_copy()
+    {
+        var challengeId =
+            Guid.Parse("b70a0499-6900-4c25-a454-90dcba526f97");
+        var response =
+            new HttpResponseMessage(
+                HttpStatusCode.TooManyRequests)
+            {
+                Content = new StringContent(
+                    "{}",
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        response.Headers.RetryAfter =
+            new RetryConditionHeaderValue(
+                TimeSpan.FromSeconds(17));
+        var service = CreateService(
+            new RecordingHandler(response));
+
+        var exception =
+            await Assert.ThrowsAsync<MobileApiRequestException>(
+                () => service.ResendEmailChangeAsync(
+                    challengeId,
+                    "resend-key"));
+
+        Assert.Equal(
+            HttpStatusCode.TooManyRequests,
+            exception.StatusCode);
+        Assert.Equal(
+            TimeSpan.FromSeconds(17),
+            exception.RetryAfter);
+    }
+
+    [Fact]
     public async Task VerifyEmailChangeAsync_posts_trimmed_code_and_returns_confirmed_email()
     {
         var challengeId = Guid.Parse("44a35e35-4a68-4ed7-a23b-4a4016a5faf5");

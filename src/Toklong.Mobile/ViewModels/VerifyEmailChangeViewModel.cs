@@ -6,17 +6,29 @@ namespace Toklong.Mobile.ViewModels;
 public sealed class VerifyEmailChangeViewModel(
     IAuthenticationService authentication,
     IMobileAnalytics analytics,
-    TimeProvider timeProvider) : ObservableViewModel
+    TimeProvider timeProvider,
+    AuthenticatedSessionBoundary session) : ObservableViewModel
 {
+    private readonly EmailChangePageLifetime lifetime =
+        new(session);
     private PendingEmailChange? pending;
     private string code = "";
     private string message = "";
     private string? verificationIdempotencyKey;
     private string? resendIdempotencyKey;
     private int resendSecondsRemaining;
+    private int expirySecondsRemaining;
     private bool isBusy;
     private bool isActive;
+    private bool isExpired;
+    private bool isLocked;
+    private bool isObsolete;
+    private bool isVerified;
+    private bool requiresAccountReturn;
     private CancellationTokenSource? countdown;
+
+    public event EventHandler<EmailChangeErrorNotice>?
+        ErrorPresented;
 
     public string Code
     {
@@ -65,10 +77,55 @@ public sealed class VerifyEmailChangeViewModel(
         }
     }
 
+    public int ExpirySecondsRemaining
+    {
+        get => expirySecondsRemaining;
+        private set => SetProperty(
+            ref expirySecondsRemaining,
+            value);
+    }
+
     public bool CanResend =>
-        pending is not null &&
+        CanUseChallenge &&
         ResendSecondsRemaining == 0 &&
         !IsBusy;
+
+    public bool IsExpired
+    {
+        get => isExpired;
+        private set
+        {
+            if (SetProperty(ref isExpired, value))
+                RaiseActionState();
+        }
+    }
+
+    public bool IsLocked
+    {
+        get => isLocked;
+        private set
+        {
+            if (SetProperty(ref isLocked, value))
+                RaiseActionState();
+        }
+    }
+
+    public bool RequiresNewRequest =>
+        IsExpired ||
+        IsLocked ||
+        isObsolete;
+
+    public bool CanUseChallenge =>
+        pending is not null &&
+        !RequiresNewRequest &&
+        !isVerified;
+
+    public bool CanConfirm =>
+        CanUseChallenge &&
+        !IsBusy;
+
+    public bool RequiresAccountReturn =>
+        requiresAccountReturn;
 
     public string ResendButtonText =>
         ResendSecondsRemaining > 0
@@ -99,7 +156,10 @@ public sealed class VerifyEmailChangeViewModel(
         private set
         {
             if (SetProperty(ref isBusy, value))
+            {
                 OnPropertyChanged(nameof(CanResend));
+                OnPropertyChanged(nameof(CanConfirm));
+            }
         }
     }
 
@@ -107,12 +167,21 @@ public sealed class VerifyEmailChangeViewModel(
         new AsyncCommand(ConfirmAsync);
     public ICommand ResendCommand =>
         new AsyncCommand(ResendAsync);
+    public ICommand StartNewRequestCommand =>
+        new AsyncCommand(StartNewRequestAsync);
+    public ICommand ReturnToAccountCommand =>
+        new AsyncCommand(ReturnToAccountAsync);
 
     public void Apply(PendingEmailChange value)
     {
         pending = value;
         verificationIdempotencyKey = null;
         resendIdempotencyKey = null;
+        IsExpired = false;
+        IsLocked = value.RemainingAttempts <= 0;
+        SetObsolete(false);
+        SetVerified(false);
+        SetRequiresAccountReturn(false);
         Code = "";
         Message = "";
         OnPropertyChanged(nameof(MaskedEmail));
@@ -124,26 +193,58 @@ public sealed class VerifyEmailChangeViewModel(
 
     public void Activate()
     {
+        lifetime.Activate();
         isActive = true;
         RestartCountdown();
     }
 
     public void Deactivate()
     {
+        lifetime.Deactivate();
         isActive = false;
         StopCountdown();
+        IsBusy = false;
     }
 
-    public void RefreshCountdown()
+    private void RefreshTemporalState()
     {
+        var now = timeProvider.GetUtcNow();
         var remaining = pending is null
             ? TimeSpan.Zero
             : pending.ResendAvailableAt -
-              timeProvider.GetUtcNow();
+              now;
         ResendSecondsRemaining = remaining <= TimeSpan.Zero
             ? 0
             : (int)Math.Ceiling(
                 remaining.TotalSeconds);
+
+        var expiryRemaining = pending is null
+            ? TimeSpan.Zero
+            : pending.ExpiresAt - now;
+        ExpirySecondsRemaining =
+            expiryRemaining <= TimeSpan.Zero
+                ? 0
+                : (int)Math.Ceiling(
+                    expiryRemaining.TotalSeconds);
+        var becameExpired =
+            pending is not null &&
+            !IsExpired &&
+            ExpirySecondsRemaining == 0;
+        IsExpired =
+            pending is not null &&
+            ExpirySecondsRemaining == 0;
+        if (becameExpired &&
+            !IsLocked &&
+            !isObsolete &&
+            !isVerified)
+        {
+            Message =
+                "รหัสหมดอายุแล้ว กรุณาเริ่มเปลี่ยนอีเมลใหม่";
+            PresentError(
+                EmailChangeErrorTarget.NewRequestAction,
+                Message);
+        }
+
         OnPropertyChanged(nameof(CanResend));
         OnPropertyChanged(nameof(ResendButtonText));
         OnPropertyChanged(
@@ -152,11 +253,17 @@ public sealed class VerifyEmailChangeViewModel(
 
     public async Task ConfirmAsync()
     {
-        if (pending is null || IsBusy)
+        var operation = lifetime.Capture();
+        if (operation is null ||
+            pending is null ||
+            !CanConfirm)
             return;
         if (Code.Length != 6)
         {
             Message = "กรอกรหัสยืนยัน 6 หลัก";
+            PresentError(
+                EmailChangeErrorTarget.CodeInput,
+                Message);
             analytics.Track(
                 AccountEmailChangeAnalytics.Failed(
                     AccountEmailChangeFailureReason.Invalid));
@@ -169,35 +276,98 @@ public sealed class VerifyEmailChangeViewModel(
         Message = "";
         try
         {
-            await authentication.VerifyEmailChangeAsync(
-                pending.ChallengeId,
-                Code,
-                verificationIdempotencyKey);
-            await authentication.GetProfileAsync();
+            try
+            {
+                await authentication.VerifyEmailChangeAsync(
+                    pending.ChallengeId,
+                    Code,
+                    verificationIdempotencyKey,
+                    operation.Value.Token);
+            }
+            catch (OperationCanceledException) when (
+                operation.Value.Token.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception exception)
+            {
+                if (!lifetime.IsCurrent(operation.Value))
+                    return;
+
+                var error =
+                    AccountEmailChangeErrorPresentation
+                        .ForVerification(exception);
+                Message = error.Message;
+                ApplyChallengeError(error);
+                PresentError(
+                    error.RequiresNewRequest
+                        ? EmailChangeErrorTarget
+                            .NewRequestAction
+                        : EmailChangeErrorTarget.CodeInput,
+                    Message);
+                analytics.Track(
+                    AccountEmailChangeAnalytics.Failed(
+                        error.Reason));
+                return;
+            }
+
+            if (!lifetime.IsCurrent(operation.Value))
+                return;
+
             verificationIdempotencyKey = null;
+            SetVerified(true);
             analytics.Track(
                 AccountEmailChangeAnalytics.Verified());
-            await Shell.Current.GoToAsync("//main/account");
-        }
-        catch (Exception exception)
-        {
-            var error =
-                AccountEmailChangeErrorPresentation
-                    .ForVerification(exception);
-            Message = error.Message;
-            analytics.Track(
-                AccountEmailChangeAnalytics.Failed(
-                    error.Reason));
+
+            try
+            {
+                await authentication.GetProfileAsync(
+                    operation.Value.Token);
+            }
+            catch (OperationCanceledException) when (
+                operation.Value.Token.IsCancellationRequested)
+            {
+                return;
+            }
+            catch
+            {
+                // Account reload remains the recovery source of truth.
+            }
+
+            if (!lifetime.IsCurrent(operation.Value))
+                return;
+
+            try
+            {
+                await Shell.Current.GoToAsync(
+                    "//main/account");
+            }
+            catch
+            {
+                if (!lifetime.IsCurrent(operation.Value))
+                    return;
+
+                SetRequiresAccountReturn(true);
+                Message =
+                    "ยืนยันอีเมลสำเร็จแล้ว กรุณากลับไปหน้าบัญชีเพื่อตรวจสอบอีเมลล่าสุด";
+                PresentError(
+                    EmailChangeErrorTarget
+                        .AccountReturnAction,
+                    Message);
+            }
         }
         finally
         {
-            IsBusy = false;
+            if (lifetime.IsCurrent(operation.Value))
+                IsBusy = false;
         }
     }
 
     public async Task ResendAsync()
     {
-        if (pending is null ||
+        var operation = lifetime.Capture();
+        if (operation is null ||
+            pending is null ||
             IsBusy ||
             !CanResend)
             return;
@@ -211,9 +381,19 @@ public sealed class VerifyEmailChangeViewModel(
             var replacement =
                 await authentication.ResendEmailChangeAsync(
                     pending.ChallengeId,
-                    resendIdempotencyKey);
+                    resendIdempotencyKey,
+                    operation.Value.Token);
+            if (!lifetime.IsCurrent(operation.Value))
+                return;
+
             pending = replacement;
             resendIdempotencyKey = null;
+            IsExpired = false;
+            IsLocked =
+                replacement.RemainingAttempts <= 0;
+            SetObsolete(false);
+            SetVerified(false);
+            SetRequiresAccountReturn(false);
             Code = "";
             OnPropertyChanged(nameof(MaskedEmail));
             OnPropertyChanged(
@@ -223,29 +403,101 @@ public sealed class VerifyEmailChangeViewModel(
             analytics.Track(
                 AccountEmailChangeAnalytics.CodeResent());
         }
+        catch (OperationCanceledException) when (
+            operation.Value.Token.IsCancellationRequested)
+        {
+        }
         catch (Exception exception)
         {
+            if (!lifetime.IsCurrent(operation.Value))
+                return;
+
             var error =
                 AccountEmailChangeErrorPresentation
-                    .ForVerification(exception);
+                    .ForResend(exception);
             Message = error.Message;
+            ApplyChallengeError(error);
+            PresentError(
+                error.RequiresNewRequest
+                    ? EmailChangeErrorTarget
+                        .NewRequestAction
+                    : EmailChangeErrorTarget.ResendAction,
+                Message);
+            if (error.RetryAfter is { } retryAfter &&
+                pending is not null)
+            {
+                pending = pending with
+                {
+                    ResendAvailableAt =
+                        timeProvider.GetUtcNow() +
+                        retryAfter
+                };
+                RestartCountdown();
+            }
             analytics.Track(
                 AccountEmailChangeAnalytics.Failed(
                     error.Reason));
         }
         finally
         {
-            IsBusy = false;
+            if (lifetime.IsCurrent(operation.Value))
+                IsBusy = false;
+        }
+    }
+
+    public async Task StartNewRequestAsync()
+    {
+        var operation = lifetime.Capture();
+        if (operation is null ||
+            !RequiresNewRequest ||
+            !lifetime.IsCurrent(operation.Value))
+        {
+            return;
+        }
+
+        await Shell.Current.GoToAsync(
+            nameof(Pages.ChangeEmailPage));
+    }
+
+    public async Task ReturnToAccountAsync()
+    {
+        var operation = lifetime.Capture();
+        if (operation is null ||
+            !RequiresAccountReturn ||
+            !lifetime.IsCurrent(operation.Value))
+        {
+            return;
+        }
+
+        try
+        {
+            await Shell.Current.GoToAsync(
+                "//main/account");
+            if (lifetime.IsCurrent(operation.Value))
+                SetRequiresAccountReturn(false);
+        }
+        catch
+        {
+            if (lifetime.IsCurrent(operation.Value))
+            {
+                Message =
+                    "ยืนยันอีเมลสำเร็จแล้ว กรุณากลับไปหน้าบัญชีเพื่อตรวจสอบอีเมลล่าสุด";
+                PresentError(
+                    EmailChangeErrorTarget
+                        .AccountReturnAction,
+                    Message);
+            }
         }
     }
 
     private void RestartCountdown()
     {
         StopCountdown();
-        RefreshCountdown();
+        RefreshTemporalState();
         if (!isActive ||
             pending is null ||
-            ResendSecondsRemaining == 0)
+            RequiresNewRequest ||
+            isVerified)
         {
             return;
         }
@@ -261,8 +513,9 @@ public sealed class VerifyEmailChangeViewModel(
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                RefreshCountdown();
-                if (ResendSecondsRemaining == 0)
+                RefreshTemporalState();
+                if (RequiresNewRequest ||
+                    isVerified)
                     return;
                 await Task.Delay(
                     TimeSpan.FromSeconds(1),
@@ -281,4 +534,64 @@ public sealed class VerifyEmailChangeViewModel(
         countdown?.Dispose();
         countdown = null;
     }
+
+    private void ApplyChallengeError(
+        AccountEmailChangeError error)
+    {
+        IsExpired =
+            error.Kind ==
+            AccountEmailChangeErrorKind.Expired;
+        IsLocked =
+            error.Kind ==
+            AccountEmailChangeErrorKind.Locked;
+        if (error.Kind ==
+            AccountEmailChangeErrorKind.Superseded)
+        {
+            SetObsolete(true);
+        }
+    }
+
+    private void SetObsolete(bool value)
+    {
+        if (isObsolete == value)
+            return;
+
+        isObsolete = value;
+        RaiseActionState();
+    }
+
+    private void SetVerified(bool value)
+    {
+        if (isVerified == value)
+            return;
+
+        isVerified = value;
+        RaiseActionState();
+    }
+
+    private void SetRequiresAccountReturn(bool value)
+    {
+        if (requiresAccountReturn == value)
+            return;
+
+        requiresAccountReturn = value;
+        OnPropertyChanged(nameof(RequiresAccountReturn));
+    }
+
+    private void RaiseActionState()
+    {
+        OnPropertyChanged(nameof(RequiresNewRequest));
+        OnPropertyChanged(nameof(CanUseChallenge));
+        OnPropertyChanged(nameof(CanConfirm));
+        OnPropertyChanged(nameof(CanResend));
+    }
+
+    private void PresentError(
+        EmailChangeErrorTarget target,
+        string value) =>
+        ErrorPresented?.Invoke(
+            this,
+            new EmailChangeErrorNotice(
+                target,
+                value));
 }

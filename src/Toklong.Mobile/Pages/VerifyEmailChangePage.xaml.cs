@@ -26,6 +26,7 @@ public partial class VerifyEmailChangePage :
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        viewModel.ErrorPresented += OnErrorPresented;
         viewModel.Activate();
         Dispatcher.DispatchDelayed(
             TimeSpan.FromMilliseconds(250),
@@ -34,7 +35,44 @@ public partial class VerifyEmailChangePage :
 
     protected override void OnDisappearing()
     {
+        viewModel.ErrorPresented -= OnErrorPresented;
         viewModel.Deactivate();
         base.OnDisappearing();
+    }
+
+    private void OnErrorPresented(
+        object? sender,
+        Core.EmailChangeErrorNotice notice) =>
+        Dispatcher.Dispatch(
+            async () =>
+                await PresentErrorAsync(notice));
+
+    private async Task PresentErrorAsync(
+        Core.EmailChangeErrorNotice notice)
+    {
+        SemanticScreenReader.Announce(notice.Message);
+        var target = notice.Target switch
+        {
+            Core.EmailChangeErrorTarget.ResendAction =>
+                (VisualElement)ResendButton,
+            Core.EmailChangeErrorTarget.NewRequestAction =>
+                NewRequestButton,
+            Core.EmailChangeErrorTarget.AccountReturnAction =>
+                ReturnToAccountButton,
+            _ => OtpInput
+        };
+        await EmailChangeScroll.ScrollToAsync(
+            target,
+            ScrollToPosition.Center,
+            true);
+        if (notice.Target ==
+            Core.EmailChangeErrorTarget.CodeInput)
+        {
+            OtpInput.FocusInput();
+        }
+        else
+        {
+            target.Focus();
+        }
     }
 }

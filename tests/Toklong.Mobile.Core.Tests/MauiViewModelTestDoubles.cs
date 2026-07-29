@@ -63,23 +63,26 @@ public sealed class Shell
         string Route,
         IReadOnlyDictionary<string, object> Parameters)>
         ParameterizedRoutes { get; } = [];
+    public Func<string, Task>? Navigate { get; set; }
 
-    public Task GoToAsync(string route)
+    public async Task GoToAsync(string route)
     {
+        if (Navigate is not null)
+            await Navigate(route);
         Routes.Add(route);
-        return Task.CompletedTask;
     }
 
-    public Task GoToAsync(
+    public async Task GoToAsync(
         string route,
         IDictionary<string, object> parameters)
     {
+        if (Navigate is not null)
+            await Navigate(route);
         Routes.Add(route);
         ParameterizedRoutes.Add((
             route,
             new Dictionary<string, object>(
                 parameters)));
-        return Task.CompletedTask;
     }
 }
 

@@ -15,7 +15,9 @@
         </RadialGradientBrush>
     </ContentPage.Background>
 
-    <ScrollView SafeAreaEdges="SoftInput">
+    <ScrollView
+        x:Name="EmailChangeScroll"
+        SafeAreaEdges="SoftInput">
         <VerticalStackLayout
             Style="{StaticResource RefinedScreenContent}">
             <VerticalStackLayout Spacing="7">
@@ -40,6 +42,7 @@
                             Text="อีเมลใหม่" />
                         <Border Style="{StaticResource RefinedInputBorder}">
                             <Entry
+                                x:Name="NewEmailEntry"
                                 Style="{StaticResource RefinedEntry}"
                                 AutomationId="NewEmailEntry"
                                 Keyboard="Email"
@@ -82,9 +85,12 @@
                 Color="{StaticResource BrandBlue}" />
 
             <Border
+                AutomationId="EmailChangeErrorSummary"
                 IsVisible="{Binding HasMessage}"
+                SemanticProperties.Description="{Binding Message}"
                 Style="{StaticResource RefinedValidationBorder}">
                 <Label
+                    AutomationProperties.IsInAccessibleTree="False"
                     Style="{StaticResource RefinedValidationText}"
                     Text="{Binding Message}" />
             </Border>

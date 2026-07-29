@@ -4,34 +4,34 @@
     x:Name="Root"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
-    <Grid HeightRequest="64">
+    <Grid MinimumHeightRequest="64">
         <Grid
             x:Name="DigitsLayout"
             AutomationProperties.IsInAccessibleTree="False"
             ColumnDefinitions="*,*,*,*,*,*"
             ColumnSpacing="10"
             InputTransparent="True">
-            <Grid RowDefinitions="48,3" RowSpacing="3">
+            <Grid RowDefinitions="Auto,3" RowSpacing="3">
                 <Label x:Name="DigitOne" AutomationProperties.IsInAccessibleTree="False" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
                 <BoxView x:Name="LineOne" Grid.Row="1" CornerRadius="2" />
             </Grid>
-            <Grid Grid.Column="1" RowDefinitions="48,3" RowSpacing="3">
+            <Grid Grid.Column="1" RowDefinitions="Auto,3" RowSpacing="3">
                 <Label x:Name="DigitTwo" AutomationProperties.IsInAccessibleTree="False" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
                 <BoxView x:Name="LineTwo" Grid.Row="1" CornerRadius="2" />
             </Grid>
-            <Grid Grid.Column="2" RowDefinitions="48,3" RowSpacing="3">
+            <Grid Grid.Column="2" RowDefinitions="Auto,3" RowSpacing="3">
                 <Label x:Name="DigitThree" AutomationProperties.IsInAccessibleTree="False" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
                 <BoxView x:Name="LineThree" Grid.Row="1" CornerRadius="2" />
             </Grid>
-            <Grid Grid.Column="3" RowDefinitions="48,3" RowSpacing="3">
+            <Grid Grid.Column="3" RowDefinitions="Auto,3" RowSpacing="3">
                 <Label x:Name="DigitFour" AutomationProperties.IsInAccessibleTree="False" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
                 <BoxView x:Name="LineFour" Grid.Row="1" CornerRadius="2" />
             </Grid>
-            <Grid Grid.Column="4" RowDefinitions="48,3" RowSpacing="3">
+            <Grid Grid.Column="4" RowDefinitions="Auto,3" RowSpacing="3">
                 <Label x:Name="DigitFive" AutomationProperties.IsInAccessibleTree="False" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
                 <BoxView x:Name="LineFive" Grid.Row="1" CornerRadius="2" />
             </Grid>
-            <Grid Grid.Column="5" RowDefinitions="48,3" RowSpacing="3">
+            <Grid Grid.Column="5" RowDefinitions="Auto,3" RowSpacing="3">
                 <Label x:Name="DigitSix" AutomationProperties.IsInAccessibleTree="False" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
                 <BoxView x:Name="LineSix" Grid.Row="1" CornerRadius="2" />
             </Grid>

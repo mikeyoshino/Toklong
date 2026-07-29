@@ -7,13 +7,19 @@ namespace Toklong.Mobile.ViewModels;
 
 public sealed class ChangeEmailViewModel(
     IAuthenticationService authentication,
-    IMobileAnalytics analytics) : ObservableViewModel
+    IMobileAnalytics analytics,
+    AuthenticatedSessionBoundary session) : ObservableViewModel
 {
+    private readonly EmailChangePageLifetime lifetime =
+        new(session);
     private string email = "";
     private string emailError = "";
     private string message = "";
     private string? requestIdempotencyKey;
     private bool isBusy;
+
+    public event EventHandler<EmailChangeErrorNotice>?
+        ErrorPresented;
 
     public string Email
     {
@@ -75,13 +81,26 @@ public sealed class ChangeEmailViewModel(
     public ICommand SubmitCommand =>
         new AsyncCommand(SubmitAsync);
 
+    public void Activate() =>
+        lifetime.Activate();
+
+    public void Deactivate()
+    {
+        lifetime.Deactivate();
+        IsBusy = false;
+    }
+
     public async Task SubmitAsync()
     {
-        if (IsBusy)
+        var operation = lifetime.Capture();
+        if (operation is null || IsBusy)
             return;
         if (!TryNormalizeEmail(Email, out var normalizedEmail))
         {
             EmailError = "กรอกอีเมลให้ถูกต้อง";
+            PresentError(
+                EmailChangeErrorTarget.EmailInput,
+                EmailError);
             analytics.Track(
                 AccountEmailChangeAnalytics.Failed(
                     AccountEmailChangeFailureReason.Invalid));
@@ -98,7 +117,11 @@ public sealed class ChangeEmailViewModel(
             var pending =
                 await authentication.RequestEmailChangeAsync(
                     normalizedEmail,
-                    requestIdempotencyKey);
+                    requestIdempotencyKey,
+                    operation.Value.Token);
+            if (!lifetime.IsCurrent(operation.Value))
+                return;
+
             requestIdempotencyKey = null;
             analytics.Track(
                 AccountEmailChangeAnalytics.Started());
@@ -109,21 +132,41 @@ public sealed class ChangeEmailViewModel(
                     ["Pending"] = pending
                 });
         }
+        catch (OperationCanceledException) when (
+            operation.Value.Token.IsCancellationRequested)
+        {
+        }
         catch (Exception exception)
         {
+            if (!lifetime.IsCurrent(operation.Value))
+                return;
+
             var error =
                 AccountEmailChangeErrorPresentation.ForRequest(
                     exception);
             Message = error.Message;
+            PresentError(
+                EmailChangeErrorTarget.EmailInput,
+                Message);
             analytics.Track(
                 AccountEmailChangeAnalytics.Failed(
                     error.Reason));
         }
         finally
         {
-            IsBusy = false;
+            if (lifetime.IsCurrent(operation.Value))
+                IsBusy = false;
         }
     }
+
+    private void PresentError(
+        EmailChangeErrorTarget target,
+        string value) =>
+        ErrorPresented?.Invoke(
+            this,
+            new EmailChangeErrorNotice(
+                target,
+                value));
 
     private static bool TryNormalizeEmail(
         string value,
@@ -140,74 +183,3 @@ public sealed class ChangeEmailViewModel(
                    StringComparison.OrdinalIgnoreCase);
     }
 }
-
-internal static class AccountEmailChangeErrorPresentation
-{
-    public static AccountEmailChangeError ForRequest(
-        Exception exception)
-    {
-        if (IsNetwork(exception))
-            return Network();
-        if (IsSender(exception))
-            return new(
-                AccountEmailChangeFailureReason.Sender,
-                "ยังส่งอีเมลไม่ได้ กรุณาลองอีกครั้ง");
-        if (exception.Message.Contains(
-                "อีเมลปัจจุบัน",
-                StringComparison.Ordinal))
-            return new(
-                AccountEmailChangeFailureReason.Invalid,
-                "อีเมลนี้เป็นอีเมลปัจจุบันของคุณแล้ว");
-        return new(
-            AccountEmailChangeFailureReason.Invalid,
-            "เปลี่ยนอีเมลไม่สำเร็จ กรุณาตรวจสอบแล้วลองอีกครั้ง");
-    }
-
-    public static AccountEmailChangeError ForVerification(
-        Exception exception)
-    {
-        if (IsNetwork(exception))
-            return Network();
-        if (IsSender(exception))
-            return new(
-                AccountEmailChangeFailureReason.Sender,
-                "ยังส่งอีเมลไม่ได้ กรุณาลองอีกครั้ง");
-        if (exception.Message.Contains(
-                "หมดอายุ",
-                StringComparison.Ordinal))
-            return new(
-                AccountEmailChangeFailureReason.Expired,
-                "รหัสหมดอายุแล้ว กรุณาขอรหัสใหม่");
-        if (exception.Message.Contains(
-                "ครบจำนวน",
-                StringComparison.Ordinal) ||
-            exception.Message.Contains(
-                "ล็อก",
-                StringComparison.Ordinal))
-            return new(
-                AccountEmailChangeFailureReason.Locked,
-                "กรอกรหัสไม่ถูกต้องครบจำนวนแล้ว กรุณาขอรหัสใหม่");
-        return new(
-            AccountEmailChangeFailureReason.Invalid,
-            "รหัสไม่ถูกต้อง ลองตรวจสอบแล้วกรอกอีกครั้ง");
-    }
-
-    private static bool IsNetwork(Exception exception) =>
-        exception is HttpRequestException or
-            TimeoutException or
-            TaskCanceledException;
-
-    private static bool IsSender(Exception exception) =>
-        exception.Message.Contains(
-            "ยังส่งอีเมลไม่ได้",
-            StringComparison.Ordinal);
-
-    private static AccountEmailChangeError Network() =>
-        new(
-            AccountEmailChangeFailureReason.Network,
-            "เชื่อมต่อไม่สำเร็จ กรุณาลองอีกครั้ง");
-}
-
-internal sealed record AccountEmailChangeError(
-    AccountEmailChangeFailureReason Reason,
-    string Message);

@@ -15,7 +15,9 @@
         </RadialGradientBrush>
     </ContentPage.Background>
 
-    <ScrollView SafeAreaEdges="SoftInput">
+    <ScrollView
+        x:Name="EmailChangeScroll"
+        SafeAreaEdges="SoftInput">
         <VerticalStackLayout
             Style="{StaticResource RefinedScreenContent}">
             <VerticalStackLayout Spacing="7">
@@ -66,8 +68,11 @@
                     </VerticalStackLayout>
 
                     <Button
+                        x:Name="ConfirmButton"
                         Style="{StaticResource RefinedPrimaryButton}"
                         Command="{Binding ConfirmCommand}"
+                        IsEnabled="{Binding CanConfirm}"
+                        IsVisible="{Binding CanUseChallenge}"
                         SemanticProperties.Description="ยืนยันอีเมลใหม่ด้วยรหัส 6 หลัก"
                         Text="ยืนยันอีเมลใหม่">
                         <Button.Triggers>
@@ -80,15 +85,33 @@
                             </DataTrigger>
                         </Button.Triggers>
                     </Button>
+
+                    <Button
+                        x:Name="NewRequestButton"
+                        Style="{StaticResource RefinedPrimaryButton}"
+                        Command="{Binding StartNewRequestCommand}"
+                        IsVisible="{Binding RequiresNewRequest}"
+                        SemanticProperties.Description="เริ่มเปลี่ยนอีเมลใหม่"
+                        Text="เริ่มเปลี่ยนอีเมลใหม่" />
+
+                    <Button
+                        x:Name="ReturnToAccountButton"
+                        Style="{StaticResource RefinedPrimaryButton}"
+                        Command="{Binding ReturnToAccountCommand}"
+                        IsVisible="{Binding RequiresAccountReturn}"
+                        SemanticProperties.Description="กลับไปหน้าบัญชีเพื่อตรวจสอบอีเมลล่าสุด"
+                        Text="กลับไปหน้าบัญชี" />
                 </VerticalStackLayout>
             </Border>
 
             <VerticalStackLayout Spacing="5">
                 <Button
+                    x:Name="ResendButton"
                     HorizontalOptions="Center"
                     Style="{StaticResource RefinedInlineButton}"
                     Command="{Binding ResendCommand}"
                     IsEnabled="{Binding CanResend}"
+                    IsVisible="{Binding CanUseChallenge}"
                     SemanticProperties.Description="{Binding ResendSemanticDescription}"
                     Text="{Binding ResendButtonText}" />
                 <Label
@@ -104,9 +127,12 @@
                 Color="{StaticResource BrandBlue}" />
 
             <Border
+                AutomationId="EmailChangeErrorSummary"
                 IsVisible="{Binding HasMessage}"
+                SemanticProperties.Description="{Binding Message}"
                 Style="{StaticResource RefinedValidationBorder}">
                 <Label
+                    AutomationProperties.IsInAccessibleTree="False"
                     Style="{StaticResource RefinedValidationText}"
                     Text="{Binding Message}" />
             </Border>

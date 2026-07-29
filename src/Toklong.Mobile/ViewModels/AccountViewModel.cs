@@ -11,6 +11,7 @@ public sealed class AccountViewModel(
     private PendingEmailChange? pendingEmailChange;
     private string message = "";
     private bool isBusy;
+    private long loadEpoch;
 
     public string DisplayName => profile?.DisplayName ?? "";
 
@@ -94,6 +95,7 @@ public sealed class AccountViewModel(
     public async Task LoadAsync()
     {
         var generation = session.Capture();
+        var epoch = Interlocked.Increment(ref loadEpoch);
         IsBusy = true;
         Message = "";
         try
@@ -114,7 +116,7 @@ public sealed class AccountViewModel(
                 // cannot leave obsolete account state on screen.
             }
 
-            if (!session.IsCurrent(generation))
+            if (!IsCurrentLoad(generation, epoch))
                 return;
 
             profile = profileRequest.IsCompletedSuccessfully
@@ -135,7 +137,7 @@ public sealed class AccountViewModel(
         }
         catch
         {
-            if (!session.IsCurrent(generation))
+            if (!IsCurrentLoad(generation, epoch))
                 return;
 
             profile = null;
@@ -146,7 +148,7 @@ public sealed class AccountViewModel(
         }
         finally
         {
-            if (session.IsCurrent(generation))
+            if (IsCurrentLoad(generation, epoch))
                 IsBusy = false;
         }
     }
@@ -203,6 +205,12 @@ public sealed class AccountViewModel(
             return null;
         }
     }
+
+    private bool IsCurrentLoad(
+        long generation,
+        long epoch) =>
+        session.IsCurrent(generation) &&
+        Interlocked.Read(ref loadEpoch) == epoch;
 
     private void RaiseProfileChanged()
     {

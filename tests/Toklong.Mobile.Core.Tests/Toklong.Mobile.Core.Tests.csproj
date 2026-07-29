@@ -50,6 +50,12 @@
     <None Include="../../src/Toklong.Mobile/AppShell.xaml.cs"
           Link="Ui/AppShell.xaml.cs"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Mobile/Pages/ChangeEmailPage.xaml.cs"
+          Link="Ui/Pages/ChangeEmailPage.xaml.cs"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Mobile/Pages/VerifyEmailChangePage.xaml.cs"
+          Link="Ui/Pages/VerifyEmailChangePage.xaml.cs"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../src/Toklong.Mobile/MauiProgram.cs"
           Link="Ui/MauiProgram.cs"
           CopyToOutputDirectory="PreserveNewest" />
