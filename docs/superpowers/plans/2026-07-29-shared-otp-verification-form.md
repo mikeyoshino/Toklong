@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Fix the physical-device Account crash and make Login OTP and email-change OTP use one reusable, stateless verification-form UI.
+**Goal:** Fix the physical-device Account crash and make Login OTP and email-change OTP use the original Login `AuthFormCard` through one reusable, stateless verification-form UI.
 
-**Architecture:** Keep `OtpCodeInput` as the low-level six-digit entry and add `OtpVerificationFormView` as a presentation-only composition of that input, an optional Development hint, and a confirmation button. Both pages bind their existing view models into the component; headers, destinations, resend, errors, navigation, timers, and session state remain page-owned.
+**Architecture:** Keep `OtpCodeInput` as the low-level six-digit entry and use `OtpVerificationFormView` as a presentation-only composition of the Login `AuthFormCard`, that input, an optional Development hint, and a confirmation button. Both pages bind their existing view models into the component; headers, destinations, resend, errors, navigation, timers, and session state remain page-owned.
 
 **Tech Stack:** .NET 10, .NET MAUI XAML, C# bindable properties, xUnit XML layout tests, iOS arm64/CoreDevice verification.
 
@@ -12,7 +12,9 @@
 
 - `OtpVerificationFormView` must not reference a Login or email-change view model.
 - The component must not own session, workflow, retry, timer, resend, navigation, or server state.
+- The component must contain exactly one `AuthFormCard`; do not use the email-specific `RefinedFormCard`.
 - `Code` is the only two-way property; commands and presentation values are supplied by the consuming page.
+- `IsConfirmVisible` may hide only the confirmation button and must never hide the card or OTP input.
 - Login and email verification retain their current business behavior and page-specific content.
 - Keep one accessible OTP entry and keep decorative digit labels outside the accessibility tree.
 - Do not change OTP generation, verification, cooldown, idempotency, authentication, transaction, or payment rules.
@@ -688,3 +690,184 @@ this task. Leave the pre-existing API on `5181`, simulators, database rows,
 and unrelated workspace files untouched.
 
 If no correction was needed during Task 4, do not create an empty commit.
+
+---
+
+### Task 5: Restore the Login OTP card as the shared visual source
+
+**Files:**
+- Modify: `src/Toklong.Mobile/Controls/OtpVerificationFormView.xaml`
+- Modify: `tests/Toklong.Mobile.Core.Tests/EmailChangeLayoutTests.cs`
+
+**Interfaces:**
+- Consumes: existing `OtpVerificationFormView` bindable properties and
+  `AuthFormCard`.
+- Produces: one shared Login-style card containing the OTP input, optional
+  Development hint, and confirmation button.
+
+- [ ] **Step 1: Add a failing Login-card ownership assertion**
+
+Extend
+`Shared_otp_form_has_one_input_one_action_and_no_workflow_state`:
+
+```csharp
+var card = Assert.Single(
+    form.Descendants(Maui + "Border"),
+    border =>
+        AttributeValue(border, "Style") ==
+        "{StaticResource AuthFormCard}");
+
+Assert.True(codeInput.Ancestors().Contains(card));
+Assert.True(confirm.Ancestors().Contains(card));
+Assert.DoesNotContain(
+    form.Descendants(Maui + "Border"),
+    border =>
+        AttributeValue(border, "Style") ==
+        "{StaticResource RefinedFormCard}");
+```
+
+- [ ] **Step 2: Run the contract test and verify it fails**
+
+Run:
+
+```bash
+dotnet test tests/Toklong.Mobile.Core.Tests/Toklong.Mobile.Core.Tests.csproj \
+  --filter FullyQualifiedName~Shared_otp_form_has_one_input_one_action_and_no_workflow_state \
+  --no-restore
+```
+
+Expected: FAIL because the shared component has no `AuthFormCard`.
+
+- [ ] **Step 3: Wrap the existing shared layout in the Login card**
+
+Change the component content to:
+
+```xml
+<Border Style="{StaticResource AuthFormCard}">
+    <VerticalStackLayout Spacing="{StaticResource SpacingLg}">
+        <controls:OtpCodeInput
+            x:Name="OtpInput"
+            Code="{Binding Code, Source={x:Reference Root}, Mode=TwoWay}" />
+
+        <Border
+            IsVisible="{Binding HasDevelopmentHint, Source={x:Reference Root}}"
+            Padding="12"
+            BackgroundColor="{StaticResource BrandBlueSoft}"
+            StrokeThickness="0"
+            StrokeShape="RoundRectangle 12">
+            <Label
+                HorizontalTextAlignment="Center"
+                Style="{StaticResource RefinedHelperText}"
+                Text="{Binding DevelopmentHint, Source={x:Reference Root}}"
+                TextColor="{StaticResource BrandBlueDeep}" />
+        </Border>
+
+        <Button
+            Style="{StaticResource RefinedPrimaryButton}"
+            Command="{Binding ConfirmCommand, Source={x:Reference Root}}"
+            IsEnabled="{Binding CanConfirm, Source={x:Reference Root}}"
+            IsVisible="{Binding IsConfirmVisible, Source={x:Reference Root}}"
+            SemanticProperties.Description="{Binding ConfirmSemanticDescription, Source={x:Reference Root}}"
+            Text="{Binding DisplayedConfirmText, Source={x:Reference Root}}">
+            <Button.Triggers>
+                <DataTrigger
+                    TargetType="Button"
+                    Binding="{Binding IsBusy, Source={x:Reference Root}}"
+                    Value="True">
+                    <Setter Property="IsEnabled" Value="False" />
+                </DataTrigger>
+            </Button.Triggers>
+        </Button>
+    </VerticalStackLayout>
+</Border>
+```
+
+- [ ] **Step 4: Run focused and full Mobile Core tests**
+
+Run:
+
+```bash
+dotnet test tests/Toklong.Mobile.Core.Tests/Toklong.Mobile.Core.Tests.csproj \
+  --filter "FullyQualifiedName~EmailChangeLayoutTests|FullyQualifiedName~VerifyCode|FullyQualifiedName~VerifyEmailChange" \
+  --no-restore
+dotnet test tests/Toklong.Mobile.Core.Tests/Toklong.Mobile.Core.Tests.csproj \
+  --no-restore
+```
+
+Expected: PASS; the Login and email pages both consume one shared
+Login-style card without view-model coupling.
+
+- [ ] **Step 5: Build iOS and commit**
+
+Run:
+
+```bash
+dotnet build src/Toklong.Mobile/Toklong.Mobile.csproj \
+  -f net10.0-ios \
+  -p:RuntimeIdentifier=ios-arm64 \
+  --no-restore
+git add src/Toklong.Mobile/Controls/OtpVerificationFormView.xaml \
+  tests/Toklong.Mobile.Core.Tests/EmailChangeLayoutTests.cs
+git commit -m "fix: share login otp card design"
+```
+
+Expected: iOS build succeeds with zero errors; existing Personal Team
+entitlement warnings may remain.
+
+---
+
+### Task 6: Reverify the Login card on the connected iPhone
+
+**Files:**
+- Modify only files required to correct a newly reproduced failure.
+
+**Interfaces:**
+- Consumes: Task 5 and the isolated Task 4 device-test copy.
+- Produces: physical-device evidence that the email OTP matches Login.
+
+- [ ] **Step 1: Sync Task 5 into the isolated copy and rebuild**
+
+Copy only `OtpVerificationFormView.xaml` to its matching `Controls/` path in
+the isolated copy, then run:
+
+```bash
+dotnet build src/Toklong.Mobile/Toklong.Mobile.csproj \
+  -f net10.0-ios \
+  -p:RuntimeIdentifier=ios-arm64 \
+  -p:CodesignEntitlements= \
+  --no-restore
+```
+
+Expected: build succeeds with zero errors.
+
+- [ ] **Step 2: Install, launch, and inspect the email OTP page**
+
+Install through CoreDevice, launch with console capture, then verify:
+
+1. Account opens without a crash.
+2. Email OTP shows the same compact white card as Login OTP.
+3. The card contains six digit positions and no duplicate field label.
+4. The confirmation button is inside the card when the challenge permits it.
+5. The OTP card remains visible when only the confirmation action is hidden.
+
+- [ ] **Step 3: Run final verification**
+
+Run:
+
+```bash
+git diff --check
+dotnet test tests/Toklong.Domain.Tests/Toklong.Domain.Tests.csproj --no-restore
+dotnet test tests/Toklong.Application.Tests/Toklong.Application.Tests.csproj --no-restore
+dotnet test tests/Toklong.Api.Tests/Toklong.Api.Tests.csproj --no-restore
+dotnet test tests/Toklong.Crm.Tests/Toklong.Crm.Tests.csproj --no-restore
+dotnet test tests/Toklong.Mobile.Core.Tests/Toklong.Mobile.Core.Tests.csproj --no-restore
+```
+
+Expected: zero failures and no whitespace errors.
+
+- [ ] **Step 4: Clean only task-owned temporary resources**
+
+Terminate the device console and Task 4 API on `5191`, then remove
+`/private/tmp/toklong-device-test.s7V5Ba` and the older task-owned
+`/private/tmp/toklong-device-test.Vv4Qi2`. Do not stop the pre-existing API on
+`5181` or remove unrelated files.
