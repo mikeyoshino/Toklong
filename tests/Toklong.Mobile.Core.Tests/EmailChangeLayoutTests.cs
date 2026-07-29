@@ -191,7 +191,9 @@ public sealed class EmailChangeLayoutTests
         Assert.Equal(2, primaryButtons.Length);
         Assert.Equal(
             "{Binding CanUseChallenge}",
-            AttributeValue(otpForm, "IsVisible"));
+            AttributeValue(
+                otpForm,
+                "IsConfirmVisible"));
         Assert.Equal(
             "{Binding CanConfirm}",
             AttributeValue(otpForm, "CanConfirm"));
@@ -489,6 +491,10 @@ public sealed class EmailChangeLayoutTests
             AttributeValue(emailForm, "CanConfirm"));
         Assert.Equal(
             "{Binding CanUseChallenge}",
+            AttributeValue(
+                emailForm,
+                "IsConfirmVisible"));
+        Assert.Null(
             AttributeValue(emailForm, "IsVisible"));
     }
 
@@ -515,6 +521,9 @@ public sealed class EmailChangeLayoutTests
         Assert.Equal(
             "{Binding CanConfirm, Source={x:Reference Root}}",
             AttributeValue(confirm, "IsEnabled"));
+        Assert.Equal(
+            "{Binding IsConfirmVisible, Source={x:Reference Root}}",
+            AttributeValue(confirm, "IsVisible"));
         Assert.Equal(
             "{Binding DisplayedConfirmText, Source={x:Reference Root}}",
             AttributeValue(confirm, "Text"));

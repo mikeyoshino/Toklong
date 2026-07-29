@@ -65,7 +65,7 @@
                     BusyText="กำลังยืนยัน..."
                     ConfirmSemanticDescription="ยืนยันอีเมลใหม่ด้วยรหัส 6 หลัก"
                     IsBusy="{Binding IsBusy}"
-                    IsVisible="{Binding CanUseChallenge}" />
+                    IsConfirmVisible="{Binding CanUseChallenge}" />
 
                 <Button
                     x:Name="NewRequestButton"

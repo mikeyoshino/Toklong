@@ -27,6 +27,7 @@
             Style="{StaticResource RefinedPrimaryButton}"
             Command="{Binding ConfirmCommand, Source={x:Reference Root}}"
             IsEnabled="{Binding CanConfirm, Source={x:Reference Root}}"
+            IsVisible="{Binding IsConfirmVisible, Source={x:Reference Root}}"
             SemanticProperties.Description="{Binding ConfirmSemanticDescription, Source={x:Reference Root}}"
             Text="{Binding DisplayedConfirmText, Source={x:Reference Root}}">
             <Button.Triggers>

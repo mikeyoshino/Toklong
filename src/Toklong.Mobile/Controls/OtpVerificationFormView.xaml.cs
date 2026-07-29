@@ -25,6 +25,13 @@ public partial class OtpVerificationFormView : ContentView
             typeof(OtpVerificationFormView),
             true);
 
+    public static readonly BindableProperty IsConfirmVisibleProperty =
+        BindableProperty.Create(
+            nameof(IsConfirmVisible),
+            typeof(bool),
+            typeof(OtpVerificationFormView),
+            true);
+
     public static readonly BindableProperty IsBusyProperty =
         BindableProperty.Create(
             nameof(IsBusy),
@@ -90,6 +97,12 @@ public partial class OtpVerificationFormView : ContentView
     {
         get => (bool)GetValue(CanConfirmProperty);
         set => SetValue(CanConfirmProperty, value);
+    }
+
+    public bool IsConfirmVisible
+    {
+        get => (bool)GetValue(IsConfirmVisibleProperty);
+        set => SetValue(IsConfirmVisibleProperty, value);
     }
 
     public bool IsBusy
