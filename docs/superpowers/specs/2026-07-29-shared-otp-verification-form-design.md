@@ -86,6 +86,8 @@ Both pages use the Login OTP form pattern:
 - no email-specific `RefinedFormCard`;
 - no duplicate “รหัสยืนยัน 6 หลัก” form label above the digits;
 - six digit positions rendered by `OtpCodeInput`;
+- the original Phone OTP geometry: an outer height of `64` and six digit
+  cells with `48,3` rows, so entering a digit never moves an underline;
 - confirmation button directly below the input; and
 - optional Development hint between the input and button.
 
@@ -126,9 +128,11 @@ Add or update tests that prove:
    and one primary confirmation button.
 5. Email challenge availability controls only the confirmation button and
    never the whole form.
-6. Required bindings are wired correctly for each workflow.
-7. Existing email lifecycle, accessibility, and mobile tests remain green.
-8. The iOS build succeeds and the Account tab plus email-verification form can
+6. `OtpCodeInput` uses `HeightRequest="64"` and all six digit cells use
+   `RowDefinitions="48,3"`.
+7. Required bindings are wired correctly for each workflow.
+8. Existing email lifecycle, accessibility, and mobile tests remain green.
+9. The iOS build succeeds and the Account tab plus email-verification form can
    be opened on the connected physical device without a crash.
 
 ## Non-goals
