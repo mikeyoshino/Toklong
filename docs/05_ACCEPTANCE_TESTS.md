@@ -915,10 +915,15 @@ shipping
 
 **Given** the transaction is in the delivered dispute window
 **And** no dispute/refund/hold exists
-**When** the buyer selects `ตรวจแล้ว ทุกอย่างเรียบร้อย` and confirms the disclosure that seller payout can begin
+**When** the buyer selects `ยืนยันว่าได้รับของเรียบร้อย` and confirms the disclosure that seller payout can begin
 **Then** the system records the confirmation once
 **And** evaluates the transaction as payout eligible
-**And** creates at most one payout instruction.
+**And** creates at most one payout instruction
+**And** the physical delivered-window card shows the trusted
+`dispute_window_ends_at` as an exact localized date and time
+**And** a digital handoff card shows no automatic deadline
+**And** the problem form remains collapsed until the buyer selects the neutral
+problem action.
 
 ### D2 — Deadline creates payout eligibility
 

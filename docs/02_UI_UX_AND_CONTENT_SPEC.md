@@ -536,18 +536,27 @@ Primary action depends on state:
 
 - Paid before shipping: no action; show deadline.
 - In transit: `ติดตามพัสดุ`.
-- Delivered window: `ตรวจแล้ว ทุกอย่างเรียบร้อย` plus visible `แจ้งปัญหา`.
+- Delivered physical window: show `ตรวจสินค้าให้เรียบร้อย`, the exact trusted
+  inspection deadline, primary action `ยืนยันว่าได้รับของเรียบร้อย`, and
+  neutral secondary action `พบปัญหากับรายการนี้`.
+- Digital handoff submitted: show `ตรวจรายการที่ได้รับ`, no automatic deadline,
+  primary action `ยืนยันว่าได้รับเรียบร้อย`, and neutral secondary action
+  `พบปัญหากับรายการนี้`.
 - Disputed: `เพิ่มหลักฐาน`.
 - Refunded/closed: download summary.
 
-Before accepting `ตรวจแล้ว ทุกอย่างเรียบร้อย`, show:
+The problem form is collapsed initially and expands only after the secondary
+action. Before accepting the primary action, show the fulfillment-specific
+confirmation disclosure that confirmation can begin seller payout.
+
+For physical fulfillment, show:
 
 > คุณตรวจสินค้าแล้วและไม่พบปัญหา เมื่อยืนยัน ระบบจะเริ่มขั้นตอนจ่ายเงินให้ผู้ขาย
 
-Confirmation action: `ยืนยันและเริ่มจ่ายให้ผู้ขาย`. Secondary action:
-`กลับไปตรวจสินค้า`. Do not use a bare `ได้รับสินค้าแล้ว` as the release action,
-because receipt alone does not clearly mean the buyer has inspected and
-accepted the item.
+The final physical confirmation actions remain `ยืนยันและเริ่มจ่ายให้ผู้ขาย`
+and `กลับไปตรวจสินค้า`. Do not use a bare `ได้รับสินค้าแล้ว` as the release
+action, because receipt alone does not clearly mean the buyer has inspected
+and accepted the item.
 
 ### Provider-managed shipping status
 
