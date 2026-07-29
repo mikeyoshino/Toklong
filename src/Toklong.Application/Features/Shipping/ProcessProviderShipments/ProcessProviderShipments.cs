@@ -159,15 +159,24 @@ public sealed class ReconcileProviderShipmentsHandler(
                         transaction.CarrierCode!,
                         update.EventId))
                 {
-                    transaction.RecordCarrierEvent(
-                        update.EventId,
-                        update.EventType!,
-                        update.OccurredAt,
-                        clock.UtcNow,
-                        transitions,
-                        update.CarrierCode,
-                        update.CourierTrackingCode ??
-                        transaction.TrackingNumber);
+                    if (update.OccurredAt.HasValue)
+                        transaction.RecordCarrierEvent(
+                            update.EventId,
+                            update.EventType!,
+                            update.OccurredAt.Value,
+                            clock.UtcNow,
+                            transitions,
+                            update.CarrierCode,
+                            update.CourierTrackingCode ??
+                            transaction.TrackingNumber);
+                    else
+                        transaction
+                            .RecordUnverifiedCarrierEvidence(
+                                shipmentProvider.ProviderName,
+                                update.EventId,
+                                update.ProviderStatus,
+                                clock.UtcNow,
+                                transitions);
                 }
                 await unitOfWork.SaveChangesAsync(
                     cancellationToken);
@@ -245,12 +254,22 @@ public sealed class CancelProviderShipmentsHandler(
                         "in_transit" or "delivered")
                     {
                         aggregateMutated = true;
-                        transaction.RecordShipmentScanDuringRefund(
-                            shipmentProvider.ProviderName,
-                            tracking.ProviderStatus,
-                            tracking.OccurredAt,
-                            clock.UtcNow,
-                            transitions);
+                        if (tracking.OccurredAt.HasValue)
+                            transaction
+                                .RecordShipmentScanDuringRefund(
+                                    shipmentProvider.ProviderName,
+                                    tracking.ProviderStatus,
+                                    tracking.OccurredAt.Value,
+                                    clock.UtcNow,
+                                    transitions);
+                        else
+                            transaction
+                                .RecordUnverifiedCarrierEvidence(
+                                    shipmentProvider.ProviderName,
+                                    tracking.EventId,
+                                    tracking.ProviderStatus,
+                                    clock.UtcNow,
+                                    transitions);
                         await unitOfWork.SaveChangesAsync(
                             cancellationToken);
                         processed++;

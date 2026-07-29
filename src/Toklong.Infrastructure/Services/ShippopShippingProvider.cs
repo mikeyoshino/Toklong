@@ -450,7 +450,10 @@ public sealed class ShippopShippingProvider(
         var eventType = MapProviderStatus(providerStatus);
         var occurredAt = LatestEventTime(
             document.RootElement,
-            eventType) ?? clock.UtcNow;
+            eventType);
+        if (eventType == "delivered" &&
+            !occurredAt.HasValue)
+            eventType = "unverified";
         var eventId = ProviderEventId(
             providerTrackingCode,
             providerStatus,
@@ -981,6 +984,7 @@ public sealed class ShippopShippingProvider(
                     .FirstOrDefault();
                 if (delivered?.Time is not null)
                     return delivered.Time;
+                return null;
             }
             if (eventType == "in_transit")
             {
@@ -1025,7 +1029,7 @@ public sealed class ShippopShippingProvider(
         string trackingCode,
         string providerStatus,
         string courierTrackingCode,
-        DateTimeOffset occurredAt)
+        DateTimeOffset? occurredAt)
     {
         var digest = SHA256.HashData(
             Encoding.UTF8.GetBytes(
@@ -1034,7 +1038,12 @@ public sealed class ShippopShippingProvider(
                     trackingCode,
                     providerStatus.Trim().ToLowerInvariant(),
                     courierTrackingCode,
-                    occurredAt.ToUnixTimeSeconds())));
+                    occurredAt.HasValue
+                        ? occurredAt.Value
+                            .ToUnixTimeSeconds()
+                            .ToString(
+                                CultureInfo.InvariantCulture)
+                        : "missing-time")));
         return $"shippop-{Convert.ToHexString(digest[..16]).ToLowerInvariant()}";
     }
 

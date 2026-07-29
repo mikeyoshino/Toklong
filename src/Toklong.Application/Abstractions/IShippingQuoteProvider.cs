@@ -71,7 +71,11 @@ public sealed record ShipmentTrackingUpdate(
     string ProviderStatus,
     string? EventType,
     string EventId,
-    DateTimeOffset OccurredAt);
+    DateTimeOffset? OccurredAt)
+{
+    public bool HasTrustedOccurredAt =>
+        OccurredAt.HasValue;
+}
 
 public sealed record ShipmentLabelRequest(
     string PurchaseReference,

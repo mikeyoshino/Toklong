@@ -141,7 +141,7 @@ MAUI, xUnit 2.9.
 - Produces: `ShipmentTrackingUpdate.HasTrustedOccurredAt`.
 - Consumes: existing `SaleTransaction.RecordCarrierEvent(...)`.
 
-- [ ] **Step 1: Write the provider regression test**
+- [x] **Step 1: Write the provider regression test**
 
 Add a test where SHIPPOP returns `order_status = "complete"` with no POD state:
 
@@ -168,7 +168,7 @@ public async Task Complete_without_pod_time_is_unverified_and_has_no_event_time(
 }
 ```
 
-- [ ] **Step 2: Run the test and confirm the unsafe fallback**
+- [x] **Step 2: Run the test and confirm the unsafe fallback**
 
 Run:
 
@@ -180,7 +180,7 @@ dotnet test tests/Toklong.Application.Tests/Toklong.Application.Tests.csproj \
 Expected: FAIL because current code maps to `delivered` and substitutes another
 carrier event or `clock.UtcNow`.
 
-- [ ] **Step 3: Make event time nullable and normalize incomplete delivery**
+- [x] **Step 3: Make event time nullable and normalize incomplete delivery**
 
 Change the contract to:
 
@@ -205,7 +205,7 @@ event ID from provider status plus the literal `"missing-time"` when time is
 absent. Do not fall back to the latest non-POD state, `datetime_shipping`, or
 `clock.UtcNow`.
 
-- [ ] **Step 4: Make reconciliation reject missing event time**
+- [x] **Step 4: Make reconciliation reject missing event time**
 
 Before `RecordCarrierEvent`, require `update.OccurredAt.HasValue`. For
 `unverified` with no time, use the Worker reconciliation time only as the audit
@@ -223,7 +223,7 @@ transaction.RecordUnverifiedCarrierEvidence(
 That method may transition to `TrackingUnverified`, but must not set
 `DeliveredAt`, `DisputeWindowStartsAt`, or `DisputeWindowEndsAt`.
 
-- [ ] **Step 5: Run focused tracking tests**
+- [x] **Step 5: Run focused tracking tests**
 
 Run:
 
@@ -235,7 +235,7 @@ dotnet test tests/Toklong.Application.Tests/Toklong.Application.Tests.csproj \
 Expected: PASS, including assertions that missing POD time never starts the
 inspection window.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/Toklong.Application/Abstractions/IShippingQuoteProvider.cs \

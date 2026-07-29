@@ -170,6 +170,37 @@ public sealed class ShippopShippingProviderTests
     }
 
     [Fact]
+    public async Task Complete_without_pod_time_is_unverified_and_has_no_event_time()
+    {
+        var provider = Provider(_ =>
+            Task.FromResult(
+                Json(
+                    """
+                    {
+                      "status": true,
+                      "order_status": "complete",
+                      "courier_code": "EMST",
+                      "tracking_code": "SP-NO-POD",
+                      "courier_tracking_code": "EF123456789TH",
+                      "states": [
+                        {
+                          "status": "010",
+                          "datetime": "2026-07-26 09:00:00"
+                        }
+                      ]
+                    }
+                    """)));
+
+        var update = await provider.GetTrackingAsync(
+            "SP-NO-POD",
+            "THAIPOST",
+            default);
+
+        Assert.Equal("unverified", update.EventType);
+        Assert.Null(update.OccurredAt);
+    }
+
+    [Fact]
     public async Task Provider_shipping_uses_authoritative_first_scan_time()
     {
         var provider = Provider(_ =>

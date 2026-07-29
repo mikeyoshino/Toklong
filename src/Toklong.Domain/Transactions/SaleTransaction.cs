@@ -1177,6 +1177,52 @@ public sealed class SaleTransaction
             $"carrier.{eventType.ToLowerInvariant()}", occurredAt, eventId, $"carrier:{eventId}");
     }
 
+    public void RecordUnverifiedCarrierEvidence(
+        string provider,
+        string eventId,
+        string providerStatus,
+        DateTimeOffset receivedAt,
+        TransactionTransitionService transitions)
+    {
+        if (!IsProviderManagedShipment ||
+            !string.Equals(
+                ShippingQuoteProvider,
+                provider,
+                StringComparison.Ordinal))
+            throw new DomainException(
+                "ผู้ให้บริการขนส่งไม่ตรงกับรายการ");
+        if (State is not (
+                TransactionState.TrackingSubmitted or
+                TransactionState.InTransit or
+                TransactionState.RefundPending))
+            throw new DomainException(
+                "รายการนี้ไม่อยู่ในสถานะตรวจสอบการจัดส่ง");
+
+        var cleanStatus = Required(
+            providerStatus,
+            "สถานะผู้ให้บริการ").ToLowerInvariant();
+        EnsureExternalEventIsNew(
+            CarrierCode ?? provider,
+            eventId,
+            "unverified",
+            receivedAt,
+            receivedAt);
+        ShippingLastProviderStatus = cleanStatus;
+        ShippingLastReconciledAt = receivedAt;
+        TrackingVerificationStatus =
+            Toklong.Domain.Transactions
+                .TrackingVerificationStatus.Unverified;
+        transitions.Transition(
+            this,
+            TransactionState.TrackingUnverified,
+            ActorRole.Reconciliation,
+            provider,
+            "shipment.delivery_time_unverified",
+            receivedAt,
+            eventId,
+            $"shipment-delivery-time-unverified:{provider}:{eventId}");
+    }
+
     public void SubmitDigitalDelivery(
         string sellerToken,
         string statement,

@@ -59,6 +59,50 @@ public sealed class ProviderShipmentProcessingTests
     }
 
     [Fact]
+    public async Task Complete_without_trusted_time_enters_review_without_delivery_deadline()
+    {
+        await using var database = Database();
+        var repository = new TransactionRepository(database);
+        var transitions = new TransactionTransitionService();
+        var development =
+            new DevelopmentShippingQuoteProvider(
+                new FixedClock());
+        var transaction = await ManagedPaidAsync(
+            development,
+            transitions);
+        transaction.ConfirmProviderManagedShipment(
+            development.ProviderName,
+            transaction.ShippingProviderTrackingCode!,
+            transaction.ShippingCourierTrackingCode!,
+            transaction.CarrierCode!,
+            "booking",
+            Now.AddMinutes(4),
+            transitions);
+        await repository.AddAsync(transaction, default);
+        await database.SaveChangesAsync();
+        var handler = new ReconcileProviderShipmentsHandler(
+            repository,
+            new MissingDeliveryTimeProvider(
+                transaction.ShippingCourierTrackingCode!),
+            database,
+            new FixedClock(Now.AddMinutes(5)),
+            transitions);
+
+        var result = await handler.Handle(
+            new ReconcileProviderShipmentsCommand(),
+            default);
+
+        Assert.Equal(1, result.Processed);
+        Assert.Equal(0, result.Failed);
+        Assert.Equal(
+            TransactionState.TrackingUnverified,
+            transaction.State);
+        Assert.Null(transaction.DeliveredAt);
+        Assert.Null(transaction.DisputeWindowStartsAt);
+        Assert.Null(transaction.DisputeWindowEndsAt);
+    }
+
+    [Fact]
     public async Task Already_cancelled_provider_shipment_completes_without_second_cancel()
     {
         await using var database = Database();
@@ -291,6 +335,50 @@ public sealed class ProviderShipmentProcessingTests
             CancelCalls++;
             return Task.CompletedTask;
         }
+
+        public Task<ShipmentReservation> ReserveAsync(
+            ShipmentReservationRequest request,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<ShipmentConfirmation> ConfirmAsync(
+            string purchaseReference,
+            string providerTrackingCode,
+            string carrierCode,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<string> GetLabelHtmlAsync(
+            ShipmentLabelRequest request,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+    }
+
+    private sealed class MissingDeliveryTimeProvider(
+        string courierTrackingCode) :
+        IShipmentProvider
+    {
+        public string ProviderName =>
+            "development-shipping";
+
+        public Task<ShipmentTrackingUpdate> GetTrackingAsync(
+            string providerTrackingCode,
+            string carrierCode,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(
+                new ShipmentTrackingUpdate(
+                    providerTrackingCode,
+                    courierTrackingCode,
+                    carrierCode,
+                    "complete",
+                    "unverified",
+                    "complete-without-trusted-time",
+                    null));
+
+        public Task CancelAsync(
+            string courierTrackingCode,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
 
         public Task<ShipmentReservation> ReserveAsync(
             ShipmentReservationRequest request,
