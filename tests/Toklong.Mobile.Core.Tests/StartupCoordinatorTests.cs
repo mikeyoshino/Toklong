@@ -203,6 +203,29 @@ public sealed class StartupCoordinatorTests
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
+        public Task<PendingEmailChange?> GetPendingEmailChangeAsync(
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<PendingEmailChange> RequestEmailChangeAsync(
+            string email,
+            string idempotencyKey,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<PendingEmailChange> ResendEmailChangeAsync(
+            Guid challengeId,
+            string idempotencyKey,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<string> VerifyEmailChangeAsync(
+            Guid challengeId,
+            string code,
+            string idempotencyKey,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         public Task SignOutAsync(
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();

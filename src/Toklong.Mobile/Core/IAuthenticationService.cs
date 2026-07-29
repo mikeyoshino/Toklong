@@ -32,6 +32,13 @@ public sealed record MobileProfile(
     string? SavedDeliveryProvinceName = null,
     string? SavedDeliveryPostalCode = null);
 
+public sealed record PendingEmailChange(
+    Guid ChallengeId,
+    string MaskedEmail,
+    DateTimeOffset ExpiresAt,
+    DateTimeOffset ResendAvailableAt,
+    int RemainingAttempts);
+
 public interface IAuthenticationService
 {
     Task<bool> HasSessionAsync();
@@ -54,6 +61,25 @@ public interface IAuthenticationService
         CancellationToken cancellationToken = default);
 
     Task<MobileProfile> GetProfileAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<PendingEmailChange?> GetPendingEmailChangeAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<PendingEmailChange> RequestEmailChangeAsync(
+        string email,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default);
+
+    Task<PendingEmailChange> ResendEmailChangeAsync(
+        Guid challengeId,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default);
+
+    Task<string> VerifyEmailChangeAsync(
+        Guid challengeId,
+        string code,
+        string idempotencyKey,
         CancellationToken cancellationToken = default);
 
     Task SignOutAsync(CancellationToken cancellationToken = default);

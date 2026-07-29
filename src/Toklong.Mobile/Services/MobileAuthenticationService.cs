@@ -147,6 +147,74 @@ public sealed class MobileAuthenticationService(
                ?? throw new InvalidOperationException("ไม่พบข้อมูลบัญชี");
     }
 
+    public async Task<PendingEmailChange?> GetPendingEmailChangeAsync(
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await api.SendAuthenticatedAsync(
+            () => new HttpRequestMessage(
+                HttpMethod.Get,
+                "api/mobile/me/email-change"),
+            cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
+            return null;
+        await MobileApiClient.EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<PendingEmailChange>(
+                   cancellationToken: cancellationToken)
+               ?? throw new InvalidOperationException(
+                   "ไม่พบข้อมูลการเปลี่ยนอีเมล");
+    }
+
+    public Task<PendingEmailChange> RequestEmailChangeAsync(
+        string email,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default) =>
+        SendEmailChangeAsync(
+            HttpMethod.Post,
+            "api/mobile/me/email-change",
+            new
+            {
+                Email = email.Trim(),
+                IdempotencyKey = idempotencyKey
+            },
+            cancellationToken);
+
+    public Task<PendingEmailChange> ResendEmailChangeAsync(
+        Guid challengeId,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default) =>
+        SendEmailChangeAsync(
+            HttpMethod.Post,
+            $"api/mobile/me/email-change/{challengeId}/resend",
+            new { IdempotencyKey = idempotencyKey },
+            cancellationToken);
+
+    public async Task<string> VerifyEmailChangeAsync(
+        Guid challengeId,
+        string code,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await api.SendAuthenticatedAsync(
+            () => new HttpRequestMessage(
+                HttpMethod.Post,
+                $"api/mobile/me/email-change/{challengeId}/verify")
+            {
+                Content = JsonContent.Create(new
+                {
+                    Code = code.Trim(),
+                    IdempotencyKey = idempotencyKey
+                })
+            },
+            cancellationToken);
+        await MobileApiClient.EnsureSuccessAsync(response, cancellationToken);
+        return (await response.Content
+                .ReadFromJsonAsync<VerifiedEmailChangeResponse>(
+                    cancellationToken: cancellationToken)
+                ?? throw new InvalidOperationException(
+                    "ไม่พบข้อมูลอีเมลที่ยืนยันแล้ว"))
+            .Email;
+    }
+
     public async Task SignOutAsync(
         CancellationToken cancellationToken = default)
     {
@@ -182,6 +250,25 @@ public sealed class MobileAuthenticationService(
             issued.RefreshToken,
             issued.AccessTokenExpiresAt));
 
+    private async Task<PendingEmailChange> SendEmailChangeAsync(
+        HttpMethod method,
+        string route,
+        object request,
+        CancellationToken cancellationToken)
+    {
+        using var response = await api.SendAuthenticatedAsync(
+            () => new HttpRequestMessage(method, route)
+            {
+                Content = JsonContent.Create(request)
+            },
+            cancellationToken);
+        await MobileApiClient.EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<PendingEmailChange>(
+                   cancellationToken: cancellationToken)
+               ?? throw new InvalidOperationException(
+                   "ไม่พบข้อมูลการเปลี่ยนอีเมล");
+    }
+
     private sealed record VerificationResponse(
         string Outcome,
         MobileApiClient.SessionResponse? Session,
@@ -191,4 +278,8 @@ public sealed class MobileAuthenticationService(
         string RegistrationTicket,
         DateTimeOffset ExpiresAt,
         string MaskedPhoneNumber);
+
+    private sealed record VerifiedEmailChangeResponse(
+        string Email,
+        DateTimeOffset CompletedAt);
 }
