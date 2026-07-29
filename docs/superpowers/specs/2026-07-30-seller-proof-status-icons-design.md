@@ -48,9 +48,11 @@ without a coin, banknote, currency symbol, or wallet metaphor.
   `#E4EAF1`.
 - Buyer styling remains unchanged.
 
-When fewer than three steps are complete, the current seller step is the next
-incomplete step. When all three steps are complete, no step receives the
-current styling.
+The current seller step follows the existing `ProgressActiveStep` domain
+mapping. A step receives current styling only when that mapping identifies it
+as active and it is not already complete. When the active step is `0`, no step
+receives current styling. This preserves the rule that shipping must not appear
+actionable before provider-confirmed payment.
 
 ## Accessibility
 
@@ -77,4 +79,3 @@ existing `TransactionProgressIconView` graphics view.
 - UI layout tests verify the same three accessible tokens and label placement.
 - Build the iOS simulator target and visually inspect the same seller
   transaction used during brainstorming.
-
