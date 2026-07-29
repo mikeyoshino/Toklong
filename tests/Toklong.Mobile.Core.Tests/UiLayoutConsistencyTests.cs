@@ -203,10 +203,15 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
-    public void Account_ShowsConfirmedEmailWithoutLegacyDirectEditAction()
+    public void Account_ShowsConfirmedEmailWithVerifiedChangeEntry()
     {
         var account = Load("Ui", "Pages", "AccountPage.xaml");
 
+        Assert.Contains(
+            account.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                "ข้อมูลติดต่อ");
         Assert.Contains(
             account.Descendants(Maui + "Label"),
             label =>
@@ -216,7 +221,12 @@ public sealed class UiLayoutConsistencyTests
             account.Descendants(Maui + "Label"),
             label =>
                 AttributeValue(label, "Text") ==
-                "ยืนยันแล้ว");
+                "{Binding EmailStatus}");
+        Assert.Contains(
+            account.Descendants(),
+            element =>
+                AttributeValue(element, "Command") ==
+                "{Binding OpenEmailChangeCommand}");
         Assert.DoesNotContain(
             account.Descendants(Maui + "Entry"),
             entry =>

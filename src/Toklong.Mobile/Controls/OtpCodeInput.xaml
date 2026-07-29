@@ -7,31 +7,32 @@
     <Grid HeightRequest="64">
         <Grid
             x:Name="DigitsLayout"
+            AutomationProperties.IsInAccessibleTree="False"
             ColumnDefinitions="*,*,*,*,*,*"
             ColumnSpacing="10"
             InputTransparent="True">
             <Grid RowDefinitions="48,3" RowSpacing="3">
-                <Label x:Name="DigitOne" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
+                <Label x:Name="DigitOne" AutomationProperties.IsInAccessibleTree="False" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
                 <BoxView x:Name="LineOne" Grid.Row="1" CornerRadius="2" />
             </Grid>
             <Grid Grid.Column="1" RowDefinitions="48,3" RowSpacing="3">
-                <Label x:Name="DigitTwo" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
+                <Label x:Name="DigitTwo" AutomationProperties.IsInAccessibleTree="False" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
                 <BoxView x:Name="LineTwo" Grid.Row="1" CornerRadius="2" />
             </Grid>
             <Grid Grid.Column="2" RowDefinitions="48,3" RowSpacing="3">
-                <Label x:Name="DigitThree" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
+                <Label x:Name="DigitThree" AutomationProperties.IsInAccessibleTree="False" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
                 <BoxView x:Name="LineThree" Grid.Row="1" CornerRadius="2" />
             </Grid>
             <Grid Grid.Column="3" RowDefinitions="48,3" RowSpacing="3">
-                <Label x:Name="DigitFour" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
+                <Label x:Name="DigitFour" AutomationProperties.IsInAccessibleTree="False" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
                 <BoxView x:Name="LineFour" Grid.Row="1" CornerRadius="2" />
             </Grid>
             <Grid Grid.Column="4" RowDefinitions="48,3" RowSpacing="3">
-                <Label x:Name="DigitFive" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
+                <Label x:Name="DigitFive" AutomationProperties.IsInAccessibleTree="False" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
                 <BoxView x:Name="LineFive" Grid.Row="1" CornerRadius="2" />
             </Grid>
             <Grid Grid.Column="5" RowDefinitions="48,3" RowSpacing="3">
-                <Label x:Name="DigitSix" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
+                <Label x:Name="DigitSix" AutomationProperties.IsInAccessibleTree="False" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" FontAttributes="Bold" FontSize="25" />
                 <BoxView x:Name="LineSix" Grid.Row="1" CornerRadius="2" />
             </Grid>
         </Grid>

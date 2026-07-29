@@ -107,6 +107,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<
             IMobileAnalytics,
             LoggingMobileAnalytics>();
+        builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSingleton<AuthenticatedSessionBoundary>();
         builder.Services.AddSingleton<IStartupMotionPreference, StartupMotionPreference>();
         builder.Services.AddSingleton<StartupCoordinator>();
@@ -203,6 +204,8 @@ public static class MauiProgram
         builder.Services.AddTransient<VerifyCodeViewModel>();
         builder.Services.AddTransient<
             CompleteRegistrationViewModel>();
+        builder.Services.AddTransient<ChangeEmailViewModel>();
+        builder.Services.AddTransient<VerifyEmailChangeViewModel>();
         builder.Services.AddSingleton<AccountViewModel>();
 
         builder.Services.AddSingleton<WelcomePage>();
@@ -212,6 +215,8 @@ public static class MauiProgram
         builder.Services.AddTransient<VerifyCodePage>();
         builder.Services.AddTransient<
             CompleteRegistrationPage>();
+        builder.Services.AddTransient<ChangeEmailPage>();
+        builder.Services.AddTransient<VerifyEmailChangePage>();
         builder.Services.AddSingleton<TransactionsPage>();
         builder.Services.AddTransient<TransactionDetailPage>();
         builder.Services.AddTransient<ShippingLabelPage>();

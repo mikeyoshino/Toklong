@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Toklong.Mobile.Pages.VerifyEmailChangePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
+    Title="ยืนยันอีเมลใหม่"
+    SafeAreaEdges="Container"
+    Shell.TabBarIsVisible="False">
+    <ContentPage.Background>
+        <RadialGradientBrush Center="0.88,0.02" Radius="0.95">
+            <GradientStop Color="#DCEFFF" Offset="0" />
+            <GradientStop Color="#F6FAFF" Offset="0.34" />
+            <GradientStop Color="#FFFFFF" Offset="0.84" />
+        </RadialGradientBrush>
+    </ContentPage.Background>
+
+    <ScrollView SafeAreaEdges="SoftInput">
+        <VerticalStackLayout
+            Style="{StaticResource RefinedScreenContent}">
+            <VerticalStackLayout Spacing="7">
+                <Label
+                    Style="{StaticResource Eyebrow}"
+                    Text="ขั้นที่ 2 จาก 2" />
+                <Label
+                    Style="{StaticResource PageTitle}"
+                    Text="ยืนยันอีเมลใหม่" />
+                <Label
+                    Style="{StaticResource RefinedBodyText}"
+                    Text="กรอกรหัส 6 หลักจากอีเมลล่าสุดที่ TOKLONG ส่งให้"
+                    TextColor="{StaticResource InkSoft}" />
+            </VerticalStackLayout>
+
+            <Border
+                AutomationId="MaskedEmailDestination"
+                Padding="14"
+                BackgroundColor="{StaticResource BrandBlueSoft}"
+                SemanticProperties.Description="{Binding MaskedEmailSemanticDescription}"
+                StrokeThickness="0"
+                StrokeShape="RoundRectangle 14">
+                <VerticalStackLayout
+                    AutomationProperties.IsInAccessibleTree="False"
+                    Spacing="3">
+                    <Label
+                        AutomationProperties.IsInAccessibleTree="False"
+                        Style="{StaticResource RefinedHelperText}"
+                        Text="ส่งรหัสไปที่" />
+                    <Label
+                        AutomationProperties.IsInAccessibleTree="False"
+                        FontAttributes="Bold"
+                        Text="{Binding MaskedEmail}"
+                        TextColor="{StaticResource BrandBlueDeep}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource RefinedFormCard}">
+                <VerticalStackLayout Spacing="{StaticResource SpacingLg}">
+                    <VerticalStackLayout
+                        Style="{StaticResource RefinedFormSection}">
+                        <controls:FormLabelView
+                            IsRequired="True"
+                            Text="รหัสยืนยัน 6 หลัก" />
+                        <controls:OtpCodeInput
+                            x:Name="OtpInput"
+                            Code="{Binding Code, Mode=TwoWay}" />
+                    </VerticalStackLayout>
+
+                    <Button
+                        Style="{StaticResource RefinedPrimaryButton}"
+                        Command="{Binding ConfirmCommand}"
+                        SemanticProperties.Description="ยืนยันอีเมลใหม่ด้วยรหัส 6 หลัก"
+                        Text="ยืนยันอีเมลใหม่">
+                        <Button.Triggers>
+                            <DataTrigger
+                                TargetType="Button"
+                                Binding="{Binding IsBusy}"
+                                Value="True">
+                                <Setter Property="IsEnabled" Value="False" />
+                                <Setter Property="Text" Value="กำลังยืนยัน..." />
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+                </VerticalStackLayout>
+            </Border>
+
+            <VerticalStackLayout Spacing="5">
+                <Button
+                    HorizontalOptions="Center"
+                    Style="{StaticResource RefinedInlineButton}"
+                    Command="{Binding ResendCommand}"
+                    IsEnabled="{Binding CanResend}"
+                    SemanticProperties.Description="{Binding ResendSemanticDescription}"
+                    Text="{Binding ResendButtonText}" />
+                <Label
+                    HorizontalTextAlignment="Center"
+                    Style="{StaticResource RefinedHelperText}"
+                    Text="{Binding ExpiresText, StringFormat='รหัสหมดอายุ {0}'}" />
+            </VerticalStackLayout>
+
+            <ActivityIndicator
+                HorizontalOptions="Center"
+                IsRunning="{Binding IsBusy}"
+                IsVisible="{Binding IsBusy}"
+                Color="{StaticResource BrandBlue}" />
+
+            <Border
+                IsVisible="{Binding HasMessage}"
+                Style="{StaticResource RefinedValidationBorder}">
+                <Label
+                    Style="{StaticResource RefinedValidationText}"
+                    Text="{Binding Message}" />
+            </Border>
+
+            <Label
+                HorizontalTextAlignment="Center"
+                Style="{StaticResource RefinedHelperText}"
+                Text="รหัสใช้ได้ครั้งเดียว อย่าส่งต่อให้ผู้อื่น" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

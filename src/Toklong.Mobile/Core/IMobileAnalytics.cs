@@ -9,6 +9,51 @@ public interface IMobileAnalytics
     void Track(MobileAnalyticsEvent value);
 }
 
+public enum AccountEmailChangeFailureReason
+{
+    Invalid,
+    Expired,
+    Locked,
+    Network,
+    Sender
+}
+
+public static class AccountEmailChangeAnalytics
+{
+    public static MobileAnalyticsEvent Started() =>
+        Event("account_email_change_started");
+
+    public static MobileAnalyticsEvent CodeResent() =>
+        Event("account_email_change_code_resent");
+
+    public static MobileAnalyticsEvent Verified() =>
+        Event("account_email_change_verified");
+
+    public static MobileAnalyticsEvent Failed(
+        AccountEmailChangeFailureReason reason) =>
+        Event(
+            "account_email_change_failed",
+            ("reason", reason switch
+            {
+                AccountEmailChangeFailureReason.Invalid => "invalid",
+                AccountEmailChangeFailureReason.Expired => "expired",
+                AccountEmailChangeFailureReason.Locked => "locked",
+                AccountEmailChangeFailureReason.Network => "network",
+                AccountEmailChangeFailureReason.Sender => "sender",
+                _ => "invalid"
+            }));
+
+    private static MobileAnalyticsEvent Event(
+        string name,
+        params (string Key, string Value)[] properties) =>
+        new(
+            name,
+            properties.ToDictionary(
+                property => property.Key,
+                property => property.Value,
+                StringComparer.Ordinal));
+}
+
 public static class SellerWorkspaceAnalytics
 {
     public static MobileAnalyticsEvent FilterSelected(

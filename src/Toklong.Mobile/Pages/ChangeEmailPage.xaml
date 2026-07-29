@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Toklong.Mobile.Pages.ChangeEmailPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
+    Title="เปลี่ยนอีเมล"
+    SafeAreaEdges="Container"
+    Shell.TabBarIsVisible="False">
+    <ContentPage.Background>
+        <RadialGradientBrush Center="0.88,0.02" Radius="0.95">
+            <GradientStop Color="#DCEFFF" Offset="0" />
+            <GradientStop Color="#F6FAFF" Offset="0.34" />
+            <GradientStop Color="#FFFFFF" Offset="0.84" />
+        </RadialGradientBrush>
+    </ContentPage.Background>
+
+    <ScrollView SafeAreaEdges="SoftInput">
+        <VerticalStackLayout
+            Style="{StaticResource RefinedScreenContent}">
+            <VerticalStackLayout Spacing="7">
+                <Label
+                    Style="{StaticResource Eyebrow}"
+                    Text="ขั้นที่ 1 จาก 2" />
+                <Label
+                    Style="{StaticResource PageTitle}"
+                    Text="เปลี่ยนอีเมล" />
+                <Label
+                    Style="{StaticResource RefinedBodyText}"
+                    Text="กรอกอีเมลใหม่สำหรับรับใบเสร็จและขั้นตอนคืนเงิน อีเมลเดิมจะยังใช้งานจนกว่าจะยืนยันสำเร็จ"
+                    TextColor="{StaticResource InkSoft}" />
+            </VerticalStackLayout>
+
+            <Border Style="{StaticResource RefinedFormCard}">
+                <VerticalStackLayout Spacing="{StaticResource SpacingLg}">
+                    <VerticalStackLayout
+                        Style="{StaticResource RefinedFormSection}">
+                        <controls:FormLabelView
+                            IsRequired="True"
+                            Text="อีเมลใหม่" />
+                        <Border Style="{StaticResource RefinedInputBorder}">
+                            <Entry
+                                Style="{StaticResource RefinedEntry}"
+                                AutomationId="NewEmailEntry"
+                                Keyboard="Email"
+                                MaxLength="254"
+                                Placeholder="name@example.com"
+                                SemanticProperties.Description="อีเมลใหม่สำหรับใบเสร็จและการคืนเงิน"
+                                Text="{Binding Email, Mode=TwoWay}" />
+                        </Border>
+                        <Label
+                            IsVisible="{Binding HasEmailError}"
+                            Style="{StaticResource RefinedValidationText}"
+                            Text="{Binding EmailError}" />
+                        <Label
+                            Style="{StaticResource RefinedHelperText}"
+                            Text="ระบบจะส่งรหัส 6 หลักไปยังอีเมลนี้" />
+                    </VerticalStackLayout>
+
+                    <Button
+                        Style="{StaticResource RefinedPrimaryButton}"
+                        Command="{Binding SubmitCommand}"
+                        SemanticProperties.Description="ส่งรหัสยืนยันไปยังอีเมลใหม่"
+                        Text="ส่งรหัสยืนยัน">
+                        <Button.Triggers>
+                            <DataTrigger
+                                TargetType="Button"
+                                Binding="{Binding IsBusy}"
+                                Value="True">
+                                <Setter Property="IsEnabled" Value="False" />
+                                <Setter Property="Text" Value="กำลังส่งรหัส..." />
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+                </VerticalStackLayout>
+            </Border>
+
+            <ActivityIndicator
+                HorizontalOptions="Center"
+                IsRunning="{Binding IsBusy}"
+                IsVisible="{Binding IsBusy}"
+                Color="{StaticResource BrandBlue}" />
+
+            <Border
+                IsVisible="{Binding HasMessage}"
+                Style="{StaticResource RefinedValidationBorder}">
+                <Label
+                    Style="{StaticResource RefinedValidationText}"
+                    Text="{Binding Message}" />
+            </Border>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

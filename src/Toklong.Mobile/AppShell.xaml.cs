@@ -20,5 +20,11 @@ public partial class AppShell : Shell
         Routing.RegisterRoute(
             nameof(PayoutSettingsPage),
             typeof(PayoutSettingsPage));
+        Routing.RegisterRoute(
+            nameof(ChangeEmailPage),
+            typeof(ChangeEmailPage));
+        Routing.RegisterRoute(
+            nameof(VerifyEmailChangePage),
+            typeof(VerifyEmailChangePage));
     }
 }

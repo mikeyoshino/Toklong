@@ -49,9 +49,20 @@ public sealed class PreferenceStore
 
 public sealed class Shell
 {
-    public static Shell Current { get; set; } = new();
+    private static readonly AsyncLocal<Shell?> CurrentContext =
+        new();
+
+    public static Shell Current
+    {
+        get => CurrentContext.Value ??= new Shell();
+        set => CurrentContext.Value = value;
+    }
 
     public List<string> Routes { get; } = [];
+    public List<(
+        string Route,
+        IReadOnlyDictionary<string, object> Parameters)>
+        ParameterizedRoutes { get; } = [];
 
     public Task GoToAsync(string route)
     {
@@ -64,13 +75,19 @@ public sealed class Shell
         IDictionary<string, object> parameters)
     {
         Routes.Add(route);
+        ParameterizedRoutes.Add((
+            route,
+            new Dictionary<string, object>(
+                parameters)));
         return Task.CompletedTask;
     }
 }
 
 namespace Toklong.Mobile.Pages
 {
+    public sealed class ChangeEmailPage;
     public sealed class CreateOfferPage;
     public sealed class PayoutSettingsPage;
     public sealed class TransactionDetailPage;
+    public sealed class VerifyEmailChangePage;
 }

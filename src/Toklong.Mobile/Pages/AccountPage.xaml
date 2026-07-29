@@ -94,21 +94,33 @@
                 Spacing="10">
                 <Label
                     Style="{StaticResource SectionTitle}"
-                    Text="อีเมลสำหรับการชำระเงิน" />
+                    Text="ข้อมูลติดต่อ" />
                 <Border Style="{StaticResource SurfaceCard}" Padding="17">
-                    <VerticalStackLayout Spacing="10">
-                        <Label
-                            Style="{StaticResource RefinedHelperText}"
-                            Text="ใช้รับใบเสร็จและขั้นตอนคืนเงิน โดยไม่ต้องกรอกซ้ำตอนจ่าย" />
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer
+                            Command="{Binding OpenEmailChangeCommand}" />
+                    </Border.GestureRecognizers>
+                    <Grid
+                        ColumnDefinitions="*,Auto"
+                        ColumnSpacing="12">
+                        <VerticalStackLayout Spacing="5">
                             <Label
-                                VerticalOptions="Center"
+                                FontAttributes="Bold"
+                                Text="อีเมลสำหรับใบเสร็จและการคืนเงิน" />
+                            <Label
                                 Style="{StaticResource RefinedBodyText}"
-                                SemanticProperties.Description="อีเมลที่ยืนยันแล้วสำหรับการชำระเงินและคืนเงิน"
+                                SemanticProperties.Description="{Binding EmailSemanticDescription}"
                                 Text="{Binding Email}" />
+                            <Label
+                                Style="{StaticResource RefinedHelperText}"
+                                Text="{Binding EmailNote}" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout
+                            Grid.Column="1"
+                            HorizontalOptions="End"
+                            Spacing="4">
                             <Border
-                                Grid.Column="1"
-                                VerticalOptions="Center"
+                                HorizontalOptions="End"
                                 Padding="9,4"
                                 BackgroundColor="{StaticResource BrandBlueSoft}"
                                 Stroke="Transparent"
@@ -116,11 +128,17 @@
                                 <Label
                                     FontAttributes="Bold"
                                     FontSize="12"
-                                    Text="ยืนยันแล้ว"
+                                    Text="{Binding EmailStatus}"
                                     TextColor="{StaticResource BrandBlueDeep}" />
                             </Border>
-                        </Grid>
-                    </VerticalStackLayout>
+                            <Button
+                                HorizontalOptions="End"
+                                Style="{StaticResource RefinedInlineButton}"
+                                Command="{Binding OpenEmailChangeCommand}"
+                                SemanticProperties.Description="แก้ไขหรือยืนยันอีเมลสำหรับใบเสร็จและการคืนเงิน"
+                                Text="{Binding EmailActionText}" />
+                        </VerticalStackLayout>
+                    </Grid>
                 </Border>
             </VerticalStackLayout>
 

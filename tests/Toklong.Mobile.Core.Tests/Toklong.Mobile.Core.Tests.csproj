@@ -32,6 +32,10 @@
              Link="MobileViewModels/AuthenticatedHomeViewModel.cs" />
     <Compile Include="../../src/Toklong.Mobile/ViewModels/AccountViewModel.cs"
              Link="MobileViewModels/AccountViewModel.cs" />
+    <Compile Include="../../src/Toklong.Mobile/ViewModels/ChangeEmailViewModel.cs"
+             Link="MobileViewModels/ChangeEmailViewModel.cs" />
+    <Compile Include="../../src/Toklong.Mobile/ViewModels/VerifyEmailChangeViewModel.cs"
+             Link="MobileViewModels/VerifyEmailChangeViewModel.cs" />
     <Compile Include="../../src/Toklong.Mobile/ViewModels/TransactionsViewModel.cs"
              Link="MobileViewModels/TransactionsViewModel.cs" />
   </ItemGroup>
@@ -42,6 +46,9 @@
           CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../src/Toklong.Mobile/AppShell.xaml"
           Link="Ui/AppShell.xaml"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Mobile/AppShell.xaml.cs"
+          Link="Ui/AppShell.xaml.cs"
           CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../src/Toklong.Mobile/MauiProgram.cs"
           Link="Ui/MauiProgram.cs"
