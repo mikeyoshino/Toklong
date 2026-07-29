@@ -29,99 +29,20 @@ public sealed class MobileEmailChangeApiTests
     public async Task Every_email_change_route_requires_authentication()
     {
         using var client = CreateClient();
-        var challengeId = Guid.NewGuid();
-        var requests = new[]
-        {
-            new RequestSpec(
-                HttpMethod.Get,
-                "/api/mobile/me/email-change",
-                null),
-            new RequestSpec(
-                HttpMethod.Post,
-                "/api/mobile/me/email-change",
-                new
-                {
-                    Email = "new@example.com",
-                    IdempotencyKey = NewKey()
-                }),
-            new RequestSpec(
-                HttpMethod.Post,
-                $"/api/mobile/me/email-change/{challengeId}/resend",
-                new { IdempotencyKey = NewKey() }),
-            new RequestSpec(
-                HttpMethod.Post,
-                $"/api/mobile/me/email-change/{challengeId}/verify",
-                new
-                {
-                    Code = "123456",
-                    IdempotencyKey = NewKey()
-                })
-        };
 
-        foreach (var spec in requests)
-        {
-            using var request = new HttpRequestMessage(
-                spec.Method,
-                spec.Path);
-            if (spec.Body is not null)
-                request.Content = JsonContent.Create(spec.Body);
-
-            using var response = await client.SendAsync(request);
-
-            Assert.Equal(
-                HttpStatusCode.Unauthorized,
-                response.StatusCode);
-        }
+        await AssertEmailChangeRoutesRejectedAsync(
+            client,
+            HttpStatusCode.Unauthorized);
     }
 
     [Fact]
     public async Task Seller_only_account_cannot_use_email_change_routes()
     {
         using var seller = await AuthenticatedSellerAsync();
-        var challengeId = Guid.NewGuid();
-        var requests = new[]
-        {
-            new RequestSpec(
-                HttpMethod.Get,
-                "/api/mobile/me/email-change",
-                null),
-            new RequestSpec(
-                HttpMethod.Post,
-                "/api/mobile/me/email-change",
-                new
-                {
-                    Email = "seller@example.com",
-                    IdempotencyKey = NewKey()
-                }),
-            new RequestSpec(
-                HttpMethod.Post,
-                $"/api/mobile/me/email-change/{challengeId}/resend",
-                new { IdempotencyKey = NewKey() }),
-            new RequestSpec(
-                HttpMethod.Post,
-                $"/api/mobile/me/email-change/{challengeId}/verify",
-                new
-                {
-                    Code = "123456",
-                    IdempotencyKey = NewKey()
-                })
-        };
 
-        foreach (var spec in requests)
-        {
-            using var request = new HttpRequestMessage(
-                spec.Method,
-                spec.Path);
-            if (spec.Body is not null)
-                request.Content = JsonContent.Create(spec.Body);
-
-            using var response =
-                await seller.Client.SendAsync(request);
-
-            Assert.Equal(
-                HttpStatusCode.BadRequest,
-                response.StatusCode);
-        }
+        await AssertEmailChangeRoutesRejectedAsync(
+            seller.Client,
+            HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -779,6 +700,56 @@ public sealed class MobileEmailChangeApiTests
                     "Bearer",
                     accessToken);
         return client;
+    }
+
+    private static async Task AssertEmailChangeRoutesRejectedAsync(
+        HttpClient client,
+        HttpStatusCode expectedStatus)
+    {
+        foreach (var spec in EmailChangeRouteRequests())
+        {
+            using var request = new HttpRequestMessage(
+                spec.Method,
+                spec.Path);
+            if (spec.Body is not null)
+                request.Content = JsonContent.Create(spec.Body);
+
+            using var response = await client.SendAsync(request);
+
+            Assert.Equal(expectedStatus, response.StatusCode);
+        }
+    }
+
+    private static RequestSpec[] EmailChangeRouteRequests()
+    {
+        var challengeId = Guid.NewGuid();
+        return
+        [
+            new RequestSpec(
+                HttpMethod.Get,
+                "/api/mobile/me/email-change",
+                null),
+            new RequestSpec(
+                HttpMethod.Post,
+                "/api/mobile/me/email-change",
+                new
+                {
+                    Email = "new@example.com",
+                    IdempotencyKey = NewKey()
+                }),
+            new RequestSpec(
+                HttpMethod.Post,
+                $"/api/mobile/me/email-change/{challengeId}/resend",
+                new { IdempotencyKey = NewKey() }),
+            new RequestSpec(
+                HttpMethod.Post,
+                $"/api/mobile/me/email-change/{challengeId}/verify",
+                new
+                {
+                    Code = "123456",
+                    IdempotencyKey = NewKey()
+                })
+        ];
     }
 
     private static Task<HttpResponseMessage> RequestAsync(
