@@ -3,18 +3,33 @@ using Toklong.Mobile.Core;
 
 namespace Toklong.Mobile.ViewModels;
 
-public sealed class AccountViewModel(
-    IAuthenticationService authentication,
-    AuthenticatedSessionBoundary session,
-    AccountEmailChangeCompletionState
-        emailChangeCompletion) : ObservableViewModel
+public sealed class AccountViewModel :
+    ObservableViewModel
 {
+    private readonly IAuthenticationService authentication;
+    private readonly AuthenticatedSessionBoundary session;
+    private readonly AccountEmailChangeCompletionState
+        emailChangeCompletion;
     private MobileProfile? profile;
     private PendingEmailChange? pendingEmailChange;
     private string message = "";
     private string successMessage = "";
     private bool isBusy;
     private long loadEpoch;
+
+    public AccountViewModel(
+        IAuthenticationService authentication,
+        AuthenticatedSessionBoundary session,
+        AccountEmailChangeCompletionState
+            emailChangeCompletion)
+    {
+        this.authentication = authentication;
+        this.session = session;
+        this.emailChangeCompletion =
+            emailChangeCompletion;
+        session.ResetRequested +=
+            OnSessionResetRequested;
+    }
 
     public string DisplayName => profile?.DisplayName ?? "";
 
@@ -110,11 +125,22 @@ public sealed class AccountViewModel(
 
     public async Task LoadAsync()
     {
-        if (emailChangeCompletion.TryConsume())
-            ShowEmailChangeSuccess();
-
         var generation = session.Capture();
         var epoch = Interlocked.Increment(ref loadEpoch);
+        if (emailChangeCompletion.TryConsume(
+                generation))
+        {
+            ShowEmailChangeSuccess();
+            if (!session.IsCurrent(generation))
+            {
+                DismissSuccessMessage();
+                return;
+            }
+        }
+
+        if (!session.IsCurrent(generation))
+            return;
+
         IsBusy = true;
         Message = "";
         try
@@ -213,6 +239,11 @@ public sealed class AccountViewModel(
 
     public void DismissSuccessMessage() =>
         SuccessMessage = "";
+
+    private void OnSessionResetRequested(
+        object? sender,
+        EventArgs eventArgs) =>
+        DismissSuccessMessage();
 
     private async Task<PendingEmailChange?>
         LoadPendingEmailChangeAsync()

@@ -66,6 +66,73 @@ public sealed class VerifyEmailChangeCompletionTests :
     }
 
     [Fact]
+    public async Task Reset_during_account_completion_presentation_clears_old_success_and_skips_new_session_load()
+    {
+        var authentication =
+            new RecordingAuthentication();
+        var session =
+            new AuthenticatedSessionBoundary();
+        var completion =
+            new AccountEmailChangeCompletionState(
+                session);
+        completion.RecordCompletion(
+            session.Capture());
+        var account = new AccountViewModel(
+            authentication,
+            session,
+            completion);
+        var resetDuringPresentation = false;
+        account.PropertyChanged += (_, eventArgs) =>
+        {
+            if (resetDuringPresentation ||
+                eventArgs.PropertyName !=
+                nameof(account.SuccessMessage) ||
+                !account.HasSuccessMessage)
+                return;
+
+            resetDuringPresentation = true;
+            session.Reset();
+        };
+
+        await account.LoadAsync();
+
+        Assert.True(resetDuringPresentation);
+        Assert.False(account.HasSuccessMessage);
+        Assert.Equal("", account.SuccessMessage);
+        Assert.Equal(0, authentication.ProfileCalls);
+        Assert.Equal(0, authentication.PendingCalls);
+    }
+
+    [Fact]
+    public async Task Session_reset_clears_a_visible_account_email_completion()
+    {
+        var authentication =
+            new RecordingAuthentication();
+        var session =
+            new AuthenticatedSessionBoundary();
+        var completion =
+            new AccountEmailChangeCompletionState(
+                session);
+        completion.RecordCompletion(
+            session.Capture());
+        var account = new AccountViewModel(
+            authentication,
+            session,
+            completion);
+
+        await account.LoadAsync();
+
+        Assert.Equal(
+            "เปลี่ยนอีเมลเรียบร้อยแล้ว",
+            account.SuccessMessage);
+
+        session.Reset();
+
+        Assert.False(account.HasSuccessMessage);
+        Assert.Equal("", account.SuccessMessage);
+    }
+
+    [Fact]
     public async Task Navigation_failure_after_server_verification_reports_success_once_and_can_retry_account_route()
     {
         Shell.Current = new Shell
@@ -253,11 +320,13 @@ public sealed class VerifyEmailChangeCompletionTests :
     }
 
     [Fact]
-    public async Task Reset_between_success_check_and_completion_record_never_shows_old_session_success()
+    public async Task Reset_during_success_application_stops_all_post_reset_side_effects()
     {
         Shell.Current = new Shell();
         var authentication =
             new RecordingAuthentication();
+        var analytics =
+            new RecordingAnalytics();
         var session =
             new AuthenticatedSessionBoundary();
         var emailChangeCompletion =
@@ -266,7 +335,7 @@ public sealed class VerifyEmailChangeCompletionTests :
         var viewModel =
             new VerifyEmailChangeViewModel(
                 authentication,
-                new RecordingAnalytics(),
+                analytics,
                 new ManualTimeProvider(Now),
                 session,
                 emailChangeCompletion);
@@ -288,6 +357,9 @@ public sealed class VerifyEmailChangeCompletionTests :
         await viewModel.ConfirmAsync();
 
         Assert.True(resetDuringSuccess);
+        Assert.Equal(0, authentication.ProfileCalls);
+        Assert.Empty(analytics.Events);
+        Assert.Empty(Shell.Current.Routes);
         var account = new AccountViewModel(
             authentication,
             session,
@@ -298,7 +370,6 @@ public sealed class VerifyEmailChangeCompletionTests :
         Assert.NotEqual(
             "เปลี่ยนอีเมลเรียบร้อยแล้ว",
             account.SuccessMessage);
-        Assert.Empty(Shell.Current.Routes);
     }
 
     [Fact]

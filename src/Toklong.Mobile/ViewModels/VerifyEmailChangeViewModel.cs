@@ -365,8 +365,14 @@ public sealed class VerifyEmailChangeViewModel(
 
             verificationIdempotencyKey = null;
             ApplyVerificationSuccess();
+            if (!lifetime.IsCurrent(operation.Value))
+                return;
+
             emailChangeCompletion.RecordCompletion(
                 operation.Value.SessionGeneration);
+            if (!lifetime.IsCurrent(operation.Value))
+                return;
+
             analytics.Track(
                 AccountEmailChangeAnalytics.Verified());
 

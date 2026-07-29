@@ -26,15 +26,18 @@ public sealed class AccountEmailChangeCompletionState
         }
     }
 
-    public bool TryConsume()
+    public bool TryConsume(
+        long sessionGeneration)
     {
         lock (sync)
         {
-            var generation =
-                completedSessionGeneration;
+            if (completedSessionGeneration !=
+                sessionGeneration)
+                return false;
+
             completedSessionGeneration = null;
-            return generation is { } value &&
-                   session.IsCurrent(value);
+            return session.IsCurrent(
+                sessionGeneration);
         }
     }
 
