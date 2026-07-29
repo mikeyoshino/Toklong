@@ -277,20 +277,25 @@ public sealed class EmailChangeLayoutTests
             .Descendants(Maui + "Grid")
             .First();
 
-        Assert.Null(
-            AttributeValue(
-                controlHost,
-                "HeightRequest"));
         Assert.Equal(
             "64",
             AttributeValue(
                 controlHost,
+                "HeightRequest"));
+        Assert.Null(
+            AttributeValue(
+                controlHost,
                 "MinimumHeightRequest"));
+        Assert.Equal(
+            6,
+            visibleDigits
+                .Elements(Maui + "Grid")
+                .Count());
         Assert.All(
             visibleDigits
                 .Elements(Maui + "Grid"),
             digit => Assert.Equal(
-                "Auto,3",
+                "48,3",
                 AttributeValue(
                     digit,
                     "RowDefinitions")));
