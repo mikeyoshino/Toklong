@@ -871,3 +871,143 @@ Terminate the device console and Task 4 API on `5191`, then remove
 `/private/tmp/toklong-device-test.s7V5Ba` and the older task-owned
 `/private/tmp/toklong-device-test.Vv4Qi2`. Do not stop the pre-existing API on
 `5181` or remove unrelated files.
+
+---
+
+### Task 7: Restore fixed Phone OTP underline geometry
+
+**Files:**
+- Modify: `src/Toklong.Mobile/Controls/OtpCodeInput.xaml`
+- Modify: `tests/Toklong.Mobile.Core.Tests/EmailChangeLayoutTests.cs`
+
+**Interfaces:**
+- Consumes: the shared low-level `OtpCodeInput`.
+- Produces: the original Phone OTP geometry with fixed underlines for both
+  Login and email verification.
+
+- [ ] **Step 1: Write the failing geometry regression**
+
+Extend `Otp_code_control_exposes_only_its_numeric_entry`:
+
+```csharp
+var rootGrid = Assert.Single(
+    control.Root!.Elements(Maui + "Grid"));
+var digitCells = control
+    .Descendants(Maui + "Grid")
+    .Where(grid =>
+        grid.Elements(Maui + "BoxView").Any())
+    .ToArray();
+
+Assert.Equal("64", AttributeValue(rootGrid, "HeightRequest"));
+Assert.Null(AttributeValue(rootGrid, "MinimumHeightRequest"));
+Assert.Equal(6, digitCells.Length);
+Assert.All(
+    digitCells,
+    cell => Assert.Equal(
+        "48,3",
+        AttributeValue(cell, "RowDefinitions")));
+```
+
+- [ ] **Step 2: Run the test and verify it fails**
+
+Run:
+
+```bash
+dotnet test tests/Toklong.Mobile.Core.Tests/Toklong.Mobile.Core.Tests.csproj \
+  --filter FullyQualifiedName~Otp_code_control_exposes_only_its_numeric_entry \
+  --no-restore
+```
+
+Expected: FAIL because the root currently uses `MinimumHeightRequest="64"`
+and the digit cells use `RowDefinitions="Auto,3"`.
+
+- [ ] **Step 3: Restore the original Phone OTP XAML geometry**
+
+In `OtpCodeInput.xaml`:
+
+```xml
+<Grid HeightRequest="64">
+```
+
+Change all six digit cell grids from:
+
+```xml
+RowDefinitions="Auto,3"
+```
+
+to:
+
+```xml
+RowDefinitions="48,3"
+```
+
+Keep the current accessibility exclusions and all input behavior unchanged.
+
+- [ ] **Step 4: Run focused and full Mobile Core tests**
+
+Run:
+
+```bash
+dotnet test tests/Toklong.Mobile.Core.Tests/Toklong.Mobile.Core.Tests.csproj \
+  --filter "FullyQualifiedName~Otp_code_control|FullyQualifiedName~EmailChangeLayoutTests" \
+  --no-restore
+dotnet test tests/Toklong.Mobile.Core.Tests/Toklong.Mobile.Core.Tests.csproj \
+  --no-restore
+```
+
+Expected: the geometry regression and all Mobile Core tests pass.
+
+- [ ] **Step 5: Build iOS and commit**
+
+Run:
+
+```bash
+dotnet build src/Toklong.Mobile/Toklong.Mobile.csproj \
+  -f net10.0-ios \
+  -p:RuntimeIdentifier=ios-arm64 \
+  --no-restore
+git add src/Toklong.Mobile/Controls/OtpCodeInput.xaml \
+  tests/Toklong.Mobile.Core.Tests/EmailChangeLayoutTests.cs
+git commit -m "fix: keep otp underlines stationary"
+```
+
+Expected: iOS build succeeds with zero errors; existing Personal Team
+entitlement warnings may remain.
+
+---
+
+### Task 8: Verify stationary OTP underlines on iPhone
+
+**Files:**
+- Modify only files required to correct a newly reproduced failure.
+
+**Interfaces:**
+- Consumes: Task 7 and the isolated device-test copy.
+- Produces: physical-device evidence that all six underlines stay stationary.
+
+- [ ] **Step 1: Sync the low-level OTP XAML and rebuild**
+
+Copy `OtpCodeInput.xaml` to the matching `Controls/` path in
+`/private/tmp/toklong-device-test.s7V5Ba`, then build iOS arm64 with
+`-p:CodesignEntitlements=`.
+
+- [ ] **Step 2: Install and verify on the connected iPhone**
+
+Open Login or email verification and confirm:
+
+1. Six underlines render before input.
+2. Each underline remains at the same vertical position after its digit is
+   entered.
+3. The shared compact Login card and numeric keyboard remain unchanged.
+4. Account and email verification do not crash.
+
+- [ ] **Step 3: Run all final verification suites**
+
+Run `git diff --check` and the Domain, Application, API, CRM, and Mobile Core
+test commands listed in Task 6 Step 3. Expected: zero failures.
+
+- [ ] **Step 4: Clean task-owned test resources**
+
+Terminate the current device console and API on `5191`. Remove only
+`/private/tmp/toklong-device-test.s7V5Ba` and
+`/private/tmp/toklong-device-test.Vv4Qi2`.
