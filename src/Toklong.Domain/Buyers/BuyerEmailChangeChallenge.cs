@@ -34,6 +34,7 @@ public sealed class BuyerEmailChangeChallenge
     public string MaskedPendingEmail { get; private set; } = "";
     public string CodeDigest { get; private set; } = "";
     public string RequestIdempotencyKey { get; private set; } = "";
+    public Guid? SourceChallengeId { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset ExpiresAt { get; private set; }
     public DateTimeOffset ResendAvailableAt { get; private set; }
@@ -55,12 +56,17 @@ public sealed class BuyerEmailChangeChallenge
         string maskedPendingEmail,
         string codeDigest,
         string requestIdempotencyKey,
-        DateTimeOffset createdAt)
+        DateTimeOffset createdAt,
+        Guid? sourceChallengeId = null)
     {
         if (id == Guid.Empty)
             throw new DomainException("รหัสการยืนยันอีเมลไม่ถูกต้อง");
         if (buyerId == Guid.Empty)
             throw new DomainException("บัญชีผู้ใช้ไม่ถูกต้อง");
+        if (sourceChallengeId is Guid sourceId &&
+            (sourceId == Guid.Empty || sourceId == id))
+            throw new DomainException(
+                "รหัสคำขอเปลี่ยนอีเมลต้นทางไม่ถูกต้อง");
 
         var normalizedPendingEmail = BuyerAccount.NormalizeEmail(pendingEmail);
 
@@ -74,6 +80,7 @@ public sealed class BuyerEmailChangeChallenge
                 maskedPendingEmail),
             CodeDigest = ValidDigest(codeDigest),
             RequestIdempotencyKey = NormalizedIdempotencyKey(requestIdempotencyKey),
+            SourceChallengeId = sourceChallengeId,
             CreatedAt = createdAt,
             ExpiresAt = createdAt.AddMinutes(10),
             ResendAvailableAt = createdAt.AddSeconds(60),

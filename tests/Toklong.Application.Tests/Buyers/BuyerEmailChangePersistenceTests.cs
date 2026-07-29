@@ -63,6 +63,9 @@ public sealed class BuyerEmailChangePersistenceTests
         Assert.True(
             challenge.FindProperty(
                 nameof(BuyerEmailChangeChallenge.Version))!.IsConcurrencyToken);
+        Assert.True(
+            challenge.FindProperty(
+                nameof(BuyerEmailChangeChallenge.SourceChallengeId))!.IsNullable);
         Assert.Contains(
             challenge.GetIndexes(),
             index => index.IsUnique &&
@@ -137,6 +140,32 @@ public sealed class BuyerEmailChangePersistenceTests
             default);
 
         Assert.Equal(pending.Id, found?.Id);
+    }
+
+    [Fact]
+    public async Task Repository_round_trips_resend_source_challenge()
+    {
+        await using var database = CreateDatabase();
+        var repository = new BuyerEmailChangeRepository(database);
+        var sourceId = Guid.NewGuid();
+        var replacement = BuyerEmailChangeChallenge.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "buyer@example.com",
+            "bu•••@example.com",
+            new string('a', 64),
+            Guid.NewGuid().ToString("N"),
+            Now,
+            sourceId);
+        await repository.AddAsync(replacement, default);
+        await database.SaveChangesAsync();
+        database.ChangeTracker.Clear();
+
+        var stored = await repository.GetByIdAsync(
+            replacement.Id,
+            default);
+
+        Assert.Equal(sourceId, stored?.SourceChallengeId);
     }
 
     [Fact]

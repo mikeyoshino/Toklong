@@ -394,6 +394,8 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
                 x => x.RequestIdempotencyKey)
             .HasMaxLength(32);
         buyerEmailChangeChallenge.Property(
+            x => x.SourceChallengeId);
+        buyerEmailChangeChallenge.Property(
                 x => x.VerificationIdempotencyKey)
             .HasMaxLength(32);
         buyerEmailChangeChallenge.Property(x => x.Version)

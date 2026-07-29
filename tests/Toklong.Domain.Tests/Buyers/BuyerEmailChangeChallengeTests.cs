@@ -21,6 +21,46 @@ public sealed class BuyerEmailChangeChallengeTests
         Assert.Equal(Now.AddMinutes(10), challenge.ExpiresAt);
         Assert.Equal(Now.AddSeconds(60), challenge.ResendAvailableAt);
         Assert.Equal(BuyerEmailChangeStatus.PendingSend, challenge.Status);
+        Assert.Null(challenge.SourceChallengeId);
+    }
+
+    [Fact]
+    public void Resend_replacement_records_a_distinct_source_challenge()
+    {
+        var replacementId = Guid.NewGuid();
+        var sourceId = Guid.NewGuid();
+
+        var replacement = BuyerEmailChangeChallenge.Create(
+            replacementId,
+            BuyerId,
+            "next@example.com",
+            "ne••@example.com",
+            CorrectDigest,
+            NewRequestKey(),
+            Now,
+            sourceId);
+
+        Assert.Equal(sourceId, replacement.SourceChallengeId);
+        Assert.Throws<DomainException>(() =>
+            BuyerEmailChangeChallenge.Create(
+                Guid.NewGuid(),
+                BuyerId,
+                "next@example.com",
+                "ne••@example.com",
+                CorrectDigest,
+                NewRequestKey(),
+                Now,
+                Guid.Empty));
+        Assert.Throws<DomainException>(() =>
+            BuyerEmailChangeChallenge.Create(
+                replacementId,
+                BuyerId,
+                "next@example.com",
+                "ne••@example.com",
+                CorrectDigest,
+                NewRequestKey(),
+                Now,
+                replacementId));
     }
 
     [Fact]

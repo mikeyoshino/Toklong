@@ -50,9 +50,6 @@ public sealed class BuyerAccount
         Email = NormalizeEmail(email);
     }
 
-    public void UpdateEmail(string email) =>
-        Email = NormalizeEmail(email);
-
     public void ActivateVerifiedEmail(string email)
     {
         var normalized = NormalizeEmail(email);

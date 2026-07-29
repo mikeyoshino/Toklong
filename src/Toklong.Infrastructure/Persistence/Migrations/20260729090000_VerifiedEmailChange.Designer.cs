@@ -328,6 +328,9 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("SendFailedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("SourceChallengeId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(24)

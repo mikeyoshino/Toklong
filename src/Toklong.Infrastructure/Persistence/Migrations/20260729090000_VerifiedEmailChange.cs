@@ -45,6 +45,7 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                     MaskedPendingEmail = table.Column<string>(type: "character varying(254)", maxLength: 254, nullable: false),
                     CodeDigest = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
                     RequestIdempotencyKey = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
+                    SourceChallengeId = table.Column<Guid>(type: "uuid", nullable: true),
                     CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     ExpiresAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     ResendAvailableAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),

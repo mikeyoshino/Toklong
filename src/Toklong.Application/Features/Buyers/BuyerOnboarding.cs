@@ -92,29 +92,6 @@ public sealed class RegisterBuyerHandler(
 public sealed record GetBuyerProfileQuery(Guid BuyerId)
     : IRequest<BuyerProfile>;
 
-public sealed record UpdateBuyerEmailCommand(
-    Guid BuyerId,
-    string Email) : IRequest<BuyerProfile>;
-
-public sealed class UpdateBuyerEmailHandler(
-    IBuyerRepository buyers,
-    IUnitOfWork unitOfWork)
-    : IRequestHandler<UpdateBuyerEmailCommand, BuyerProfile>
-{
-    public async Task<BuyerProfile> Handle(
-        UpdateBuyerEmailCommand request,
-        CancellationToken cancellationToken)
-    {
-        var buyer = await buyers.GetByIdAsync(
-                request.BuyerId,
-                cancellationToken)
-            ?? throw new NotFoundException("ไม่พบโปรไฟล์ผู้ซื้อ");
-        buyer.UpdateEmail(request.Email);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-        return BuyerProfile.From(buyer);
-    }
-}
-
 public sealed class GetBuyerProfileHandler(IBuyerRepository buyers)
     : IRequestHandler<GetBuyerProfileQuery, BuyerProfile>
 {
