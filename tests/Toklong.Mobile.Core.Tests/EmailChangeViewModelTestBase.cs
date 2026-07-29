@@ -9,10 +9,16 @@ public abstract class EmailChangeViewModelTestBase
         new(2026, 7, 29, 12, 0, 0, TimeSpan.Zero);
 
     protected static AccountViewModel Account(
-        RecordingAuthentication authentication) =>
-        new(
+        RecordingAuthentication authentication)
+    {
+        var session =
+            new AuthenticatedSessionBoundary();
+        return new(
             authentication,
-            new AuthenticatedSessionBoundary());
+            session,
+            new AccountEmailChangeCompletionState(
+                session));
+    }
 
     protected static ChangeEmailViewModel Change(
         RecordingAuthentication authentication,
@@ -31,11 +37,15 @@ public abstract class EmailChangeViewModelTestBase
         RecordingAnalytics? analytics = null,
         TimeProvider? time = null)
     {
+        var session =
+            new AuthenticatedSessionBoundary();
         var viewModel = new VerifyEmailChangeViewModel(
             authentication,
             analytics ?? new RecordingAnalytics(),
             time ?? new ManualTimeProvider(Now),
-            new AuthenticatedSessionBoundary());
+            session,
+            new AccountEmailChangeCompletionState(
+                session));
         viewModel.Activate();
         return viewModel;
     }

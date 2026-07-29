@@ -10,6 +10,7 @@ internal enum AccountEmailChangeErrorKind
     Network,
     Sender,
     Superseded,
+    Missing,
     Cooldown
 }
 
@@ -25,7 +26,9 @@ internal sealed record AccountEmailChangeError(
             AccountEmailChangeErrorKind.Locked;
 
     public bool RequiresPendingRefresh =>
-        Kind == AccountEmailChangeErrorKind.Superseded;
+        Kind is
+            AccountEmailChangeErrorKind.Superseded or
+            AccountEmailChangeErrorKind.Missing;
 }
 
 internal static class AccountEmailChangeErrorPresentation
@@ -82,7 +85,9 @@ internal static class AccountEmailChangeErrorPresentation
         if (IsLocked(exception))
             return Locked();
         if (IsSuperseded(exception))
-            return Superseded(exception);
+            return Superseded();
+        if (IsMissing(exception))
+            return Missing();
 
         return Error(
             AccountEmailChangeErrorKind.Invalid,
@@ -106,7 +111,9 @@ internal static class AccountEmailChangeErrorPresentation
         if (IsLocked(exception))
             return Locked();
         if (IsSuperseded(exception))
-            return Superseded(exception);
+            return Superseded();
+        if (IsMissing(exception))
+            return Missing();
         if (Contains(
                 exception,
                 "รหัสไม่ถูกต้อง"))
@@ -139,7 +146,9 @@ internal static class AccountEmailChangeErrorPresentation
         Contains(exception, "ล็อก");
 
     private static bool IsSuperseded(Exception exception) =>
-        Contains(exception, "มีการส่งรหัสใหม่แล้ว") ||
+        Contains(exception, "มีการส่งรหัสใหม่แล้ว");
+
+    private static bool IsMissing(Exception exception) =>
         Contains(exception, "ไม่พบคำขอเปลี่ยนอีเมล");
 
     private static bool Contains(
@@ -204,14 +213,17 @@ internal static class AccountEmailChangeErrorPresentation
             AccountEmailChangeFailureReason.Locked,
             "กรอกรหัสไม่ถูกต้องครบจำนวนแล้ว กรุณาขอรหัสใหม่");
 
-    private static AccountEmailChangeError Superseded(
-        Exception exception) =>
+    private static AccountEmailChangeError Superseded() =>
         Error(
             AccountEmailChangeErrorKind.Superseded,
             AccountEmailChangeFailureReason.Invalid,
-            Contains(exception, "มีการส่งรหัสใหม่แล้ว")
-                ? "มีการส่งรหัสใหม่แล้ว กรุณากลับไปยืนยันรหัสล่าสุดจากหน้าบัญชี"
-                : "คำขอเปลี่ยนอีเมลนี้ใช้ไม่ได้แล้ว กรุณากลับไปหน้าบัญชี");
+            "มีการส่งรหัสใหม่แล้ว กรุณากลับไปยืนยันรหัสล่าสุดจากหน้าบัญชี");
+
+    private static AccountEmailChangeError Missing() =>
+        Error(
+            AccountEmailChangeErrorKind.Missing,
+            AccountEmailChangeFailureReason.Invalid,
+            "คำขอเปลี่ยนอีเมลนี้ใช้ไม่ได้แล้ว กรุณากลับไปหน้าบัญชี");
 
     private static AccountEmailChangeError Error(
         AccountEmailChangeErrorKind kind,

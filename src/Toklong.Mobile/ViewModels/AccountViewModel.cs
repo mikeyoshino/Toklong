@@ -5,7 +5,9 @@ namespace Toklong.Mobile.ViewModels;
 
 public sealed class AccountViewModel(
     IAuthenticationService authentication,
-    AuthenticatedSessionBoundary session) : ObservableViewModel
+    AuthenticatedSessionBoundary session,
+    AccountEmailChangeCompletionState
+        emailChangeCompletion) : ObservableViewModel
 {
     private MobileProfile? profile;
     private PendingEmailChange? pendingEmailChange;
@@ -108,6 +110,9 @@ public sealed class AccountViewModel(
 
     public async Task LoadAsync()
     {
+        if (emailChangeCompletion.TryConsume())
+            ShowEmailChangeSuccess();
+
         var generation = session.Capture();
         var epoch = Interlocked.Increment(ref loadEpoch);
         IsBusy = true;

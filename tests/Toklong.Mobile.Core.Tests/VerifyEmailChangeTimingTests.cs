@@ -189,12 +189,16 @@ public sealed class VerifyEmailChangeTimingTests :
     [Fact]
     public void Activating_an_already_expired_challenge_presents_the_terminal_action()
     {
+        var session =
+            new AuthenticatedSessionBoundary();
         var viewModel =
             new Toklong.Mobile.ViewModels.VerifyEmailChangeViewModel(
             new RecordingAuthentication(),
             new RecordingAnalytics(),
             new ManualTimeProvider(Now),
-            new AuthenticatedSessionBoundary());
+            session,
+            new AccountEmailChangeCompletionState(
+                session));
         viewModel.Apply(Pending(
             expiresAt: Now.AddSeconds(-1)));
         EmailChangeErrorNotice? notice = null;

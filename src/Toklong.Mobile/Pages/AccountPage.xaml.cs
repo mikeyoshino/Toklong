@@ -2,9 +2,7 @@ using Toklong.Mobile.ViewModels;
 
 namespace Toklong.Mobile.Pages;
 
-public partial class AccountPage :
-    ContentPage,
-    IQueryAttributable
+public partial class AccountPage : ContentPage
 {
     private readonly AccountViewModel viewModel;
 
@@ -26,15 +24,4 @@ public partial class AccountPage :
         base.OnDisappearing();
     }
 
-    public void ApplyQueryAttributes(
-        IDictionary<string, object> query)
-    {
-        if (query.TryGetValue(
-                "EmailChangeCompleted",
-                out var value) &&
-            value is true)
-        {
-            viewModel.ShowEmailChangeSuccess();
-        }
-    }
 }

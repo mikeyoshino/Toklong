@@ -65,7 +65,11 @@ public sealed class ViewModelSessionBoundaryTests
             Assert.False(list.HasError);
             Assert.False(list.ShowTransactionCollectionEmptyState);
         });
-        var account = new AccountViewModel(authentication, session);
+        var account = new AccountViewModel(
+            authentication,
+            session,
+            new AccountEmailChangeCompletionState(
+                session));
 
         await account.SignOutAsync();
         await home.LoadAsync();

@@ -166,11 +166,54 @@ public sealed class VerifyEmailChangeInputAndErrorsTests :
         Assert.Equal(
             ["//main/account"],
             Shell.Current.Routes);
-        var navigation = Assert.Single(
+        Assert.Empty(
             Shell.Current.ParameterizedRoutes);
+    }
+
+    [Fact]
+    public async Task Missing_challenge_returns_to_account_without_claiming_a_latest_pending_code()
+    {
+        Shell.Current = new Shell();
+        var authentication = new RecordingAuthentication
+        {
+            VerifyEmail = (_, _, _) =>
+                Task.FromException<string>(
+                    new InvalidOperationException(
+                        "ไม่พบคำขอเปลี่ยนอีเมล"))
+        };
+        var viewModel = Verify(authentication);
+        viewModel.Apply(Pending(
+            resendAvailableAt: Now));
+        EmailChangeErrorNotice? notice = null;
+        viewModel.ErrorPresented += (_, value) =>
+            notice = value;
+        viewModel.Code = "123456";
+
+        await viewModel.ConfirmAsync();
+
         Assert.Equal(
-            false,
-            navigation.Parameters["EmailChangeCompleted"]);
+            "คำขอเปลี่ยนอีเมลนี้ใช้ไม่ได้แล้ว กรุณากลับไปหน้าบัญชี",
+            viewModel.Message);
+        Assert.True(viewModel.RequiresPendingRefresh);
+        Assert.False(viewModel.RequiresNewRequest);
+        Assert.True(viewModel.CanReturnToAccount);
+        Assert.Equal(
+            "กลับไปหน้าบัญชี",
+            viewModel.AccountReturnButtonText);
+        Assert.Equal(
+            "กลับไปหน้าบัญชีเพื่อตรวจสอบข้อมูลล่าสุด",
+            viewModel.AccountReturnSemanticDescription);
+        Assert.Equal(
+            EmailChangeErrorTarget.AccountReturnAction,
+            notice?.Target);
+
+        await viewModel.ReturnToAccountAsync();
+
+        Assert.Equal(
+            ["//main/account"],
+            Shell.Current.Routes);
+        Assert.Empty(
+            Shell.Current.ParameterizedRoutes);
     }
 
     [Fact]

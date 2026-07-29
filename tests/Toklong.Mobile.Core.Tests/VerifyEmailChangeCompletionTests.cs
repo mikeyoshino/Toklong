@@ -7,12 +7,22 @@ public sealed class VerifyEmailChangeCompletionTests :
     EmailChangeViewModelTestBase
 {
     [Fact]
-    public async Task Successful_verification_refreshes_server_profile_and_returns_to_account()
+    public async Task Successful_verification_records_one_shot_account_completion_without_shell_parameters()
     {
         Shell.Current = new Shell();
         var authentication = new RecordingAuthentication();
         var analytics = new RecordingAnalytics();
-        var viewModel = Verify(authentication, analytics);
+        var session = new AuthenticatedSessionBoundary();
+        var completion =
+            new AccountEmailChangeCompletionState(
+                session);
+        var viewModel = new VerifyEmailChangeViewModel(
+            authentication,
+            analytics,
+            new ManualTimeProvider(Now),
+            session,
+            completion);
+        viewModel.Activate();
         viewModel.Apply(Pending());
         viewModel.Code = "123456";
 
@@ -23,11 +33,22 @@ public sealed class VerifyEmailChangeCompletionTests :
         Assert.Equal(
             ["//main/account"],
             Shell.Current.Routes);
-        var navigation = Assert.Single(
+        Assert.Empty(
             Shell.Current.ParameterizedRoutes);
+
+        var account = new AccountViewModel(
+            authentication,
+            session,
+            completion);
+        await account.LoadAsync();
+
         Assert.Equal(
-            true,
-            navigation.Parameters["EmailChangeCompleted"]);
+            "เปลี่ยนอีเมลเรียบร้อยแล้ว",
+            account.SuccessMessage);
+        account.DismissSuccessMessage();
+        await account.LoadAsync();
+        Assert.False(account.HasSuccessMessage);
+
         var verified = Assert.Single(
             analytics.Events,
             value =>
@@ -90,6 +111,79 @@ public sealed class VerifyEmailChangeCompletionTests :
     }
 
     [Fact]
+    public async Task Authoritative_verification_after_local_expiry_leaves_only_account_recovery_when_navigation_fails()
+    {
+        Shell.Current = new Shell
+        {
+            Navigate = _ =>
+                Task.FromException(
+                    new InvalidOperationException(
+                        "private navigation detail"))
+        };
+        var time = new ManualTimeProvider(Now);
+        var verification =
+            new TaskCompletionSource<string>(
+                TaskCreationOptions
+                    .RunContinuationsAsynchronously);
+        var authentication =
+            new RecordingAuthentication
+            {
+                VerifyEmail = (_, _, _) =>
+                    verification.Task
+            };
+        var analytics = new RecordingAnalytics();
+        var session =
+            new AuthenticatedSessionBoundary();
+        var completion =
+            new AccountEmailChangeCompletionState(
+                session);
+        var viewModel = new VerifyEmailChangeViewModel(
+            authentication,
+            analytics,
+            time,
+            session,
+            completion);
+        var notices =
+            new List<EmailChangeErrorNotice>();
+        viewModel.ErrorPresented += (_, notice) =>
+            notices.Add(notice);
+        viewModel.Apply(Pending(
+            expiresAt: Now.AddSeconds(1)));
+        viewModel.Activate();
+        viewModel.Code = "123456";
+
+        var confirmation = viewModel.ConfirmAsync();
+        await time.AdvanceAsync(
+            TimeSpan.FromSeconds(1));
+
+        Assert.True(viewModel.IsExpired);
+        Assert.True(viewModel.RequiresNewRequest);
+
+        verification.SetResult("new@example.com");
+        await confirmation;
+
+        Assert.False(viewModel.IsExpired);
+        Assert.False(viewModel.IsLocked);
+        Assert.False(viewModel.RequiresNewRequest);
+        Assert.False(viewModel.RequiresPendingRefresh);
+        Assert.True(viewModel.RequiresAccountReturn);
+        Assert.True(viewModel.CanReturnToAccount);
+        Assert.Equal(
+            EmailChangeErrorTarget.AccountReturnAction,
+            notices[^1].Target);
+        Assert.Single(
+            analytics.Events,
+            value =>
+                value.Name ==
+                "account_email_change_verified");
+        Assert.DoesNotContain(
+            analytics.Events,
+            value =>
+                value.Name ==
+                "account_email_change_failed");
+    }
+
+    [Fact]
     public async Task Profile_refresh_failure_after_verification_still_returns_to_account_without_failed_analytics()
     {
         Shell.Current = new Shell();
@@ -141,7 +235,9 @@ public sealed class VerifyEmailChangeCompletionTests :
             authentication,
             new RecordingAnalytics(),
             new ManualTimeProvider(Now),
-            session);
+            session,
+            new AccountEmailChangeCompletionState(
+                session));
         viewModel.Apply(Pending());
         viewModel.Activate();
         viewModel.Code = "123456";

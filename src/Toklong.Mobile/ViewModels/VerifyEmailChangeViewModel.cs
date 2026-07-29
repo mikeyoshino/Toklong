@@ -7,7 +7,9 @@ public sealed class VerifyEmailChangeViewModel(
     IAuthenticationService authentication,
     IMobileAnalytics analytics,
     TimeProvider timeProvider,
-    AuthenticatedSessionBoundary session) : ObservableViewModel
+    AuthenticatedSessionBoundary session,
+    AccountEmailChangeCompletionState
+        emailChangeCompletion) : ObservableViewModel
 {
     private static readonly TimeSpan
         LocalResendCooldown =
@@ -26,7 +28,7 @@ public sealed class VerifyEmailChangeViewModel(
     private bool isActive;
     private bool isExpired;
     private bool isLocked;
-    private bool isObsolete;
+    private AccountRecovery accountRecovery;
     private bool isVerified;
     private bool requiresAccountReturn;
     private CancellationTokenSource? countdown;
@@ -115,11 +117,12 @@ public sealed class VerifyEmailChangeViewModel(
     }
 
     public bool RequiresNewRequest =>
-        IsExpired ||
-        IsLocked;
+        !isVerified &&
+        (IsExpired ||
+         IsLocked);
 
     public bool RequiresPendingRefresh =>
-        isObsolete;
+        accountRecovery != AccountRecovery.None;
 
     public bool CanUseChallenge =>
         pending is not null &&
@@ -139,14 +142,18 @@ public sealed class VerifyEmailChangeViewModel(
         RequiresPendingRefresh;
 
     public string AccountReturnButtonText =>
-        RequiresPendingRefresh
+        accountRecovery ==
+        AccountRecovery.LatestPending
             ? "กลับไปยืนยันรหัสล่าสุด"
             : "กลับไปหน้าบัญชี";
 
     public string AccountReturnSemanticDescription =>
-        RequiresPendingRefresh
+        accountRecovery ==
+        AccountRecovery.LatestPending
             ? "กลับไปหน้าบัญชีเพื่อยืนยันรหัสล่าสุด"
-            : "กลับไปหน้าบัญชีเพื่อตรวจสอบอีเมลล่าสุด";
+            : RequiresPendingRefresh
+                ? "กลับไปหน้าบัญชีเพื่อตรวจสอบข้อมูลล่าสุด"
+                : "กลับไปหน้าบัญชีเพื่อตรวจสอบอีเมลล่าสุด";
 
     public string ResendButtonText =>
         ResendSecondsRemaining > 0
@@ -200,7 +207,7 @@ public sealed class VerifyEmailChangeViewModel(
         resendIdempotencyKey = null;
         IsExpired = false;
         IsLocked = value.RemainingAttempts <= 0;
-        SetObsolete(false);
+        SetAccountRecovery(AccountRecovery.None);
         SetVerified(false);
         SetRequiresAccountReturn(false);
         Code = "";
@@ -264,7 +271,7 @@ public sealed class VerifyEmailChangeViewModel(
             pending is not null &&
             !IsExpired &&
             !IsLocked &&
-            !isObsolete &&
+            !RequiresPendingRefresh &&
             !isVerified &&
             ExpirySecondsRemaining == 0;
         if (becameExpired)
@@ -357,7 +364,8 @@ public sealed class VerifyEmailChangeViewModel(
                 return;
 
             verificationIdempotencyKey = null;
-            SetVerified(true);
+            ApplyVerificationSuccess();
+            emailChangeCompletion.RecordCompletion();
             analytics.Track(
                 AccountEmailChangeAnalytics.Verified());
 
@@ -381,8 +389,7 @@ public sealed class VerifyEmailChangeViewModel(
 
             try
             {
-                await NavigateToAccountAsync(
-                    emailChangeCompleted: true);
+                await NavigateToAccountAsync();
             }
             catch
             {
@@ -433,7 +440,7 @@ public sealed class VerifyEmailChangeViewModel(
             IsExpired = false;
             IsLocked =
                 replacement.RemainingAttempts <= 0;
-            SetObsolete(false);
+            SetAccountRecovery(AccountRecovery.None);
             SetVerified(false);
             SetRequiresAccountReturn(false);
             Code = "";
@@ -516,9 +523,7 @@ public sealed class VerifyEmailChangeViewModel(
         var isPendingRefresh = RequiresPendingRefresh;
         try
         {
-            await NavigateToAccountAsync(
-                emailChangeCompleted:
-                    !isPendingRefresh);
+            await NavigateToAccountAsync();
             if (lifetime.IsCurrent(operation.Value) &&
                 !isPendingRefresh)
             {
@@ -605,6 +610,17 @@ public sealed class VerifyEmailChangeViewModel(
         RestartCountdown();
     }
 
+    private void ApplyVerificationSuccess()
+    {
+        SetVerified(true);
+        IsExpired = false;
+        IsLocked = false;
+        SetAccountRecovery(AccountRecovery.None);
+        SetRequiresAccountReturn(false);
+        Message = "";
+        StopCountdown();
+    }
+
     private void ApplyChallengeError(
         AccountEmailChangeError error)
     {
@@ -621,16 +637,24 @@ public sealed class VerifyEmailChangeViewModel(
         else if (error.Kind ==
                  AccountEmailChangeErrorKind.Superseded)
         {
-            SetObsolete(true);
+            SetAccountRecovery(
+                AccountRecovery.LatestPending);
+        }
+        else if (error.Kind ==
+                 AccountEmailChangeErrorKind.Missing)
+        {
+            SetAccountRecovery(
+                AccountRecovery.Account);
         }
     }
 
-    private void SetObsolete(bool value)
+    private void SetAccountRecovery(
+        AccountRecovery value)
     {
-        if (isObsolete == value)
+        if (accountRecovery == value)
             return;
 
-        isObsolete = value;
+        accountRecovery = value;
         RaiseActionState();
     }
 
@@ -680,13 +704,13 @@ public sealed class VerifyEmailChangeViewModel(
                 target,
                 value));
 
-    private static Task NavigateToAccountAsync(
-        bool emailChangeCompleted) =>
-        Shell.Current.GoToAsync(
-            "//main/account",
-            new Dictionary<string, object>
-            {
-                ["EmailChangeCompleted"] =
-                    emailChangeCompleted
-            });
+    private static Task NavigateToAccountAsync() =>
+        Shell.Current.GoToAsync("//main/account");
+
+    private enum AccountRecovery
+    {
+        None,
+        LatestPending,
+        Account
+    }
 }
