@@ -5,39 +5,41 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Toklong.Mobile.Controls">
-    <VerticalStackLayout Spacing="{StaticResource SpacingLg}">
-        <controls:OtpCodeInput
-            x:Name="OtpInput"
-            Code="{Binding Code, Source={x:Reference Root}, Mode=TwoWay}" />
+    <Border Style="{StaticResource AuthFormCard}">
+        <VerticalStackLayout Spacing="{StaticResource SpacingLg}">
+            <controls:OtpCodeInput
+                x:Name="OtpInput"
+                Code="{Binding Code, Source={x:Reference Root}, Mode=TwoWay}" />
 
-        <Border
-            IsVisible="{Binding HasDevelopmentHint, Source={x:Reference Root}}"
-            Padding="12"
-            BackgroundColor="{StaticResource BrandBlueSoft}"
-            StrokeThickness="0"
-            StrokeShape="RoundRectangle 12">
-            <Label
-                HorizontalTextAlignment="Center"
-                Style="{StaticResource RefinedHelperText}"
-                Text="{Binding DevelopmentHint, Source={x:Reference Root}}"
-                TextColor="{StaticResource BrandBlueDeep}" />
-        </Border>
+            <Border
+                IsVisible="{Binding HasDevelopmentHint, Source={x:Reference Root}}"
+                Padding="12"
+                BackgroundColor="{StaticResource BrandBlueSoft}"
+                StrokeThickness="0"
+                StrokeShape="RoundRectangle 12">
+                <Label
+                    HorizontalTextAlignment="Center"
+                    Style="{StaticResource RefinedHelperText}"
+                    Text="{Binding DevelopmentHint, Source={x:Reference Root}}"
+                    TextColor="{StaticResource BrandBlueDeep}" />
+            </Border>
 
-        <Button
-            Style="{StaticResource RefinedPrimaryButton}"
-            Command="{Binding ConfirmCommand, Source={x:Reference Root}}"
-            IsEnabled="{Binding CanConfirm, Source={x:Reference Root}}"
-            IsVisible="{Binding IsConfirmVisible, Source={x:Reference Root}}"
-            SemanticProperties.Description="{Binding ConfirmSemanticDescription, Source={x:Reference Root}}"
-            Text="{Binding DisplayedConfirmText, Source={x:Reference Root}}">
-            <Button.Triggers>
-                <DataTrigger
-                    TargetType="Button"
-                    Binding="{Binding IsBusy, Source={x:Reference Root}}"
-                    Value="True">
-                    <Setter Property="IsEnabled" Value="False" />
-                </DataTrigger>
-            </Button.Triggers>
-        </Button>
-    </VerticalStackLayout>
+            <Button
+                Style="{StaticResource RefinedPrimaryButton}"
+                Command="{Binding ConfirmCommand, Source={x:Reference Root}}"
+                IsEnabled="{Binding CanConfirm, Source={x:Reference Root}}"
+                IsVisible="{Binding IsConfirmVisible, Source={x:Reference Root}}"
+                SemanticProperties.Description="{Binding ConfirmSemanticDescription, Source={x:Reference Root}}"
+                Text="{Binding DisplayedConfirmText, Source={x:Reference Root}}">
+                <Button.Triggers>
+                    <DataTrigger
+                        TargetType="Button"
+                        Binding="{Binding IsBusy, Source={x:Reference Root}}"
+                        Value="True">
+                        <Setter Property="IsEnabled" Value="False" />
+                    </DataTrigger>
+                </Button.Triggers>
+            </Button>
+        </VerticalStackLayout>
+    </Border>
 </ContentView>

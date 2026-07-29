@@ -506,6 +506,11 @@ public sealed class EmailChangeLayoutTests
             form.Descendants(),
             element => element.Name.LocalName == "OtpCodeInput");
         var confirm = Assert.Single(form.Descendants(Maui + "Button"));
+        var card = Assert.Single(
+            form.Descendants(Maui + "Border"),
+            border =>
+                AttributeValue(border, "Style") ==
+                "{StaticResource AuthFormCard}");
         var source = File.ReadAllText(Path.Combine(
             AppContext.BaseDirectory,
             "Ui",
@@ -527,6 +532,13 @@ public sealed class EmailChangeLayoutTests
         Assert.Equal(
             "{Binding DisplayedConfirmText, Source={x:Reference Root}}",
             AttributeValue(confirm, "Text"));
+        Assert.Contains(card, codeInput.Ancestors());
+        Assert.Contains(card, confirm.Ancestors());
+        Assert.DoesNotContain(
+            form.Descendants(Maui + "Border"),
+            border =>
+                AttributeValue(border, "Style") ==
+                "{StaticResource RefinedFormCard}");
         Assert.DoesNotContain("ViewModel", source);
         Assert.DoesNotContain("INavigation", source);
         Assert.DoesNotContain("Resend", source);
