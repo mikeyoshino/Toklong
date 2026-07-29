@@ -55,54 +55,34 @@
                 </VerticalStackLayout>
             </Border>
 
-            <Border Style="{StaticResource RefinedFormCard}">
-                <VerticalStackLayout Spacing="{StaticResource SpacingLg}">
-                    <VerticalStackLayout
-                        Style="{StaticResource RefinedFormSection}">
-                        <controls:FormLabelView
-                            IsRequired="True"
-                            Text="รหัสยืนยัน 6 หลัก" />
-                        <controls:OtpCodeInput
-                            x:Name="OtpInput"
-                            Code="{Binding Code, Mode=TwoWay}" />
-                    </VerticalStackLayout>
+            <VerticalStackLayout Spacing="{StaticResource SpacingLg}">
+                <controls:OtpVerificationFormView
+                    x:Name="OtpForm"
+                    Code="{Binding Code, Mode=TwoWay}"
+                    ConfirmCommand="{Binding ConfirmCommand}"
+                    CanConfirm="{Binding CanConfirm}"
+                    ConfirmText="ยืนยันอีเมลใหม่"
+                    BusyText="กำลังยืนยัน..."
+                    ConfirmSemanticDescription="ยืนยันอีเมลใหม่ด้วยรหัส 6 หลัก"
+                    IsBusy="{Binding IsBusy}"
+                    IsVisible="{Binding CanUseChallenge}" />
 
-                    <Button
-                        x:Name="ConfirmButton"
-                        Style="{StaticResource RefinedPrimaryButton}"
-                        Command="{Binding ConfirmCommand}"
-                        IsEnabled="{Binding CanConfirm}"
-                        IsVisible="{Binding CanUseChallenge}"
-                        SemanticProperties.Description="ยืนยันอีเมลใหม่ด้วยรหัส 6 หลัก"
-                        Text="ยืนยันอีเมลใหม่">
-                        <Button.Triggers>
-                            <DataTrigger
-                                TargetType="Button"
-                                Binding="{Binding IsBusy}"
-                                Value="True">
-                                <Setter Property="IsEnabled" Value="False" />
-                                <Setter Property="Text" Value="กำลังยืนยัน..." />
-                            </DataTrigger>
-                        </Button.Triggers>
-                    </Button>
+                <Button
+                    x:Name="NewRequestButton"
+                    Style="{StaticResource RefinedPrimaryButton}"
+                    Command="{Binding StartNewRequestCommand}"
+                    IsVisible="{Binding RequiresNewRequest}"
+                    SemanticProperties.Description="ขอรหัสยืนยันอีเมลใหม่"
+                    Text="ขอรหัสใหม่" />
 
-                    <Button
-                        x:Name="NewRequestButton"
-                        Style="{StaticResource RefinedPrimaryButton}"
-                        Command="{Binding StartNewRequestCommand}"
-                        IsVisible="{Binding RequiresNewRequest}"
-                        SemanticProperties.Description="ขอรหัสยืนยันอีเมลใหม่"
-                        Text="ขอรหัสใหม่" />
-
-                    <Button
-                        x:Name="ReturnToAccountButton"
-                        Style="{StaticResource RefinedPrimaryButton}"
-                        Command="{Binding ReturnToAccountCommand}"
-                        IsVisible="{Binding CanReturnToAccount}"
-                        SemanticProperties.Description="{Binding AccountReturnSemanticDescription}"
-                        Text="{Binding AccountReturnButtonText}" />
-                </VerticalStackLayout>
-            </Border>
+                <Button
+                    x:Name="ReturnToAccountButton"
+                    Style="{StaticResource RefinedPrimaryButton}"
+                    Command="{Binding ReturnToAccountCommand}"
+                    IsVisible="{Binding CanReturnToAccount}"
+                    SemanticProperties.Description="{Binding AccountReturnSemanticDescription}"
+                    Text="{Binding AccountReturnButtonText}" />
+            </VerticalStackLayout>
 
             <VerticalStackLayout Spacing="5">
                 <Button

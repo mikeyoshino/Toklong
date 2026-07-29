@@ -35,7 +35,7 @@ public partial class VerifyEmailChangePage :
                 () =>
                 {
                     if (viewModel.CanUseChallenge)
-                        OtpInput.FocusInput();
+                        OtpForm.FocusInput();
                 });
         }
     }
@@ -66,7 +66,7 @@ public partial class VerifyEmailChangePage :
                 NewRequestButton,
             Core.EmailChangeErrorTarget.AccountReturnAction =>
                 ReturnToAccountButton,
-            _ => OtpInput
+            _ => OtpForm
         };
         await EmailChangeScroll.ScrollToAsync(
             target,
@@ -75,7 +75,7 @@ public partial class VerifyEmailChangePage :
         if (notice.Target ==
             Core.EmailChangeErrorTarget.CodeInput)
         {
-            OtpInput.FocusInput();
+            OtpForm.FocusInput();
         }
         else
         {

@@ -24,7 +24,7 @@ public partial class VerifyCodePage : ContentPage, IQueryAttributable
         base.OnAppearing();
         Dispatcher.DispatchDelayed(
             TimeSpan.FromMilliseconds(250),
-            OtpInput.FocusInput);
+            OtpForm.FocusInput);
     }
 
     private async void OnBackClicked(

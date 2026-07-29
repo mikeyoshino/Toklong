@@ -49,41 +49,16 @@
                     Text="แก้ไขเบอร์" />
             </VerticalStackLayout>
 
-            <Border Style="{StaticResource AuthFormCard}">
-                <VerticalStackLayout Spacing="20">
-                    <controls:OtpCodeInput
-                        x:Name="OtpInput"
-                        Code="{Binding Code, Mode=TwoWay}" />
-
-                    <Border
-                        IsVisible="{Binding HasDevelopmentHint}"
-                        Padding="12"
-                        BackgroundColor="#EAF4FF"
-                        StrokeThickness="0"
-                        StrokeShape="RoundRectangle 12">
-                        <Label
-                            HorizontalTextAlignment="Center"
-                            Style="{StaticResource RefinedHelperText}"
-                            Text="{Binding DevelopmentHint}"
-                            TextColor="{StaticResource BrandBlueDeep}" />
-                    </Border>
-
-                    <Button
-                        Style="{StaticResource RefinedPrimaryButton}"
-                        Command="{Binding ConfirmCommand}"
-                        Text="{Binding ConfirmButtonText}">
-                        <Button.Triggers>
-                            <DataTrigger
-                                TargetType="Button"
-                                Binding="{Binding IsBusy}"
-                                Value="True">
-                                <Setter Property="IsEnabled" Value="False" />
-                                <Setter Property="Text" Value="กำลังยืนยัน..." />
-                            </DataTrigger>
-                        </Button.Triggers>
-                    </Button>
-                </VerticalStackLayout>
-            </Border>
+            <controls:OtpVerificationFormView
+                x:Name="OtpForm"
+                Code="{Binding Code, Mode=TwoWay}"
+                ConfirmCommand="{Binding ConfirmCommand}"
+                ConfirmText="{Binding ConfirmButtonText}"
+                BusyText="กำลังยืนยัน..."
+                ConfirmSemanticDescription="ยืนยันรหัสเข้าสู่ระบบ 6 หลัก"
+                DevelopmentHint="{Binding DevelopmentHint}"
+                HasDevelopmentHint="{Binding HasDevelopmentHint}"
+                IsBusy="{Binding IsBusy}" />
 
             <HorizontalStackLayout
                 HorizontalOptions="Center"

@@ -142,20 +142,17 @@ public sealed class EmailChangeLayoutTests
         var verify = LoadPage("VerifyEmailChangePage.xaml");
         var scroll = Assert.Single(
             verify.Descendants(Maui + "ScrollView"));
-        var codeInput = Assert.Single(
+        var otpForm = Assert.Single(
             verify.Descendants(),
             element =>
                 element.Name.LocalName ==
-                "OtpCodeInput");
+                "OtpVerificationFormView");
         var primaryButtons = verify
             .Descendants(Maui + "Button")
             .Where(button =>
                 AttributeValue(button, "Style") ==
                 "{StaticResource RefinedPrimaryButton}")
             .ToArray();
-        var confirm = primaryButtons.Single(button =>
-            AttributeValue(button, "Command") ==
-            "{Binding ConfirmCommand}");
         var newRequest = primaryButtons.Single(button =>
             AttributeValue(button, "Command") ==
             "{Binding StartNewRequestCommand}");
@@ -191,13 +188,13 @@ public sealed class EmailChangeLayoutTests
             label =>
                 AttributeValue(label, "Text") ==
                 "ยืนยันอีเมลใหม่");
-        Assert.Equal(3, primaryButtons.Length);
+        Assert.Equal(2, primaryButtons.Length);
         Assert.Equal(
             "{Binding CanUseChallenge}",
-            AttributeValue(confirm, "IsVisible"));
+            AttributeValue(otpForm, "IsVisible"));
         Assert.Equal(
             "{Binding CanConfirm}",
-            AttributeValue(confirm, "IsEnabled"));
+            AttributeValue(otpForm, "CanConfirm"));
         Assert.Equal(
             "{Binding RequiresNewRequest}",
             AttributeValue(newRequest, "IsVisible"));
@@ -217,11 +214,22 @@ public sealed class EmailChangeLayoutTests
             AttributeValue(newRequest, "Text"));
         Assert.Equal(
             "{Binding Code, Mode=TwoWay}",
-            AttributeValue(codeInput, "Code"));
-        Assert.Null(
+            AttributeValue(otpForm, "Code"));
+        Assert.Equal(
+            "ยืนยันอีเมลใหม่ด้วยรหัส 6 หลัก",
             AttributeValue(
-                codeInput,
-                "SemanticProperties.Description"));
+                otpForm,
+                "ConfirmSemanticDescription"));
+        Assert.DoesNotContain(
+            verify.Descendants(Maui + "Border"),
+            border =>
+                AttributeValue(border, "Style") ==
+                "{StaticResource RefinedFormCard}");
+        Assert.DoesNotContain(
+            verify.Descendants(),
+            element =>
+                element.Name.LocalName ==
+                "FormLabelView");
         Assert.Equal(
             "{Binding MaskedEmailSemanticDescription}",
             AttributeValue(
@@ -437,6 +445,51 @@ public sealed class EmailChangeLayoutTests
                 ".Focus()",
                 source);
         }
+    }
+
+    [Fact]
+    public void Login_and_email_verification_use_the_shared_otp_form()
+    {
+        var login = LoadPage("VerifyCodePage.xaml");
+        var email = LoadPage("VerifyEmailChangePage.xaml");
+
+        foreach (var page in new[] { login, email })
+        {
+            Assert.Single(
+                page.Descendants(),
+                element =>
+                    element.Name.LocalName ==
+                    "OtpVerificationFormView");
+            Assert.DoesNotContain(
+                page.Descendants(),
+                element =>
+                    element.Name.LocalName ==
+                    "OtpCodeInput");
+        }
+
+        var loginForm = login.Descendants().Single(element =>
+            element.Name.LocalName == "OtpVerificationFormView");
+        Assert.Equal(
+            "{Binding ConfirmCommand}",
+            AttributeValue(loginForm, "ConfirmCommand"));
+        Assert.Equal(
+            "{Binding ConfirmButtonText}",
+            AttributeValue(loginForm, "ConfirmText"));
+        Assert.Equal(
+            "{Binding HasDevelopmentHint}",
+            AttributeValue(loginForm, "HasDevelopmentHint"));
+
+        var emailForm = email.Descendants().Single(element =>
+            element.Name.LocalName == "OtpVerificationFormView");
+        Assert.Equal(
+            "{Binding ConfirmCommand}",
+            AttributeValue(emailForm, "ConfirmCommand"));
+        Assert.Equal(
+            "{Binding CanConfirm}",
+            AttributeValue(emailForm, "CanConfirm"));
+        Assert.Equal(
+            "{Binding CanUseChallenge}",
+            AttributeValue(emailForm, "IsVisible"));
     }
 
     [Fact]

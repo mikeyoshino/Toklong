@@ -48,12 +48,14 @@ public sealed class UiLayoutConsistencyTests
             AttributeValue(phone.Parent!.Parent!, "Style"));
 
         var verifyCode = Load("Ui", "Pages", "VerifyCodePage.xaml");
-        var codeInput = verifyCode
+        var otpForm = verifyCode
             .Descendants()
-            .Single(element => element.Name.LocalName == "OtpCodeInput");
+            .Single(element =>
+                element.Name.LocalName ==
+                "OtpVerificationFormView");
         Assert.Equal(
             "{Binding Code, Mode=TwoWay}",
-            AttributeValue(codeInput, "Code"));
+            AttributeValue(otpForm, "Code"));
 
         var otpControl = Load("Ui", "Controls", "OtpCodeInput.xaml");
         var codeEntry = otpControl.Descendants(Maui + "Entry").Single();
