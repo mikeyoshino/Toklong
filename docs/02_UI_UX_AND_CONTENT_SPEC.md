@@ -192,7 +192,8 @@ Show:
 - Current heading `ตรวจข้อเสนอจากผู้ซื้อ`.
 - The same offer as read-only, its exact response deadline, item price,
   destination province/postal code, fixed fulfillment rule, applicable
-  shipping charge, and expected seller net. Do not show the
+  shipping charge, insured value and parcel-insurance fee, and expected seller
+  net. Do not show the
   buyer-protection amount or buyer total to the seller.
 - For a physical offer, one `เตรียมค่าจัดส่ง` section before acceptance:
   saved-origin summary or complete origin editor, `จำต้นทางนี้ไว้`, parcel
@@ -215,8 +216,8 @@ Show:
 - Allowed seller identity signals, the amount breakdown, and the exact payment
   deadline.
 - Show the complete locked delivery address once in the agreement details.
-- Show the exact item price, buyer-protection fee, shipping charge, and total
-  in one buyer-only breakdown.
+- Show the exact item price, buyer-protection fee, shipping charge,
+  parcel-insurance fee, and total in one buyer-only breakdown.
 - Place the required confirmation and exact-total payment button directly
   below that breakdown, without a separate pre-payment card.
 - Plain-language payout condition.
@@ -288,17 +289,20 @@ The unguessable invitation requires seller phone authentication. Show:
 
 - Proposed product and item price.
 - For physical goods, seller origin, parcel weight/dimensions, selected carrier
-  service, shipping charge, Buyer Protection fee, and buyer total.
-- Buyer Protection is shown as a separate buyer-paid line item. For
+  service, shipping charge, parcel-insurance fee, insured value, and expected
+  seller net.
+- Do not show the Buyer Protection fee or buyer total to the seller. For
   `buyer-protection-v2`, seller platform fee is zero and exact seller net is the
-  item price; buyer-paid shipping and protection fee are not seller proceeds.
+  item price; buyer-paid shipping, insurance, and protection fee are not seller
+  proceeds.
 - Exact shipping/handoff expectation.
 - Payout trigger and dispute rule.
 - A read-only offer record and required seller confirmations.
 
 Show the buyer-specified material description, condition, item price, and any
-supplied managed product photo as read-only; the selected shipping charge and
-Buyer Protection fee and buyer total are also read-only. When no photo was supplied, use
+supplied managed product photo as read-only; the selected shipping charge,
+parcel-insurance fee, insured value, and expected seller net are also read-only.
+When no photo was supplied, use
 the normal item-type placeholder without implying an error. Show the
 system-fixed rule `ส่งภายใน 3 วันหลังยืนยันยอดชำระ`; neither party can edit it.
 Require an owned payout account, transfer-rights/prohibited-goods attestation,
@@ -500,9 +504,9 @@ Must show before payment:
 
 - For a physical agreement, show the complete locked address exactly once for
   review. The payment action must not repeat it.
-- Show separate rows for `ราคาสินค้า`, `ค่าคุ้มครองผู้ซื้อ`, `ค่าจัดส่ง`, and
-  `ยอดชำระทั้งหมด`, plus the selected carrier service. The payment intent
-  amount equals the displayed total.
+- Show separate rows for `ราคาสินค้า`, `ค่าคุ้มครองผู้ซื้อ`, `ค่าจัดส่ง`,
+  `ค่าประกันพัสดุ`, and `ยอดชำระทั้งหมด`, plus the selected carrier service.
+  The payment intent amount equals the displayed total.
 - Do not show an address editor, saved-address selector, or
   `จำที่อยู่นี้ไว้` control in checkout.
 - The seller may see the complete address only after provider-confirmed payment
@@ -544,6 +548,36 @@ Confirmation action: `ยืนยันและเริ่มจ่ายใ�
 `กลับไปตรวจสินค้า`. Do not use a bare `ได้รับสินค้าแล้ว` as the release action,
 because receipt alone does not clearly mean the buyer has inspected and
 accepted the item.
+
+### Provider-managed shipping status
+
+Keep the role-specific three-step transaction progress unchanged. Inside the
+transaction detail, show a separate shipping card with four connected
+milestones:
+
+1. `เตรียมจัดส่ง` — provider booking is confirmed and the label is available;
+   no carrier scan exists.
+2. `ขนส่งรับพัสดุแล้ว` — the first trusted matching carrier scan exists.
+3. `กำลังจัดส่ง` — trusted in-transit events exist.
+4. `ส่งถึงแล้ว` — SHIPPOP reports completion with a trusted carrier delivery
+   timestamp.
+
+The card includes carrier and appropriate tracking presentation plus a
+collapsible `รายละเอียดการเดินทาง` list. Each list item uses a normalized
+consumer description, location when supplied, and exact local date/time. Do
+not show raw SHIPPOP status values, provider identifiers, reconciliation
+terminology, or poll timestamps as if they were carrier event times.
+
+When completion lacks a trusted delivery timestamp or any provider
+problem/invalid/return/mismatch occurs, replace positive completion treatment
+with `การจัดส่งต้องตรวจสอบ`, explain that seller payout is paused, and provide
+one primary action `ดูรายละเอียด`. Never show `สำเร็จ` merely because a parcel
+was delivered; the transaction still has inspection, dispute, and payout
+stages.
+
+Before payment, separate `ค่าจัดส่ง` and `ค่าประกันพัสดุ`. The seller may see
+the insured item value and that the buyer funds the premium, but neither amount
+is seller proceeds.
 
 ## Transaction details / terms
 

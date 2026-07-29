@@ -124,9 +124,9 @@ Items below require explicit product, operations, legal, payment-provider, logis
   one saved-or-new Thai origin and
   transaction-specific parcel weight/dimensions, requests a quote, and locks one
   carrier/service before accepting. The transaction freezes separate item
-  price, shipping charge, buyer total, seller origin, package, and quote
-  metadata. Quote validation is server-side and the paid tracking carrier
-  cannot silently change.
+  price, shipping charge, parcel-insurance fee, declared value, buyer total,
+  seller origin, package, and quote metadata. Quote validation is server-side
+  and the paid tracking carrier cannot silently change.
 - Implemented: seller acceptance creates an unconfirmed SHIPPOP booking;
   verified payment confirms that purchase, allocates tracking, and enables a
   4×6 label. The Worker polls tracking and maps SHIPPOP `shipping` to in-transit
@@ -139,6 +139,27 @@ Items below require explicit product, operations, legal, payment-provider, logis
 - Implemented refund ordering: an unused confirmed shipment is cancelled before
   the Stripe refund is created; a discovered carrier scan is audited and routed
   as an operational exception.
+- Approved production design: provider-changing outbound and return calls use
+  durable shipping operations with unique idempotency keys, leases, and
+  outcome-unknown reconciliation. Booking is never replayed blindly after a
+  timeout.
+- Approved production design: consumer shipping uses four milestones
+  (`เตรียมจัดส่ง`, `ขนส่งรับพัสดุแล้ว`, `กำลังจัดส่ง`, `ส่งถึงแล้ว`) plus
+  detailed carrier events. SHIPPOP completion without a trusted delivery
+  timestamp enters review and cannot start the 72-hour window.
+- Approved production design: launch is drop-off only. `EMST`, `FLE`, `KRYX`,
+  and `KRYS` remain individually disabled until account-specific certification
+  proves drop-off, full-value insurance, cancellation, tracking/POD, label,
+  duplicate, and rate-limit behavior.
+- Approved production design: shipping and parcel-insurance charges are
+  separate buyer-funded amounts and are not seller proceeds. TOKLONG absorbs
+  post-payment surcharge from operational reserve without mutating the paid
+  snapshot or seller net.
+- Approved production design: carrier exceptions and insurance claims enter
+  authorized CRM review and block automatic payout/refund. An approved return
+  creates a distinct provider-managed return shipment; TOKLONG advances return
+  shipping and refund waits for trusted return delivery or authorized manual
+  resolution.
 - Development uses a deterministic implementation of the same quote,
   reservation, confirmation, label, tracking, and cancellation interfaces. It
   is not SHIPPOP and is unavailable by default outside Development.
@@ -148,17 +169,14 @@ Items below require explicit product, operations, legal, payment-provider, logis
   provision/fund the production account, obtain live credentials, validate the
   enabled service codes and billable-weight/pricing behavior against that
   account, and run provider sandbox/live certification.
-- Confirm whether SHIPPOP offers an idempotency guarantee for `booking`,
-  `confirm`, and `cancel`; the current Worker retries safely against stored
-  references but the public contract does not state a provider idempotency key.
-- Decide who absorbs any post-scan weight, remote-area, fuel, or other surcharge
-  reported after the buyer already paid the locked quote; the paid buyer and
-  seller amounts must not be silently mutated.
-- Contractually approve which provider status and POD detail constitutes
-  trusted delivery for each enabled carrier.
-- Confirm which enabled SHIPPOP service is drop-off, pickup, or supports both;
-  the current transaction record stores carrier/service but does not invent a
-  handoff mode.
+- Provider launch blocker: confirm whether SHIPPOP offers an idempotency
+  guarantee or TOKLONG-reference lookup for `booking`, and repeated-call
+  guarantees for `confirm` and `cancel`.
+- Provider launch blocker: confirm how to cancel an unconfirmed booking without
+  a courier tracking code and whether such bookings naturally expire.
+- Provider launch blocker: certify the trusted delivery status and timestamp,
+  enabled drop-off behavior, rate limits, insurance code/coverage/unit,
+  surcharge fields, and claims SLA separately for each service.
 - Confirm per carrier whether a counter may scan the provider barcode directly
   from a phone screen, whether a printed 4×6 label remains mandatory, and
   whether SHIPPOP exposes an authenticated counter QR or branch-locator
@@ -167,7 +185,10 @@ Items below require explicit product, operations, legal, payment-provider, logis
 - Handling of pickup points, locker delivery, recipient refusal, failed delivery, return-to-sender, and carrier status correction.
 - Decided for MVP: ship-by is fixed at 72 hours after provider-confirmed payment and is not user-configurable.
 - Whether same-day/local courier deliveries are supported.
-- Insurance and declared-value policy.
+- Approved insurance baseline: every enabled service must cover the full
+  supported item value and disclose a separate buyer-funded premium. Provider
+  codes, value units/rounding, coverage limits, exclusions, and claims SLA
+  remain per-service certification gates.
 
 ### Seller Protection and failed delivery
 

@@ -45,7 +45,8 @@ For the seller:
 For the buyer:
 
 - Review a frozen description, condition, any supplied photos, item price,
-  shipping charge, Buyer Protection fee, buyer total, and deadline before paying.
+  shipping charge, parcel-insurance fee, Buyer Protection fee, buyer total, and
+  deadline before paying.
 - Track physical shipment or review a digital handoff from the same transaction page.
 - Confirm receipt/handoff or report a problem before payout.
 
@@ -81,8 +82,8 @@ approval.
    supplies the shipping origin and parcel measurements and selects a quoted
    service. Acceptance reserves that exact provider shipment without charging
    it yet. Before paying, the buyer sees the same item, locked address, item
-   price, shipping charge, Buyer Protection fee, buyer total, payout trigger,
-   and dispute deadline.
+   price, shipping charge, parcel-insurance fee, Buyer Protection fee, buyer
+   total, payout trigger, and dispute deadline.
 3. A seller never receives a “ship now” signal from an unverified payment state.
    After payment confirmation, the system confirms the reserved shipment and
    gives the seller its carrier tracking number and printable label.

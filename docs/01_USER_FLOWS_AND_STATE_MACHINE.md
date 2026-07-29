@@ -49,8 +49,9 @@ The buyer records:
 - The intended seller's valid 10-digit Thai mobile number. It must differ from
   the buyer's verified phone.
 - One agreed item price. For a physical item, the seller's selected shipping
-  quote is added later; the buyer sees item price, shipping charge, and buyer
-  total before accepting and paying.
+  quote and parcel-insurance fee are added later; the buyer sees item price,
+  shipping charge, parcel-insurance fee, and buyer total before accepting and
+  paying.
 - For a physical item, one complete Thai delivery address selected from the
   server-owned hierarchy or the buyer's single saved address. The transaction
   stores a private address snapshot immediately; only its province and postal
@@ -118,8 +119,9 @@ silently reactivated.
 
 After seller acceptance, the buyer sees the same buyer-specified description,
 condition, defects, any supplied photos, item price, selected shipping service
-and charge, Buyer Protection fee, buyer total, fulfillment deadline, payout trigger, and dispute
-rule. Seller acceptance must not mutate the buyer-authored item fields.
+and charge, parcel-insurance fee and declared value, Buyer Protection fee,
+buyer total, fulfillment deadline, payout trigger, and dispute rule. Seller
+acceptance must not mutate the buyer-authored item fields.
 
 Seller acceptance creates a fixed one-hour payment deadline. The seller sees
 that the item is reserved only until that exact time and must not fulfill before
@@ -156,6 +158,11 @@ offer becomes `EXPIRED` with reason `BUYER_DID_NOT_PAY`. A provider event whose
 authoritative confirmation time is at or before the deadline remains valid even
 if its webhook arrives later. Payment confirmed after the deadline must not
 expose fulfillment and enters `REFUND_PENDING`.
+
+For a physical offer, expiry also queues cancellation of its unconfirmed
+provider booking. The consumer offer closes at the exact deadline even while
+provider cleanup retries in the background. A cleanup failure cannot reactivate
+or extend the offer.
 
 ### B4 — Track, inspect, and decide
 
@@ -209,21 +216,24 @@ For a physical offer, the seller also:
 - Enters actual parcel weight in grams and width, length, and height in
   centimeters.
 - Requests available shipping quotes, selects one service, and reviews item
-  price, shipping charge, buyer-funded Buyer Protection fee, buyer total, zero
-  seller platform fee, and expected seller net.
+  price, shipping charge, full-value parcel-insurance fee, insured value, zero
+  seller platform fee, and expected seller net. The seller does not see the
+  buyer-funded Buyer Protection fee or buyer total.
 - Requests a new quote after the origin, measurements, or selected quote
   expires. The seller cannot accept using client-supplied or stale pricing.
 - Accepting a production SHIPPOP quote creates an unconfirmed provider booking
   for that exact transaction, carrier/service, addresses, parcel, and fee. This
-  does not tell the seller that the buyer has paid or permit fulfillment.
+  does not tell the seller that the buyer has paid or permit fulfillment. The
+  booking is created through a durable shipping operation. A timeout becomes an
+  unknown provider outcome and is reconciled before any retry; the seller
+  cannot create a second booking by tapping again.
 
 Before acceptance the seller must confirm:
 
 - The buyer-specified item, description, condition, defects, included items,
   functionality, any supplied managed photo, item price, selected physical
-  shipping service and charge where applicable, Buyer Protection fee, buyer
-  total, plus the
-  system-fixed 72-hour fulfillment rule.
+  shipping service and charge where applicable, parcel-insurance fee, insured
+  value, seller expected net, plus the system-fixed 72-hour fulfillment rule.
 - Possession/control, right-to-transfer, prohibited-goods, and seller-terms attestations.
 - Owned payout account.
 
@@ -262,6 +272,11 @@ PAYMENT_PENDING
 - A carrier scan, not merely allocation of a label/tracking number, satisfies
   the managed-shipment deadline. If no scan occurs by `ship_by_at`, the
   shipment enters cancellation/refund handling.
+- The consumer shipping card uses `เตรียมจัดส่ง`,
+  `ขนส่งรับพัสดุแล้ว`, `กำลังจัดส่ง`, and `ส่งถึงแล้ว`.
+  `ส่งถึงแล้ว` requires both the SHIPPOP completed state and a trusted carrier
+  delivery timestamp. A completed value without that timestamp enters
+  tracking review and never starts the 72-hour window from poll time.
 - Digital: deliver through the agreed external channel and store only a non-secret handoff statement.
 - Seller-entered delivery or a slip never authorizes payout.
 
@@ -371,6 +386,34 @@ TRACKING_SUBMITTED
 ```
 
 This never starts the dispute clock or automatic payout.
+
+Provider carrier exception:
+
+```text
+PROBLEM / INVALID / RETURN / TRACKING MISMATCH /
+COMPLETE WITHOUT TRUSTED DELIVERY TIME
+  → TRACKING_UNVERIFIED or CARRIER_EXCEPTION_REVIEW
+  → payout and automatic refund remain blocked
+  → authorized CRM resolution
+```
+
+An approved return-required resolution creates a separate provider-managed
+return shipment. It has its own booking, tracking, carrier events, and delivery
+evidence:
+
+```text
+AUTHORIZED_RETURN
+  → RETURN_BOOKING_PENDING
+  → RETURN_TRACKING_SUBMITTED
+  → RETURN_IN_TRANSIT
+  → RETURN_DELIVERED
+  → REFUND_PENDING
+  → REFUNDED
+```
+
+The original outbound shipment is immutable. Missing trusted return delivery
+blocks automatic refund unless an authorized manual resolution explicitly
+permits another outcome.
 
 Dispute:
 

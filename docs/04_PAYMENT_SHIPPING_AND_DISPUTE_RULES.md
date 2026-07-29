@@ -39,14 +39,17 @@
     reserve, legal, risk, and operations gates are approved. See
     `docs/17_PRICING_AND_TRANSACTION_LIMITS.md`.
 17. `buyer_total_satang = item_price_satang + shipping_fee_satang +
-    buyer_protection_fee_satang`. Provider payment, full refund, evidence, and
-    reconciliation use that exact buyer total. The seller-funded platform fee
-    is zero for new `buyer-protection-v2` transactions, so
-    `seller_expected_net_satang = item_price_satang`; buyer-paid shipping and
-    Buyer Protection fee are not added to seller proceeds.
-18. The exact Buyer Protection fee, item price, shipping charge, buyer total,
-    seller expected net, and policy version are frozen before checkout. A
-    policy change requires the unpaid offer to end and be recreated.
+    parcel_insurance_fee_satang + buyer_protection_fee_satang`. Provider
+    payment, full refund, evidence, and reconciliation use that exact buyer
+    total. The seller-funded platform fee is zero for new
+    `buyer-protection-v2` transactions, so
+    `seller_expected_net_satang = item_price_satang`; buyer-paid shipping,
+    parcel insurance, and Buyer Protection fee are not added to seller
+    proceeds.
+18. The exact Buyer Protection fee, item price, shipping charge,
+    parcel-insurance fee and declared value, buyer total, seller expected net,
+    and policy version are frozen before checkout. A policy change requires the
+    unpaid offer to end and be recreated.
 
 ## Product snapshot and acceptance
 
@@ -54,8 +57,8 @@ Before payment, the buyer must be shown and accept the complete agreement record
 
 - Agreed item identity and any supplied agreement photos.
 - The frozen agreement description, including represented condition, included items, functionality, and known defects.
-- Item price, shipping charge, Buyer Protection fee, and buyer total as
-  separate integer-satang values.
+- Item price, shipping charge, parcel-insurance fee, Buyer Protection fee, and
+  buyer total as separate integer-satang values.
 - Physical ship-by or digital handoff deadline.
 - Supported delivery method.
 - For physical goods, destination province and postal code visible to the
@@ -111,17 +114,20 @@ The text and normalized snapshot must preserve what the buyer specified and the 
    dimensions, disclosed fee, and provider reference. It must remain valid
    through the one-hour buyer payment window. Any change or expiry requires a
    new quote.
-4. Seller acceptance of a production SHIPPOP quote creates a booking using
-   `force_confirm=0`. The returned purchase reference, SHIPPOP tracking
+4. Seller acceptance of a production SHIPPOP quote queues a durable booking
+   operation using `force_confirm=0`. The returned purchase reference, SHIPPOP
+   tracking
    reference, any courier tracking reference, exact fee, and reservation time
-   are locked into snapshot schema version 7. A returned fee or
+   are locked into snapshot schema version 9. A returned fee or
    carrier/service mismatch rejects acceptance.
 5. The unconfirmed booking does not prove buyer payment and does not authorize
    shipment. After a verified Stripe payment for
    `item_price_satang + shipping_fee_satang +
-   buyer_protection_fee_satang`, the Worker confirms that exact
+   parcel_insurance_fee_satang + buyer_protection_fee_satang`, the Worker
+   confirms that exact
    SHIPPOP purchase. The resulting shipping charge is paid from the
-   buyer-funded shipping allocation and is never added to seller proceeds.
+   buyer-funded shipping and insurance allocation and is never added to seller
+   proceeds.
 6. SHIPPOP supplies the courier tracking number and 4×6 HTML label. The seller
    may open, zoom, save, share, or print the label only after authenticated
    authorization and provider confirmation. The in-app preview disables
@@ -133,11 +139,14 @@ The text and normalized snapshot must preserve what the buyer specified and the 
    the MVP. No buyer, seller, form, or client command may supply a different
    duration. Merely allocating a label or tracking number does not satisfy this
    deadline; the managed path requires a first carrier scan.
-8. The Worker polls SHIPPOP tracking every 15 seconds while a parcel is active.
-   Repeated unchanged statuses are safe and database heartbeat writes are
-   throttled. `shipping` maps to verified in-transit, `complete` maps to
-   delivered, and problem/invalid/return states block normal release as
-   unverified. Carrier event IDs are deterministic and replay-safe.
+8. The Worker polls SHIPPOP tracking on a configurable, jittered schedule that
+   stays within the certified provider rate limit. Repeated unchanged statuses
+   are safe and database heartbeat writes are throttled. `shipping` maps to
+   verified in-transit. `complete` maps to delivered only with a trusted
+   carrier delivery timestamp; poll-observation time is never substituted.
+   Problem/invalid/return states, missing delivery time, and carrier/tracking
+   mismatches block normal release as unverified. Carrier event IDs are
+   deterministic and replay-safe.
 9. The SHIPPOP webhook contract documented for this integration does not
    provide a verifiable signature field. TOKLONG therefore does not expose an
    unsigned SHIPPOP webhook endpoint; authenticated server-to-provider polling
@@ -172,6 +181,27 @@ The text and normalized snapshot must preserve what the buyer specified and the 
     promise of payout from buyer funds. Seller compensation requires an
     approved carrier insurance, declared-value, or TOKLONG protection funding
     policy. Buyer refund and seller compensation are separate obligations.
+17. Provider-changing booking, confirmation, cancellation, and return calls are
+    durable operations with unique idempotency keys and processing leases. A
+    timeout after sending a mutation becomes an unknown provider outcome and is
+    reconciled before retry. If SHIPPOP cannot supply safe booking lookup or an
+    idempotency guarantee, the affected service remains disabled.
+18. If the buyer does not pay by the one-hour deadline, the offer expires
+    immediately and an unconfirmed-booking cancellation is queued. Provider
+    cleanup retries in the background and never extends the consumer deadline.
+19. Each enabled service is drop-off only and must pass account-specific
+    certification for quote, booking, confirmation, cancellation, label,
+    tracking/POD timestamp, rate limit, insurance, and duplicate behavior.
+20. Every enabled service must carry approved insurance for the full supported
+    item value. Shipping and insurance fees are disclosed separately, frozen
+    before checkout, and are not seller proceeds.
+21. A post-payment carrier surcharge is recorded as an append-only TOKLONG
+    operational cost and CRM case. It never changes the paid snapshot, requests
+    more money automatically, or reduces seller net.
+22. An authorized return resolution creates a separate provider-managed return
+    shipment. TOKLONG advances the return cost. Refund remains blocked until
+    trusted return delivery or an authorized manual resolution, and refund
+    completion still requires provider confirmation.
 
 The Development provider uses the same reserve, confirm, label, tracking, and
 cancel boundary with deterministic local data. It is not SHIPPOP pricing and

@@ -453,8 +453,8 @@ postal code
 once
 **And** no address field or saved-address choice is accepted by checkout
 **And** changing the address requires a new offer
-**And** the buyer sees item price, buyer-protection fee, shipping charge, and
-exact total before payment
+**And** the buyer sees item price, buyer-protection fee, shipping charge,
+parcel-insurance fee, and exact total before payment
 **And** confirmation and the exact-total payment action follow that breakdown
 without a separate pre-payment card
 **And** seller offer and seller transaction views do not show the
@@ -503,7 +503,11 @@ object
 **Then** the transaction moves once to `EXPIRED`
 **And** its reason is `BUYER_DID_NOT_PAY`
 **And** checkout creation and retry are rejected
-**And** the seller is told the item no longer needs to be reserved.
+**And** the seller is told the item no longer needs to be reserved
+**And** a physical offer with an unconfirmed managed booking queues exactly one
+provider cancellation operation
+**And** the offer remains expired while cleanup retries in the background
+**And** a cleanup failure cannot reactivate or extend the offer.
 
 ### A0.2.4 — Delayed and late provider events are distinguished
 
@@ -620,8 +624,9 @@ ends
 **When** the buyer opens checkout
 **Then** the buyer sees any supplied agreement photos, the frozen agreement
 description including represented condition and defects, item price, shipping
-charge, Buyer Protection fee, buyer total, selected service, ship-by deadline, payout trigger,
-dispute window, and terms version before confirming payment
+charge, parcel-insurance fee and declared value, Buyer Protection fee, buyer
+total, selected service, ship-by deadline, payout trigger, dispute window, and
+terms version before confirming payment
 **And** the buyer-funded fee uses `buyer-protection-v2` marginal tiers: the
 first 5,000 THB at 4%, the portion through 15,000 THB at 3.5%, and the portion
 through 30,000 THB at 3%, with a 59 THB minimum and one final round-up to satang
@@ -630,7 +635,8 @@ through 30,000 THB at 3%, with a 59 THB minimum and one final round-up to satang
 **And** a normal application command rejects an item price above the active
 30,000 THB Pilot limit even though the domain technical boundary is 999,999 THB
 **And** the seller-funded platform fee is zero and seller expected net equals
-item price, without adding buyer-paid shipping or Buyer Protection fee
+item price, without adding buyer-paid shipping, parcel insurance, or Buyer
+Protection fee
 **And** a full refund uses the complete buyer total including that fee.
 
 ### B1.1 — PromptPay checkout collects refund contact
@@ -653,8 +659,8 @@ account screen before payment
 
 **Given** a physical transaction has item price and a locked shipping quote
 **When** PaymentSheet is prepared or a payment/refund webhook is validated
-**Then** the expected amount equals item price plus shipping charge in integer
-satang
+**Then** the expected amount equals item price plus shipping charge plus
+parcel-insurance fee plus Buyer Protection fee in integer satang
 **And** an event for item price alone is rejected as an amount mismatch.
 
 ### B3 — Verified payment enables shipment
@@ -663,8 +669,9 @@ satang
 **When** the webhook signature and idempotency checks pass
 **Then** the transaction moves to `PAID_AWAITING_SHIPMENT` once
 **And** an immutable paid snapshot exists
-**And** it contains separate item price, shipping charge, buyer total,
-seller-origin snapshot, package measurements, and selected quote/service
+**And** it contains separate item price, shipping charge, parcel-insurance fee,
+buyer total, seller-origin snapshot, package measurements, declared value, and
+selected quote/service
 **And** its normalized product and terms documents each match their stored SHA-256 hash
 **And** the snapshot seal time equals the authoritative provider confirmation time
 **And** the shipping Worker confirms the exact reserved SHIPPOP purchase
@@ -784,6 +791,70 @@ as seller non-fulfillment
 **Then** it is retained as evidence
 **But** it does not establish timely Seller Protection
 **And** the approved late-shipment exception policy controls the outcome.
+
+### C1.6 — Shipping mutations are durable and outcome-safe
+
+**Given** a provider-managed shipping mutation is required
+**When** the domain command commits
+**Then** one operation with a unique idempotency key is committed atomically
+with the transaction intent
+**And** two Workers cannot hold a live processing lease for that operation.
+
+**When** a Worker stops after sending a booking request but before recording a
+response
+**Then** the operation becomes or is recovered as `OUTCOME_UNKNOWN`
+**And** it is not replayed until the original provider result is found or
+provider idempotency is proven
+**And** an unresolved result enters review rather than creating another
+booking.
+
+### C1.7 — Trusted delivery time is mandatory
+
+**Given** SHIPPOP reports `complete`
+**But** no trusted carrier delivery timestamp can be parsed
+**When** reconciliation runs
+**Then** the transaction enters tracking review
+**And** `delivered_at`, inspection-window start/end, and payout eligibility
+remain empty
+**And** poll-observation time is not used as delivery time.
+
+### C1.8 — Insurance and post-payment adjustments preserve paid amounts
+
+**Given** an enabled service quote includes full-value parcel insurance
+**When** the seller accepts and the buyer pays
+**Then** shipping and insurance are separate integer-satang snapshot amounts
+**And** the buyer total includes both
+**And** neither amount is seller proceeds.
+
+**When** SHIPPOP later reports a fuel, remote, travel, island, weight, or other
+surcharge
+**Then** the adjustment is append-only
+**And** the immutable buyer total and seller net do not change
+**And** TOKLONG operational reserve and CRM review handle the difference.
+
+### C1.9 — Carrier exceptions fail closed
+
+**Given** SHIPPOP reports problem, invalid, return, an unknown status, or
+mismatched carrier/tracking evidence
+**When** reconciliation runs
+**Then** automatic payout and automatic refund are blocked
+**And** one authorized carrier-exception case is created
+**And** replaying the same evidence creates no duplicate case or audit event.
+
+### C1.10 — Authorized return uses a distinct managed shipment
+
+**Given** an authorized dispute resolution requires return
+**When** return shipping is created
+**Then** its purchase and tracking references are distinct from outbound
+shipping
+**And** TOKLONG advances the return charge without mutating the paid agreement.
+
+**When** trusted return delivery is confirmed
+**Then** the authorized refund path may start
+**But** provider-confirmed refund completion is still required.
+
+**When** return delivery cannot be verified
+**Then** automatic refund remains blocked for manual review.
 
 ### C2 — Unverified tracking does not start the clock
 
@@ -992,9 +1063,10 @@ ordered newest first
 ### G1 — Paid product details cannot be edited
 
 **Given** payment is confirmed
-**When** the seller attempts to edit item price, shipping charge, origin/package
-snapshot, selected carrier/service, buyer total, condition, photos, defects,
-fulfillment deadline, or terms
+**When** the seller attempts to edit item price, shipping charge,
+parcel-insurance fee, declared value, origin/package snapshot, selected
+carrier/service, buyer total, condition, photos, defects, fulfillment deadline,
+or terms
 **Then** the paid snapshot remains unchanged
 **And** the user is instructed to cancel/resolution and create a new link where allowed.
 

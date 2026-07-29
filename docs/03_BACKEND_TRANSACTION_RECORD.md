@@ -138,7 +138,8 @@ refund bank details.
 
 For physical offers, `proposed_item_price_satang` excludes shipping. Shipping
 is not buyer-authored: the intended seller selects a validated quote before
-acceptance, after which item price, shipping charge, and buyer total are frozen.
+acceptance, after which item price, shipping charge, parcel-insurance fee,
+declared value, and buyer total are frozen.
 The domain accepts no item price above the absolute 999,999 THB technical
 boundary. The application independently enforces the lower active commercial
 maximum from the versioned fee policy before storing the offer. Supporting the
@@ -203,17 +204,17 @@ agreement_core_snapshot_hash
 agreement_core_snapshot_created_at
 terms_snapshot_json
 terms_snapshot_hash
-agreement_core_schema_version = 6 (inside JSON)
+agreement_core_schema_version = 7 (inside JSON)
 buyer_id
 seller_id
 buyer_and_seller_display_identity
 item_description_condition_defects_and_optional_photo
-item_price_shipping_fee_buyer_total_platform_fee_seller_net_and_currency
+item_price_shipping_fee_parcel_insurance_fee_buyer_total_platform_fee_seller_net_and_currency
 fulfillment_type_and_duration
 delivery_province_name_and_postal_code_for_physical_goods
 origin_province_name_and_postal_code_for_physical_goods
 package_weight_and_dimensions_for_physical_goods
-shipping_quote_provider_reference_expiry_carrier_and_service
+shipping_quote_provider_reference_expiry_carrier_service_insurance_and_declared_value
 inspection_or_digital_release_rules
 terms_and_fee_policy_versions
 seller_accepted_at
@@ -258,8 +259,10 @@ locked with the offer before seller acceptance. When the seller accepts, a
 private full-origin snapshot and the selected shipping quote are also locked.
 Only resolved province/postal values, parcel measurements, carrier/service,
 quote metadata, and shipping charge enter the shared core; street-level origin
-and destination remain private fulfillment data. After the buyer accepts the
-validated agreement core and the payment intent is established, the product
+and destination remain private fulfillment data. The parcel-insurance fee,
+insurance code, and declared value also enter the shared core. After the buyer
+accepts the validated agreement core and the payment intent is established,
+the product
 snapshot references the shared core hash, both already-locked address records,
 and the buyer acceptance time. The full destination is not disclosed to the
 seller before provider-confirmed payment.
@@ -279,6 +282,7 @@ agreement_snapshot_created_at
 agreement_snapshot_sealed_at
 price_satang
 shipping_fee_satang
+parcel_insurance_fee_satang
 buyer_total_satang
 buyer_protection_fee_satang
 platform_fee_satang
@@ -300,6 +304,8 @@ shipping_quote_expires_at
 carrier_code
 shipping_service_code
 shipping_service_name
+shipping_insurance_code
+shipping_declared_value_satang
 shipping_purchase_reference
 shipping_provider_tracking_code
 shipping_courier_tracking_code_or_null
@@ -314,6 +320,11 @@ seller_acceptance_at
 initiator_role
 created_at
 ```
+
+Snapshot schema version 9 retains version 8 and adds the exact buyer-funded
+parcel-insurance fee, insurance code, declared value, and managed-shipment
+reference. Agreement-core schema version 7 adds the same shared material terms.
+Historical snapshots remain readable with no invented insurance coverage.
 
 Snapshot schema version 8 retains version 7's shipping and managed-booking
 fields and adds the exact buyer-funded Buyer Protection fee to the immutable
@@ -497,6 +508,127 @@ carrier_delivery_event_received_at
 delivery_raw_reference
 last_checked_at
 ```
+
+New provider-managed outbound and return shipping uses a `managed_shipments`
+child entity. Existing embedded outbound fields remain readable for historical
+snapshots and are migrated without inventing provider facts. A transaction has
+one outbound managed shipment and at most one active return managed shipment.
+
+```text
+id
+transaction_id
+direction = outbound | return
+provider
+status
+origin_private_snapshot_reference
+destination_private_snapshot_reference
+parcel_name
+weight_grams
+width_centimeters
+length_centimeters
+height_centimeters
+carrier_code
+service_code
+service_name
+handoff_mode = drop_off
+base_shipping_fee_satang
+insurance_fee_satang
+declared_value_satang
+insurance_code
+quote_reference
+quote_expires_at
+purchase_reference
+provider_tracking_code
+courier_tracking_code
+reserved_at
+confirmed_at
+cancelled_at
+first_carrier_scan_at
+in_transit_at
+delivered_at
+last_provider_status
+last_reconciled_at
+created_at
+version
+```
+
+Outbound and return references are never interchangeable. A paid outbound
+snapshot is immutable; an approved return creates another managed shipment.
+
+### Shipping operation
+
+Every provider-changing shipping instruction is first committed as a durable
+operation:
+
+```text
+id
+transaction_id
+managed_shipment_id
+operation_type =
+  book_outbound | confirm_outbound | cancel_outbound |
+  book_return | confirm_return | cancel_return
+status =
+  pending | processing | retry_scheduled |
+  outcome_unknown | succeeded | needs_review
+idempotency_key
+request_fingerprint
+provider_purchase_reference
+provider_tracking_reference
+attempt_count
+next_attempt_at
+lease_owner
+lease_expires_at
+last_sanitized_error_code
+created_at
+started_at
+completed_at
+version
+```
+
+The idempotency key is unique. Provider credentials, raw address payloads, and
+unredacted responses are not operation fields. A mutation timeout becomes
+`outcome_unknown`; it cannot be replayed until the original provider outcome is
+reconciled or provider idempotency is proven.
+
+### Provider shipping adjustment
+
+Post-payment carrier charges are append-only TOKLONG operational costs:
+
+```text
+id
+transaction_id
+managed_shipment_id
+provider_reference
+adjustment_type
+amount_satang
+currency
+provider_occurred_at
+observed_at
+crm_case_reference
+created_at
+```
+
+They never mutate the paid buyer total or seller payable.
+
+### Shipping insurance case
+
+```text
+id
+transaction_id
+managed_shipment_id
+provider_case_reference
+claim_reason
+declared_value_satang
+claimed_amount_satang
+approved_amount_satang
+status
+opened_at
+resolved_at
+crm_case_reference
+```
+
+Insurance case progression is operational evidence, not a binding refund or
+payout decision.
 
 For a provider-managed shipment, `first_carrier_scan_at` is the trusted
 seller-to-carrier handoff fact. The application derives, rather than stores as
@@ -688,6 +820,9 @@ Audit events are append-only. Corrections create new events; they do not overwri
 - Settlement-ledger posting and Stripe-to-bank-to-payout reconciliation.
 - Carrier subscription/registration.
 - Carrier webhook/event ingestion.
+- Provider-managed outbound and return booking, confirmation, and cancellation.
+- Shipping-operation claim, lease recovery, and provider-outcome
+  reconciliation.
 - Buyer receipt confirmation.
 - Digital handoff submission and authorized manual-review resolution.
 - Dispute opening.
