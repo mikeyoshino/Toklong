@@ -738,25 +738,67 @@
             </Border>
 
             <Border
+                AutomationId="BuyerReceiptConfirmationCard"
                 IsVisible="{Binding IsBuyerConfirmationAction}"
                 Style="{StaticResource SurfaceCard}"
-                Padding="18">
-                <VerticalStackLayout Spacing="12">
+                Padding="20">
+                <VerticalStackLayout Spacing="14">
+                    <Border
+                        WidthRequest="44"
+                        HeightRequest="44"
+                        HorizontalOptions="Start"
+                        BackgroundColor="{StaticResource SurfaceBlue}"
+                        StrokeThickness="0"
+                        StrokeShape="RoundRectangle 14">
+                        <Image
+                            WidthRequest="28"
+                            HeightRequest="28"
+                            Source="ui_receipt_check.png"
+                            SemanticProperties.Description="ตรวจรายการที่ได้รับ" />
+                    </Border>
                     <Label
                         Style="{StaticResource SectionTitle}"
-                        FontSize="18"
-                        Text="ตรวจของที่ได้รับ" />
+                        FontSize="20"
+                        Text="{Binding BuyerConfirmation.Heading}" />
                     <Label
                         Style="{StaticResource MutedText}"
-                        Text="ตรวจสินค้าให้ครบก่อนยืนยัน หากยืนยัน ระบบจะเริ่มขั้นตอนจ่ายเงินให้ผู้ขาย หากมีปัญหาให้แจ้งก่อนหมดเวลา" />
+                        FontSize="14"
+                        LineHeight="1.35"
+                        Text="{Binding BuyerConfirmation.SupportingText}" />
+                    <Border
+                        AutomationId="BuyerReceiptDeadline"
+                        IsVisible="{Binding BuyerConfirmation.HasDeadline}"
+                        Padding="12,10"
+                        BackgroundColor="{StaticResource SurfaceBlue}"
+                        StrokeThickness="0"
+                        StrokeShape="RoundRectangle 13"
+                        SemanticProperties.Description="{Binding BuyerConfirmation.DeadlineText}">
+                        <Grid ColumnDefinitions="20,*" ColumnSpacing="9">
+                            <Image
+                                WidthRequest="18"
+                                HeightRequest="18"
+                                VerticalOptions="Start"
+                                Source="ui_clock.png"
+                                AutomationProperties.IsInAccessibleTree="False" />
+                            <Label
+                                Grid.Column="1"
+                                FontSize="13"
+                                LineHeight="1.3"
+                                Text="{Binding BuyerConfirmation.DeadlineText}"
+                                TextColor="#365778" />
+                        </Grid>
+                    </Border>
                     <Button
+                        MinimumHeightRequest="48"
                         Style="{StaticResource RefinedPrimaryButton}"
                         BackgroundColor="{Binding Transaction.RoleColor}"
                         Command="{Binding ConfirmReceiptCommand}"
-                        Text="ตรวจแล้ว ทุกอย่างเรียบร้อย" />
+                        SemanticProperties.Description="{Binding BuyerConfirmation.PrimaryActionText}"
+                        Text="{Binding BuyerConfirmation.PrimaryActionText}" />
                     <Button
                         AutomationId="ToggleProblemFormButton"
-                        HorizontalOptions="Start"
+                        MinimumHeightRequest="44"
+                        HorizontalOptions="Fill"
                         Style="{StaticResource RefinedInlineButton}"
                         Command="{Binding ToggleProblemFormCommand}"
                         SemanticProperties.Description="{Binding ProblemFormToggleText}"

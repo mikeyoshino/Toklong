@@ -51,7 +51,9 @@ public sealed class TransactionDetailViewModel(
                 OnPropertyChanged(nameof(IsFulfillmentAction));
                 OnPropertyChanged(nameof(IsPhysicalFulfillmentAction));
                 OnPropertyChanged(nameof(IsDigitalFulfillmentAction));
+                OnPropertyChanged(nameof(BuyerConfirmation));
                 OnPropertyChanged(nameof(IsBuyerConfirmationAction));
+                OnPropertyChanged(nameof(ProblemFormToggleText));
                 OnPropertyChanged(nameof(IsStatusOnly));
                 OnPropertyChanged(nameof(DetailHeadline));
                 OnPropertyChanged(nameof(CanDownloadAgreementEvidence));
@@ -138,9 +140,13 @@ public sealed class TransactionDetailViewModel(
         Transaction?.Presentation.PrimaryAction ==
         TransactionAction.ConfirmDigitalHandoff;
 
+    public BuyerReceiptConfirmationPresentation?
+        BuyerConfirmation =>
+            BuyerReceiptConfirmationPresenter.Present(
+                Transaction);
+
     public bool IsBuyerConfirmationAction =>
-        Transaction?.Presentation.PrimaryAction ==
-        TransactionAction.ConfirmReceipt;
+        BuyerConfirmation is not null;
 
     public bool IsStatusOnly =>
         Transaction?.Presentation.PrimaryAction == TransactionAction.ViewStatus;
@@ -187,7 +193,7 @@ public sealed class TransactionDetailViewModel(
     public string ProblemFormToggleText =>
         IsProblemFormExpanded
             ? "ปิดแบบฟอร์ม"
-            : "ต้องการความช่วยเหลือเกี่ยวกับรายการนี้";
+            : BuyerConfirmation?.ProblemActionText ?? "";
 
     public ObservableCollection<CarrierOption> Carriers { get; } = [];
 
@@ -590,16 +596,18 @@ public sealed class TransactionDetailViewModel(
 
     private async Task ConfirmReceiptAsync()
     {
-        if (Transaction is null)
+        var presentation = BuyerConfirmation;
+        if (Transaction is null ||
+            presentation is null)
             return;
 
         if (Shell.Current is not null)
         {
             var confirmed = await Shell.Current.DisplayAlertAsync(
-                "ยืนยันหลังตรวจสินค้า",
-                "คุณตรวจสินค้าแล้วและไม่พบปัญหา เมื่อยืนยัน ระบบจะเริ่มขั้นตอนจ่ายเงินให้ผู้ขาย",
-                "ยืนยันและเริ่มจ่ายให้ผู้ขาย",
-                "กลับไปตรวจสินค้า");
+                presentation.ConfirmationTitle,
+                presentation.ConfirmationMessage,
+                presentation.ConfirmationAcceptText,
+                presentation.ConfirmationCancelText);
             if (!confirmed)
                 return;
         }
@@ -610,7 +618,7 @@ public sealed class TransactionDetailViewModel(
         {
             Transaction = await transactionService.ConfirmReceiptAsync(
                 Transaction.Id);
-            Message = "ยืนยันว่าตรวจแล้ว ระบบจะเริ่มขั้นตอนจ่ายเงินให้ผู้ขาย";
+            Message = presentation.SuccessMessage;
         }
         catch (Exception exception)
         {

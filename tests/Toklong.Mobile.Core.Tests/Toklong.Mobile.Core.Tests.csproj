@@ -110,6 +110,12 @@
     <None Include="../../src/Toklong.Mobile/Resources/Images/ui_shipping_label.svg"
           Link="Brand/ui_shipping_label.svg"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Mobile/Resources/Images/ui_receipt_check.svg"
+          Link="Brand/ui_receipt_check.svg"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Mobile/Resources/Images/ui_clock.svg"
+          Link="Brand/ui_clock.svg"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../src/Toklong.Mobile/Resources/Images/progress_*.svg"
           Link="Brand/%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" />

@@ -1393,6 +1393,79 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
+    public void BuyerReceiptConfirmationUsesClearCalmLayout()
+    {
+        var detail = Load(
+            "Ui",
+            "Pages",
+            "TransactionDetailPage.xaml");
+        var card = detail
+            .Descendants(Maui + "Border")
+            .Single(border =>
+                AttributeValue(border, "AutomationId") ==
+                    "BuyerReceiptConfirmationCard");
+
+        Assert.Equal(
+            "{Binding IsBuyerConfirmationAction}",
+            AttributeValue(card, "IsVisible"));
+        Assert.Contains(
+            card.Descendants(Maui + "Image"),
+            image =>
+                AttributeValue(image, "Source") ==
+                    "ui_receipt_check.png");
+
+        var labels = card
+            .Descendants(Maui + "Label")
+            .ToArray();
+        Assert.Contains(
+            labels,
+            label =>
+                AttributeValue(label, "Text") ==
+                    "{Binding BuyerConfirmation.Heading}");
+        Assert.Contains(
+            labels,
+            label =>
+                AttributeValue(label, "Text") ==
+                    "{Binding BuyerConfirmation.SupportingText}");
+
+        var deadline = card
+            .Descendants(Maui + "Border")
+            .Single(border =>
+                AttributeValue(border, "AutomationId") ==
+                    "BuyerReceiptDeadline");
+        Assert.Equal(
+            "{Binding BuyerConfirmation.HasDeadline}",
+            AttributeValue(deadline, "IsVisible"));
+        Assert.Equal(
+            "{Binding BuyerConfirmation.DeadlineText}",
+            AttributeValue(
+                deadline,
+                "SemanticProperties.Description"));
+        Assert.Contains(
+            deadline.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                    "{Binding BuyerConfirmation.DeadlineText}");
+
+        var primary = card
+            .Descendants(Maui + "Button")
+            .Single(button =>
+                AttributeValue(button, "Command") ==
+                    "{Binding ConfirmReceiptCommand}");
+        Assert.Equal(
+            "{Binding BuyerConfirmation.PrimaryActionText}",
+            AttributeValue(primary, "Text"));
+        Assert.Equal(
+            "48",
+            AttributeValue(primary, "MinimumHeightRequest"));
+        Assert.Equal(
+            "{Binding BuyerConfirmation.PrimaryActionText}",
+            AttributeValue(
+                primary,
+                "SemanticProperties.Description"));
+    }
+
+    [Fact]
     public void BuyerProblemFormIsHiddenBehindNeutralTextAction()
     {
         var detail = Load(
@@ -1424,6 +1497,19 @@ public sealed class UiLayoutConsistencyTests
         Assert.Equal(
             "{StaticResource RefinedInlineButton}",
             AttributeValue(toggle, "Style"));
+        Assert.Equal(
+            "44",
+            AttributeValue(
+                toggle,
+                "MinimumHeightRequest"));
+        Assert.Equal(
+            "Fill",
+            AttributeValue(
+                toggle,
+                "HorizontalOptions"));
+        Assert.NotEqual(
+            "{StaticResource Danger}",
+            AttributeValue(toggle, "TextColor"));
         Assert.Equal(
             "{Binding IsProblemFormExpanded}",
             AttributeValue(form, "IsVisible"));
