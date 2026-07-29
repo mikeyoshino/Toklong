@@ -133,4 +133,166 @@ public sealed class ShippingOperationTests
                 "tracking-123",
                 Now.AddSeconds(3)));
     }
+
+    [Fact]
+    public void Provider_adjustment_requires_positive_thb_and_crm_reference()
+    {
+        var adjustment = ProviderShippingAdjustment.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "shippop",
+            "adjustment-001",
+            1_500,
+            "THB",
+            Now,
+            "CRM-SHIP-001",
+            "carrier-surcharge",
+            Now.AddMinutes(1));
+
+        Assert.Equal(1_500, adjustment.AmountSatang);
+        Assert.Equal("THB", adjustment.Currency);
+        Assert.Throws<DomainException>(() =>
+            ProviderShippingAdjustment.Create(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                "shippop",
+                "adjustment-002",
+                0,
+                "THB",
+                Now,
+                "CRM-SHIP-002",
+                "carrier-surcharge",
+                Now));
+        Assert.Throws<DomainException>(() =>
+            ProviderShippingAdjustment.Create(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                "shippop",
+                "adjustment-003",
+                100,
+                "USD",
+                Now,
+                "CRM-SHIP-003",
+                "carrier-surcharge",
+                Now));
+    }
+
+    [Fact]
+    public void Insurance_case_resolution_only_records_authorized_provider_result()
+    {
+        var insuranceCase = ShippingInsuranceCase.Open(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "shippop",
+            "provider-case-001",
+            "parcel-damaged",
+            120_000,
+            120_000,
+            "THB",
+            "CRM-SHIP-004",
+            "crm-user-1",
+            Now);
+
+        Assert.Throws<DomainException>(() =>
+            insuranceCase.Resolve(
+                ActorRole.Seller,
+                "seller-1",
+                "rejected",
+                "provider-resolution-1",
+                Now.AddHours(1)));
+
+        insuranceCase.Resolve(
+            ActorRole.Reconciliation,
+            "crm-user-2",
+            "approved",
+            "provider-resolution-1",
+            Now.AddHours(1));
+
+        Assert.Equal(
+            ShippingInsuranceCaseStatus.Resolved,
+            insuranceCase.Status);
+        Assert.Equal("approved", insuranceCase.ProviderResultCode);
+        Assert.Null(insuranceCase.TransactionOutcome);
+    }
+
+    [Fact]
+    public void Aggregate_owns_one_outbound_and_at_most_one_return()
+    {
+        var transaction = TestTransactionFactory.CreateBuyerOffer(
+            Guid.NewGuid(),
+            "ผู้ซื้อ ทดสอบ",
+            "0800000000",
+            FulfillmentType.PhysicalShipment,
+            "กล้อง",
+            "กล้องพร้อมเลนส์",
+            ConditionCode.UsedGood,
+            "",
+            null,
+            120_000,
+            "terms-v1",
+            Now,
+            new TransactionTransitionService());
+        var outbound = ManagedShipment.CreateOutbound(
+            transaction.Id,
+            ShipmentDraft(),
+            Now);
+        var outboundOperation = ShippingOperation.Queue(
+            transaction.Id,
+            outbound.Id,
+            ShippingOperationType.BookOutbound,
+            $"book-outbound:{transaction.Id:N}:test",
+            Fingerprint,
+            Now);
+
+        transaction.QueueManagedShipment(
+            outbound,
+            outboundOperation,
+            ActorRole.System,
+            "shipping-orchestrator",
+            Now);
+
+        var duplicateOutbound = ManagedShipment.CreateOutbound(
+            transaction.Id,
+            ShipmentDraft(),
+            Now);
+        Assert.Throws<DomainException>(() =>
+            transaction.QueueManagedShipment(
+                duplicateOutbound,
+                ShippingOperation.Queue(
+                    transaction.Id,
+                    duplicateOutbound.Id,
+                    ShippingOperationType.BookOutbound,
+                    $"book-outbound:{transaction.Id:N}:duplicate",
+                    Fingerprint,
+                    Now),
+                ActorRole.System,
+                "shipping-orchestrator",
+                Now));
+
+        Assert.Single(transaction.ManagedShipments);
+        Assert.Single(transaction.ShippingOperations);
+        Assert.Single(
+            transaction.AuditEvents,
+            audit => audit.Name == "shipping.operation_queued");
+    }
+
+    private static ManagedShipmentDraft ShipmentDraft() =>
+        new(
+            "shippop",
+            "seller-origin-snapshot",
+            "buyer-destination-snapshot",
+            "กล้องพร้อมเลนส์",
+            1_200,
+            20,
+            30,
+            15,
+            "THAIPOST",
+            "EMST",
+            "ไปรษณีย์ไทย EMS",
+            5_200,
+            1_100,
+            120_000,
+            "FULL_VALUE",
+            "quote-reference",
+            Now.AddHours(2));
 }

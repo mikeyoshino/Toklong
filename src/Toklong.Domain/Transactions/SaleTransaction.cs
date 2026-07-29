@@ -24,6 +24,12 @@ public sealed class SaleTransaction
     private readonly List<ExternalEvent> _externalEvents = [];
     private readonly List<NotificationOutboxMessage> _notifications = [];
     private readonly List<DisputeEvidence> _disputeEvidence = [];
+    private readonly List<ManagedShipment> _managedShipments = [];
+    private readonly List<ShippingOperation> _shippingOperations = [];
+    private readonly List<ProviderShippingAdjustment>
+        _providerShippingAdjustments = [];
+    private readonly List<ShippingInsuranceCase>
+        _shippingInsuranceCases = [];
 
     private SaleTransaction() { }
 
@@ -158,6 +164,16 @@ public sealed class SaleTransaction
         _notifications;
     public IReadOnlyCollection<DisputeEvidence> DisputeEvidence =>
         _disputeEvidence;
+    public IReadOnlyCollection<ManagedShipment> ManagedShipments =>
+        _managedShipments;
+    public IReadOnlyCollection<ShippingOperation> ShippingOperations =>
+        _shippingOperations;
+    public IReadOnlyCollection<ProviderShippingAdjustment>
+        ProviderShippingAdjustments =>
+            _providerShippingAdjustments;
+    public IReadOnlyCollection<ShippingInsuranceCase>
+        ShippingInsuranceCases =>
+            _shippingInsuranceCases;
     public bool IsProviderManagedShipment =>
         FulfillmentType == FulfillmentType.PhysicalShipment &&
         !string.IsNullOrWhiteSpace(ShippingPurchaseReference) &&
@@ -172,6 +188,61 @@ public sealed class SaleTransaction
         FirstCarrierScanAt.HasValue &&
         ShipByAt.HasValue &&
         FirstCarrierScanAt.Value <= ShipByAt.Value;
+
+    public void QueueManagedShipment(
+        ManagedShipment shipment,
+        ShippingOperation operation,
+        ActorRole actorRole,
+        string actorId,
+        DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(shipment);
+        ArgumentNullException.ThrowIfNull(operation);
+        if (actorRole is not (
+                ActorRole.System or
+                ActorRole.Reconciliation))
+            throw new DomainException(
+                "ไม่มีสิทธิ์สร้างงานจัดส่ง");
+        var cleanActor = Required(actorId, "ผู้สร้างงานจัดส่ง");
+        if (shipment.TransactionId != Id ||
+            operation.TransactionId != Id ||
+            operation.ManagedShipmentId != shipment.Id)
+            throw new DomainException(
+                "งานจัดส่งไม่ตรงกับรายการซื้อขาย");
+        if (_managedShipments.Any(item =>
+                item.Direction == shipment.Direction))
+            throw new DomainException(
+                shipment.Direction == ShipmentDirection.Outbound
+                    ? "รายการนี้มีการจัดส่งขาออกแล้ว"
+                    : "รายการนี้มีการจัดส่งคืนที่ยังใช้งานอยู่แล้ว");
+        if (_shippingOperations.Any(item =>
+                string.Equals(
+                    item.IdempotencyKey,
+                    operation.IdempotencyKey,
+                    StringComparison.Ordinal)))
+            return;
+
+        _managedShipments.Add(shipment);
+        _shippingOperations.Add(operation);
+        _auditEvents.Add(new AuditEvent(
+            Id,
+            actorRole,
+            cleanActor,
+            "shipping.operation_queued",
+            State,
+            State,
+            now,
+            operation.Id.ToString("N"),
+            operation.IdempotencyKey,
+            JsonSerializer.Serialize(new
+            {
+                shipmentId = shipment.Id,
+                shipment.Direction,
+                operationId = operation.Id,
+                operation.OperationType
+            })));
+        Version++;
+    }
     public static SaleTransaction CreateBuyerOffer(
         Guid buyerId,
         string buyerDisplayName,
