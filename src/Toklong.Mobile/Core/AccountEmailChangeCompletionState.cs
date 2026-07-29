@@ -1,17 +1,28 @@
 namespace Toklong.Mobile.Core;
 
-public sealed class AccountEmailChangeCompletionState(
-    AuthenticatedSessionBoundary session)
+public sealed class AccountEmailChangeCompletionState
 {
+    private readonly AuthenticatedSessionBoundary session;
     private readonly object sync = new();
     private long? completedSessionGeneration;
 
-    public void RecordCompletion()
+    public AccountEmailChangeCompletionState(
+        AuthenticatedSessionBoundary session)
+    {
+        this.session = session;
+        session.ResetRequested +=
+            OnSessionResetRequested;
+    }
+
+    public void RecordCompletion(
+        long sessionGeneration)
     {
         lock (sync)
         {
             completedSessionGeneration =
-                session.Capture();
+                session.IsCurrent(sessionGeneration)
+                    ? sessionGeneration
+                    : null;
         }
     }
 
@@ -24,6 +35,16 @@ public sealed class AccountEmailChangeCompletionState(
             completedSessionGeneration = null;
             return generation is { } value &&
                    session.IsCurrent(value);
+        }
+    }
+
+    private void OnSessionResetRequested(
+        object? sender,
+        EventArgs eventArgs)
+    {
+        lock (sync)
+        {
+            completedSessionGeneration = null;
         }
     }
 }

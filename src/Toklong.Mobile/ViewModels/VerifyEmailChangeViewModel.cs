@@ -365,7 +365,8 @@ public sealed class VerifyEmailChangeViewModel(
 
             verificationIdempotencyKey = null;
             ApplyVerificationSuccess();
-            emailChangeCompletion.RecordCompletion();
+            emailChangeCompletion.RecordCompletion(
+                operation.Value.SessionGeneration);
             analytics.Track(
                 AccountEmailChangeAnalytics.Verified());
 

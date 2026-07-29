@@ -253,6 +253,55 @@ public sealed class VerifyEmailChangeCompletionTests :
     }
 
     [Fact]
+    public async Task Reset_between_success_check_and_completion_record_never_shows_old_session_success()
+    {
+        Shell.Current = new Shell();
+        var authentication =
+            new RecordingAuthentication();
+        var session =
+            new AuthenticatedSessionBoundary();
+        var emailChangeCompletion =
+            new AccountEmailChangeCompletionState(
+                session);
+        var viewModel =
+            new VerifyEmailChangeViewModel(
+                authentication,
+                new RecordingAnalytics(),
+                new ManualTimeProvider(Now),
+                session,
+                emailChangeCompletion);
+        viewModel.Apply(Pending());
+        viewModel.Activate();
+        viewModel.Code = "123456";
+        var resetDuringSuccess = false;
+        viewModel.PropertyChanged += (_, eventArgs) =>
+        {
+            if (resetDuringSuccess ||
+                eventArgs.PropertyName !=
+                nameof(viewModel.RequiresNewRequest))
+                return;
+
+            resetDuringSuccess = true;
+            session.Reset();
+        };
+
+        await viewModel.ConfirmAsync();
+
+        Assert.True(resetDuringSuccess);
+        var account = new AccountViewModel(
+            authentication,
+            session,
+            emailChangeCompletion);
+        await account.LoadAsync();
+
+        Assert.False(account.HasSuccessMessage);
+        Assert.NotEqual(
+            "เปลี่ยนอีเมลเรียบร้อยแล้ว",
+            account.SuccessMessage);
+        Assert.Empty(Shell.Current.Routes);
+    }
+
+    [Fact]
     public async Task Successful_verification_replaces_the_verification_key_for_a_fresh_challenge()
     {
         Shell.Current = new Shell();
