@@ -255,6 +255,148 @@ public sealed class BuyerEmailChangeConcurrencyTests
                 .ToListAsync());
     }
 
+    [Fact]
+    public async Task Concurrent_distinct_wrong_verifications_are_both_counted()
+    {
+        await using var database = await RelationalDatabase.CreateAsync();
+        var challenge = await database.AddActiveChallengeAsync();
+        await using var losingContext = database.CreateContext();
+        await using var winningContext = database.CreateContext();
+        var blocker = new BlockingFirstSaveUnitOfWork(losingContext);
+        var losingTask = CaptureDomainExceptionAsync(() =>
+            VerifyHandler(
+                losingContext,
+                blocker).Handle(
+                    new VerifyBuyerEmailChangeCommand(
+                        database.BuyerId,
+                        challenge.Id,
+                        "000000",
+                        NewKey()),
+                    default));
+        await blocker.FirstSaveReached.WaitAsync(
+            TimeSpan.FromSeconds(5));
+        DomainException winningError;
+        try
+        {
+            winningError = await CaptureDomainExceptionAsync(() =>
+                VerifyHandler(
+                    winningContext,
+                    winningContext).Handle(
+                        new VerifyBuyerEmailChangeCommand(
+                            database.BuyerId,
+                            challenge.Id,
+                            "111111",
+                            NewKey()),
+                        default));
+        }
+        finally
+        {
+            blocker.Release();
+        }
+
+        var losingError = await losingTask.WaitAsync(
+            TimeSpan.FromSeconds(5));
+
+        Assert.Equal(
+            "รหัสไม่ถูกต้อง ลองตรวจสอบแล้วกรอกอีกครั้ง",
+            winningError.Message);
+        Assert.Equal(winningError.Message, losingError.Message);
+        await using var assertionContext = database.CreateContext();
+        var stored = await assertionContext
+            .BuyerEmailChangeChallenges
+            .SingleAsync();
+        Assert.Equal(2, stored.IncorrectAttempts);
+        Assert.Equal(3, stored.RemainingAttempts);
+        Assert.Equal(
+            2,
+            await assertionContext.BuyerEmailVerificationAttempts
+                .CountAsync());
+    }
+
+    [Fact]
+    public async Task Five_concurrent_distinct_wrong_verifications_lock_the_challenge()
+    {
+        await using var database = await RelationalDatabase.CreateAsync();
+        var challenge = await database.AddActiveChallengeAsync();
+        var contexts = Enumerable.Range(0, 5)
+            .Select(_ => database.CreateContext())
+            .ToArray();
+        var blockers = contexts
+            .Select(context =>
+                new BlockingFirstSaveUnitOfWork(context))
+            .ToArray();
+        var wrongCodes = new[]
+        {
+            "000000",
+            "111111",
+            "222222",
+            "333333",
+            "444444"
+        };
+
+        try
+        {
+            var submissions = contexts
+                .Select((context, index) =>
+                    CaptureDomainExceptionAsync(() =>
+                        VerifyHandler(
+                            context,
+                            blockers[index]).Handle(
+                                new VerifyBuyerEmailChangeCommand(
+                                    database.BuyerId,
+                                    challenge.Id,
+                                    wrongCodes[index],
+                                    NewKey()),
+                                default)))
+                .ToArray();
+            await Task.WhenAll(
+                    blockers.Select(blocker =>
+                        blocker.FirstSaveReached))
+                .WaitAsync(TimeSpan.FromSeconds(5));
+
+            var errors = new List<DomainException>();
+            for (var index = 0; index < blockers.Length; index++)
+            {
+                blockers[index].Release();
+                errors.Add(await submissions[index].WaitAsync(
+                    TimeSpan.FromSeconds(5)));
+            }
+
+            Assert.All(
+                errors.Take(4),
+                error => Assert.Equal(
+                    "รหัสไม่ถูกต้อง ลองตรวจสอบแล้วกรอกอีกครั้ง",
+                    error.Message));
+            Assert.Equal(
+                "กรอกรหัสไม่ถูกต้องครบจำนวนแล้ว กรุณาขอรหัสใหม่",
+                errors[4].Message);
+        }
+        finally
+        {
+            foreach (var blocker in blockers)
+                blocker.Release();
+            foreach (var context in contexts)
+                await context.DisposeAsync();
+        }
+
+        await using var assertionContext = database.CreateContext();
+        var stored = await assertionContext
+            .BuyerEmailChangeChallenges
+            .SingleAsync();
+        Assert.Equal(5, stored.IncorrectAttempts);
+        Assert.Equal(0, stored.RemainingAttempts);
+        Assert.Equal(BuyerEmailChangeStatus.Locked, stored.Status);
+        Assert.Equal(
+            5,
+            await assertionContext.BuyerEmailVerificationAttempts
+                .CountAsync());
+        Assert.Single(
+            await assertionContext.BuyerEmailChangeAuditEvents
+                .Where(audit =>
+                    audit.Name == "account.email_change_locked")
+                .ToListAsync());
+    }
+
     private static RequestBuyerEmailChangeHandler RequestHandler(
         ToklongDbContext database,
         IUnitOfWork unitOfWork,
@@ -291,6 +433,22 @@ public sealed class BuyerEmailChangeConcurrencyTests
             new Clock(Now.AddSeconds(61)));
 
     private static string NewKey() => Guid.NewGuid().ToString("N");
+
+    private static async Task<DomainException>
+        CaptureDomainExceptionAsync(Func<Task> action)
+    {
+        try
+        {
+            await action();
+        }
+        catch (DomainException exception)
+        {
+            return exception;
+        }
+
+        throw new InvalidOperationException(
+            "Expected a domain rejection.");
+    }
 
     private sealed class RelationalDatabase : IAsyncDisposable
     {

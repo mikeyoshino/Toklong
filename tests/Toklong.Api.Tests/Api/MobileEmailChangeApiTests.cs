@@ -94,6 +94,111 @@ public sealed class MobileEmailChangeApiTests
             await CurrentEmailAsync(buyer.Client));
     }
 
+    [Theory]
+    [InlineData("a@short-one.test", "••@short-one.test")]
+    [InlineData("ab@short-two.test", "a••@short-two.test")]
+    public async Task Short_local_parts_are_masked_in_api_and_audit(
+        string pendingEmail,
+        string expectedMask)
+    {
+        using var buyer = await AuthenticatedBuyerAsync();
+
+        using var requested = await RequestAsync(
+            buyer.Client,
+            pendingEmail);
+        requested.EnsureSuccessStatusCode();
+        var response = await requested.Content
+            .ReadFromJsonAsync<EmailChangeResponse>();
+
+        Assert.NotNull(response);
+        Assert.Equal(expectedMask, response.MaskedEmail);
+        Assert.DoesNotContain(
+            pendingEmail,
+            await requested.Content.ReadAsStringAsync());
+        await using var scope =
+            factory.Services.CreateAsyncScope();
+        var database = scope.ServiceProvider
+            .GetRequiredService<ToklongDbContext>();
+        var challenge = await database.BuyerEmailChangeChallenges
+            .SingleAsync(item =>
+                item.Id == response.ChallengeId);
+        var audit = await database.BuyerEmailChangeAuditEvents
+            .SingleAsync(item =>
+                item.ChallengeId == response.ChallengeId);
+        Assert.Equal(expectedMask, challenge.MaskedPendingEmail);
+        Assert.Equal(expectedMask, audit.MaskedDestination);
+    }
+
+    [Fact]
+    public async Task Verification_accepts_grouped_ascii_digits()
+    {
+        using var buyer = await AuthenticatedBuyerAsync();
+        using var requested = await RequestAsync(
+            buyer.Client,
+            "grouped-code@example.com");
+        requested.EnsureSuccessStatusCode();
+        var challenge = await requested.Content
+            .ReadFromJsonAsync<EmailChangeResponse>();
+        Assert.NotNull(challenge);
+
+        using var verified = await VerifyAsync(
+            buyer.Client,
+            challenge.ChallengeId,
+            " 123 456\r\n");
+
+        verified.EnsureSuccessStatusCode();
+        Assert.Equal(
+            "grouped-code@example.com",
+            await CurrentEmailAsync(buyer.Client));
+    }
+
+    [Theory]
+    [InlineData("12345")]
+    [InlineData("123-456")]
+    [InlineData("12345a")]
+    [InlineData("１２３４５６")]
+    public async Task Malformed_verification_code_does_not_consume_an_attempt(
+        string code)
+    {
+        using var buyer = await AuthenticatedBuyerAsync();
+        using var requested = await RequestAsync(
+            buyer.Client,
+            "malformed-code@example.com");
+        requested.EnsureSuccessStatusCode();
+        var challenge = await requested.Content
+            .ReadFromJsonAsync<EmailChangeResponse>();
+        Assert.NotNull(challenge);
+
+        using var malformed = await VerifyAsync(
+            buyer.Client,
+            challenge.ChallengeId,
+            code);
+
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            malformed.StatusCode);
+        Assert.Contains(
+            "กรอกรหัสยืนยัน 6 หลัก",
+            await malformed.Content.ReadAsStringAsync());
+        await using var scope =
+            factory.Services.CreateAsyncScope();
+        var database = scope.ServiceProvider
+            .GetRequiredService<ToklongDbContext>();
+        var stored = await database.BuyerEmailChangeChallenges
+            .SingleAsync(item =>
+                item.Id == challenge.ChallengeId);
+        Assert.Equal(0, stored.IncorrectAttempts);
+        Assert.Equal(5, stored.RemainingAttempts);
+        Assert.Empty(
+            await database.BuyerEmailVerificationAttempts
+                .Where(item =>
+                    item.ChallengeId == challenge.ChallengeId)
+                .ToListAsync());
+        Assert.Equal(
+            buyer.Email,
+            await CurrentEmailAsync(buyer.Client));
+    }
+
     [Fact]
     public async Task Pending_responses_and_logs_redact_code_and_full_email()
     {
@@ -221,6 +326,83 @@ public sealed class MobileEmailChangeApiTests
             await database.BuyerEmailVerificationAttempts
                 .Where(item => item.BuyerId == buyer.BuyerId)
                 .ToListAsync());
+    }
+
+    [Fact]
+    public async Task Fresh_request_observes_open_challenge_cooldown_then_can_replace_it()
+    {
+        using var buyer = await AuthenticatedBuyerAsync();
+        var requestKey = NewKey();
+        using var requested = await RequestAsync(
+            buyer.Client,
+            "cooldown@example.com",
+            requestKey);
+        requested.EnsureSuccessStatusCode();
+        var original = await requested.Content
+            .ReadFromJsonAsync<EmailChangeResponse>();
+        Assert.NotNull(original);
+
+        using var exactReplay = await RequestAsync(
+            buyer.Client,
+            "cooldown@example.com",
+            requestKey);
+        exactReplay.EnsureSuccessStatusCode();
+        Assert.Equal(
+            original,
+            await exactReplay.Content
+                .ReadFromJsonAsync<EmailChangeResponse>());
+
+        using var sameDestination = await RequestAsync(
+            buyer.Client,
+            "cooldown@example.com");
+        Assert.Equal(
+            HttpStatusCode.TooManyRequests,
+            sameDestination.StatusCode);
+        Assert.NotNull(sameDestination.Headers.RetryAfter?.Delta);
+        Assert.InRange(
+            sameDestination.Headers.RetryAfter!.Delta!.Value.TotalSeconds,
+            1,
+            60);
+
+        using var differentDestination = await RequestAsync(
+            buyer.Client,
+            "replacement@example.com");
+        Assert.Equal(
+            HttpStatusCode.TooManyRequests,
+            differentDestination.StatusCode);
+
+        await SetChallengeTimingAsync(
+            original.ChallengeId,
+            resendAvailableAt:
+                DateTimeOffset.UtcNow.AddSeconds(-1));
+        using var replacement = await RequestAsync(
+            buyer.Client,
+            "replacement@example.com");
+        replacement.EnsureSuccessStatusCode();
+        var replacementView = await replacement.Content
+            .ReadFromJsonAsync<EmailChangeResponse>();
+        Assert.NotNull(replacementView);
+        Assert.NotEqual(
+            original.ChallengeId,
+            replacementView.ChallengeId);
+
+        await using var scope =
+            factory.Services.CreateAsyncScope();
+        var database = scope.ServiceProvider
+            .GetRequiredService<ToklongDbContext>();
+        Assert.Equal(
+            BuyerEmailChangeStatus.Superseded,
+            (await database.BuyerEmailChangeChallenges
+                .SingleAsync(challenge =>
+                    challenge.Id == original.ChallengeId))
+                .Status);
+        Assert.Equal(
+            BuyerEmailChangeStatus.Active,
+            (await database.BuyerEmailChangeChallenges
+                .SingleAsync(challenge =>
+                    challenge.Id ==
+                    replacementView.ChallengeId))
+                .Status);
     }
 
     [Fact]
@@ -469,6 +651,13 @@ public sealed class MobileEmailChangeApiTests
             HttpStatusCode.TooManyRequests,
             limited.StatusCode);
 
+        var challenge = await requested.Content
+            .ReadFromJsonAsync<EmailChangeResponse>();
+        Assert.NotNull(challenge);
+        await SetChallengeTimingAsync(
+            challenge.ChallengeId,
+            resendAvailableAt:
+                DateTimeOffset.UtcNow.AddSeconds(-1));
         using var secondNetwork = CreateClient(buyer.AccessToken);
         secondNetwork.DefaultRequestHeaders.Add(
             "X-Test-Remote-Address",

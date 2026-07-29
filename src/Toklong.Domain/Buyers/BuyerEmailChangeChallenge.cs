@@ -212,7 +212,7 @@ internal static class BuyerEmailChangeMask
         var local = clean[..at];
         var pendingLocal = pendingEmail[..pendingAt];
         var maskStart = local.IndexOfAny(['*', '•']);
-        if (pendingLocal.Length < maskStart ||
+        if (pendingLocal.Length <= maskStart ||
             !string.Equals(
                 pendingEmail[(pendingAt + 1)..],
                 clean[(at + 1)..],
@@ -239,7 +239,7 @@ internal static class BuyerEmailChangeMask
         var domain = clean[(at + 1)..];
         var maskStart = local.IndexOfAny(['*', '•']);
         if (Uri.CheckHostName(domain) == UriHostNameType.Unknown ||
-            maskStart is < 1 or > 2 ||
+            maskStart is < 0 or > 2 ||
             local[maskStart..].Any(character => character != local[maskStart]))
             throw new DomainException("อีเมลที่ปกปิดแล้วไม่ถูกต้อง");
 

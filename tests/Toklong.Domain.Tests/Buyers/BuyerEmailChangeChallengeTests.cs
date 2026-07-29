@@ -306,6 +306,52 @@ public sealed class BuyerEmailChangeChallengeTests
             Now));
     }
 
+    [Theory]
+    [InlineData("a@example.com", "a••@example.com")]
+    [InlineData("ab@example.com", "ab••@example.com")]
+    public void Challenge_mask_cannot_reveal_every_real_local_character(
+        string pendingEmail,
+        string maskedEmail)
+    {
+        Assert.Throws<DomainException>(() =>
+            BuyerEmailChangeChallenge.Create(
+                Guid.NewGuid(),
+                BuyerId,
+                pendingEmail,
+                maskedEmail,
+                CorrectDigest,
+                NewRequestKey(),
+                Now));
+    }
+
+    [Theory]
+    [InlineData("a@example.com", "••@example.com")]
+    [InlineData("ab@example.com", "a••@example.com")]
+    public void Challenge_mask_hides_at_least_one_real_local_character(
+        string pendingEmail,
+        string maskedEmail)
+    {
+        var challenge = BuyerEmailChangeChallenge.Create(
+            Guid.NewGuid(),
+            BuyerId,
+            pendingEmail,
+            maskedEmail,
+            CorrectDigest,
+            NewRequestKey(),
+            Now);
+        var audit = new BuyerEmailChangeAuditEvent(
+            BuyerId,
+            challenge.Id,
+            "account.email_change_requested",
+            CorrectDigest,
+            maskedEmail,
+            Now,
+            "accepted");
+
+        Assert.Equal(maskedEmail, challenge.MaskedPendingEmail);
+        Assert.Equal(maskedEmail, audit.MaskedDestination);
+    }
+
     private static BuyerEmailChangeChallenge NewChallenge() =>
         BuyerEmailChangeChallenge.Create(
             Guid.NewGuid(),

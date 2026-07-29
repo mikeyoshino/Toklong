@@ -172,6 +172,11 @@ public sealed class ChangeEmailViewModel(
                 var error =
                     AccountEmailChangeErrorPresentation.ForRequest(
                         exception);
+                if (error.Kind !=
+                    AccountEmailChangeErrorKind.Network)
+                {
+                    requestIdempotencyKey = null;
+                }
                 Message = error.Message;
                 PresentError(
                     EmailChangeErrorTarget.EmailInput,

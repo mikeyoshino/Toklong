@@ -314,6 +314,51 @@ public sealed class VerifyEmailChangeTimingTests :
     }
 
     [Fact]
+    public async Task Definitive_sender_failure_during_resend_requires_a_fresh_top_level_request()
+    {
+        Shell.Current = new Shell();
+        var time = new ManualTimeProvider(Now);
+        var authentication = new RecordingAuthentication
+        {
+            ResendEmail = (_, _) =>
+                Task.FromException<PendingEmailChange>(
+                    new MobileApiRequestException(
+                        HttpStatusCode.BadRequest,
+                        "ยังส่งอีเมลไม่ได้ กรุณาลองอีกครั้ง",
+                        retryAfter: null))
+        };
+        var viewModel = Verify(
+            authentication,
+            time: time);
+        viewModel.Apply(Pending(
+            resendAvailableAt: Now));
+        EmailChangeErrorNotice? notice = null;
+        viewModel.ErrorPresented += (_, value) =>
+            notice = value;
+
+        await viewModel.ResendAsync();
+
+        Assert.True(viewModel.RequiresNewRequest);
+        Assert.False(viewModel.CanConfirm);
+        Assert.False(viewModel.CanResend);
+        Assert.Equal(
+            EmailChangeErrorTarget.NewRequestAction,
+            notice?.Target);
+        Assert.Equal(
+            "ยังส่งอีเมลไม่ได้ กรุณาลองอีกครั้ง",
+            viewModel.Message);
+        Assert.Single(authentication.ResendCalls);
+
+        await viewModel.ResendAsync();
+        await viewModel.StartNewRequestAsync();
+
+        Assert.Single(authentication.ResendCalls);
+        Assert.Equal(
+            ["ChangeEmailPage"],
+            Shell.Current.Routes);
+    }
+
+    [Fact]
     public async Task Successful_resend_restarts_an_active_server_countdown()
     {
         var time = new ManualTimeProvider(Now);
@@ -409,6 +454,12 @@ public sealed class VerifyEmailChangeTimingTests :
             TimeSpan.FromSeconds(1));
 
         Assert.True(viewModel.CanResend);
+        await viewModel.ResendAsync();
+
+        Assert.Equal(2, authentication.ResendCalls.Count);
+        Assert.NotEqual(
+            authentication.ResendCalls[0].Key,
+            authentication.ResendCalls[1].Key);
     }
 
     [Fact]

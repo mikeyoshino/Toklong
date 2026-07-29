@@ -108,6 +108,35 @@ public sealed class MobileAuthenticationServiceEmailChangeTests
     }
 
     [Fact]
+    public async Task Definitive_sender_failure_preserves_the_server_rejection_for_flow_recovery()
+    {
+        var response =
+            new HttpResponseMessage(HttpStatusCode.BadRequest)
+            {
+                Content = new StringContent(
+                    "{\"title\":\"ทำรายการไม่สำเร็จ\",\"detail\":\"ยังส่งอีเมลไม่ได้ กรุณาลองอีกครั้ง\"}",
+                    Encoding.UTF8,
+                    "application/problem+json")
+            };
+        var service = CreateService(
+            new RecordingHandler(response));
+
+        var exception =
+            await Assert.ThrowsAsync<MobileApiRequestException>(
+                () => service.RequestEmailChangeAsync(
+                    "buyer.next@example.test",
+                    "request-key"));
+
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            exception.StatusCode);
+        Assert.Equal(
+            "ยังส่งอีเมลไม่ได้ กรุณาลองอีกครั้ง",
+            exception.Message);
+        Assert.Null(exception.RetryAfter);
+    }
+
+    [Fact]
     public async Task VerifyEmailChangeAsync_posts_trimmed_code_and_returns_confirmed_email()
     {
         var challengeId = Guid.Parse("44a35e35-4a68-4ed7-a23b-4a4016a5faf5");

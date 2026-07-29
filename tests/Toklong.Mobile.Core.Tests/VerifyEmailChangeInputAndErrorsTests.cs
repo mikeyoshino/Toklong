@@ -46,7 +46,7 @@ public sealed class VerifyEmailChangeInputAndErrorsTests :
     }
 
     [Fact]
-    public async Task Verification_reuses_key_for_the_same_code_and_replaces_it_when_code_changes()
+    public async Task Verification_reuses_key_after_ambiguous_network_failure_and_replaces_it_when_code_changes()
     {
         var response = 0;
         var authentication = new RecordingAuthentication
@@ -73,6 +73,29 @@ public sealed class VerifyEmailChangeInputAndErrorsTests :
         Assert.NotEqual(
             authentication.VerifyCalls[1].Key,
             authentication.VerifyCalls[2].Key);
+    }
+
+    [Fact]
+    public async Task Definitive_incorrect_verification_uses_a_fresh_key_for_an_explicit_retry()
+    {
+        var authentication = new RecordingAuthentication
+        {
+            VerifyEmail = (_, _, _) =>
+                Task.FromException<string>(
+                    new InvalidOperationException(
+                        "รหัสไม่ถูกต้อง ลองตรวจสอบแล้วกรอกอีกครั้ง"))
+        };
+        var viewModel = Verify(authentication);
+        viewModel.Apply(Pending());
+        viewModel.Code = "123456";
+
+        await viewModel.ConfirmAsync();
+        await viewModel.ConfirmAsync();
+
+        Assert.Equal(2, authentication.VerifyCalls.Count);
+        Assert.NotEqual(
+            authentication.VerifyCalls[0].Key,
+            authentication.VerifyCalls[1].Key);
     }
 
     [Theory]

@@ -28,6 +28,7 @@ public sealed class VerifyEmailChangeViewModel(
     private bool isActive;
     private bool isExpired;
     private bool isLocked;
+    private bool requiresFreshRequest;
     private AccountRecovery accountRecovery;
     private bool isVerified;
     private bool requiresAccountReturn;
@@ -119,7 +120,8 @@ public sealed class VerifyEmailChangeViewModel(
     public bool RequiresNewRequest =>
         !isVerified &&
         (IsExpired ||
-         IsLocked);
+         IsLocked ||
+         requiresFreshRequest);
 
     public bool RequiresPendingRefresh =>
         accountRecovery != AccountRecovery.None;
@@ -207,6 +209,7 @@ public sealed class VerifyEmailChangeViewModel(
         resendIdempotencyKey = null;
         IsExpired = false;
         IsLocked = value.RemainingAttempts <= 0;
+        SetRequiresFreshRequest(false);
         SetAccountRecovery(AccountRecovery.None);
         SetVerified(false);
         SetRequiresAccountReturn(false);
@@ -343,6 +346,11 @@ public sealed class VerifyEmailChangeViewModel(
                 var error =
                     AccountEmailChangeErrorPresentation
                         .ForVerification(exception);
+                if (error.Kind !=
+                    AccountEmailChangeErrorKind.Network)
+                {
+                    verificationIdempotencyKey = null;
+                }
                 Message = error.Message;
                 ApplyChallengeError(error);
                 PresentError(
@@ -447,6 +455,7 @@ public sealed class VerifyEmailChangeViewModel(
             IsExpired = false;
             IsLocked =
                 replacement.RemainingAttempts <= 0;
+            SetRequiresFreshRequest(false);
             SetAccountRecovery(AccountRecovery.None);
             SetVerified(false);
             SetRequiresAccountReturn(false);
@@ -476,6 +485,11 @@ public sealed class VerifyEmailChangeViewModel(
             var error =
                 AccountEmailChangeErrorPresentation
                     .ForResend(exception);
+            if (error.Kind !=
+                AccountEmailChangeErrorKind.Network)
+            {
+                resendIdempotencyKey = null;
+            }
             Message = error.Message;
             ApplyChallengeError(error);
             PresentError(
@@ -622,6 +636,7 @@ public sealed class VerifyEmailChangeViewModel(
         SetVerified(true);
         IsExpired = false;
         IsLocked = false;
+        SetRequiresFreshRequest(false);
         SetAccountRecovery(AccountRecovery.None);
         SetRequiresAccountReturn(false);
         Message = "";
@@ -640,6 +655,12 @@ public sealed class VerifyEmailChangeViewModel(
                  AccountEmailChangeErrorKind.Locked)
         {
             IsLocked = true;
+        }
+        else if (error.Kind ==
+                 AccountEmailChangeErrorKind.Sender)
+        {
+            SetRequiresFreshRequest(true);
+            StopCountdown();
         }
         else if (error.Kind ==
                  AccountEmailChangeErrorKind.Superseded)
@@ -662,6 +683,15 @@ public sealed class VerifyEmailChangeViewModel(
             return;
 
         accountRecovery = value;
+        RaiseActionState();
+    }
+
+    private void SetRequiresFreshRequest(bool value)
+    {
+        if (requiresFreshRequest == value)
+            return;
+
+        requiresFreshRequest = value;
         RaiseActionState();
     }
 

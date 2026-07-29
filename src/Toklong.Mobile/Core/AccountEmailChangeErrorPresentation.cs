@@ -23,7 +23,8 @@ internal sealed record AccountEmailChangeError(
     public bool RequiresNewRequest =>
         Kind is
             AccountEmailChangeErrorKind.Expired or
-            AccountEmailChangeErrorKind.Locked;
+            AccountEmailChangeErrorKind.Locked or
+            AccountEmailChangeErrorKind.Sender;
 
     public bool RequiresPendingRefresh =>
         Kind is

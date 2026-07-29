@@ -38,6 +38,31 @@ public sealed class BuyerEmailChangeHandlerTests
         Assert.Equal(2, scenario.UnitOfWork.SaveCount);
     }
 
+    [Theory]
+    [InlineData("a@short-one.test", "••@short-one.test")]
+    [InlineData("ab@short-two.test", "a••@short-two.test")]
+    public async Task Short_local_parts_hide_at_least_one_real_character_in_views_and_audit(
+        string email,
+        string expectedMask)
+    {
+        await using var scenario = await Scenario.CreateAsync();
+
+        var result = await scenario.RequestHandler().Handle(
+            scenario.RequestCommand(email),
+            default);
+
+        Assert.Equal(expectedMask, result.MaskedEmail);
+        var challenge = Assert.Single(
+            scenario.Database.BuyerEmailChangeChallenges);
+        Assert.Equal(expectedMask, challenge.MaskedPendingEmail);
+        var audit = Assert.Single(
+            scenario.Database.BuyerEmailChangeAuditEvents);
+        Assert.Equal(expectedMask, audit.MaskedDestination);
+        Assert.DoesNotContain(
+            email,
+            JsonSerializer.Serialize(new { result, audit }));
+    }
+
     [Fact]
     public async Task Request_rejects_the_confirmed_email_case_insensitively()
     {
@@ -68,6 +93,57 @@ public sealed class BuyerEmailChangeHandlerTests
             scenario.Database.BuyerEmailChangeAuditEvents,
             audit => audit.Name == "account.email_change_requested");
         Assert.Equal(2, scenario.UnitOfWork.SaveCount);
+    }
+
+    [Theory]
+    [InlineData("new@example.com")]
+    [InlineData("replacement@example.com")]
+    public async Task Fresh_request_cannot_replace_an_active_challenge_before_cooldown(
+        string email)
+    {
+        await using var scenario = await Scenario.CreateAsync();
+        var first = await scenario.RequestHandler().Handle(
+            scenario.RequestCommand(),
+            default);
+
+        var exception =
+            await Assert.ThrowsAsync<RequestCooldownException>(() =>
+                scenario.RequestHandler().Handle(
+                    scenario.RequestCommand(
+                        email,
+                        Scenario.NewKey()),
+                    default));
+
+        Assert.Equal(TimeSpan.FromSeconds(60), exception.RetryAfter);
+        Assert.Equal(
+            "กรุณารอสักครู่ก่อนส่งรหัสอีกครั้ง",
+            exception.Message);
+        Assert.Single(scenario.Sender.Messages);
+        var stored = Assert.Single(
+            scenario.Database.BuyerEmailChangeChallenges);
+        Assert.Equal(first.ChallengeId, stored.Id);
+        Assert.Equal(BuyerEmailChangeStatus.Active, stored.Status);
+    }
+
+    [Fact]
+    public async Task Fresh_request_cannot_replace_a_pending_send_before_cooldown()
+    {
+        await using var scenario = await Scenario.CreateAsync();
+        var pending = await scenario.AddChallengeAsync(active: false);
+
+        var exception =
+            await Assert.ThrowsAsync<RequestCooldownException>(() =>
+                scenario.RequestHandler().Handle(
+                    scenario.RequestCommand(
+                        "replacement@example.com",
+                        Scenario.NewKey()),
+                    default));
+
+        Assert.Equal(TimeSpan.FromSeconds(60), exception.RetryAfter);
+        Assert.Empty(scenario.Sender.Messages);
+        Assert.Equal(BuyerEmailChangeStatus.PendingSend, pending.Status);
+        Assert.Single(
+            scenario.Database.BuyerEmailChangeChallenges);
     }
 
     [Fact]
@@ -149,6 +225,90 @@ public sealed class BuyerEmailChangeHandlerTests
         Assert.Equal("transient", audit.Result);
         Assert.DoesNotContain("provider detail", JsonSerializer.Serialize(audit));
         Assert.Equal(2, scenario.UnitOfWork.SaveCount);
+    }
+
+    [Fact]
+    public async Task Definitive_request_sender_failure_allows_a_fresh_key()
+    {
+        await using var scenario = await Scenario.CreateAsync();
+        scenario.Sender.Failure = new TransactionalEmailSendException(
+            "permanent provider rejection",
+            TransactionalEmailFailureKind.Permanent);
+        var failedCommand = scenario.RequestCommand();
+
+        await Assert.ThrowsAsync<DomainException>(() =>
+            scenario.RequestHandler().Handle(
+                failedCommand,
+                default));
+        scenario.Sender.Failure = null;
+
+        var retry = await scenario.RequestHandler().Handle(
+            scenario.RequestCommand(
+                failedCommand.Email,
+                Scenario.NewKey()),
+            default);
+
+        var challenges = scenario.Database
+            .BuyerEmailChangeChallenges
+            .ToArray();
+        Assert.Equal(2, challenges.Length);
+        Assert.Equal(
+            BuyerEmailChangeStatus.SendFailed,
+            challenges.Single(challenge =>
+                challenge.RequestIdempotencyKey ==
+                failedCommand.IdempotencyKey).Status);
+        Assert.Equal(
+            BuyerEmailChangeStatus.Active,
+            challenges.Single(challenge =>
+                challenge.Id == retry.ChallengeId).Status);
+    }
+
+    [Fact]
+    public async Task Definitive_resend_sender_failure_invalidates_source_and_allows_fresh_request()
+    {
+        await using var scenario = await Scenario.CreateAsync();
+        var original = await scenario.RequestHandler().Handle(
+            scenario.RequestCommand(),
+            default);
+        scenario.Clock.Advance(TimeSpan.FromSeconds(60));
+        scenario.Sender.Failure = new TransactionalEmailSendException(
+            "permanent provider rejection",
+            TransactionalEmailFailureKind.Permanent);
+
+        await Assert.ThrowsAsync<DomainException>(() =>
+            scenario.ResendHandler().Handle(
+                new ResendBuyerEmailChangeCommand(
+                    scenario.Buyer.Id,
+                    original.ChallengeId,
+                    Scenario.NewKey()),
+                default));
+        scenario.Sender.Failure = null;
+
+        var fresh = await scenario.RequestHandler().Handle(
+            scenario.RequestCommand(
+                "new@example.com",
+                Scenario.NewKey()),
+            default);
+
+        var challenges = scenario.Database
+            .BuyerEmailChangeChallenges
+            .OrderBy(challenge => challenge.CreatedAt)
+            .ThenBy(challenge => challenge.Status)
+            .ToArray();
+        Assert.Equal(3, challenges.Length);
+        Assert.Equal(
+            BuyerEmailChangeStatus.Superseded,
+            challenges.Single(challenge =>
+                challenge.Id == original.ChallengeId).Status);
+        Assert.Single(
+            challenges,
+            challenge =>
+                challenge.Status ==
+                BuyerEmailChangeStatus.SendFailed);
+        Assert.Equal(
+            BuyerEmailChangeStatus.Active,
+            challenges.Single(challenge =>
+                challenge.Id == fresh.ChallengeId).Status);
     }
 
     [Fact]
@@ -264,6 +424,7 @@ public sealed class BuyerEmailChangeHandlerTests
                 first.ChallengeId,
                 resendKey),
             default);
+        scenario.Clock.Advance(TimeSpan.FromSeconds(60));
         var later = await scenario.RequestHandler().Handle(
             scenario.RequestCommand(
                 "new@example.com",
@@ -301,6 +462,7 @@ public sealed class BuyerEmailChangeHandlerTests
         var first = await scenario.RequestHandler().Handle(
             scenario.RequestCommand(),
             default);
+        scenario.Clock.Advance(TimeSpan.FromSeconds(60));
 
         var second = await scenario.RequestHandler().Handle(
             scenario.RequestCommand(
@@ -342,6 +504,64 @@ public sealed class BuyerEmailChangeHandlerTests
         Assert.Equal(1, stored.IncorrectAttempts);
         Assert.Equal(4, stored.RemainingAttempts);
         Assert.Equal(BuyerEmailChangeStatus.Active, stored.Status);
+        Assert.Equal("old@example.com", scenario.Buyer.Email);
+    }
+
+    [Fact]
+    public async Task Verification_accepts_six_ascii_digits_with_display_whitespace()
+    {
+        await using var scenario = await Scenario.CreateAsync();
+        var requested = await scenario.RequestHandler().Handle(
+            scenario.RequestCommand(),
+            default);
+        scenario.CodeService.DigestInputs.Clear();
+
+        var result = await scenario.VerifyHandler().Handle(
+            new VerifyBuyerEmailChangeCommand(
+                scenario.Buyer.Id,
+                requested.ChallengeId,
+                " 123 456\r\n",
+                Scenario.NewKey()),
+            default);
+
+        Assert.Equal("new@example.com", result.Email);
+        Assert.Equal(
+            "123456",
+            Assert.Single(scenario.CodeService.DigestInputs));
+    }
+
+    [Theory]
+    [InlineData("12345")]
+    [InlineData("123-456")]
+    [InlineData("12345a")]
+    [InlineData("１２３４５６")]
+    public async Task Malformed_verification_code_is_rejected_before_hmac_or_attempt(
+        string code)
+    {
+        await using var scenario = await Scenario.CreateAsync();
+        var requested = await scenario.RequestHandler().Handle(
+            scenario.RequestCommand(),
+            default);
+        scenario.CodeService.DigestInputs.Clear();
+        scenario.UnitOfWork.Reset();
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() =>
+            scenario.VerifyHandler().Handle(
+                new VerifyBuyerEmailChangeCommand(
+                    scenario.Buyer.Id,
+                    requested.ChallengeId,
+                    code,
+                    Scenario.NewKey()),
+                default));
+
+        Assert.Equal("กรอกรหัสยืนยัน 6 หลัก", exception.Message);
+        Assert.Empty(scenario.CodeService.DigestInputs);
+        Assert.Equal(0, scenario.UnitOfWork.SaveCount);
+        Assert.Empty(scenario.Database.BuyerEmailVerificationAttempts);
+        var challenge = Assert.Single(
+            scenario.Database.BuyerEmailChangeChallenges);
+        Assert.Equal(0, challenge.IncorrectAttempts);
+        Assert.Equal(5, challenge.RemainingAttempts);
         Assert.Equal("old@example.com", scenario.Buyer.Email);
     }
 
@@ -804,11 +1024,16 @@ public sealed class BuyerEmailChangeHandlerTests
     private sealed class DeterministicCodeService
         : IEmailVerificationCodeService
     {
+        public List<string> DigestInputs { get; } = [];
+
         public EmailVerificationCodePair Issue(Guid challengeId) =>
             new("123456", Digest(challengeId, "123456"));
 
-        public string Digest(Guid challengeId, string code) =>
-            Hash($"{challengeId:N}:{code}");
+        public string Digest(Guid challengeId, string code)
+        {
+            DigestInputs.Add(code);
+            return Hash($"{challengeId:N}:{code}");
+        }
 
         public string HashDestination(string normalizedEmail) =>
             Hash($"destination:{normalizedEmail}");

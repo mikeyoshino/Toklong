@@ -1,3 +1,4 @@
+using System.Net;
 using Toklong.Mobile.Core;
 
 namespace Toklong.Mobile.Core.Tests;
@@ -176,8 +177,10 @@ public sealed class ChangeEmailViewModelTests :
             RequestEmail = (_, _) =>
                 ++response == 1
                     ? Task.FromException<PendingEmailChange>(
-                        new InvalidOperationException(
-                            "ยังส่งอีเมลไม่ได้ กรุณาลองอีกครั้ง"))
+                        new MobileApiRequestException(
+                            HttpStatusCode.BadRequest,
+                            "ยังส่งอีเมลไม่ได้ กรุณาลองอีกครั้ง",
+                            retryAfter: null))
                     : Task.FromException<PendingEmailChange>(
                         new HttpRequestException(
                             "host and email must not escape"))
@@ -198,6 +201,16 @@ public sealed class ChangeEmailViewModelTests :
             "เชื่อมต่อไม่สำเร็จ กรุณาลองอีกครั้ง",
             viewModel.Message);
         AssertFailedReason(analytics, "network");
+
+        await viewModel.SubmitAsync();
+
+        Assert.Equal(3, authentication.RequestCalls.Count);
+        Assert.NotEqual(
+            authentication.RequestCalls[0].Key,
+            authentication.RequestCalls[1].Key);
+        Assert.Equal(
+            authentication.RequestCalls[1].Key,
+            authentication.RequestCalls[2].Key);
         Assert.DoesNotContain("host", viewModel.Message);
         Assert.DoesNotContain(
             "new@example.com",
