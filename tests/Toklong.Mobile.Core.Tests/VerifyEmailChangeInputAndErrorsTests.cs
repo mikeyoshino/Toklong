@@ -6,6 +6,27 @@ public sealed class VerifyEmailChangeInputAndErrorsTests :
     EmailChangeViewModelTestBase
 {
     [Fact]
+    public void Applying_active_challenge_notifies_action_bindings()
+    {
+        var viewModel = Verify(
+            new RecordingAuthentication());
+        var changes = new List<string?>();
+        viewModel.PropertyChanged += (_, eventArgs) =>
+            changes.Add(eventArgs.PropertyName);
+
+        viewModel.Apply(Pending());
+
+        Assert.True(viewModel.CanUseChallenge);
+        Assert.True(viewModel.CanConfirm);
+        Assert.Contains(
+            nameof(viewModel.CanUseChallenge),
+            changes);
+        Assert.Contains(
+            nameof(viewModel.CanConfirm),
+            changes);
+    }
+
+    [Fact]
     public async Task Step_two_filters_to_ascii_digits_and_rejects_non_six_digit_code()
     {
         var authentication = new RecordingAuthentication();

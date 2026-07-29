@@ -220,6 +220,7 @@ public sealed class VerifyEmailChangeViewModel(
             nameof(MaskedEmailSemanticDescription));
         OnPropertyChanged(nameof(ExpiresText));
         RestartCountdown();
+        RaiseActionState();
     }
 
     public void Activate()
