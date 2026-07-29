@@ -193,6 +193,27 @@ public sealed class AccountEmailChangeViewModelTests :
     }
 
     [Fact]
+    public async Task Email_change_success_confirmation_survives_account_reload()
+    {
+        var viewModel = Account(
+            new RecordingAuthentication
+            {
+                GetProfile = () =>
+                    Task.FromResult(
+                        Profile("new@example.com"))
+            });
+        viewModel.ShowEmailChangeSuccess();
+
+        await viewModel.LoadAsync();
+
+        Assert.True(viewModel.HasSuccessMessage);
+        Assert.Equal(
+            "เปลี่ยนอีเมลเรียบร้อยแล้ว",
+            viewModel.SuccessMessage);
+        Assert.False(viewModel.HasMessage);
+    }
+
+    [Fact]
     public async Task Sign_out_clears_only_local_email_navigation_state()
     {
         Shell.Current = new Shell();

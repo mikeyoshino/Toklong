@@ -38,10 +38,15 @@ public partial class ChangeEmailPage : ContentPage
         EmailChangeErrorNotice notice)
     {
         SemanticScreenReader.Announce(notice.Message);
+        var target =
+            notice.Target ==
+            EmailChangeErrorTarget.VerificationAction
+                ? (VisualElement)SubmitButton
+                : NewEmailEntry;
         await EmailChangeScroll.ScrollToAsync(
-            NewEmailEntry,
+            target,
             ScrollToPosition.Center,
             true);
-        NewEmailEntry.Focus();
+        target.Focus();
     }
 }

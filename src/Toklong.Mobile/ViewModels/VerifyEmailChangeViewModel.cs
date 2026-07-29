@@ -9,6 +9,10 @@ public sealed class VerifyEmailChangeViewModel(
     TimeProvider timeProvider,
     AuthenticatedSessionBoundary session) : ObservableViewModel
 {
+    private static readonly TimeSpan
+        LocalResendCooldown =
+            TimeSpan.FromSeconds(1);
+
     private readonly EmailChangePageLifetime lifetime =
         new(session);
     private PendingEmailChange? pending;
@@ -112,12 +116,15 @@ public sealed class VerifyEmailChangeViewModel(
 
     public bool RequiresNewRequest =>
         IsExpired ||
-        IsLocked ||
+        IsLocked;
+
+    public bool RequiresPendingRefresh =>
         isObsolete;
 
     public bool CanUseChallenge =>
         pending is not null &&
         !RequiresNewRequest &&
+        !RequiresPendingRefresh &&
         !isVerified;
 
     public bool CanConfirm =>
@@ -126,6 +133,20 @@ public sealed class VerifyEmailChangeViewModel(
 
     public bool RequiresAccountReturn =>
         requiresAccountReturn;
+
+    public bool CanReturnToAccount =>
+        RequiresAccountReturn ||
+        RequiresPendingRefresh;
+
+    public string AccountReturnButtonText =>
+        RequiresPendingRefresh
+            ? "กลับไปยืนยันรหัสล่าสุด"
+            : "กลับไปหน้าบัญชี";
+
+    public string AccountReturnSemanticDescription =>
+        RequiresPendingRefresh
+            ? "กลับไปหน้าบัญชีเพื่อยืนยันรหัสล่าสุด"
+            : "กลับไปหน้าบัญชีเพื่อตรวจสอบอีเมลล่าสุด";
 
     public string ResendButtonText =>
         ResendSecondsRemaining > 0
@@ -196,6 +217,19 @@ public sealed class VerifyEmailChangeViewModel(
         lifetime.Activate();
         isActive = true;
         RestartCountdown();
+        if (HasMessage &&
+            (RequiresNewRequest ||
+             RequiresPendingRefresh ||
+             RequiresAccountReturn))
+        {
+            PresentError(
+                RequiresNewRequest
+                    ? EmailChangeErrorTarget
+                        .NewRequestAction
+                    : EmailChangeErrorTarget
+                        .AccountReturnAction,
+                Message);
+        }
     }
 
     public void Deactivate()
@@ -229,20 +263,21 @@ public sealed class VerifyEmailChangeViewModel(
         var becameExpired =
             pending is not null &&
             !IsExpired &&
-            ExpirySecondsRemaining == 0;
-        IsExpired =
-            pending is not null &&
-            ExpirySecondsRemaining == 0;
-        if (becameExpired &&
             !IsLocked &&
             !isObsolete &&
-            !isVerified)
+            !isVerified &&
+            ExpirySecondsRemaining == 0;
+        if (becameExpired)
         {
+            IsExpired = true;
             Message =
-                "รหัสหมดอายุแล้ว กรุณาเริ่มเปลี่ยนอีเมลใหม่";
-            PresentError(
-                EmailChangeErrorTarget.NewRequestAction,
-                Message);
+                "รหัสหมดอายุแล้ว กรุณาขอรหัสใหม่";
+            if (isActive)
+            {
+                PresentError(
+                    EmailChangeErrorTarget.NewRequestAction,
+                    Message);
+            }
         }
 
         OnPropertyChanged(nameof(CanResend));
@@ -294,6 +329,10 @@ public sealed class VerifyEmailChangeViewModel(
                 if (!lifetime.IsCurrent(operation.Value))
                     return;
 
+                RefreshTemporalState();
+                if (RequiresNewRequest)
+                    return;
+
                 var error =
                     AccountEmailChangeErrorPresentation
                         .ForVerification(exception);
@@ -303,6 +342,9 @@ public sealed class VerifyEmailChangeViewModel(
                     error.RequiresNewRequest
                         ? EmailChangeErrorTarget
                             .NewRequestAction
+                        : error.RequiresPendingRefresh
+                            ? EmailChangeErrorTarget
+                                .AccountReturnAction
                         : EmailChangeErrorTarget.CodeInput,
                     Message);
                 analytics.Track(
@@ -339,8 +381,8 @@ public sealed class VerifyEmailChangeViewModel(
 
             try
             {
-                await Shell.Current.GoToAsync(
-                    "//main/account");
+                await NavigateToAccountAsync(
+                    emailChangeCompleted: true);
             }
             catch
             {
@@ -395,6 +437,7 @@ public sealed class VerifyEmailChangeViewModel(
             SetVerified(false);
             SetRequiresAccountReturn(false);
             Code = "";
+            Message = "";
             OnPropertyChanged(nameof(MaskedEmail));
             OnPropertyChanged(
                 nameof(MaskedEmailSemanticDescription));
@@ -412,6 +455,10 @@ public sealed class VerifyEmailChangeViewModel(
             if (!lifetime.IsCurrent(operation.Value))
                 return;
 
+            RefreshTemporalState();
+            if (RequiresNewRequest)
+                return;
+
             var error =
                 AccountEmailChangeErrorPresentation
                     .ForResend(exception);
@@ -421,18 +468,15 @@ public sealed class VerifyEmailChangeViewModel(
                 error.RequiresNewRequest
                     ? EmailChangeErrorTarget
                         .NewRequestAction
+                    : error.RequiresPendingRefresh
+                        ? EmailChangeErrorTarget
+                            .AccountReturnAction
                     : EmailChangeErrorTarget.ResendAction,
                 Message);
-            if (error.RetryAfter is { } retryAfter &&
-                pending is not null)
+            if (error.Kind ==
+                AccountEmailChangeErrorKind.Cooldown)
             {
-                pending = pending with
-                {
-                    ResendAvailableAt =
-                        timeProvider.GetUtcNow() +
-                        retryAfter
-                };
-                RestartCountdown();
+                ApplyResendCooldown(error);
             }
             analytics.Track(
                 AccountEmailChangeAnalytics.Failed(
@@ -463,25 +507,33 @@ public sealed class VerifyEmailChangeViewModel(
     {
         var operation = lifetime.Capture();
         if (operation is null ||
-            !RequiresAccountReturn ||
+            !CanReturnToAccount ||
             !lifetime.IsCurrent(operation.Value))
         {
             return;
         }
 
+        var isPendingRefresh = RequiresPendingRefresh;
         try
         {
-            await Shell.Current.GoToAsync(
-                "//main/account");
-            if (lifetime.IsCurrent(operation.Value))
+            await NavigateToAccountAsync(
+                emailChangeCompleted:
+                    !isPendingRefresh);
+            if (lifetime.IsCurrent(operation.Value) &&
+                !isPendingRefresh)
+            {
                 SetRequiresAccountReturn(false);
+            }
         }
         catch
         {
             if (lifetime.IsCurrent(operation.Value))
             {
-                Message =
-                    "ยืนยันอีเมลสำเร็จแล้ว กรุณากลับไปหน้าบัญชีเพื่อตรวจสอบอีเมลล่าสุด";
+                if (!isPendingRefresh)
+                {
+                    Message =
+                        "ยืนยันอีเมลสำเร็จแล้ว กรุณากลับไปหน้าบัญชีเพื่อตรวจสอบอีเมลล่าสุด";
+                }
                 PresentError(
                     EmailChangeErrorTarget
                         .AccountReturnAction,
@@ -496,8 +548,7 @@ public sealed class VerifyEmailChangeViewModel(
         RefreshTemporalState();
         if (!isActive ||
             pending is null ||
-            RequiresNewRequest ||
-            isVerified)
+            !CanUseChallenge)
         {
             return;
         }
@@ -514,8 +565,7 @@ public sealed class VerifyEmailChangeViewModel(
             while (!cancellationToken.IsCancellationRequested)
             {
                 RefreshTemporalState();
-                if (RequiresNewRequest ||
-                    isVerified)
+                if (!CanUseChallenge)
                     return;
                 await Task.Delay(
                     TimeSpan.FromSeconds(1),
@@ -535,17 +585,41 @@ public sealed class VerifyEmailChangeViewModel(
         countdown = null;
     }
 
+    private void ApplyResendCooldown(
+        AccountEmailChangeError error)
+    {
+        if (pending is null)
+            return;
+
+        var retryAt =
+            timeProvider.GetUtcNow() +
+            (error.RetryAfter ??
+             LocalResendCooldown);
+        if (pending.ResendAvailableAt > retryAt)
+            retryAt = pending.ResendAvailableAt;
+
+        pending = pending with
+        {
+            ResendAvailableAt = retryAt
+        };
+        RestartCountdown();
+    }
+
     private void ApplyChallengeError(
         AccountEmailChangeError error)
     {
-        IsExpired =
-            error.Kind ==
-            AccountEmailChangeErrorKind.Expired;
-        IsLocked =
-            error.Kind ==
-            AccountEmailChangeErrorKind.Locked;
         if (error.Kind ==
-            AccountEmailChangeErrorKind.Superseded)
+            AccountEmailChangeErrorKind.Expired)
+        {
+            IsExpired = true;
+        }
+        else if (error.Kind ==
+                 AccountEmailChangeErrorKind.Locked)
+        {
+            IsLocked = true;
+        }
+        else if (error.Kind ==
+                 AccountEmailChangeErrorKind.Superseded)
         {
             SetObsolete(true);
         }
@@ -576,14 +650,25 @@ public sealed class VerifyEmailChangeViewModel(
 
         requiresAccountReturn = value;
         OnPropertyChanged(nameof(RequiresAccountReturn));
+        OnPropertyChanged(nameof(CanReturnToAccount));
+        OnPropertyChanged(
+            nameof(AccountReturnButtonText));
+        OnPropertyChanged(
+            nameof(AccountReturnSemanticDescription));
     }
 
     private void RaiseActionState()
     {
         OnPropertyChanged(nameof(RequiresNewRequest));
+        OnPropertyChanged(nameof(RequiresPendingRefresh));
         OnPropertyChanged(nameof(CanUseChallenge));
         OnPropertyChanged(nameof(CanConfirm));
         OnPropertyChanged(nameof(CanResend));
+        OnPropertyChanged(nameof(CanReturnToAccount));
+        OnPropertyChanged(
+            nameof(AccountReturnButtonText));
+        OnPropertyChanged(
+            nameof(AccountReturnSemanticDescription));
     }
 
     private void PresentError(
@@ -594,4 +679,14 @@ public sealed class VerifyEmailChangeViewModel(
             new EmailChangeErrorNotice(
                 target,
                 value));
+
+    private static Task NavigateToAccountAsync(
+        bool emailChangeCompleted) =>
+        Shell.Current.GoToAsync(
+            "//main/account",
+            new Dictionary<string, object>
+            {
+                ["EmailChangeCompleted"] =
+                    emailChangeCompleted
+            });
 }

@@ -22,8 +22,10 @@ internal sealed record AccountEmailChangeError(
     public bool RequiresNewRequest =>
         Kind is
             AccountEmailChangeErrorKind.Expired or
-            AccountEmailChangeErrorKind.Locked or
-            AccountEmailChangeErrorKind.Superseded;
+            AccountEmailChangeErrorKind.Locked;
+
+    public bool RequiresPendingRefresh =>
+        Kind == AccountEmailChangeErrorKind.Superseded;
 }
 
 internal static class AccountEmailChangeErrorPresentation
@@ -159,11 +161,18 @@ internal static class AccountEmailChangeErrorPresentation
             return null;
         }
 
+        if (rateLimited.RetryAfter is not { } retryAfter)
+        {
+            return Error(
+                AccountEmailChangeErrorKind.Cooldown,
+                AccountEmailChangeFailureReason.Invalid,
+                "กรุณารอสักครู่ก่อนลองอีกครั้ง");
+        }
+
         var seconds = Math.Max(
             1,
             (int)Math.Ceiling(
-                (rateLimited.RetryAfter ??
-                 TimeSpan.FromSeconds(1)).TotalSeconds));
+                retryAfter.TotalSeconds));
         return new AccountEmailChangeError(
             AccountEmailChangeErrorKind.Cooldown,
             AccountEmailChangeFailureReason.Invalid,
@@ -187,13 +196,13 @@ internal static class AccountEmailChangeErrorPresentation
         Error(
             AccountEmailChangeErrorKind.Expired,
             AccountEmailChangeFailureReason.Expired,
-            "รหัสหมดอายุแล้ว กรุณาเริ่มเปลี่ยนอีเมลใหม่");
+            "รหัสหมดอายุแล้ว กรุณาขอรหัสใหม่");
 
     private static AccountEmailChangeError Locked() =>
         Error(
             AccountEmailChangeErrorKind.Locked,
             AccountEmailChangeFailureReason.Locked,
-            "กรอกรหัสไม่ถูกต้องครบจำนวนแล้ว กรุณาเริ่มเปลี่ยนอีเมลใหม่");
+            "กรอกรหัสไม่ถูกต้องครบจำนวนแล้ว กรุณาขอรหัสใหม่");
 
     private static AccountEmailChangeError Superseded(
         Exception exception) =>
@@ -201,8 +210,8 @@ internal static class AccountEmailChangeErrorPresentation
             AccountEmailChangeErrorKind.Superseded,
             AccountEmailChangeFailureReason.Invalid,
             Contains(exception, "มีการส่งรหัสใหม่แล้ว")
-                ? "มีการส่งรหัสใหม่แล้ว กรุณาใช้รหัสล่าสุด"
-                : "คำขอเปลี่ยนอีเมลนี้ใช้ไม่ได้แล้ว กรุณาเริ่มใหม่");
+                ? "มีการส่งรหัสใหม่แล้ว กรุณากลับไปยืนยันรหัสล่าสุดจากหน้าบัญชี"
+                : "คำขอเปลี่ยนอีเมลนี้ใช้ไม่ได้แล้ว กรุณากลับไปหน้าบัญชี");
 
     private static AccountEmailChangeError Error(
         AccountEmailChangeErrorKind kind,

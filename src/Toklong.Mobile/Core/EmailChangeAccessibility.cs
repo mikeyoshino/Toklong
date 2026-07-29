@@ -5,6 +5,7 @@ public enum EmailChangeErrorTarget
     EmailInput,
     CodeInput,
     ResendAction,
+    VerificationAction,
     NewRequestAction,
     AccountReturnAction
 }

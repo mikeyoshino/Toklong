@@ -91,16 +91,16 @@
                         Style="{StaticResource RefinedPrimaryButton}"
                         Command="{Binding StartNewRequestCommand}"
                         IsVisible="{Binding RequiresNewRequest}"
-                        SemanticProperties.Description="เริ่มเปลี่ยนอีเมลใหม่"
-                        Text="เริ่มเปลี่ยนอีเมลใหม่" />
+                        SemanticProperties.Description="ขอรหัสยืนยันอีเมลใหม่"
+                        Text="ขอรหัสใหม่" />
 
                     <Button
                         x:Name="ReturnToAccountButton"
                         Style="{StaticResource RefinedPrimaryButton}"
                         Command="{Binding ReturnToAccountCommand}"
-                        IsVisible="{Binding RequiresAccountReturn}"
-                        SemanticProperties.Description="กลับไปหน้าบัญชีเพื่อตรวจสอบอีเมลล่าสุด"
-                        Text="กลับไปหน้าบัญชี" />
+                        IsVisible="{Binding CanReturnToAccount}"
+                        SemanticProperties.Description="{Binding AccountReturnSemanticDescription}"
+                        Text="{Binding AccountReturnButtonText}" />
                 </VerticalStackLayout>
             </Border>
 

@@ -55,6 +55,21 @@ public sealed class EmailChangeLayoutTests
             element =>
                 AttributeValue(element, "Command") ==
                 "{Binding SaveEmailCommand}");
+        var success = account
+            .Descendants()
+            .Single(element =>
+                AttributeValue(
+                    element,
+                    "AutomationId") ==
+                "EmailChangeSuccessSummary");
+        Assert.Equal(
+            "{Binding HasSuccessMessage}",
+            AttributeValue(success, "IsVisible"));
+        Assert.Contains(
+            success.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                "{Binding SuccessMessage}");
         Assert.DoesNotContain("บันทึกอีเมล", labels);
     }
 
@@ -94,8 +109,16 @@ public sealed class EmailChangeLayoutTests
             "{Binding SubmitCommand}",
             AttributeValue(primaryButtons[0], "Command"));
         Assert.Equal(
-            "ส่งรหัสยืนยัน",
+            "{Binding SubmitButtonText}",
             AttributeValue(primaryButtons[0], "Text"));
+        Assert.Equal(
+            "{Binding SubmitSemanticDescription}",
+            AttributeValue(
+                primaryButtons[0],
+                "SemanticProperties.Description"));
+        Assert.Equal(
+            "{Binding CanEditEmail}",
+            AttributeValue(emailEntry, "IsEnabled"));
         Assert.Equal(
             "Email",
             AttributeValue(emailEntry, "Keyboard"));
@@ -179,8 +202,19 @@ public sealed class EmailChangeLayoutTests
             "{Binding RequiresNewRequest}",
             AttributeValue(newRequest, "IsVisible"));
         Assert.Equal(
-            "{Binding RequiresAccountReturn}",
+            "{Binding CanReturnToAccount}",
             AttributeValue(returnToAccount, "IsVisible"));
+        Assert.Equal(
+            "{Binding AccountReturnButtonText}",
+            AttributeValue(returnToAccount, "Text"));
+        Assert.Equal(
+            "{Binding AccountReturnSemanticDescription}",
+            AttributeValue(
+                returnToAccount,
+                "SemanticProperties.Description"));
+        Assert.Equal(
+            "ขอรหัสใหม่",
+            AttributeValue(newRequest, "Text"));
         Assert.Equal(
             "{Binding Code, Mode=TwoWay}",
             AttributeValue(codeInput, "Code"));
@@ -332,6 +366,27 @@ public sealed class EmailChangeLayoutTests
                 "viewModel.Deactivate();",
                 source);
         }
+    }
+
+    [Fact]
+    public void Verify_page_subscribes_before_activation_and_focuses_only_a_usable_challenge()
+    {
+        var source = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "Ui",
+            "Pages",
+            "VerifyEmailChangePage.xaml.cs"));
+
+        Assert.True(
+            source.IndexOf(
+                "ErrorPresented += OnErrorPresented",
+                StringComparison.Ordinal) <
+            source.IndexOf(
+                "viewModel.Activate();",
+                StringComparison.Ordinal));
+        Assert.Contains(
+            "if (viewModel.CanUseChallenge)",
+            source);
     }
 
     [Fact]

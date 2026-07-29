@@ -10,6 +10,7 @@ public sealed class AccountViewModel(
     private MobileProfile? profile;
     private PendingEmailChange? pendingEmailChange;
     private string message = "";
+    private string successMessage = "";
     private bool isBusy;
     private long loadEpoch;
 
@@ -77,6 +78,19 @@ public sealed class AccountViewModel(
     }
 
     public bool HasMessage => !string.IsNullOrWhiteSpace(Message);
+
+    public string SuccessMessage
+    {
+        get => successMessage;
+        private set
+        {
+            if (SetProperty(ref successMessage, value))
+                OnPropertyChanged(nameof(HasSuccessMessage));
+        }
+    }
+
+    public bool HasSuccessMessage =>
+        !string.IsNullOrWhiteSpace(SuccessMessage);
 
     public bool IsBusy
     {
@@ -157,6 +171,7 @@ public sealed class AccountViewModel(
     {
         IsBusy = true;
         Message = "";
+        DismissSuccessMessage();
         profile = null;
         pendingEmailChange = null;
         RaiseProfileChanged();
@@ -187,6 +202,12 @@ public sealed class AccountViewModel(
                 {
                     ["Pending"] = pendingEmailChange
                 });
+
+    public void ShowEmailChangeSuccess() =>
+        SuccessMessage = "เปลี่ยนอีเมลเรียบร้อยแล้ว";
+
+    public void DismissSuccessMessage() =>
+        SuccessMessage = "";
 
     private async Task<PendingEmailChange?>
         LoadPendingEmailChangeAsync()

@@ -43,7 +43,7 @@ public sealed class ChangeEmailViewModelTests :
     }
 
     [Fact]
-    public async Task Step_one_reuses_key_after_network_failure_and_replaces_it_after_success()
+    public async Task Step_one_reuses_key_after_network_failure_and_does_not_request_again_after_success()
     {
         Shell.Current = new Shell();
         var attempt = 0;
@@ -64,20 +64,17 @@ public sealed class ChangeEmailViewModelTests :
         await viewModel.SubmitAsync();
         await viewModel.SubmitAsync();
 
-        Assert.Equal(3, authentication.RequestCalls.Count);
+        Assert.Equal(2, authentication.RequestCalls.Count);
         Assert.Equal(
             authentication.RequestCalls[0].Key,
             authentication.RequestCalls[1].Key);
-        Assert.NotEqual(
-            authentication.RequestCalls[1].Key,
-            authentication.RequestCalls[2].Key);
         Assert.All(
             authentication.RequestCalls,
             call => Assert.Equal(
                 "new@example.com",
                 call.Email));
         Assert.Equal(
-            2,
+            1,
             analytics.Events.Count(
                 value =>
                     value.Name ==
@@ -237,5 +234,73 @@ public sealed class ChangeEmailViewModelTests :
                 value.Name ==
                 "account_email_change_started");
         Assert.Empty(started.Properties);
+    }
+
+    [Fact]
+    public async Task Navigation_failure_after_request_success_retries_only_navigation()
+    {
+        Shell.Current = new Shell
+        {
+            Navigate = _ =>
+                Task.FromException(
+                    new InvalidOperationException(
+                        "private navigation detail"))
+        };
+        var pending = Pending();
+        var authentication = new RecordingAuthentication
+        {
+            RequestEmail = (_, _) =>
+                Task.FromResult(pending)
+        };
+        var analytics = new RecordingAnalytics();
+        var viewModel = Change(
+            authentication,
+            analytics);
+        EmailChangeErrorNotice? notice = null;
+        viewModel.ErrorPresented += (_, value) =>
+            notice = value;
+        viewModel.Email = "new@example.com";
+
+        await viewModel.SubmitAsync();
+
+        Assert.Single(authentication.RequestCalls);
+        Assert.Contains(
+            "ส่งรหัสยืนยันแล้ว",
+            viewModel.Message);
+        Assert.Equal(
+            "ไปกรอกรหัสยืนยัน",
+            viewModel.SubmitButtonText);
+        Assert.False(viewModel.CanEditEmail);
+        Assert.Equal(
+            EmailChangeErrorTarget.VerificationAction,
+            notice?.Target);
+        Assert.Single(
+            analytics.Events,
+            value =>
+                value.Name ==
+                "account_email_change_started");
+        Assert.DoesNotContain(
+            analytics.Events,
+            value =>
+                value.Name ==
+                "account_email_change_failed");
+
+        Shell.Current.Navigate = null;
+        await viewModel.SubmitAsync();
+
+        Assert.Single(authentication.RequestCalls);
+        Assert.Equal(
+            ["VerifyEmailChangePage"],
+            Shell.Current.Routes);
+        Assert.Same(
+            pending,
+            Assert.Single(
+                    Shell.Current.ParameterizedRoutes)
+                .Parameters["Pending"]);
+        Assert.Single(
+            analytics.Events,
+            value =>
+                value.Name ==
+                "account_email_change_started");
     }
 }

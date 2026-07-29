@@ -45,6 +45,7 @@
                                 x:Name="NewEmailEntry"
                                 Style="{StaticResource RefinedEntry}"
                                 AutomationId="NewEmailEntry"
+                                IsEnabled="{Binding CanEditEmail}"
                                 Keyboard="Email"
                                 MaxLength="254"
                                 Placeholder="name@example.com"
@@ -61,10 +62,11 @@
                     </VerticalStackLayout>
 
                     <Button
+                        x:Name="SubmitButton"
                         Style="{StaticResource RefinedPrimaryButton}"
                         Command="{Binding SubmitCommand}"
-                        SemanticProperties.Description="ส่งรหัสยืนยันไปยังอีเมลใหม่"
-                        Text="ส่งรหัสยืนยัน">
+                        SemanticProperties.Description="{Binding SubmitSemanticDescription}"
+                        Text="{Binding SubmitButtonText}">
                         <Button.Triggers>
                             <DataTrigger
                                 TargetType="Button"

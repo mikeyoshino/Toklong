@@ -23,6 +23,11 @@ public sealed class VerifyEmailChangeCompletionTests :
         Assert.Equal(
             ["//main/account"],
             Shell.Current.Routes);
+        var navigation = Assert.Single(
+            Shell.Current.ParameterizedRoutes);
+        Assert.Equal(
+            true,
+            navigation.Parameters["EmailChangeCompleted"]);
         var verified = Assert.Single(
             analytics.Events,
             value =>

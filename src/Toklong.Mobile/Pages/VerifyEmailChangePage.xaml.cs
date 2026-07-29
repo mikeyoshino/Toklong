@@ -28,9 +28,16 @@ public partial class VerifyEmailChangePage :
         base.OnAppearing();
         viewModel.ErrorPresented += OnErrorPresented;
         viewModel.Activate();
-        Dispatcher.DispatchDelayed(
-            TimeSpan.FromMilliseconds(250),
-            OtpInput.FocusInput);
+        if (viewModel.CanUseChallenge)
+        {
+            Dispatcher.DispatchDelayed(
+                TimeSpan.FromMilliseconds(250),
+                () =>
+                {
+                    if (viewModel.CanUseChallenge)
+                        OtpInput.FocusInput();
+                });
+        }
     }
 
     protected override void OnDisappearing()

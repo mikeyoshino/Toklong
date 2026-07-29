@@ -77,6 +77,142 @@ public sealed class VerifyEmailChangeTimingTests :
     }
 
     [Fact]
+    public async Task Expiry_remains_terminal_when_an_older_verification_fails_late()
+    {
+        var time = new ManualTimeProvider(Now);
+        var completion =
+            new TaskCompletionSource<string>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+        var authentication = new RecordingAuthentication
+        {
+            VerifyEmail = (_, _, _) => completion.Task
+        };
+        var viewModel = Verify(
+            authentication,
+            time: time);
+        viewModel.Apply(Pending(
+            expiresAt: Now.AddSeconds(1)));
+        viewModel.Code = "123456";
+
+        var verification = viewModel.ConfirmAsync();
+        await time.AdvanceAsync(
+            TimeSpan.FromSeconds(1));
+        var terminalMessage = viewModel.Message;
+        completion.SetException(
+            new HttpRequestException(
+                "late private network detail"));
+        await verification;
+
+        Assert.True(viewModel.IsExpired);
+        Assert.True(viewModel.RequiresNewRequest);
+        Assert.False(viewModel.CanConfirm);
+        Assert.False(viewModel.CanResend);
+        Assert.Equal(
+            terminalMessage,
+            viewModel.Message);
+    }
+
+    [Fact]
+    public async Task Expiry_remains_terminal_when_an_older_resend_fails_late()
+    {
+        var time = new ManualTimeProvider(Now);
+        var completion =
+            new TaskCompletionSource<PendingEmailChange>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+        var authentication = new RecordingAuthentication
+        {
+            ResendEmail = (_, _) => completion.Task
+        };
+        var viewModel = Verify(
+            authentication,
+            time: time);
+        viewModel.Apply(Pending(
+            expiresAt: Now.AddSeconds(1),
+            resendAvailableAt: Now));
+
+        var resend = viewModel.ResendAsync();
+        await time.AdvanceAsync(
+            TimeSpan.FromSeconds(1));
+        var terminalMessage = viewModel.Message;
+        completion.SetException(
+            new HttpRequestException(
+                "late private network detail"));
+        await resend;
+
+        Assert.True(viewModel.IsExpired);
+        Assert.True(viewModel.RequiresNewRequest);
+        Assert.False(viewModel.CanConfirm);
+        Assert.False(viewModel.CanResend);
+        Assert.Equal(
+            terminalMessage,
+            viewModel.Message);
+    }
+
+    [Fact]
+    public async Task Successful_resend_replaces_expired_state_and_clears_its_message()
+    {
+        var time = new ManualTimeProvider(Now);
+        var completion =
+            new TaskCompletionSource<PendingEmailChange>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+        var authentication = new RecordingAuthentication
+        {
+            ResendEmail = (_, _) => completion.Task
+        };
+        var viewModel = Verify(
+            authentication,
+            time: time);
+        viewModel.Apply(Pending(
+            expiresAt: Now.AddSeconds(1),
+            resendAvailableAt: Now));
+
+        var resend = viewModel.ResendAsync();
+        await time.AdvanceAsync(
+            TimeSpan.FromSeconds(1));
+        Assert.True(viewModel.IsExpired);
+        Assert.True(viewModel.HasMessage);
+
+        completion.SetResult(Pending(
+            challengeId:
+                Guid.Parse(
+                    "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+            expiresAt: Now.AddMinutes(10),
+            resendAvailableAt: Now.AddSeconds(60)));
+        await resend;
+
+        Assert.False(viewModel.IsExpired);
+        Assert.False(viewModel.RequiresNewRequest);
+        Assert.True(viewModel.CanConfirm);
+        Assert.False(viewModel.HasMessage);
+    }
+
+    [Fact]
+    public void Activating_an_already_expired_challenge_presents_the_terminal_action()
+    {
+        var viewModel =
+            new Toklong.Mobile.ViewModels.VerifyEmailChangeViewModel(
+            new RecordingAuthentication(),
+            new RecordingAnalytics(),
+            new ManualTimeProvider(Now),
+            new AuthenticatedSessionBoundary());
+        viewModel.Apply(Pending(
+            expiresAt: Now.AddSeconds(-1)));
+        EmailChangeErrorNotice? notice = null;
+        viewModel.ErrorPresented += (_, value) =>
+            notice = value;
+
+        viewModel.Activate();
+
+        Assert.True(viewModel.IsExpired);
+        Assert.Equal(
+            EmailChangeErrorTarget.NewRequestAction,
+            notice?.Target);
+        Assert.Equal(
+            viewModel.Message,
+            notice?.Message);
+    }
+
+    [Fact]
     public async Task Countdown_cancels_without_updates_after_page_deactivation()
     {
         var time = new ManualTimeProvider(Now);
@@ -240,6 +376,7 @@ public sealed class VerifyEmailChangeTimingTests :
     [Fact]
     public async Task Resend_cooldown_uses_wait_copy_without_invalidating_the_challenge()
     {
+        var time = new ManualTimeProvider(Now);
         var authentication = new RecordingAuthentication
         {
             ResendEmail = (_, _) =>
@@ -250,7 +387,8 @@ public sealed class VerifyEmailChangeTimingTests :
         var analytics = new RecordingAnalytics();
         var viewModel = Verify(
             authentication,
-            analytics);
+            analytics,
+            time);
         viewModel.Apply(Pending(
             resendAvailableAt: Now));
 
@@ -259,8 +397,14 @@ public sealed class VerifyEmailChangeTimingTests :
         Assert.Equal(
             "กรุณารอสักครู่ก่อนส่งรหัสอีกครั้ง",
             viewModel.Message);
-        Assert.True(viewModel.CanResend);
+        Assert.Equal(1, viewModel.ResendSecondsRemaining);
+        Assert.False(viewModel.CanResend);
         AssertFailedReason(analytics, "invalid");
+
+        await time.AdvanceAsync(
+            TimeSpan.FromSeconds(1));
+
+        Assert.True(viewModel.CanResend);
     }
 
     [Fact]
@@ -288,6 +432,37 @@ public sealed class VerifyEmailChangeTimingTests :
             "17 วินาที",
             viewModel.Message);
         Assert.Equal(17, viewModel.ResendSecondsRemaining);
+        Assert.False(viewModel.CanResend);
+    }
+
+    [Fact]
+    public async Task Resend_rate_limit_without_retry_after_uses_a_local_guard_without_inventing_server_timing()
+    {
+        var time = new ManualTimeProvider(Now);
+        var authentication = new RecordingAuthentication
+        {
+            ResendEmail = (_, _) =>
+                Task.FromException<PendingEmailChange>(
+                    new MobileApiRequestException(
+                        HttpStatusCode.TooManyRequests,
+                        "private provider detail",
+                        retryAfter: null))
+        };
+        var viewModel = Verify(
+            authentication,
+            time: time);
+        viewModel.Apply(Pending(
+            resendAvailableAt: Now));
+
+        await viewModel.ResendAsync();
+
+        Assert.Equal(
+            "กรุณารอสักครู่ก่อนลองอีกครั้ง",
+            viewModel.Message);
+        Assert.DoesNotContain(
+            "1 วินาที",
+            viewModel.Message);
+        Assert.Equal(1, viewModel.ResendSecondsRemaining);
         Assert.False(viewModel.CanResend);
     }
 }

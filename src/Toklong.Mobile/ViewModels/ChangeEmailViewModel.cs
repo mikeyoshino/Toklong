@@ -16,6 +16,7 @@ public sealed class ChangeEmailViewModel(
     private string emailError = "";
     private string message = "";
     private string? requestIdempotencyKey;
+    private PendingEmailChange? acceptedPending;
     private bool isBusy;
 
     public event EventHandler<EmailChangeErrorNotice>?
@@ -72,10 +73,28 @@ public sealed class ChangeEmailViewModel(
     public bool HasMessage =>
         !string.IsNullOrWhiteSpace(Message);
 
+    public bool CanEditEmail =>
+        acceptedPending is null &&
+        !IsBusy;
+
+    public string SubmitButtonText =>
+        acceptedPending is null
+            ? "ส่งรหัสยืนยัน"
+            : "ไปกรอกรหัสยืนยัน";
+
+    public string SubmitSemanticDescription =>
+        acceptedPending is null
+            ? "ส่งรหัสยืนยันไปยังอีเมลใหม่"
+            : "ไปหน้ากรอกรหัสยืนยันที่ส่งแล้ว";
+
     public bool IsBusy
     {
         get => isBusy;
-        private set => SetProperty(ref isBusy, value);
+        private set
+        {
+            if (SetProperty(ref isBusy, value))
+                OnPropertyChanged(nameof(CanEditEmail));
+        }
     }
 
     public ICommand SubmitCommand =>
@@ -95,6 +114,23 @@ public sealed class ChangeEmailViewModel(
         var operation = lifetime.Capture();
         if (operation is null || IsBusy)
             return;
+        if (acceptedPending is not null)
+        {
+            IsBusy = true;
+            Message = "";
+            try
+            {
+                await NavigateToVerificationAsync(
+                    acceptedPending,
+                    operation.Value);
+            }
+            finally
+            {
+                if (lifetime.IsCurrent(operation.Value))
+                    IsBusy = false;
+            }
+            return;
+        }
         if (!TryNormalizeEmail(Email, out var normalizedEmail))
         {
             EmailError = "กรอกอีเมลให้ถูกต้อง";
@@ -114,17 +150,62 @@ public sealed class ChangeEmailViewModel(
         Message = "";
         try
         {
-            var pending =
-                await authentication.RequestEmailChangeAsync(
-                    normalizedEmail,
-                    requestIdempotencyKey,
-                    operation.Value.Token);
+            PendingEmailChange pending;
+            try
+            {
+                pending =
+                    await authentication.RequestEmailChangeAsync(
+                        normalizedEmail,
+                        requestIdempotencyKey,
+                        operation.Value.Token);
+            }
+            catch (OperationCanceledException) when (
+                operation.Value.Token.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception exception)
+            {
+                if (!lifetime.IsCurrent(operation.Value))
+                    return;
+
+                var error =
+                    AccountEmailChangeErrorPresentation.ForRequest(
+                        exception);
+                Message = error.Message;
+                PresentError(
+                    EmailChangeErrorTarget.EmailInput,
+                    Message);
+                analytics.Track(
+                    AccountEmailChangeAnalytics.Failed(
+                        error.Reason));
+                return;
+            }
+
             if (!lifetime.IsCurrent(operation.Value))
                 return;
 
             requestIdempotencyKey = null;
+            SetAcceptedPending(pending);
             analytics.Track(
                 AccountEmailChangeAnalytics.Started());
+            await NavigateToVerificationAsync(
+                pending,
+                operation.Value);
+        }
+        finally
+        {
+            if (lifetime.IsCurrent(operation.Value))
+                IsBusy = false;
+        }
+    }
+
+    private async Task NavigateToVerificationAsync(
+        PendingEmailChange pending,
+        EmailChangeOperation operation)
+    {
+        try
+        {
             await Shell.Current.GoToAsync(
                 nameof(VerifyEmailChangePage),
                 new Dictionary<string, object>
@@ -132,31 +213,27 @@ public sealed class ChangeEmailViewModel(
                     ["Pending"] = pending
                 });
         }
-        catch (OperationCanceledException) when (
-            operation.Value.Token.IsCancellationRequested)
+        catch
         {
-        }
-        catch (Exception exception)
-        {
-            if (!lifetime.IsCurrent(operation.Value))
+            if (!lifetime.IsCurrent(operation))
                 return;
 
-            var error =
-                AccountEmailChangeErrorPresentation.ForRequest(
-                    exception);
-            Message = error.Message;
+            Message =
+                "ส่งรหัสยืนยันแล้ว กรุณาไปหน้ากรอกรหัสเพื่อดำเนินการต่อ";
             PresentError(
-                EmailChangeErrorTarget.EmailInput,
+                EmailChangeErrorTarget.VerificationAction,
                 Message);
-            analytics.Track(
-                AccountEmailChangeAnalytics.Failed(
-                    error.Reason));
         }
-        finally
-        {
-            if (lifetime.IsCurrent(operation.Value))
-                IsBusy = false;
-        }
+    }
+
+    private void SetAcceptedPending(
+        PendingEmailChange value)
+    {
+        acceptedPending = value;
+        OnPropertyChanged(nameof(CanEditEmail));
+        OnPropertyChanged(nameof(SubmitButtonText));
+        OnPropertyChanged(
+            nameof(SubmitSemanticDescription));
     }
 
     private void PresentError(

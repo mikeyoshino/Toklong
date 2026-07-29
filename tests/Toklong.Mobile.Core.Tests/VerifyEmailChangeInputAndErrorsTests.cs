@@ -78,11 +78,11 @@ public sealed class VerifyEmailChangeInputAndErrorsTests :
     [Theory]
     [InlineData(
         "รหัสหมดอายุแล้ว กรุณาขอรหัสใหม่",
-        "รหัสหมดอายุแล้ว กรุณาเริ่มเปลี่ยนอีเมลใหม่",
+        "รหัสหมดอายุแล้ว กรุณาขอรหัสใหม่",
         "expired")]
     [InlineData(
         "กรอกรหัสไม่ถูกต้องครบจำนวนแล้ว กรุณาขอรหัสใหม่",
-        "กรอกรหัสไม่ถูกต้องครบจำนวนแล้ว กรุณาเริ่มเปลี่ยนอีเมลใหม่",
+        "กรอกรหัสไม่ถูกต้องครบจำนวนแล้ว กรุณาขอรหัสใหม่",
         "locked")]
     [InlineData(
         "รหัสไม่ถูกต้อง ลองตรวจสอบแล้วกรอกอีกครั้ง",
@@ -126,7 +126,7 @@ public sealed class VerifyEmailChangeInputAndErrorsTests :
     }
 
     [Fact]
-    public async Task Superseded_verification_disables_actions_and_routes_to_a_new_request()
+    public async Task Superseded_verification_disables_actions_and_returns_to_account_for_latest_pending()
     {
         Shell.Current = new Shell();
         var authentication = new RecordingAuthentication
@@ -147,20 +147,30 @@ public sealed class VerifyEmailChangeInputAndErrorsTests :
         await viewModel.ConfirmAsync();
 
         Assert.Equal(
-            "มีการส่งรหัสใหม่แล้ว กรุณาใช้รหัสล่าสุด",
+            "มีการส่งรหัสใหม่แล้ว กรุณากลับไปยืนยันรหัสล่าสุดจากหน้าบัญชี",
             viewModel.Message);
-        Assert.True(viewModel.RequiresNewRequest);
+        Assert.True(viewModel.RequiresPendingRefresh);
+        Assert.False(viewModel.RequiresNewRequest);
+        Assert.True(viewModel.CanReturnToAccount);
+        Assert.Equal(
+            "กลับไปยืนยันรหัสล่าสุด",
+            viewModel.AccountReturnButtonText);
         Assert.False(viewModel.CanConfirm);
         Assert.False(viewModel.CanResend);
         Assert.Equal(
-            EmailChangeErrorTarget.NewRequestAction,
+            EmailChangeErrorTarget.AccountReturnAction,
             notice?.Target);
 
-        await viewModel.StartNewRequestAsync();
+        await viewModel.ReturnToAccountAsync();
 
         Assert.Equal(
-            ["ChangeEmailPage"],
+            ["//main/account"],
             Shell.Current.Routes);
+        var navigation = Assert.Single(
+            Shell.Current.ParameterizedRoutes);
+        Assert.Equal(
+            false,
+            navigation.Parameters["EmailChangeCompleted"]);
     }
 
     [Fact]

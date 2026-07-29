@@ -267,6 +267,20 @@
             </Border>
 
             <Border
+                AutomationId="EmailChangeSuccessSummary"
+                IsVisible="{Binding HasSuccessMessage}"
+                Padding="14"
+                BackgroundColor="#EAF8EF"
+                Stroke="#9DD8AF"
+                StrokeShape="RoundRectangle 14"
+                SemanticProperties.Description="{Binding SuccessMessage}">
+                <Label
+                    AutomationProperties.IsInAccessibleTree="False"
+                    Text="{Binding SuccessMessage}"
+                    TextColor="#176B36" />
+            </Border>
+
+            <Border
                 IsVisible="{Binding HasMessage}"
                 Padding="14"
                 BackgroundColor="#FFF4DC"
