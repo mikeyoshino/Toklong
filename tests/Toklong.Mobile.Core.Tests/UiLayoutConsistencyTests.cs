@@ -1161,6 +1161,45 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
+    public void SellerDeferredDetailsReserveWidthForBoundValues()
+    {
+        var detail = Load(
+            "Ui",
+            "Pages",
+            "TransactionDetailPage.xaml");
+        var sellerPayout = detail
+            .Descendants(Maui + "VerticalStackLayout")
+            .Single(stack =>
+                AttributeValue(stack, "AutomationId") ==
+                "SellerPayoutDisclosure");
+        var sellerValueBindings = new[]
+        {
+            "{Binding Transaction.ConditionLabel}",
+            "{Binding Transaction.FulfillmentConsumerLabel}",
+            "{Binding Transaction.ItemPriceText}",
+            "{Binding Transaction.ShippingServiceText}",
+            "{Binding Transaction.SellerNetText}"
+        };
+
+        foreach (var binding in sellerValueBindings)
+        {
+            var value = detail
+                .Descendants(Maui + "Label")
+                .Single(label =>
+                    AttributeValue(label, "Text") == binding &&
+                    (label.Ancestors(Maui + "VerticalStackLayout")
+                        .Contains(sellerPayout) ||
+                     binding is
+                         "{Binding Transaction.ConditionLabel}" or
+                         "{Binding Transaction.FulfillmentConsumerLabel}"));
+
+            Assert.Equal("*,*", AttributeValue(value.Parent!, "ColumnDefinitions"));
+            Assert.Equal("Fill", AttributeValue(value, "HorizontalOptions"));
+            Assert.Equal("End", AttributeValue(value, "HorizontalTextAlignment"));
+        }
+    }
+
+    [Fact]
     public void SellerOffer_HidesBuyerProtectionAndBuyerTotal()
     {
         var sellerOffer = Load(
@@ -1258,57 +1297,68 @@ public sealed class UiLayoutConsistencyTests
                     "ProgressTokenThree")
             .ToArray();
         var connectors = progress
-            .Descendants(Maui + "Border")
+            .Descendants(Maui + "BoxView")
             .Where(element =>
                 AttributeValue(element, "AutomationId") is
                     "ProgressConnectorOne" or
                     "ProgressConnectorTwo")
             .ToArray();
-        var images = progress
-            .Descendants(Maui + "Image")
+        var icons = progress
+            .Descendants()
+            .Where(element =>
+                element.Name.LocalName ==
+                    "TransactionProgressIconView")
             .ToArray();
         var labels = progress
             .Descendants(Maui + "Label")
             .ToArray();
 
         Assert.Equal(
-            "*,48,*,48,*,48,*",
+            "*,44,*,44,*,44,*",
             AttributeValue(progressGrid, "ColumnDefinitions"));
         Assert.Equal(3, tokens.Length);
         Assert.All(tokens, token =>
         {
             Assert.Equal(
-                "48",
+                "44",
                 AttributeValue(token, "WidthRequest"));
             Assert.Equal(
-                "48",
+                "44",
                 AttributeValue(token, "HeightRequest"));
             Assert.Equal(
-                "RoundRectangle 24",
+                "2",
+                AttributeValue(token, "StrokeThickness"));
+            Assert.Equal(
+                "RoundRectangle 22",
                 AttributeValue(token, "StrokeShape"));
             Assert.NotNull(
                 AttributeValue(
                     token,
                     "SemanticProperties.Description"));
-            Assert.Single(token.Descendants(Maui + "Image"));
+            Assert.Single(
+                token.Descendants(),
+                element =>
+                    element.Name.LocalName ==
+                        "TransactionProgressIconView");
             Assert.Empty(token.Descendants(Maui + "Label"));
             Assert.Empty(token.Descendants(Maui + "Border"));
         });
         Assert.Equal(2, connectors.Length);
-        Assert.Equal(3, images.Length);
-        Assert.All(images, image =>
+        Assert.All(connectors, connector =>
         {
             Assert.Equal(
-                "30",
-                AttributeValue(image, "WidthRequest"));
-            Assert.Equal(
-                "30",
-                AttributeValue(image, "HeightRequest"));
-            Assert.Equal(
-                "False",
+                "2",
                 AttributeValue(
-                    image,
-                    "AutomationProperties.IsInAccessibleTree"));
+                    connector,
+                    "HeightRequest"));
+        });
+        Assert.Equal(3, icons.Length);
+        Assert.All(icons, icon =>
+        {
+            Assert.NotNull(
+                AttributeValue(icon, "Glyph"));
+            Assert.NotNull(
+                AttributeValue(icon, "IconColor"));
         });
         Assert.Equal(3, labels.Length);
         var expectedLabelPositions = new[]
@@ -1320,7 +1370,7 @@ public sealed class UiLayoutConsistencyTests
         Assert.All(labels, label =>
         {
             Assert.Equal(
-                "12",
+                "11",
                 AttributeValue(label, "FontSize"));
             Assert.Equal(
                 "False",
@@ -1340,6 +1390,58 @@ public sealed class UiLayoutConsistencyTests
             element => element.Name.LocalName.Contains(
                 "Animation",
                 StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void BuyerProblemFormIsHiddenBehindNeutralTextAction()
+    {
+        var detail = Load(
+            "Ui",
+            "Pages",
+            "TransactionDetailPage.xaml");
+        var confirmationCard = detail
+            .Descendants(Maui + "Border")
+            .Single(border =>
+                AttributeValue(border, "IsVisible") ==
+                    "{Binding IsBuyerConfirmationAction}");
+        var toggle = confirmationCard
+            .Descendants(Maui + "Button")
+            .Single(button =>
+                AttributeValue(button, "AutomationId") ==
+                    "ToggleProblemFormButton");
+        var form = confirmationCard
+            .Descendants(Maui + "VerticalStackLayout")
+            .Single(stack =>
+                AttributeValue(stack, "AutomationId") ==
+                    "ProblemReportForm");
+
+        Assert.Equal(
+            "{Binding ToggleProblemFormCommand}",
+            AttributeValue(toggle, "Command"));
+        Assert.Equal(
+            "{Binding ProblemFormToggleText}",
+            AttributeValue(toggle, "Text"));
+        Assert.Equal(
+            "{StaticResource RefinedInlineButton}",
+            AttributeValue(toggle, "Style"));
+        Assert.Equal(
+            "{Binding IsProblemFormExpanded}",
+            AttributeValue(form, "IsVisible"));
+        Assert.Single(form.Descendants(Maui + "Picker"));
+        Assert.Single(form.Descendants(Maui + "Editor"));
+        Assert.Contains(
+            form.Descendants(Maui + "Button"),
+            button =>
+                AttributeValue(button, "Command") ==
+                    "{Binding ReportProblemCommand}");
+        Assert.Empty(
+            confirmationCard
+                .Descendants(Maui + "Picker")
+                .Except(form.Descendants(Maui + "Picker")));
+        Assert.Empty(
+            confirmationCard
+                .Descendants(Maui + "Editor")
+                .Except(form.Descendants(Maui + "Editor")));
     }
 
     [Fact]
@@ -1378,6 +1480,11 @@ public sealed class UiLayoutConsistencyTests
             label =>
                 AttributeValue(label, "Text") ==
                     "{Binding Transaction.FormattedAmount}");
+        Assert.Contains(
+            buyerCost.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                    "{Binding Transaction.ShippingFeeText}");
 
         var sellerPayout = detail
             .Descendants(Maui + "VerticalStackLayout")
@@ -1404,6 +1511,32 @@ public sealed class UiLayoutConsistencyTests
             label =>
                 AttributeValue(label, "Text") ==
                     "{Binding Transaction.FeeText}");
+        foreach (var sellerHiddenBinding in new[]
+                 {
+                     "{Binding Transaction.ShippingFeeText}",
+                     "{Binding Transaction.ParcelInsuranceFeeText}",
+                     "{Binding Transaction.ShippingDeclaredValueText}"
+                 })
+        {
+            Assert.DoesNotContain(
+                sellerPayout.Descendants(Maui + "Label"),
+                label =>
+                    AttributeValue(label, "Text") ==
+                    sellerHiddenBinding);
+        }
+        foreach (var sellerVisibleBinding in new[]
+                 {
+                     "{Binding Transaction.ItemPriceText}",
+                     "{Binding Transaction.ShippingServiceText}",
+                     "{Binding Transaction.SellerNetText}"
+                 })
+        {
+            Assert.Contains(
+                sellerPayout.Descendants(Maui + "Label"),
+                label =>
+                    AttributeValue(label, "Text") ==
+                    sellerVisibleBinding);
+        }
         Assert.DoesNotContain(
             detail.Descendants(Maui + "Label"),
             label =>
@@ -1413,7 +1546,6 @@ public sealed class UiLayoutConsistencyTests
                  {
                      "{Binding Transaction.ConditionLabel}",
                      "{Binding Transaction.FulfillmentConsumerLabel}",
-                     "{Binding Transaction.ShippingFeeText}",
                      "{Binding Transaction.ShippingServiceText}"
                  })
         {

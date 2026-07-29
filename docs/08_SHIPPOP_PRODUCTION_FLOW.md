@@ -15,6 +15,9 @@
   เต็มมูลค่าสินค้าตลอดช่วงราคาที่แอปรองรับ
 - API key, account email และ secret ต้องมาจาก secret storage เท่านั้น
   ห้ามใส่ใน source, migration, log, audit หรือ mobile response
+- endpoint ของ Production ต้องเป็น HTTPS เสมอ ส่วน HTTP ของ SHIPPOP Dev
+  เปิดได้เฉพาะ Development/certification ด้วย explicit opt-in และค่าเริ่มต้น
+  ต้องปิด
 
 ## Outbound flow
 
@@ -84,3 +87,37 @@
   แต่ไม่เห็นค่าคุ้มครองผู้ซื้อหรือยอดรวมฝั่งผู้ซื้อ
 - mobile refresh อ่านข้อมูลจากฐานข้อมูลเท่านั้น ห้ามทำให้เกิด SHIPPOP mutation
   หรือ tracking poll
+
+## Implementation status — 29 July 2026
+
+ฝั่ง application ที่ทำเสร็จและทดสอบแล้ว:
+
+- signed quote รุ่น `sp2` ผูกค่าขนส่ง ค่าเบี้ย มูลค่าประกัน insurance code,
+  service, parcel, ต้นทาง/ปลายทาง และเวลาหมดอายุ
+- timeout, HTTP error, response ผิดรูปแบบ หรือผล mutation ที่พิสูจน์ไม่ได้
+  ถูกบันทึกเป็น `OutcomeUnknown`; Worker ไม่ยิง mutation ซ้ำ
+- Worker ตรวจ request fingerprint จาก immutable shipment intent ก่อนเรียก
+  provider และส่งงานที่ไม่ตรงเข้า review
+- เมื่อเลย ship-by ระบบ queue `CancelOutbound` แบบ durable ก่อน refund
+- return ใช้ `BookReturn → ConfirmReturn`, มีใบปะหน้าสำหรับผู้ซื้อ, poll
+  tracking แยกจาก outbound, บันทึกต้นทุนที่ TOKLONG อนุมัติเป็น operational
+  adjustment โดยไม่แก้ paid snapshot และ refund รอ trusted return delivery
+- `problem`, `invalid`, `return` และ status ที่ไม่รู้จักเข้า carrier exception;
+  return exception และ tracking-unverified block automatic outcome
+- post-payment adjustment ปิดได้เฉพาะ authorized CRM พร้อม audit; adjustment
+  ที่ปิดแล้วไม่ค้าง block รายการตลอดไป
+- CRM ปิด carrier exception ที่ระดับ transaction และ shipment พร้อมกัน,
+  รองรับ authorized manual return resolution และให้ retry
+  `OutcomeUnknown`/`NeedsReview` ได้เฉพาะเมื่อใส่หลักฐานผลตรวจ provider
+- สถานะรอ เช่น `booking` ที่ไม่มี carrier event อัปเดตเพียงเวลาตรวจล่าสุด
+  โดยไม่เปลี่ยน shipment เป็น tracking-unverified
+
+สิ่งที่ยังเป็น provider certification blocker และห้ามเปิด capability:
+
+- field/unit/rounding ของ insurance premium และ declared value ใน response จริง
+- lookup รายการ booking เดิมด้วย TOKLONG reference หลัง timeout
+- duplicate semantics ของ booking/confirm/cancel, trusted POD timestamp,
+  surcharge schema, return contract และ rate limit ต่อ service
+
+โค้ดจึงคง `EMST`, `FLE`, `KRYX`, `KRYS` เป็น disabled-by-default และไม่สร้าง
+ค่าประกันหรือ provider contract ที่ SHIPPOP ยังไม่ได้ยืนยัน

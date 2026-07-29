@@ -100,6 +100,56 @@ public sealed class ManagedShipmentTests
         Assert.Equal(2, shipment.Version);
     }
 
+    [Fact]
+    public void Authorized_resolution_closes_exception_and_new_evidence_reopens_it()
+    {
+        var shipment = ManagedShipment.CreateOutbound(
+            Guid.NewGuid(),
+            Draft(),
+            Now);
+        shipment.RecordCarrierException(
+            "problem",
+            Now.AddMinutes(1));
+
+        Assert.True(shipment.HasOpenException);
+
+        shipment.ResolveException(
+            "crm-user",
+            "CASE-SHIP-001",
+            Now.AddMinutes(2));
+
+        Assert.False(shipment.HasOpenException);
+        Assert.Equal(
+            "CASE-SHIP-001",
+            shipment.ExceptionResolutionReference);
+
+        shipment.RecordCarrierException(
+            "return_problem",
+            Now.AddMinutes(3));
+
+        Assert.True(shipment.HasOpenException);
+        Assert.Null(shipment.ExceptionResolvedAt);
+    }
+
+    [Fact]
+    public void Resume_tracking_review_keeps_release_blocked()
+    {
+        var shipment = ManagedShipment.CreateOutbound(
+            Guid.NewGuid(),
+            Draft(),
+            Now);
+        shipment.RecordCarrierException(
+            "problem",
+            Now.AddMinutes(1));
+
+        shipment.ResumeTrackingReview(Now.AddMinutes(2));
+
+        Assert.Equal(
+            ManagedShipmentStatus.TrackingUnverified,
+            shipment.Status);
+        Assert.True(shipment.HasOpenException);
+    }
+
     private static ManagedShipmentDraft Draft() =>
         new(
             "shippop",

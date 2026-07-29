@@ -20,6 +20,33 @@ else
         </dl>
     </section>
 
+    <h2>คำสั่งจัดส่ง</h2>
+    @foreach (var item in _detail.Operations)
+    {
+        <article>
+            <strong>@item.OperationType · @item.Status</strong>
+            <small>@(item.SanitizedErrorCode ?? "—")</small>
+            @if (item.Status is
+                 ShippingOperationStatus.OutcomeUnknown or
+                 ShippingOperationStatus.NeedsReview)
+            {
+                <label>
+                    เลขอ้างอิงผลตรวจ SHIPPOP
+                    <input @bind="_providerOutcomeReference" />
+                </label>
+                <label>
+                    เหตุผลที่ยืนยันว่าเรียกซ้ำได้
+                    <input @bind="_operationRetryReason" />
+                </label>
+                <button type="button"
+                        disabled="@_busy"
+                        @onclick="() => RetryOperationAsync(item.Id)">
+                    อนุมัติให้ลองคำสั่งเดิมอีกครั้ง
+                </button>
+            }
+        </article>
+    }
+
     <h2>ยอดปรับจากผู้ให้บริการ</h2>
     @foreach (var item in _detail.Adjustments)
     {
@@ -27,7 +54,73 @@ else
             <strong>@item.ReasonCode</strong>
             <span>@item.AmountSatang @item.Currency</span>
             <small>@item.CrmCaseReference</small>
+            <span>@(item.IsOpen ? "รอตรวจสอบ" : $"ปิดแล้ว · {item.ResolutionCode}")</span>
+            @if (item.IsOpen)
+            {
+                <button type="button"
+                        disabled="@_busy"
+                        @onclick="() => ResolveAdjustmentAsync(item.Id)">
+                    ปิดยอดปรับ
+                </button>
+            }
         </article>
+    }
+
+    @if (_detail.State == TransactionState.CarrierException)
+    {
+        <section>
+            <h2>ปิดเคสขนส่ง</h2>
+            <label>
+                เลขเคส
+                <input @bind="_caseReference" />
+            </label>
+            <label>
+                เหตุผล
+                <input @bind="_resolutionReason" />
+            </label>
+            <button type="button"
+                    disabled="@_busy"
+                    @onclick="() => ResolveCarrierAsync(TransactionState.TrackingUnverified)">
+                กลับไปตรวจสถานะ
+            </button>
+            <button type="button"
+                    disabled="@_busy"
+                    @onclick="() => ResolveCarrierAsync(TransactionState.RefundPending)">
+                ส่งต่อคืนเงิน
+            </button>
+            <button type="button"
+                    disabled="@_busy"
+                    @onclick="() => ResolveCarrierAsync(TransactionState.ResolutionPending)">
+                ส่งต่อพิจารณา
+            </button>
+        </section>
+    }
+
+    @if (_detail.State == TransactionState.ResolutionPending &&
+         _detail.ReturnRequired &&
+         !_detail.ReturnDeliveredAt.HasValue &&
+         string.IsNullOrWhiteSpace(
+             _detail.ManualReturnResolutionReference))
+    {
+        <section>
+            <h2>ยืนยันผลส่งคืนโดยเจ้าหน้าที่</h2>
+            <p>
+                ใช้เมื่อมีหลักฐานที่ตรวจสอบแล้ว แต่ผู้ให้บริการไม่มีเวลาส่งคืนที่เชื่อถือได้
+            </p>
+            <label>
+                เลขอ้างอิงผลส่งคืน
+                <input @bind="_returnResolutionReference" />
+            </label>
+            <label>
+                เหตุผล
+                <input @bind="_returnResolutionReason" />
+            </label>
+            <button type="button"
+                    disabled="@_busy"
+                    @onclick="ResolveReturnManuallyAsync">
+                ยืนยันผลส่งคืน
+            </button>
+        </section>
     }
 
     <h2>ประกันพัสดุ</h2>
@@ -37,6 +130,22 @@ else
             <strong>@item.Status · @item.ReasonCode</strong>
             <span>@item.ClaimedAmountSatang / @item.DeclaredValueSatang @item.Currency</span>
             <small>@item.CrmCaseReference</small>
+            @if (item.Status == ShippingInsuranceCaseStatus.Open)
+            {
+                <label>
+                    ผลจากผู้ให้บริการ
+                    <input @bind="_insuranceResultCode" />
+                </label>
+                <label>
+                    เลขอ้างอิงผล
+                    <input @bind="_insuranceResolutionReference" />
+                </label>
+                <button type="button"
+                        disabled="@_busy"
+                        @onclick="() => ResolveInsuranceAsync(item.Id)">
+                    บันทึกผลประกัน
+                </button>
+            }
         </article>
     }
 
@@ -56,6 +165,15 @@ else
     private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
     private CrmShippingCaseDetail? _detail;
     private string? _error;
+    private bool _busy;
+    private string _caseReference = "";
+    private string _resolutionReason = "";
+    private string _returnResolutionReference = "";
+    private string _returnResolutionReason = "";
+    private string _providerOutcomeReference = "";
+    private string _operationRetryReason = "";
+    private string _insuranceResultCode = "";
+    private string _insuranceResolutionReference = "";
 
     protected override async Task OnParametersSetAsync()
     {
@@ -70,6 +188,89 @@ else
         catch (Exception exception)
         {
             _error = exception.Message;
+        }
+    }
+
+    private async Task ResolveAdjustmentAsync(Guid adjustmentId)
+    {
+        await RunAsync(async user =>
+            await Operations.ResolveAdjustmentAsync(
+                TransactionId,
+                adjustmentId,
+                "absorbed-by-platform",
+                user,
+                CancellationToken.None));
+    }
+
+    private async Task ResolveCarrierAsync(
+        TransactionState targetState)
+    {
+        await RunAsync(async user =>
+            await Operations.ResolveCarrierExceptionAsync(
+                TransactionId,
+                targetState,
+                _resolutionReason,
+                _caseReference,
+                user,
+                CancellationToken.None));
+    }
+
+    private async Task ResolveReturnManuallyAsync()
+    {
+        await RunAsync(async user =>
+            await Operations.AuthorizeManualReturnResolutionAsync(
+                TransactionId,
+                _returnResolutionReference,
+                _returnResolutionReason,
+                user,
+                CancellationToken.None));
+    }
+
+    private async Task RetryOperationAsync(Guid operationId)
+    {
+        await RunAsync(async user =>
+            await Operations.AuthorizeShippingOperationRetryAsync(
+                TransactionId,
+                operationId,
+                _operationRetryReason,
+                _providerOutcomeReference,
+                user,
+                CancellationToken.None));
+    }
+
+    private async Task ResolveInsuranceAsync(Guid insuranceCaseId)
+    {
+        await RunAsync(async user =>
+            await Operations.ResolveInsuranceAsync(
+                TransactionId,
+                insuranceCaseId,
+                _insuranceResultCode,
+                _insuranceResolutionReference,
+                user,
+                CancellationToken.None));
+    }
+
+    private async Task RunAsync(
+        Func<ClaimsPrincipal, Task> action)
+    {
+        try
+        {
+            _busy = true;
+            _error = null;
+            var state = await AuthenticationStateTask!;
+            await action(state.User);
+            _detail = await Operations.GetAsync(
+                TransactionId,
+                state.User,
+                CancellationToken.None);
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+        }
+        finally
+        {
+            _busy = false;
         }
     }
 }

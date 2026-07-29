@@ -447,7 +447,10 @@ public sealed class SellerOfferViewModel(
             length,
             height,
             SelectedShippingQuote.QuoteReference,
-            SelectedShippingQuote.FeeSatang);
+            SelectedShippingQuote.FeeSatang,
+            SelectedShippingQuote.InsuranceFeeSatang,
+            SelectedShippingQuote.DeclaredValueSatang,
+            SelectedShippingQuote.InsuranceCode);
     }
 
     private void ApplySavedOrigin(

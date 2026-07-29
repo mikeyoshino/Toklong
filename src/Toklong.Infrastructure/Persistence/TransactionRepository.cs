@@ -70,7 +70,15 @@ public sealed class TransactionRepository(ToklongDbContext dbContext) : ITransac
                 !x.ShippingInsuranceCases.Any(insuranceCase =>
                     insuranceCase.Status ==
                         ShippingInsuranceCaseStatus.Open) &&
-                !x.ProviderShippingAdjustments.Any())
+                !x.ManagedShipments.Any(shipment =>
+                    (shipment.Status ==
+                         ManagedShipmentStatus.TrackingUnverified ||
+                     shipment.Status ==
+                         ManagedShipmentStatus.CarrierException) &&
+                    shipment.ExceptionResolvedAt == null) &&
+                !x.ProviderShippingAdjustments.Any(
+                    adjustment =>
+                        adjustment.ResolvedAt == null))
             .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<SaleTransaction>> GetDueForExpirationAsync(
@@ -124,7 +132,15 @@ public sealed class TransactionRepository(ToklongDbContext dbContext) : ITransac
                 !transaction.ShippingInsuranceCases.Any(insuranceCase =>
                     insuranceCase.Status ==
                         ShippingInsuranceCaseStatus.Open) &&
-                !transaction.ProviderShippingAdjustments.Any() &&
+                !transaction.ManagedShipments.Any(shipment =>
+                    (shipment.Status ==
+                         ManagedShipmentStatus.TrackingUnverified ||
+                     shipment.Status ==
+                         ManagedShipmentStatus.CarrierException) &&
+                    shipment.ExceptionResolvedAt == null) &&
+                !transaction.ProviderShippingAdjustments.Any(
+                    adjustment =>
+                        adjustment.ResolvedAt == null) &&
                 (!transaction.ReturnRequired ||
                  transaction.ReturnDeliveredAt != null ||
                  transaction.ManualReturnResolutionReference != null) &&
@@ -177,15 +193,24 @@ public sealed class TransactionRepository(ToklongDbContext dbContext) : ITransac
             CancellationToken cancellationToken) =>
         await Query()
             .Where(transaction =>
-                (transaction.State ==
-                     TransactionState.TrackingSubmitted ||
-                 transaction.State ==
-                     TransactionState.TrackingUnverified ||
-                 transaction.State ==
-                     TransactionState.InTransit) &&
-                transaction.ShippingPurchaseReference != null &&
-                transaction.ShippingProviderTrackingCode != null &&
-                transaction.ShippingCancelledAt == null)
+                ((transaction.State ==
+                      TransactionState.TrackingSubmitted ||
+                  transaction.State ==
+                      TransactionState.TrackingUnverified ||
+                  transaction.State ==
+                      TransactionState.InTransit) &&
+                 transaction.ShippingPurchaseReference != null &&
+                 transaction.ShippingProviderTrackingCode != null &&
+                 transaction.ShippingCancelledAt == null) ||
+                transaction.ManagedShipments.Any(shipment =>
+                    shipment.Status ==
+                        ManagedShipmentStatus.Confirmed ||
+                    shipment.Status ==
+                        ManagedShipmentStatus.CarrierAccepted ||
+                    shipment.Status ==
+                        ManagedShipmentStatus.InTransit ||
+                    shipment.Status ==
+                        ManagedShipmentStatus.TrackingUnverified))
             .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<SaleTransaction>>

@@ -86,6 +86,9 @@ public static class ProductionConfigurationValidator
                 shippop.ApiKey,
                 "Shippop",
                 errors);
+            if (shippop.AllowInsecureHttp)
+                errors.Add(
+                    "Shippop:AllowInsecureHttp must be false outside Development or Testing");
             if (shippop.AccountEmail.Length is < 3 or > 254 ||
                 !shippop.AccountEmail.Contains(
                     '@',

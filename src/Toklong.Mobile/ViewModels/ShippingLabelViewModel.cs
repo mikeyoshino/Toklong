@@ -11,6 +11,7 @@ public sealed class ShippingLabelViewModel : ObservableViewModel
     private readonly AsyncCommand shareOrPrintCommand;
     private readonly AsyncCommand retryCommand;
     private Guid transactionId;
+    private bool returnLabel;
     private ShippingLabelFile? labelFile;
     private HtmlWebViewSource? labelSource;
     private AppTransaction? transaction;
@@ -30,7 +31,9 @@ public sealed class ShippingLabelViewModel : ObservableViewModel
                 "แชร์หรือพิมพ์ใบปะหน้า"),
             () => CanUseLabel);
         retryCommand = new AsyncCommand(
-            () => LoadAsync(transactionId),
+            () => LoadAsync(
+                transactionId,
+                returnLabel),
             () => transactionId != Guid.Empty &&
                   !IsBusy);
     }
@@ -108,13 +111,19 @@ public sealed class ShippingLabelViewModel : ObservableViewModel
 
     public ICommand RetryCommand => retryCommand;
 
-    public async Task LoadAsync(Guid id)
+    public Task LoadAsync(Guid id) =>
+        LoadAsync(id, isReturn: false);
+
+    public async Task LoadAsync(
+        Guid id,
+        bool isReturn)
     {
         if (id == Guid.Empty ||
             IsBusy)
             return;
 
         transactionId = id;
+        returnLabel = isReturn;
         IsBusy = true;
         Message = "";
         LabelSource = null;
@@ -126,16 +135,29 @@ public sealed class ShippingLabelViewModel : ObservableViewModel
             if (Transaction is null)
                 throw new InvalidOperationException(
                     "ไม่พบรายการนี้");
-            if (Transaction.Role !=
-                AppTransactionRole.Seller)
+            if (returnLabel &&
+                Transaction.Role !=
+                    AppTransactionRole.Buyer ||
+                !returnLabel &&
+                Transaction.Role !=
+                    AppTransactionRole.Seller)
                 throw new InvalidOperationException(
-                    "เฉพาะผู้ขายของรายการนี้ที่เปิดใบปะหน้าได้");
-            if (!Transaction.ShippingLabelAvailable)
+                    returnLabel
+                        ? "เฉพาะผู้ซื้อของรายการนี้ที่เปิดใบปะหน้าส่งคืนได้"
+                        : "เฉพาะผู้ขายของรายการนี้ที่เปิดใบปะหน้าได้");
+            if (returnLabel
+                    ? !Transaction.ReturnShippingLabelAvailable
+                    : !Transaction.ShippingLabelAvailable)
                 throw new InvalidOperationException(
-                    "กำลังออกใบปะหน้า กรุณารอสักครู่แล้วลองใหม่");
+                    returnLabel
+                        ? "กำลังออกใบปะหน้าส่งคืน กรุณารอสักครู่แล้วลองใหม่"
+                        : "กำลังออกใบปะหน้า กรุณารอสักครู่แล้วลองใหม่");
 
-            labelFile = await transactionService
-                .DownloadShippingLabelAsync(id);
+            labelFile = returnLabel
+                ? await transactionService
+                    .DownloadReturnShippingLabelAsync(id)
+                : await transactionService
+                    .DownloadShippingLabelAsync(id);
             var html = Encoding.UTF8.GetString(
                 labelFile.Content);
             LabelSource = new HtmlWebViewSource

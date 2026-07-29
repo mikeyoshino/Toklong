@@ -24,13 +24,18 @@ public sealed record MobileShippingQuote(
     string ServiceCode,
     string ServiceName,
     long FeeSatang,
-    DateTimeOffset ExpiresAt)
+    DateTimeOffset ExpiresAt,
+    long InsuranceFeeSatang = 0,
+    long DeclaredValueSatang = 0,
+    string? InsuranceCode = null)
 {
     public string FeeText =>
         MoneyFormatter.Format(FeeSatang, "THB");
 
     public string DisplayText =>
-        $"{ServiceName} · {FeeText}";
+        InsuranceFeeSatang > 0
+            ? $"{ServiceName} · ค่าส่ง {FeeText} · ประกัน {MoneyFormatter.Format(InsuranceFeeSatang, "THB")}"
+            : $"{ServiceName} · {FeeText}";
 }
 
 public sealed record SellerShippingQuoteRequest(
@@ -56,7 +61,10 @@ public sealed record SellerShippingSelection(
     int LengthCentimeters,
     int HeightCentimeters,
     string QuoteReference,
-    long DisclosedShippingFeeSatang);
+    long DisclosedShippingFeeSatang,
+    long DisclosedInsuranceFeeSatang = 0,
+    long DisclosedDeclaredValueSatang = 0,
+    string? DisclosedInsuranceCode = null);
 
 public sealed record SellerOfferInvitation(
     AppTransaction Transaction,

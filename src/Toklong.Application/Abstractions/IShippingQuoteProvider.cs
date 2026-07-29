@@ -49,7 +49,9 @@ public interface IShippingQuoteProvider
 public sealed record ShipmentReservationRequest(
     Guid TransactionId,
     ShippingQuoteRequest Shipment,
-    ShippingQuoteOption Quote);
+    ShippingQuoteOption Quote,
+    Guid ManagedShipmentId = default,
+    bool IsReturn = false);
 
 public sealed record ShipmentReservation(
     string Provider,
@@ -131,6 +133,18 @@ public interface IShipmentProvider
         string carrierCode,
         CancellationToken cancellationToken);
 
+    Task<ShipmentConfirmation> ConfirmServiceAsync(
+        string purchaseReference,
+        string providerTrackingCode,
+        string carrierCode,
+        string serviceCode,
+        CancellationToken cancellationToken) =>
+        ConfirmAsync(
+            purchaseReference,
+            providerTrackingCode,
+            carrierCode,
+            cancellationToken);
+
     Task<string> GetLabelHtmlAsync(
         ShipmentLabelRequest request,
         CancellationToken cancellationToken);
@@ -138,4 +152,13 @@ public interface IShipmentProvider
     Task CancelAsync(
         string courierTrackingCode,
         CancellationToken cancellationToken);
+
+    Task CancelServiceAsync(
+        string courierTrackingCode,
+        string serviceCode,
+        bool isReturn,
+        CancellationToken cancellationToken) =>
+        CancelAsync(
+            courierTrackingCode,
+            cancellationToken);
 }

@@ -114,6 +114,11 @@ public sealed record TransactionView(
         get;
         init;
     }
+    public bool ReturnShippingLabelAvailable
+    {
+        get;
+        init;
+    }
 
     public bool IsProviderManagedShipment =>
         FulfillmentType ==
@@ -252,7 +257,22 @@ public sealed record TransactionView(
             .OrderByDescending(operation => operation.CreatedAt)
             .Select(operation =>
                 (ShippingOperationStatus?)operation.Status)
-            .FirstOrDefault()
+            .FirstOrDefault(),
+        ReturnShippingLabelAvailable =
+            transaction.ReturnRequired &&
+            transaction.ManagedShipments.Any(shipment =>
+                shipment.Direction == ShipmentDirection.Return &&
+                !string.IsNullOrWhiteSpace(
+                    shipment.PurchaseReference) &&
+                !string.IsNullOrWhiteSpace(
+                    shipment.CourierTrackingCode) &&
+                shipment.Status is
+                    ManagedShipmentStatus.Confirmed or
+                    ManagedShipmentStatus.CarrierAccepted or
+                    ManagedShipmentStatus.InTransit or
+                    ManagedShipmentStatus.TrackingUnverified or
+                    ManagedShipmentStatus.CarrierException or
+                    ManagedShipmentStatus.Delivered)
     };
 
     private static string ThaiStateLabel(

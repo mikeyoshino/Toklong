@@ -189,7 +189,7 @@
                                          @bind-Value="form.QuoteReference">
                                 @foreach (var quote in shippingQuotes)
                                 {
-                                    <option value="@quote.QuoteReference">@quote.ServiceName · @Money(quote.FeeSatang)</option>
+                                    <option value="@quote.QuoteReference">@quote.ServiceName · ค่าส่ง @Money(quote.FeeSatang) · ประกัน @Money(quote.InsuranceFeeSatang)</option>
                                 }
                             </SelectField>
                         }
@@ -450,7 +450,10 @@
             length,
             height,
             quote.QuoteReference,
-            quote.FeeSatang);
+            quote.FeeSatang,
+            quote.InsuranceFeeSatang,
+            quote.DeclaredValueSatang,
+            quote.InsuranceCode);
     }
 
     private bool TryGetPackage(

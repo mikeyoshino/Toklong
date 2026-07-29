@@ -1,6 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
 using MediatR;
 using Toklong.Application.Abstractions;
 using Toklong.Application.Common;
@@ -27,6 +24,28 @@ public sealed record RecordShippingAdjustmentCommand(
     string CrmCaseReference,
     string ReasonCode,
     string ActorId) : IRequest;
+
+public sealed record ResolveShippingAdjustmentCommand(
+    Guid TransactionId,
+    Guid AdjustmentId,
+    string ResolutionCode,
+    string ActorId) : IRequest;
+
+public sealed record ResolveCarrierExceptionCommand(
+    Guid TransactionId,
+    TransactionState TargetState,
+    string ActorId,
+    string Reason,
+    string CaseReference,
+    string IdempotencyKey) : IRequest;
+
+public sealed record AuthorizeShippingOperationRetryCommand(
+    Guid TransactionId,
+    Guid OperationId,
+    string ActorId,
+    string Reason,
+    string ProviderOutcomeReference,
+    string IdempotencyKey) : IRequest;
 
 public sealed record OpenInsuranceCaseCommand(
     Guid TransactionId,
@@ -60,6 +79,13 @@ public sealed record RecordTrustedReturnDeliveryCommand(
     string EventId,
     DateTimeOffset DeliveredAt,
     string Provider) : IRequest;
+
+public sealed record AuthorizeManualReturnResolutionCommand(
+    Guid TransactionId,
+    string Reference,
+    string ActorId,
+    string Reason,
+    string IdempotencyKey) : IRequest;
 
 public sealed class OpenCarrierExceptionHandler(
     ITransactionRepository repository,
@@ -115,6 +141,81 @@ public sealed class RecordShippingAdjustmentHandler(
                 request.ReasonCode,
                 clock.UtcNow),
             request.ActorId,
+            clock.UtcNow);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class ResolveShippingAdjustmentHandler(
+    ITransactionRepository repository,
+    IUnitOfWork unitOfWork,
+    IClock clock)
+    : IRequestHandler<ResolveShippingAdjustmentCommand>
+{
+    public async Task Handle(
+        ResolveShippingAdjustmentCommand request,
+        CancellationToken cancellationToken)
+    {
+        var transaction = await GetAsync(
+            repository,
+            request.TransactionId,
+            cancellationToken);
+        transaction.ResolveProviderShippingAdjustment(
+            request.AdjustmentId,
+            request.ActorId,
+            request.ResolutionCode,
+            clock.UtcNow);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class ResolveCarrierExceptionHandler(
+    ITransactionRepository repository,
+    IUnitOfWork unitOfWork,
+    IClock clock,
+    TransactionTransitionService transitions)
+    : IRequestHandler<ResolveCarrierExceptionCommand>
+{
+    public async Task Handle(
+        ResolveCarrierExceptionCommand request,
+        CancellationToken cancellationToken)
+    {
+        var transaction = await GetAsync(
+            repository,
+            request.TransactionId,
+            cancellationToken);
+        transaction.ResolveCarrierException(
+            request.TargetState,
+            request.ActorId,
+            request.Reason,
+            request.CaseReference,
+            request.IdempotencyKey,
+            clock.UtcNow,
+            transitions);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class AuthorizeShippingOperationRetryHandler(
+    ITransactionRepository repository,
+    IUnitOfWork unitOfWork,
+    IClock clock)
+    : IRequestHandler<AuthorizeShippingOperationRetryCommand>
+{
+    public async Task Handle(
+        AuthorizeShippingOperationRetryCommand request,
+        CancellationToken cancellationToken)
+    {
+        var transaction = await GetAsync(
+            repository,
+            request.TransactionId,
+            cancellationToken);
+        transaction.AuthorizeShippingOperationRetry(
+            request.OperationId,
+            request.ActorId,
+            request.Reason,
+            request.ProviderOutcomeReference,
+            request.IdempotencyKey,
             clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
@@ -200,22 +301,9 @@ public sealed class AuthorizeManagedReturnHandler(
             transaction.Id,
             request.Shipment,
             clock.UtcNow);
-        var fingerprint = Convert.ToHexString(
-                SHA256.HashData(
-                    Encoding.UTF8.GetBytes(
-                        JsonSerializer.Serialize(new
-                        {
-                            transaction.Id,
-                            shipment.Direction,
-                            shipment.Provider,
-                            shipment.CarrierCode,
-                            shipment.ServiceCode,
-                            shipment.BaseShippingFeeSatang,
-                            shipment.InsuranceFeeSatang,
-                            shipment.DeclaredValueSatang,
-                            shipment.QuoteReference
-                        }))))
-            .ToLowerInvariant();
+        var fingerprint =
+            ManagedShippingOperationQueue.BookingFingerprint(
+                shipment);
         var operation = ShippingOperation.Queue(
             transaction.Id,
             shipment.Id,
@@ -254,6 +342,30 @@ public sealed class RecordTrustedReturnDeliveryHandler(
             request.EventId,
             request.DeliveredAt,
             request.Provider,
+            clock.UtcNow);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class AuthorizeManualReturnResolutionHandler(
+    ITransactionRepository repository,
+    IUnitOfWork unitOfWork,
+    IClock clock)
+    : IRequestHandler<AuthorizeManualReturnResolutionCommand>
+{
+    public async Task Handle(
+        AuthorizeManualReturnResolutionCommand request,
+        CancellationToken cancellationToken)
+    {
+        var transaction = await GetAsync(
+            repository,
+            request.TransactionId,
+            cancellationToken);
+        transaction.AuthorizeManualReturnResolution(
+            request.Reference,
+            request.ActorId,
+            request.Reason,
+            request.IdempotencyKey,
             clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }

@@ -77,8 +77,15 @@ public sealed class ManagedShipment
     public DateTimeOffset? DeliveredAt { get; private set; }
     public string? LastProviderStatus { get; private set; }
     public DateTimeOffset? LastReconciledAt { get; private set; }
+    public string? ExceptionResolvedBy { get; private set; }
+    public string? ExceptionResolutionReference { get; private set; }
+    public DateTimeOffset? ExceptionResolvedAt { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public long Version { get; private set; }
+    public bool HasOpenException =>
+        (Status is ManagedShipmentStatus.TrackingUnverified or
+            ManagedShipmentStatus.CarrierException) &&
+        !ExceptionResolvedAt.HasValue;
 
     public static ManagedShipment CreateOutbound(
         Guid transactionId,
@@ -299,6 +306,104 @@ public sealed class ManagedShipment
         LastReconciledAt = reconciledAt;
         Status = ManagedShipmentStatus.Delivered;
         Version++;
+    }
+
+    public void RecordTrackingUnverified(
+        string providerStatus,
+        DateTimeOffset reconciledAt)
+    {
+        if (Status is ManagedShipmentStatus.Cancelled or
+            ManagedShipmentStatus.Delivered)
+            return;
+        LastProviderStatus = Required(
+            providerStatus,
+            "สถานะผู้ให้บริการ",
+            40);
+        LastReconciledAt = reconciledAt;
+        ClearExceptionResolution();
+        Status = ManagedShipmentStatus.TrackingUnverified;
+        Version++;
+    }
+
+    public void RecordCarrierException(
+        string providerStatus,
+        DateTimeOffset reconciledAt)
+    {
+        if (Status is ManagedShipmentStatus.Cancelled or
+            ManagedShipmentStatus.Delivered)
+            return;
+        LastProviderStatus = Required(
+            providerStatus,
+            "สถานะผู้ให้บริการ",
+            40);
+        LastReconciledAt = reconciledAt;
+        ClearExceptionResolution();
+        Status = ManagedShipmentStatus.CarrierException;
+        Version++;
+    }
+
+    public void ResolveException(
+        string actorId,
+        string resolutionReference,
+        DateTimeOffset resolvedAt)
+    {
+        if (Status is not (
+                ManagedShipmentStatus.TrackingUnverified or
+                ManagedShipmentStatus.CarrierException))
+            throw new DomainException(
+                "รายการจัดส่งนี้ไม่มีข้อยกเว้นที่ต้องปิด");
+        if (ExceptionResolvedAt.HasValue)
+            return;
+        ExceptionResolvedBy = Required(
+            actorId,
+            "ผู้ปิดข้อยกเว้น",
+            120);
+        ExceptionResolutionReference = Required(
+            resolutionReference,
+            "เลขอ้างอิงการปิดข้อยกเว้น",
+            160);
+        ExceptionResolvedAt = resolvedAt;
+        Version++;
+    }
+
+    public void ResumeTrackingReview(
+        DateTimeOffset resumedAt)
+    {
+        if (Status != ManagedShipmentStatus.CarrierException)
+            throw new DomainException(
+                "รายการจัดส่งนี้ไม่ได้อยู่ในเคสขนส่ง");
+        ClearExceptionResolution();
+        LastReconciledAt = resumedAt;
+        Status = ManagedShipmentStatus.TrackingUnverified;
+        Version++;
+    }
+
+    public void RecordProviderReconciliation(
+        string providerStatus,
+        DateTimeOffset reconciledAt)
+    {
+        var cleanStatus = Required(
+            providerStatus,
+            "สถานะผู้ให้บริการ",
+            40);
+        if (string.Equals(
+                LastProviderStatus,
+                cleanStatus,
+                StringComparison.Ordinal) &&
+            LastReconciledAt.HasValue &&
+            reconciledAt <
+                LastReconciledAt.Value.AddMinutes(5))
+            return;
+        LastProviderStatus = cleanStatus;
+        LastReconciledAt = reconciledAt;
+        Version++;
+    }
+
+    private void ClearExceptionResolution()
+    {
+        ExceptionResolvedBy = null;
+        ExceptionResolutionReference = null;
+        ExceptionResolvedAt = null;
     }
 
     private static string? Optional(

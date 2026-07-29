@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Toklong.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using Toklong.Infrastructure.Persistence;
 namespace Toklong.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ToklongDbContext))]
-    partial class ToklongDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260729151831_ResolveShippingAdjustments")]
+    partial class ResolveShippingAdjustments
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -939,17 +942,6 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
-
-                    b.Property<string>("ExceptionResolutionReference")
-                        .HasMaxLength(160)
-                        .HasColumnType("character varying(160)");
-
-                    b.Property<DateTimeOffset?>("ExceptionResolvedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ExceptionResolvedBy")
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
 
                     b.Property<DateTimeOffset?>("FirstCarrierScanAt")
                         .HasColumnType("timestamp with time zone");

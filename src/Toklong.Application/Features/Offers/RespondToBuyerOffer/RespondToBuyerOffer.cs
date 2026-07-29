@@ -1,9 +1,7 @@
 using MediatR;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
 using Toklong.Application.Abstractions;
 using Toklong.Application.Common;
+using Toklong.Application.Features.Shipping;
 using Toklong.Application.Pricing;
 using Toklong.Application.Transactions;
 using Toklong.Domain.Common;
@@ -36,7 +34,10 @@ public sealed record SellerShippingSelectionInput(
     int LengthCentimeters,
     int HeightCentimeters,
     string QuoteReference,
-    long DisclosedShippingFeeSatang);
+    long DisclosedShippingFeeSatang,
+    long DisclosedInsuranceFeeSatang = 0,
+    long DisclosedDeclaredValueSatang = 0,
+    string? DisclosedInsuranceCode = null);
 
 public sealed class AcceptBuyerOfferHandler(
     ITransactionRepository repository,
@@ -240,6 +241,16 @@ public sealed class AcceptBuyerOfferHandler(
             input.QuoteReference,
             input.DisclosedShippingFeeSatang,
             cancellationToken);
+        if (quote.InsuranceFeeSatang !=
+                input.DisclosedInsuranceFeeSatang ||
+            quote.DeclaredValueSatang !=
+                input.DisclosedDeclaredValueSatang ||
+            !string.Equals(
+                quote.InsuranceCode,
+                input.DisclosedInsuranceCode,
+                StringComparison.Ordinal))
+            throw new DomainException(
+                "ข้อมูลประกันพัสดุเปลี่ยนแล้ว กรุณาดูราคาใหม่");
         if (quote.ExpiresAt <
             now.AddHours(
                 SaleTransaction.BuyerPaymentWindowHours))
@@ -325,31 +336,9 @@ public sealed class AcceptBuyerOfferHandler(
     }
 
     private static string ShippingFingerprint(
-        ManagedShipment shipment)
-    {
-        var json = JsonSerializer.Serialize(new
-        {
-            shipment.TransactionId,
-            shipment.Direction,
-            shipment.Provider,
-            shipment.ParcelName,
-            shipment.WeightGrams,
-            shipment.WidthCentimeters,
-            shipment.LengthCentimeters,
-            shipment.HeightCentimeters,
-            shipment.CarrierCode,
-            shipment.ServiceCode,
-            shipment.BaseShippingFeeSatang,
-            shipment.InsuranceFeeSatang,
-            shipment.DeclaredValueSatang,
-            shipment.InsuranceCode,
-            shipment.QuoteReference
-        });
-        return Convert.ToHexString(
-                SHA256.HashData(
-                    Encoding.UTF8.GetBytes(json)))
-            .ToLowerInvariant();
-    }
+        ManagedShipment shipment) =>
+        ManagedShippingOperationQueue.BookingFingerprint(
+            shipment);
 
     private SellerShippingOriginAddress ResolveOrigin(
         SellerShippingSelectionInput input)

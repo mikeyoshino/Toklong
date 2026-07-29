@@ -210,6 +210,11 @@ must never be enabled or described as production shipping. Production selects
 credentials and a quote-signing secret, and fails startup when those settings
 are incomplete.
 
+An HTTP-only SHIPPOP Dev environment may be used for local Development and
+provider certification only when an explicit insecure-transport opt-in is set.
+The opt-in defaults off and remains rejected outside Development/Testing.
+Production SHIPPOP traffic continues to require HTTPS.
+
 Local testing must not add a client flag that can mark delivery. A developer may
 submit an HMAC-signed, fresh, replay-safe carrier event through the internal API
 using `scripts/simulate-carrier-event.sh`. Production requires its own

@@ -26,6 +26,73 @@ public sealed class ShippopShippingProviderTests
             configuration);
 
         Assert.Empty(options.ServiceCodes);
+        Assert.False(options.AllowInsecureHttp);
+    }
+
+    [Fact]
+    public void Options_read_explicit_insecure_http_opt_in()
+    {
+        var configuration =
+            new ConfigurationBuilder()
+                .AddInMemoryCollection(
+                    new Dictionary<string, string?>
+                    {
+                        ["Shippop:AllowInsecureHttp"] = "true"
+                    })
+                .Build();
+
+        var options = ShippopShippingOptions.From(
+            configuration);
+
+        Assert.True(options.AllowInsecureHttp);
+    }
+
+    [Fact]
+    public async Task Http_base_url_is_rejected_without_explicit_opt_in()
+    {
+        var requestWasSent = false;
+        var provider = Provider(
+            _ =>
+            {
+                requestWasSent = true;
+                return Task.FromResult(Json("""{"status":true}"""));
+            },
+            baseUrl: "http://mkpservice.shippop.dev/");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => provider.GetQuotesAsync(Request(), default));
+
+        Assert.False(requestWasSent);
+    }
+
+    [Fact]
+    public async Task Http_base_url_is_allowed_with_explicit_opt_in()
+    {
+        var provider = Provider(
+            _ => Task.FromResult(
+                Json(
+                    """
+                    {
+                      "status": true,
+                      "data": {
+                        "0": {
+                          "EMST": {
+                            "available": true,
+                            "courier_code": "EMST",
+                            "courier_name": "EMS Thailand Post",
+                            "price": "52.00"
+                          }
+                        }
+                      }
+                    }
+                    """)),
+            baseUrl: "http://mkpservice.shippop.dev/",
+            allowInsecureHttp: true);
+
+        var quote = Assert.Single(
+            await provider.GetQuotesAsync(Request(), default));
+
+        Assert.Equal("EMST", quote.ServiceCode);
     }
 
     [Fact]
@@ -62,7 +129,7 @@ public sealed class ShippopShippingProviderTests
         Assert.Equal(5_200, quote.FeeSatang);
         Assert.Equal("THAIPOST", quote.CarrierCode);
         Assert.Equal("EMST", quote.ServiceCode);
-        Assert.StartsWith("sp1.", quote.QuoteReference);
+        Assert.StartsWith("sp2.", quote.QuoteReference);
         Assert.Contains("\"api_key\":\"api-key-for-tests\"", body);
         Assert.Contains("\"weight\":1200", body);
 
@@ -86,6 +153,14 @@ public sealed class ShippopShippingProviderTests
                 shipment,
                 quote.QuoteReference,
                 5_201,
+                default));
+        var parts = quote.QuoteReference.Split('.');
+        parts[3] = "1100";
+        await Assert.ThrowsAsync<DomainException>(() =>
+            provider.ValidateQuoteAsync(
+                shipment,
+                string.Join('.', parts),
+                5_200,
                 default));
     }
 
@@ -137,6 +212,113 @@ public sealed class ShippopShippingProviderTests
         Assert.Contains(
             "\"ref_no_1\":\"11111111222233334444555555555555\"",
             body);
+    }
+
+    [Fact]
+    public async Task Return_booking_uses_distinct_managed_shipment_reference()
+    {
+        string? body = null;
+        var provider = Provider(async request =>
+        {
+            body = await request.Content!.ReadAsStringAsync();
+            return Json(
+                """
+                {
+                  "status": true,
+                  "purchase_id": 452003,
+                  "data": {
+                    "0": {
+                      "status": true,
+                      "tracking_code": "SP-RETURN-001",
+                      "courier_code": "EMST",
+                      "price": 52
+                    }
+                  }
+                }
+                """);
+        });
+        var shipmentId = Guid.Parse(
+            "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+
+        await provider.ReserveAsync(
+            new ShipmentReservationRequest(
+                Guid.Parse(
+                    "11111111-2222-3333-4444-555555555555"),
+                Request(),
+                Quote(),
+                shipmentId,
+                IsReturn: true),
+            default);
+
+        Assert.Contains(
+            $"\"ref_no_1\":\"{shipmentId:N}\"",
+            body);
+        Assert.DoesNotContain(
+            "\"ref_no_1\":\"11111111222233334444555555555555\"",
+            body);
+    }
+
+    [Fact]
+    public async Task Booking_is_blocked_without_insurance_and_safe_lookup()
+    {
+        var providerCalls = 0;
+        var profile = new ShippopServiceProfile(
+            "EMST",
+            QuoteEnabled: true,
+            BookOutboundEnabled: true,
+            ConfirmEnabled: true,
+            ReturnEnabled: true,
+            InsuranceEnabled: false,
+            OperationLookupEnabled: false,
+            "DropOff",
+            300_000,
+            "CERT-TEST");
+        var provider = Provider(
+            _ =>
+            {
+                providerCalls++;
+                return Task.FromResult(Json("""{"status":true}"""));
+            },
+            profile);
+
+        var insuranceException =
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => provider.ReserveAsync(
+                    new ShipmentReservationRequest(
+                        Guid.NewGuid(),
+                        Request(),
+                        Quote()),
+                    default));
+
+        Assert.Contains(
+            "full-value insurance",
+            insuranceException.Message);
+        Assert.Equal(0, providerCalls);
+
+        provider = Provider(
+            _ =>
+            {
+                providerCalls++;
+                return Task.FromResult(Json("""{"status":true}"""));
+            },
+            profile with
+            {
+                InsuranceEnabled = true
+            });
+
+        var lookupException =
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => provider.ReserveAsync(
+                    new ShipmentReservationRequest(
+                        Guid.NewGuid(),
+                        Request(),
+                        Quote()),
+                    default));
+
+        Assert.Contains(
+            "operation lookup",
+            lookupException.Message);
+        Assert.Equal(0, providerCalls);
     }
 
     [Fact]
@@ -261,6 +443,39 @@ public sealed class ShippopShippingProviderTests
             update.OccurredAt);
     }
 
+    [Theory]
+    [InlineData("problem")]
+    [InlineData("invalid")]
+    [InlineData("return")]
+    [InlineData("unexpected-new-status")]
+    public async Task Problem_or_unknown_status_maps_to_carrier_exception(
+        string providerStatus)
+    {
+        var provider = Provider(_ =>
+            Task.FromResult(
+                Json(
+                    $$"""
+                    {
+                      "status": true,
+                      "order_status": "{{providerStatus}}",
+                      "courier_code": "EMST",
+                      "tracking_code": "SP-PROBLEM",
+                      "courier_tracking_code": "EF123456789TH",
+                      "states": []
+                    }
+                    """)));
+
+        var update = await provider.GetTrackingAsync(
+            "SP-PROBLEM",
+            "THAIPOST",
+            default);
+
+        Assert.Equal(
+            "carrier_exception",
+            update.EventType);
+        Assert.Null(update.OccurredAt);
+    }
+
     [Fact]
     public async Task Confirm_uses_purchase_and_returns_courier_tracking()
     {
@@ -302,27 +517,128 @@ public sealed class ShippopShippingProviderTests
             confirmation.CourierTrackingCode);
     }
 
+    [Fact]
+    public async Task Booking_timeout_after_send_is_an_unknown_outcome()
+    {
+        var provider = Provider(_ =>
+            throw new TaskCanceledException("provider timeout"));
+
+        var exception = await Assert.ThrowsAsync<
+            ShipmentMutationException>(() =>
+            provider.ReserveAsync(
+                new ShipmentReservationRequest(
+                    Guid.NewGuid(),
+                    Request(),
+                    Quote()),
+                default));
+
+        Assert.Equal(
+            ShipmentMutationOutcome.OutcomeUnknown,
+            exception.Outcome);
+        Assert.Equal(
+            "shippop-booking-outcome-unknown",
+            exception.SanitizedCode);
+    }
+
+    [Fact]
+    public async Task Booking_malformed_response_is_an_unknown_outcome()
+    {
+        var provider = Provider(_ =>
+            Task.FromResult(Json("""{"status":true}""")));
+
+        var exception = await Assert.ThrowsAsync<
+            ShipmentMutationException>(() =>
+            provider.ReserveAsync(
+                new ShipmentReservationRequest(
+                    Guid.NewGuid(),
+                    Request(),
+                    Quote()),
+                default));
+
+        Assert.Equal(
+            ShipmentMutationOutcome.OutcomeUnknown,
+            exception.Outcome);
+    }
+
+    [Fact]
+    public async Task Confirm_provider_error_is_an_unknown_outcome()
+    {
+        var provider = Provider(_ =>
+            Task.FromResult(new HttpResponseMessage(
+                HttpStatusCode.BadGateway)));
+
+        var exception = await Assert.ThrowsAsync<
+            ShipmentMutationException>(() =>
+            provider.ConfirmAsync(
+                "452002",
+                "SP452045855",
+                "THAIPOST",
+                default));
+
+        Assert.Equal(
+            ShipmentMutationOutcome.OutcomeUnknown,
+            exception.Outcome);
+        Assert.Equal(
+            "shippop-confirm-outcome-unknown",
+            exception.SanitizedCode);
+    }
+
+    [Fact]
+    public async Task Cancel_provider_error_is_an_unknown_outcome()
+    {
+        var provider = Provider(_ =>
+            Task.FromResult(new HttpResponseMessage(
+                HttpStatusCode.BadGateway)));
+
+        var exception = await Assert.ThrowsAsync<
+            ShipmentMutationException>(() =>
+            provider.CancelAsync(
+                "EF123456789TH",
+                default));
+
+        Assert.Equal(
+            ShipmentMutationOutcome.OutcomeUnknown,
+            exception.Outcome);
+        Assert.Equal(
+            "shippop-cancel-outcome-unknown",
+            exception.SanitizedCode);
+    }
+
     private static ShippopShippingProvider Provider(
-        Func<HttpRequestMessage, Task<HttpResponseMessage>> response)
+        Func<HttpRequestMessage, Task<HttpResponseMessage>> response,
+        ShippopServiceProfile? profile = null,
+        string baseUrl = "https://mkpservice.shippop.com/",
+        bool allowInsecureHttp = false)
     {
         var httpClient = new HttpClient(
             new StubHandler(response))
         {
-            BaseAddress = new Uri(
-                "https://mkpservice.shippop.com/")
+            BaseAddress = new Uri(baseUrl)
         };
         return new ShippopShippingProvider(
             httpClient,
             new ShippopShippingOptions
             {
-                BaseUrl =
-                    "https://mkpservice.shippop.com/",
+                BaseUrl = baseUrl,
+                AllowInsecureHttp = allowInsecureHttp,
                 ApiKey = "api-key-for-tests",
                 AccountEmail = "shipping@toklong.test",
                 QuoteSigningSecret =
                     "quote-signing-secret-longer-than-thirty-two-characters",
                 QuoteLifetimeMinutes = 120,
-                ServiceCodes = ["EMST"]
+                ServiceCodes = ["EMST"],
+                ServiceProfiles = profile is null
+                    ? new Dictionary<
+                        string,
+                        ShippopServiceProfile>(
+                            StringComparer.Ordinal)
+                    : new Dictionary<
+                        string,
+                        ShippopServiceProfile>(
+                            StringComparer.Ordinal)
+                    {
+                        [profile.ServiceCode] = profile
+                    }
             },
             new FixedClock());
     }

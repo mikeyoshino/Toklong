@@ -178,6 +178,9 @@ public static class MobileApi
         authenticated.MapGet(
             "/transactions/{transactionId:guid}/shipping-label",
             DownloadShippingLabelAsync);
+        authenticated.MapGet(
+            "/transactions/{transactionId:guid}/return-shipping-label",
+            DownloadReturnShippingLabelAsync);
         authenticated.MapPost("/offers", CreateOfferAsync)
             .DisableAntiforgery();
         authenticated.MapPost(
@@ -881,7 +884,10 @@ public static class MobileApi
                     quote.ServiceCode,
                     quote.ServiceName,
                     quote.FeeSatang,
-                    quote.ExpiresAt)));
+                    quote.ExpiresAt,
+                    quote.InsuranceFeeSatang,
+                    quote.DeclaredValueSatang,
+                    quote.InsuranceCode)));
     }
 
     private static async Task<IResult> SaveMobileSellerPayoutAccountAsync(
@@ -966,7 +972,13 @@ public static class MobileApi
                         request.Shipping.HeightCentimeters,
                         request.Shipping.QuoteReference,
                         request.Shipping
-                            .DisclosedShippingFeeSatang)),
+                            .DisclosedShippingFeeSatang,
+                        request.Shipping
+                            .DisclosedInsuranceFeeSatang,
+                        request.Shipping
+                            .DisclosedDeclaredValueSatang,
+                        request.Shipping
+                            .DisclosedInsuranceCode)),
             cancellationToken);
         var issued = await AttachSellerSessionAsync(
             principal,
@@ -1069,6 +1081,36 @@ public static class MobileApi
         response.Headers["X-Content-Type-Options"] = "nosniff";
         response.Headers["Content-Disposition"] =
             $"attachment; filename=\"TOKLONG-label-{transactionId:N}.html\"";
+        response.Headers["Content-Security-Policy"] =
+            "sandbox; default-src 'none'; img-src data: https:; " +
+            "style-src 'unsafe-inline' https://fonts.googleapis.com; " +
+            "font-src https://fonts.gstatic.com";
+        return Results.Text(
+            html,
+            "text/html",
+            Encoding.UTF8);
+    }
+
+    private static async Task<IResult> DownloadReturnShippingLabelAsync(
+        Guid transactionId,
+        ClaimsPrincipal principal,
+        ISender sender,
+        HttpResponse response,
+        CancellationToken cancellationToken)
+    {
+        var buyerId = PartyIds.From(principal).BuyerId
+            ?? throw new DomainException(
+                "บัญชีนี้ไม่มีสิทธิ์เปิดใบปะหน้าส่งคืน");
+        var html = await sender.Send(
+            new GetShippingLabelQuery(
+                transactionId,
+                buyerId,
+                ShipmentDirection.Return),
+            cancellationToken);
+        response.Headers.CacheControl = "no-store";
+        response.Headers["X-Content-Type-Options"] = "nosniff";
+        response.Headers["Content-Disposition"] =
+            $"attachment; filename=\"TOKLONG-return-label-{transactionId:N}.html\"";
         response.Headers["Content-Security-Policy"] =
             "sandbox; default-src 'none'; img-src data: https:; " +
             "style-src 'unsafe-inline' https://fonts.googleapis.com; " +
@@ -1364,6 +1406,9 @@ public static class MobileApi
         var photoUrl = ResolvePublicPhotoUrl(
             transaction.PhotoUrl,
             request);
+        var returnLabelAvailable =
+            isBuyer &&
+            transaction.ReturnShippingLabelAvailable;
 
         return new MobileTransactionResponse(
             transaction.Id,
@@ -1426,6 +1471,7 @@ public static class MobileApi
             transaction.TrackingNumber,
             transaction.IsProviderManagedShipment &&
             transaction.ShippingConfirmedAt.HasValue,
+            returnLabelAvailable,
             transaction.ShipByAt,
             transaction.FirstCarrierScanAt,
             transaction.RefundProviderStatus,
@@ -1772,7 +1818,10 @@ public sealed record MobileSellerShippingSelectionRequest(
     int LengthCentimeters,
     int HeightCentimeters,
     string QuoteReference,
-    long DisclosedShippingFeeSatang);
+    long DisclosedShippingFeeSatang,
+    long DisclosedInsuranceFeeSatang = 0,
+    long DisclosedDeclaredValueSatang = 0,
+    string? DisclosedInsuranceCode = null);
 
 public sealed record MobileShippingQuoteRequest(
     bool UseSavedOrigin,
@@ -1792,7 +1841,10 @@ public sealed record MobileShippingQuoteResponse(
     string ServiceCode,
     string ServiceName,
     long FeeSatang,
-    DateTimeOffset ExpiresAt);
+    DateTimeOffset ExpiresAt,
+    long InsuranceFeeSatang,
+    long DeclaredValueSatang,
+    string? InsuranceCode);
 
 public sealed record MobileNotificationDeviceRequest(
     string InstallationId,
@@ -1844,6 +1896,7 @@ public sealed record MobileTransactionResponse(
     bool ShippingManagedByProvider,
     string? TrackingNumber,
     bool ShippingLabelAvailable,
+    bool ReturnShippingLabelAvailable,
     DateTimeOffset? ShipByAt,
     DateTimeOffset? FirstCarrierScanAt,
     string? RefundProviderStatus,

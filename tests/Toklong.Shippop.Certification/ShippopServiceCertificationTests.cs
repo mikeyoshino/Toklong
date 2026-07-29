@@ -6,13 +6,9 @@ namespace Toklong.Shippop.Certification;
 
 public sealed class ShippopServiceCertificationTests
 {
-    [Fact]
+    [CertificationFact]
     public async Task Certified_service_returns_full_value_insured_quote()
     {
-        if (Environment.GetEnvironmentVariable(
-                "SHIPPOP_CERTIFY") != "1")
-            return;
-
         var baseUrl = Required("SHIPPOP_BASE_URL");
         var apiKey = Required("SHIPPOP_API_KEY");
         var accountEmail = Required("SHIPPOP_ACCOUNT_EMAIL");
@@ -47,6 +43,8 @@ public sealed class ShippopServiceCertificationTests
             new ShippopShippingOptions
             {
                 BaseUrl = baseUrl,
+                AllowInsecureHttp =
+                    Enabled("SHIPPOP_ALLOW_INSECURE_HTTP"),
                 ApiKey = apiKey,
                 AccountEmail = accountEmail,
                 QuoteSigningSecret =
@@ -98,9 +96,26 @@ public sealed class ShippopServiceCertificationTests
             : throw new InvalidOperationException(
                 $"{variable} is required.");
 
+    private static bool Enabled(string variable) =>
+        string.Equals(
+            Environment.GetEnvironmentVariable(variable)?.Trim(),
+            "1",
+            StringComparison.Ordinal);
+
     private sealed class SystemClock : IClock
     {
         public DateTimeOffset UtcNow =>
             DateTimeOffset.UtcNow;
+    }
+}
+
+public sealed class CertificationFactAttribute : FactAttribute
+{
+    public CertificationFactAttribute()
+    {
+        if (Environment.GetEnvironmentVariable(
+                "SHIPPOP_CERTIFY") != "1")
+            Skip =
+                "Set SHIPPOP_CERTIFY=1 and provide rotated credentials plus synthetic addresses.";
     }
 }

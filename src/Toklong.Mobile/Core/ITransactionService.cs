@@ -26,6 +26,11 @@ public interface ITransactionService
         CancellationToken cancellationToken = default) =>
         throw new NotSupportedException();
 
+    Task<ShippingLabelFile> DownloadReturnShippingLabelAsync(
+        Guid transactionId,
+        CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException();
+
     Task<AppTransaction> CreateBuyerOfferAsync(
         CreateBuyerOfferRequest request,
         CancellationToken cancellationToken = default);

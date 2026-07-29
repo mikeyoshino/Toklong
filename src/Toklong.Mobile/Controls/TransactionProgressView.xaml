@@ -3,76 +3,67 @@
     x:Class="Toklong.Mobile.Controls.TransactionProgressView"
     x:Name="Root"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Toklong.Mobile.Controls">
     <Grid
         BindingContext="{Binding Transaction, Source={x:Reference Root}}"
-        ColumnDefinitions="*,48,*,48,*,48,*"
+        ColumnDefinitions="*,44,*,44,*,44,*"
         RowDefinitions="48,Auto"
-        RowSpacing="7">
-        <Border
+        RowSpacing="8">
+        <BoxView
             AutomationId="ProgressConnectorOne"
             Grid.Column="2"
-            HeightRequest="4"
+            HeightRequest="2"
             VerticalOptions="Center"
-            BackgroundColor="{Binding ProgressConnectorOneColor}"
-            StrokeThickness="0"
-            StrokeShape="RoundRectangle 2" />
-        <Border
+            Color="{Binding ProgressConnectorOneColor}" />
+        <BoxView
             AutomationId="ProgressConnectorTwo"
             Grid.Column="4"
-            HeightRequest="4"
+            HeightRequest="2"
             VerticalOptions="Center"
-            BackgroundColor="{Binding ProgressConnectorTwoColor}"
-            StrokeThickness="0"
-            StrokeShape="RoundRectangle 2" />
+            Color="{Binding ProgressConnectorTwoColor}" />
 
         <Border
             AutomationId="ProgressTokenOne"
             Grid.Column="1"
-            WidthRequest="48"
-            HeightRequest="48"
+            WidthRequest="44"
+            HeightRequest="44"
             BackgroundColor="{Binding ProgressOne.BackgroundColor}"
             Stroke="{Binding ProgressOne.StrokeColor}"
-            StrokeThickness="4"
-            StrokeShape="RoundRectangle 24"
+            StrokeThickness="2"
+            StrokeShape="RoundRectangle 22"
             SemanticProperties.Description="{Binding ProgressOne.SemanticDescription}">
-            <Image
-                AutomationProperties.IsInAccessibleTree="False"
-                WidthRequest="30"
-                HeightRequest="30"
-                Source="{Binding ProgressOne.Icon}" />
+            <controls:TransactionProgressIconView
+                Glyph="{Binding ProgressOne.Glyph}"
+                IconColor="{Binding ProgressOne.StrokeColor}" />
         </Border>
         <Border
             AutomationId="ProgressTokenTwo"
             Grid.Column="3"
-            WidthRequest="48"
-            HeightRequest="48"
+            WidthRequest="44"
+            HeightRequest="44"
             BackgroundColor="{Binding ProgressTwo.BackgroundColor}"
             Stroke="{Binding ProgressTwo.StrokeColor}"
-            StrokeThickness="4"
-            StrokeShape="RoundRectangle 24"
+            StrokeThickness="2"
+            StrokeShape="RoundRectangle 22"
             SemanticProperties.Description="{Binding ProgressTwo.SemanticDescription}">
-            <Image
-                AutomationProperties.IsInAccessibleTree="False"
-                WidthRequest="30"
-                HeightRequest="30"
-                Source="{Binding ProgressTwo.Icon}" />
+            <controls:TransactionProgressIconView
+                Glyph="{Binding ProgressTwo.Glyph}"
+                IconColor="{Binding ProgressTwo.StrokeColor}" />
         </Border>
         <Border
             AutomationId="ProgressTokenThree"
             Grid.Column="5"
-            WidthRequest="48"
-            HeightRequest="48"
+            WidthRequest="44"
+            HeightRequest="44"
             BackgroundColor="{Binding ProgressThree.BackgroundColor}"
             Stroke="{Binding ProgressThree.StrokeColor}"
-            StrokeThickness="4"
-            StrokeShape="RoundRectangle 24"
+            StrokeThickness="2"
+            StrokeShape="RoundRectangle 22"
             SemanticProperties.Description="{Binding ProgressThree.SemanticDescription}">
-            <Image
-                AutomationProperties.IsInAccessibleTree="False"
-                WidthRequest="30"
-                HeightRequest="30"
-                Source="{Binding ProgressThree.Icon}" />
+            <controls:TransactionProgressIconView
+                Glyph="{Binding ProgressThree.Glyph}"
+                IconColor="{Binding ProgressThree.StrokeColor}" />
         </Border>
 
         <Label
@@ -81,7 +72,7 @@
             Grid.Column="0"
             Grid.ColumnSpan="3"
             HorizontalTextAlignment="Center"
-            FontSize="12"
+            FontSize="11"
             MaxLines="2"
             Text="{Binding ProgressOne.Label}"
             TextColor="{Binding ProgressOne.LabelColor}" />
@@ -91,7 +82,7 @@
             Grid.Column="2"
             Grid.ColumnSpan="3"
             HorizontalTextAlignment="Center"
-            FontSize="12"
+            FontSize="11"
             MaxLines="2"
             Text="{Binding ProgressTwo.Label}"
             TextColor="{Binding ProgressTwo.LabelColor}" />
@@ -101,7 +92,7 @@
             Grid.Column="4"
             Grid.ColumnSpan="3"
             HorizontalTextAlignment="Center"
-            FontSize="12"
+            FontSize="11"
             MaxLines="2"
             Text="{Binding ProgressThree.Label}"
             TextColor="{Binding ProgressThree.LabelColor}" />

@@ -197,10 +197,13 @@ public sealed class SaleTransaction
             operation.Status is
                 ShippingOperationStatus.OutcomeUnknown or
                 ShippingOperationStatus.NeedsReview) ||
+        _managedShipments.Any(shipment =>
+            shipment.HasOpenException) ||
         _shippingInsuranceCases.Any(insuranceCase =>
             insuranceCase.Status ==
                 ShippingInsuranceCaseStatus.Open) ||
-        _providerShippingAdjustments.Count > 0;
+        _providerShippingAdjustments.Any(adjustment =>
+            adjustment.IsOpen);
     public bool IsPayoutEligible =>
         State == TransactionState.PayoutEligible &&
         !HasOpenShippingException &&
@@ -356,6 +359,89 @@ public sealed class SaleTransaction
         Version++;
     }
 
+    public void ResolveProviderShippingAdjustment(
+        Guid adjustmentId,
+        string actorId,
+        string resolutionCode,
+        DateTimeOffset now)
+    {
+        var adjustment =
+            _providerShippingAdjustments.SingleOrDefault(
+                item => item.Id == adjustmentId)
+            ?? throw new DomainException(
+                "ไม่พบยอดปรับค่าจัดส่ง");
+        if (!adjustment.IsOpen)
+            return;
+        adjustment.Resolve(
+            ActorRole.Reconciliation,
+            actorId,
+            resolutionCode,
+            now);
+        _auditEvents.Add(new AuditEvent(
+            Id,
+            ActorRole.Reconciliation,
+            Required(actorId, "ผู้ปิดยอดปรับ"),
+            "shipping.adjustment_resolved",
+            State,
+            State,
+            now,
+            adjustment.CrmCaseReference,
+            $"shipping-adjustment-resolved:{adjustment.ProviderReference}",
+            JsonSerializer.Serialize(new
+            {
+                adjustment.Id,
+                adjustment.ProviderReference,
+                resolutionCode
+            })));
+        Version++;
+    }
+
+    public void AuthorizeShippingOperationRetry(
+        Guid operationId,
+        string actorId,
+        string reason,
+        string providerOutcomeReference,
+        string idempotencyKey,
+        DateTimeOffset now)
+    {
+        var operation = _shippingOperations.SingleOrDefault(
+            item => item.Id == operationId)
+            ?? throw new DomainException(
+                "ไม่พบคำสั่งจัดส่ง");
+        if (operation.Status is not (
+                ShippingOperationStatus.OutcomeUnknown or
+                ShippingOperationStatus.NeedsReview))
+            throw new DomainException(
+                "คำสั่งจัดส่งนี้ไม่ต้องอนุมัติ retry");
+        var cleanReference = Required(
+            providerOutcomeReference,
+            "เลขอ้างอิงผลตรวจผู้ให้บริการ");
+        operation.ScheduleRetry(
+            Required(actorId, "ผู้อนุมัติ retry"),
+            now.AddSeconds(1),
+            "authorized-provider-reconciliation",
+            providerReplayProvenSafe: true,
+            now);
+        _auditEvents.Add(new AuditEvent(
+            Id,
+            ActorRole.Reconciliation,
+            actorId.Trim(),
+            "shipping.operation_retry_authorized",
+            State,
+            State,
+            now,
+            cleanReference,
+            Required(idempotencyKey, "idempotency key"),
+            JsonSerializer.Serialize(new
+            {
+                operationId,
+                reason = Required(reason, "เหตุผล"),
+                providerOutcomeReference =
+                    cleanReference
+            })));
+        Version++;
+    }
+
     public void OpenShippingInsuranceCase(
         ShippingInsuranceCase insuranceCase,
         string actorId,
@@ -445,6 +531,28 @@ public sealed class SaleTransaction
                 TransactionState.ResolutionPending))
             throw new DomainException(
                 "เส้นทางหลังตรวจเคสขนส่งไม่ถูกต้อง");
+        var affectedShipments = _managedShipments
+            .Where(shipment =>
+                shipment.Direction ==
+                    ShipmentDirection.Outbound &&
+                shipment.HasOpenException)
+            .ToArray();
+        if (targetState == TransactionState.TrackingUnverified)
+        {
+            foreach (var shipment in affectedShipments.Where(
+                         shipment =>
+                             shipment.Status ==
+                             ManagedShipmentStatus.CarrierException))
+                shipment.ResumeTrackingReview(now);
+        }
+        else
+        {
+            foreach (var shipment in affectedShipments)
+                shipment.ResolveException(
+                    actorId,
+                    caseReference,
+                    now);
+        }
         transitions.Transition(
             this,
             targetState,
@@ -504,6 +612,60 @@ public sealed class SaleTransaction
         Version++;
     }
 
+    public void RecordManagedReturnCost(
+        Guid managedShipmentId,
+        string provider,
+        string purchaseReference,
+        long amountSatang,
+        DateTimeOffset providerOccurredAt,
+        DateTimeOffset recordedAt)
+    {
+        var shipment = _managedShipments.SingleOrDefault(
+            item => item.Id == managedShipmentId &&
+                    item.Direction == ShipmentDirection.Return)
+            ?? throw new DomainException(
+                "ไม่พบรายการจัดส่งคืน");
+        var authorization = _auditEvents
+            .LastOrDefault(item =>
+                item.Name == "shipping.return_authorized")
+            ?? throw new DomainException(
+                "ไม่พบการอนุมัติต้นทุนส่งคืน");
+        var cleanProvider = Required(
+            provider,
+            "ผู้ให้บริการ");
+        var cleanPurchaseReference = Required(
+            purchaseReference,
+            "เลขอ้างอิงส่งคืน");
+        var providerReference =
+            $"{cleanProvider}:return:{Hash(cleanPurchaseReference)[..32]}";
+        if (_providerShippingAdjustments.Any(item =>
+                string.Equals(
+                    item.ProviderReference,
+                    providerReference,
+                    StringComparison.Ordinal)))
+            return;
+        var adjustment = ProviderShippingAdjustment.Create(
+            Id,
+            shipment.Id,
+            provider,
+            providerReference,
+            amountSatang,
+            Currency,
+            providerOccurredAt,
+            authorization.CorrelationId,
+            "authorized-return-cost",
+            recordedAt);
+        RecordProviderShippingAdjustment(
+            adjustment,
+            authorization.ActorId,
+            recordedAt);
+        ResolveProviderShippingAdjustment(
+            adjustment.Id,
+            authorization.ActorId,
+            "approved-return-cost",
+            recordedAt);
+    }
+
     public void RecordTrustedReturnDelivery(
         Guid managedShipmentId,
         string eventId,
@@ -545,6 +707,120 @@ public sealed class SaleTransaction
         Version++;
     }
 
+    public void RecordManagedReturnTrackingEvent(
+        Guid managedShipmentId,
+        string eventId,
+        string eventType,
+        string providerStatus,
+        DateTimeOffset? occurredAt,
+        string provider,
+        DateTimeOffset receivedAt)
+    {
+        var shipment = _managedShipments.SingleOrDefault(
+            item => item.Id == managedShipmentId &&
+                    item.Direction == ShipmentDirection.Return)
+            ?? throw new DomainException(
+                "ไม่พบรายการจัดส่งคืน");
+        var eventProvider =
+            $"{Required(provider, "ผู้ให้บริการขนส่ง")}:{shipment.Id:N}";
+        if (HasExternalEvent(eventProvider, eventId))
+            return;
+        var normalized = Required(
+            eventType,
+            "สถานะการส่งคืน").ToLowerInvariant();
+        var eventTime = occurredAt ?? receivedAt;
+        EnsureExternalEventIsNew(
+            eventProvider,
+            eventId,
+            normalized,
+            eventTime,
+            receivedAt);
+
+        switch (normalized)
+        {
+            case "in_transit" when occurredAt.HasValue:
+                shipment.RecordInTransit(
+                    providerStatus,
+                    occurredAt.Value,
+                    receivedAt);
+                break;
+            case "delivered" when occurredAt.HasValue:
+                shipment.RecordTrustedDelivery(
+                    providerStatus,
+                    occurredAt.Value,
+                    receivedAt);
+                ReturnDeliveredAt ??= occurredAt.Value;
+                break;
+            case "carrier_exception":
+                shipment.RecordCarrierException(
+                    providerStatus,
+                    receivedAt);
+                break;
+            default:
+                shipment.RecordTrackingUnverified(
+                    providerStatus,
+                    receivedAt);
+                break;
+        }
+
+        _auditEvents.Add(new AuditEvent(
+            Id,
+            ActorRole.CarrierProvider,
+            provider.Trim(),
+            normalized == "delivered"
+                ? "shipping.return_delivered"
+                : "shipping.return_tracking_reconciled",
+            State,
+            State,
+            receivedAt,
+            eventId,
+            $"return-tracking:{shipment.Id:N}:{eventId}",
+            JsonSerializer.Serialize(new
+            {
+                shipmentId = shipment.Id,
+                eventType = normalized,
+                providerStatus,
+                occurredAt
+            })));
+        Version++;
+    }
+
+    public void RecordManagedOutboundCarrierException(
+        Guid managedShipmentId,
+        string eventId,
+        string providerStatus,
+        string provider,
+        DateTimeOffset now,
+        TransactionTransitionService transitions)
+    {
+        var shipment = _managedShipments.SingleOrDefault(
+            item => item.Id == managedShipmentId &&
+                    item.Direction == ShipmentDirection.Outbound)
+            ?? throw new DomainException(
+                "ไม่พบรายการจัดส่งขาออก");
+        var eventProvider =
+            $"{Required(provider, "ผู้ให้บริการขนส่ง")}:{shipment.Id:N}";
+        if (HasExternalEvent(eventProvider, eventId))
+            return;
+        EnsureExternalEventIsNew(
+            eventProvider,
+            eventId,
+            "carrier_exception",
+            now,
+            now);
+        shipment.RecordCarrierException(
+            providerStatus,
+            now);
+        OpenCarrierException(
+            ActorRole.CarrierProvider,
+            provider,
+            "provider-carrier-exception",
+            eventId,
+            $"carrier-exception:{shipment.Id:N}:{eventId}",
+            now,
+            transitions);
+    }
+
     public void AuthorizeManualReturnResolution(
         string reference,
         string actorId,
@@ -559,6 +835,15 @@ public sealed class SaleTransaction
         ManualReturnResolutionReference = Required(
             reference,
             "เลขอ้างอิงการตรวจส่งคืน");
+        foreach (var shipment in _managedShipments.Where(
+                     shipment =>
+                         shipment.Direction ==
+                             ShipmentDirection.Return &&
+                         shipment.HasOpenException))
+            shipment.ResolveException(
+                actorId,
+                ManualReturnResolutionReference,
+                now);
         _auditEvents.Add(new AuditEvent(
             Id,
             ActorRole.Reconciliation,

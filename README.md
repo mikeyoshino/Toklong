@@ -156,6 +156,7 @@ Otp__ApiKey
 Otp__ApiSecret
 ShippingQuotes__Provider
 Shippop__BaseUrl
+Shippop__AllowInsecureHttp
 Shippop__ApiKey
 Shippop__AccountEmail
 Shippop__QuoteSigningSecret
@@ -166,6 +167,11 @@ OpenAI__Model
 DataProtection__KeysPath
 PublicUrls__WebBaseUrl
 ```
+
+Production requires an HTTPS SHIPPOP base URL and
+`Shippop__AllowInsecureHttp=false`. An HTTP-only SHIPPOP Dev endpoint may be
+used only for local Development or certification with the explicit setting
+`Shippop__AllowInsecureHttp=true`; do not enable that exception in Production.
 
 `OpenAI__ApiKey` stays server-side. The optional mobile agreement-draft helper
 uses `gpt-5.6-luna` by default for text/image extraction with structured output;

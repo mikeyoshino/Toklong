@@ -66,6 +66,45 @@ public sealed class ShippingLabelAccessTests
     }
 
     [Fact]
+    public async Task Confirmed_return_label_is_available_only_to_buyer_and_reverses_addresses()
+    {
+        await using var database = Database();
+        var transaction = ConfirmedManagedReturn();
+        database.Transactions.Add(transaction);
+        await database.SaveChangesAsync();
+        var provider = new CapturingProvider();
+        var handler = new GetShippingLabelHandler(
+            new TransactionRepository(database),
+            provider);
+
+        var html = await handler.Handle(
+            new GetShippingLabelQuery(
+                transaction.Id,
+                transaction.BuyerId!.Value,
+                ShipmentDirection.Return),
+            default);
+
+        Assert.Equal("<html>provider label</html>", html);
+        Assert.NotNull(provider.Request);
+        Assert.Equal(
+            "ผู้ซื้อ ทดสอบ",
+            provider.Request.Origin.Name);
+        Assert.Equal(
+            "ผู้ขาย ทดสอบ",
+            provider.Request.Destination.Name);
+        Assert.Equal(
+            "RETURN123456TH",
+            provider.Request.TrackingNumber);
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            handler.Handle(
+                new GetShippingLabelQuery(
+                    transaction.Id,
+                    transaction.SellerId!.Value,
+                    ShipmentDirection.Return),
+                default));
+    }
+
+    [Fact]
     public async Task DevelopmentLabelContainsScannableBarcodeAndNoCodClaim()
     {
         var provider =
@@ -147,9 +186,9 @@ public sealed class ShippingLabelAccessTests
                 "STANDARD",
                 "Flash Express Standard",
                 5_000,
-                0,
-                0,
-                null,
+                1_100,
+                120_000,
+                "FULL_VALUE",
                 Now.AddHours(2),
                 TestTransactionFactory.DeliveryDistrictName,
                 TestTransactionFactory.DeliverySubdistrictName,
@@ -176,6 +215,63 @@ public sealed class ShippingLabelAccessTests
             "booking",
             Now.AddMinutes(4),
             transitions);
+        return transaction;
+    }
+
+    private static SaleTransaction ConfirmedManagedReturn()
+    {
+        var transaction = ConfirmedManagedShipment();
+        var deliveredAt = Now.AddMinutes(5);
+        typeof(SaleTransaction)
+            .GetProperty(nameof(SaleTransaction.State))!
+            .SetValue(
+                transaction,
+                TransactionState.ResolutionPending);
+        var shipment = ManagedShipment.CreateReturn(
+            transaction.Id,
+            new ManagedShipmentDraft(
+                "test-provider",
+                "buyer-address-snapshot",
+                "seller-address-snapshot",
+                transaction.ProductName,
+                1_200,
+                20,
+                30,
+                15,
+                "FLASH",
+                "STANDARD",
+                "Flash Express Standard",
+                5_000,
+                1_100,
+                120_000,
+                "FULL_VALUE",
+                "return-quote-001",
+                Now.AddHours(2)),
+            deliveredAt.AddMinutes(3));
+        var operation = ShippingOperation.Queue(
+            transaction.Id,
+            shipment.Id,
+            ShippingOperationType.BookReturn,
+            $"book-return:{transaction.Id:N}:test",
+            new string('c', 64),
+            deliveredAt.AddMinutes(3));
+        transaction.AuthorizeManagedReturn(
+            shipment,
+            operation,
+            "crm-approver",
+            "CASE-RETURN-001",
+            "อนุมัติส่งคืน",
+            "crm:return:authorize",
+            deliveredAt.AddMinutes(3));
+        shipment.RecordReservation(
+            "return-purchase-001",
+            "return-provider-track-001",
+            null,
+            deliveredAt.AddMinutes(4));
+        shipment.RecordConfirmation(
+            "RETURN123456TH",
+            "booking",
+            deliveredAt.AddMinutes(5));
         return transaction;
     }
 

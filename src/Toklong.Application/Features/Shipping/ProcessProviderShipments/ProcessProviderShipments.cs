@@ -62,10 +62,13 @@ public sealed class ConfirmProviderShipmentsHandler(
                 else
                 {
                     confirmation =
-                        await shipmentProvider.ConfirmAsync(
+                        await shipmentProvider.ConfirmServiceAsync(
                             transaction.ShippingPurchaseReference!,
                             transaction.ShippingProviderTrackingCode!,
                             transaction.CarrierCode!,
+                            transaction.ShippingServiceCode ??
+                            throw new InvalidOperationException(
+                                "shipping-service-code-missing"),
                             cancellationToken);
                 }
 
@@ -140,6 +143,29 @@ public sealed class ReconcileProviderShipmentsHandler(
             var aggregateMutated = false;
             try
             {
+                var managedShipment =
+                    SelectManagedShipment(transaction);
+                if (managedShipment is not null)
+                {
+                    EnsureManagedProvider(
+                        managedShipment,
+                        shipmentProvider);
+                    var managedUpdate =
+                        await shipmentProvider.GetTrackingAsync(
+                            managedShipment.ProviderTrackingCode!,
+                            managedShipment.CarrierCode,
+                            cancellationToken);
+                    aggregateMutated = true;
+                    ApplyManagedUpdate(
+                        transaction,
+                        managedShipment,
+                        managedUpdate);
+                    await unitOfWork.SaveChangesAsync(
+                        cancellationToken);
+                    processed++;
+                    continue;
+                }
+
                 ConfirmProviderShipmentsHandler.EnsureProvider(
                     transaction,
                     shipmentProvider);
@@ -195,6 +221,127 @@ public sealed class ReconcileProviderShipmentsHandler(
             }
         }
         return new(processed, failed);
+    }
+
+    private static ManagedShipment? SelectManagedShipment(
+        SaleTransaction transaction) =>
+        transaction.ManagedShipments
+            .Where(shipment =>
+                !string.IsNullOrWhiteSpace(
+                    shipment.ProviderTrackingCode) &&
+                shipment.Status is
+                    ManagedShipmentStatus.Confirmed or
+                    ManagedShipmentStatus.CarrierAccepted or
+                    ManagedShipmentStatus.InTransit or
+                    ManagedShipmentStatus.TrackingUnverified)
+            .OrderByDescending(shipment =>
+                shipment.Direction ==
+                    ShipmentDirection.Return)
+            .ThenByDescending(shipment => shipment.CreatedAt)
+            .FirstOrDefault();
+
+    private static void EnsureManagedProvider(
+        ManagedShipment shipment,
+        IShipmentProvider provider)
+    {
+        if (!string.Equals(
+                shipment.Provider,
+                provider.ProviderName,
+                StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                "ผู้ให้บริการขนส่งของ worker ไม่ตรงกับรายการ");
+    }
+
+    private void ApplyManagedUpdate(
+        SaleTransaction transaction,
+        ManagedShipment shipment,
+        ShipmentTrackingUpdate update)
+    {
+        if (update.EventType is null)
+        {
+            shipment.RecordProviderReconciliation(
+                update.ProviderStatus,
+                clock.UtcNow);
+            if (shipment.Direction ==
+                ShipmentDirection.Outbound)
+                transaction.RecordShippingProviderReconciliation(
+                    shipmentProvider.ProviderName,
+                    update.ProviderStatus,
+                    clock.UtcNow);
+            return;
+        }
+
+        if (shipment.Direction == ShipmentDirection.Return)
+        {
+            transaction.RecordManagedReturnTrackingEvent(
+                shipment.Id,
+                update.EventId,
+                update.EventType,
+                update.ProviderStatus,
+                update.OccurredAt,
+                shipmentProvider.ProviderName,
+                clock.UtcNow);
+            return;
+        }
+
+        if (update.EventType == "carrier_exception")
+        {
+            transaction.RecordManagedOutboundCarrierException(
+                shipment.Id,
+                update.EventId,
+                update.ProviderStatus,
+                shipmentProvider.ProviderName,
+                clock.UtcNow,
+                transitions);
+            return;
+        }
+
+        transaction.RecordShippingProviderReconciliation(
+            shipmentProvider.ProviderName,
+            update.ProviderStatus,
+            clock.UtcNow);
+        if (!ShouldApply(
+                transaction.State,
+                update.EventType) ||
+            transaction.HasExternalEvent(
+                transaction.CarrierCode!,
+                update.EventId))
+            return;
+
+        if (update.EventType == "in_transit" &&
+            update.OccurredAt.HasValue)
+            shipment.RecordInTransit(
+                update.ProviderStatus,
+                update.OccurredAt.Value,
+                clock.UtcNow);
+        else if (update.EventType == "delivered" &&
+                 update.OccurredAt.HasValue)
+            shipment.RecordTrustedDelivery(
+                update.ProviderStatus,
+                update.OccurredAt.Value,
+                clock.UtcNow);
+        else if (update.EventType == "unverified")
+            shipment.RecordTrackingUnverified(
+                update.ProviderStatus,
+                clock.UtcNow);
+
+        if (update.OccurredAt.HasValue)
+            transaction.RecordCarrierEvent(
+                update.EventId,
+                update.EventType!,
+                update.OccurredAt.Value,
+                clock.UtcNow,
+                transitions,
+                update.CarrierCode,
+                update.CourierTrackingCode ??
+                transaction.TrackingNumber);
+        else
+            transaction.RecordUnverifiedCarrierEvidence(
+                shipmentProvider.ProviderName,
+                update.EventId,
+                update.ProviderStatus,
+                clock.UtcNow,
+                transitions);
     }
 
     private static bool ShouldApply(
@@ -281,11 +428,16 @@ public sealed class CancelProviderShipmentsHandler(
                             "cancel",
                             StringComparison.OrdinalIgnoreCase))
                     {
-                        await shipmentProvider.CancelAsync(
+                        await shipmentProvider.CancelServiceAsync(
                             transaction.ShippingCourierTrackingCode ??
                             transaction.TrackingNumber ??
                             transaction.ShippingProviderTrackingCode!,
-                            cancellationToken);
+                            transaction.ShippingServiceCode ??
+                            throw new InvalidOperationException(
+                                "shipping-service-code-missing"),
+                            isReturn: false,
+                            cancellationToken:
+                                cancellationToken);
                     }
                 }
 

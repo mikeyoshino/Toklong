@@ -68,6 +68,15 @@ public sealed class ProcessNextShippingOperationHandler(
                     StringComparison.Ordinal))
                 throw new DomainException(
                     "shipping-provider-mismatch");
+            if (!string.Equals(
+                    operation.RequestFingerprint,
+                    CurrentFingerprint(
+                        transaction,
+                        shipment,
+                        operation.OperationType),
+                    StringComparison.Ordinal))
+                throw new DomainException(
+                    "shipping-request-fingerprint-mismatch");
 
             switch (operation.OperationType)
             {
@@ -177,6 +186,21 @@ public sealed class ProcessNextShippingOperationHandler(
             await unitOfWork.SaveChangesAsync(cancellationToken);
             return true;
         }
+        catch
+        {
+            // A worker must never leave a claimed mutation in Processing.
+            // Unknown adapter failures require an operator decision and must
+            // not be converted into an automatic replay.
+            operation.SendToReview(
+                request.WorkerId,
+                "unexpected-provider-failure",
+                clock.UtcNow);
+            metrics?.RecordReview(
+                shipment.ServiceCode,
+                "unexpected-provider-failure");
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+            return true;
+        }
     }
 
     private async Task BookAsync(
@@ -186,6 +210,9 @@ public sealed class ProcessNextShippingOperationHandler(
         string workerId,
         CancellationToken cancellationToken)
     {
+        if (shipment.QuoteExpiresAt <= clock.UtcNow)
+            throw new DomainException(
+                "shipping-quote-expired");
         var quoteRequest = BuildQuoteRequest(
             transaction,
             shipment);
@@ -204,7 +231,10 @@ public sealed class ProcessNextShippingOperationHandler(
             new ShipmentReservationRequest(
                 transaction.Id,
                 quoteRequest,
-                quote),
+                quote,
+                shipment.Id,
+                shipment.Direction ==
+                    ShipmentDirection.Return),
             cancellationToken);
 
         if (shipment.Direction == ShipmentDirection.Return)
@@ -215,6 +245,19 @@ public sealed class ProcessNextShippingOperationHandler(
                 reservation.ProviderTrackingCode,
                 reservation.CourierTrackingCode,
                 reservation.ReservedAt);
+            transaction.RecordManagedReturnCost(
+                shipment.Id,
+                reservation.Provider,
+                reservation.PurchaseReference,
+                checked(
+                    reservation.FeeSatang +
+                    reservation.InsuranceFeeSatang),
+                reservation.ReservedAt,
+                clock.UtcNow);
+            ManagedShippingOperationQueue
+                .QueueReturnConfirmationIfRequired(
+                    transaction,
+                    clock.UtcNow);
         }
         else
         {
@@ -248,7 +291,7 @@ public sealed class ProcessNextShippingOperationHandler(
         string workerId,
         CancellationToken cancellationToken)
     {
-        var confirmation = await provider.ConfirmAsync(
+        var confirmation = await provider.ConfirmServiceAsync(
             shipment.PurchaseReference ??
             throw new DomainException(
                 "shipping-purchase-reference-missing"),
@@ -256,6 +299,7 @@ public sealed class ProcessNextShippingOperationHandler(
             throw new DomainException(
                 "shipping-tracking-reference-missing"),
             shipment.CarrierCode,
+            shipment.ServiceCode,
             cancellationToken);
         shipment.RecordConfirmation(
             confirmation.CourierTrackingCode,
@@ -284,11 +328,14 @@ public sealed class ProcessNextShippingOperationHandler(
         string workerId,
         CancellationToken cancellationToken)
     {
-        await provider.CancelAsync(
+        await provider.CancelServiceAsync(
             shipment.CourierTrackingCode ??
             shipment.ProviderTrackingCode ??
             throw new DomainException(
                 "shipping-cancellation-reference-missing"),
+            shipment.ServiceCode,
+            shipment.Direction ==
+                ShipmentDirection.Return,
             cancellationToken);
         shipment.RecordCancellation(clock.UtcNow);
         if (shipment.Direction == ShipmentDirection.Outbound)
@@ -369,6 +416,32 @@ public sealed class ProcessNextShippingOperationHandler(
             operation.Id.ToByteArray()[0] % 7;
         return now.AddSeconds(seconds + jitter);
     }
+
+    private static string CurrentFingerprint(
+        SaleTransaction transaction,
+        ManagedShipment shipment,
+        ShippingOperationType operationType) =>
+        operationType switch
+        {
+            ShippingOperationType.BookOutbound or
+                ShippingOperationType.BookReturn =>
+                ManagedShippingOperationQueue.BookingFingerprint(
+                    shipment),
+            ShippingOperationType.ConfirmOutbound or
+                ShippingOperationType.ConfirmReturn =>
+                ManagedShippingOperationQueue
+                    .ConfirmationFingerprint(
+                        transaction,
+                        shipment),
+            ShippingOperationType.CancelOutbound or
+                ShippingOperationType.CancelReturn =>
+                ManagedShippingOperationQueue
+                    .CancellationFingerprint(
+                        transaction,
+                        shipment),
+            _ => throw new DomainException(
+                "shipping-operation-unsupported")
+        };
 
     private static void EnsureReservationMatches(
         ManagedShipment shipment,

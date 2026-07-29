@@ -1,3 +1,4 @@
+using Toklong.Mobile.Core;
 using Toklong.Mobile.ViewModels;
 
 namespace Toklong.Mobile.Pages;
@@ -26,8 +27,19 @@ public partial class ShippingLabelPage :
             Guid.TryParse(
                 rawId?.ToString(),
                 out var transactionId))
+        {
+            var isReturn =
+                query.TryGetValue(
+                    "IsReturn",
+                    out var rawReturn) &&
+                bool.TryParse(
+                    rawReturn?.ToString(),
+                    out var parsedReturn) &&
+                parsedReturn;
             await viewModel.LoadAsync(
-                transactionId);
+                transactionId,
+                isReturn);
+        }
     }
 
     protected override void OnAppearing()
@@ -66,11 +78,8 @@ public partial class ShippingLabelPage :
         object? sender,
         WebNavigatingEventArgs eventArgs)
     {
-        if (Uri.TryCreate(
-                eventArgs.Url,
-                UriKind.Absolute,
-                out var uri) &&
-            uri.Scheme is not "about" and not "data")
-            eventArgs.Cancel = true;
+        eventArgs.Cancel =
+            ShippingLabelNavigationPolicy.ShouldCancel(
+                eventArgs.Url);
     }
 }

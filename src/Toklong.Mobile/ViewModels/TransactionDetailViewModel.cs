@@ -18,6 +18,7 @@ public sealed class TransactionDetailViewModel(
     private string trackingNumber = "";
     private string digitalHandoffStatement = "";
     private bool isAgreementDetailsExpanded;
+    private bool isProblemFormExpanded;
     private DisputeReasonOption selectedDisputeReason =
         DisputeReasonOption.All[^1];
     private string disputeStatement = "";
@@ -31,8 +32,17 @@ public sealed class TransactionDetailViewModel(
         get => transaction;
         private set
         {
+            var transactionChanged =
+                transaction?.Id != value?.Id;
             if (SetProperty(ref transaction, value))
             {
+                if (transactionChanged)
+                {
+                    IsProblemFormExpanded = false;
+                    DisputeStatement = "";
+                    SelectedDisputeReason =
+                        DisputeReasonOption.All[^1];
+                }
                 IsAgreementDetailsExpanded =
                     value?.Role != AppTransactionRole.Seller;
                 OnPropertyChanged(nameof(IsPaymentAction));
@@ -46,6 +56,8 @@ public sealed class TransactionDetailViewModel(
                 OnPropertyChanged(nameof(DetailHeadline));
                 OnPropertyChanged(nameof(CanDownloadAgreementEvidence));
                 OnPropertyChanged(nameof(CanDownloadShippingLabel));
+                OnPropertyChanged(
+                    nameof(CanDownloadReturnShippingLabel));
                 OnPropertyChanged(nameof(IsSellerDetail));
                 OnPropertyChanged(nameof(ShowAgreementDetailsContent));
                 OnPropertyChanged(nameof(CanManageDisputeEvidence));
@@ -73,6 +85,10 @@ public sealed class TransactionDetailViewModel(
     public bool CanDownloadShippingLabel =>
         Transaction?.Role == AppTransactionRole.Seller &&
         Transaction.ShippingLabelAvailable;
+
+    public bool CanDownloadReturnShippingLabel =>
+        Transaction?.Role == AppTransactionRole.Buyer &&
+        Transaction.ReturnShippingLabelAvailable;
 
     public bool IsBusy
     {
@@ -154,6 +170,24 @@ public sealed class TransactionDetailViewModel(
 
     public string AgreementDetailsChevron =>
         IsAgreementDetailsExpanded ? "⌃" : "⌄";
+
+    public bool IsProblemFormExpanded
+    {
+        get => isProblemFormExpanded;
+        private set
+        {
+            if (SetProperty(
+                    ref isProblemFormExpanded,
+                    value))
+                OnPropertyChanged(
+                    nameof(ProblemFormToggleText));
+        }
+    }
+
+    public string ProblemFormToggleText =>
+        IsProblemFormExpanded
+            ? "ปิดแบบฟอร์ม"
+            : "ต้องการความช่วยเหลือเกี่ยวกับรายการนี้";
 
     public ObservableCollection<CarrierOption> Carriers { get; } = [];
 
@@ -293,6 +327,11 @@ public sealed class TransactionDetailViewModel(
     public ICommand ConfirmReceiptCommand =>
         new AsyncCommand(ConfirmReceiptAsync);
 
+    public ICommand ToggleProblemFormCommand =>
+        new Command(() =>
+            IsProblemFormExpanded =
+                !IsProblemFormExpanded);
+
     public ICommand ReportProblemCommand =>
         new AsyncCommand(ReportProblemAsync);
 
@@ -304,6 +343,9 @@ public sealed class TransactionDetailViewModel(
 
     public ICommand OpenShippingLabelCommand =>
         new AsyncCommand(OpenShippingLabelAsync);
+
+    public ICommand OpenReturnShippingLabelCommand =>
+        new AsyncCommand(OpenReturnShippingLabelAsync);
 
     public Task LoadAsync(Guid transactionId) =>
         LoadCoreAsync(transactionId, showBusy: true);
@@ -528,6 +570,24 @@ public sealed class TransactionDetailViewModel(
             $"?TransactionId={Transaction.Id:D}");
     }
 
+    private async Task OpenReturnShippingLabelAsync()
+    {
+        if (Transaction is null ||
+            !CanDownloadReturnShippingLabel)
+            return;
+        if (Shell.Current is null)
+        {
+            Message =
+                "เปิดใบปะหน้าส่งคืนไม่สำเร็จ กรุณาลองอีกครั้ง";
+            return;
+        }
+
+        await Shell.Current.GoToAsync(
+            $"{nameof(ShippingLabelPage)}" +
+            $"?TransactionId={Transaction.Id:D}" +
+            "&IsReturn=true");
+    }
+
     private async Task ConfirmReceiptAsync()
     {
         if (Transaction is null)
@@ -579,6 +639,7 @@ public sealed class TransactionDetailViewModel(
                 Transaction.Id,
                 SelectedDisputeReason.Value,
                 DisputeStatement);
+            IsProblemFormExpanded = false;
             Message = "รับเรื่องแล้ว และหยุดขั้นตอนจ่ายเงินไว้ระหว่างตรวจสอบ";
             OnPropertyChanged(nameof(CanManageDisputeEvidence));
         }

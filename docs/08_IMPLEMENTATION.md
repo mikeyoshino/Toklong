@@ -86,6 +86,7 @@ BuyerProtectionFee__Tiers__2__UpToItemPriceSatang
 BuyerProtectionFee__Tiers__2__RateBasisPoints
 ShippingQuotes__Provider
 Shippop__BaseUrl
+Shippop__AllowInsecureHttp
 Shippop__ApiKey
 Shippop__AccountEmail
 Shippop__QuoteSigningSecret
@@ -119,8 +120,10 @@ startup. Product images must also use persistent storage; the single-host
 Compose topology shares that path between Web and API. Do not put a signing
 secret, Stripe secret, SHIPPOP key, certificate, password file, or key ring in
 source control. Production requires `ShippingQuotes__Provider=Shippop`, the
-HTTPS SHIPPOP base URL, account email, API key, and a random quote-signing
-secret of at least 32 characters.
+HTTPS SHIPPOP base URL, `Shippop__AllowInsecureHttp=false`, account email,
+API key, and a random quote-signing secret of at least 32 characters. An
+HTTP-only SHIPPOP Dev endpoint requires the explicit Development setting
+`Shippop__AllowInsecureHttp=true`; Production startup still rejects HTTP.
 
 ## Stripe Test Mode end-to-end check
 

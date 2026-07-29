@@ -202,8 +202,190 @@ public sealed class ProviderShipmentProcessingTests
         Assert.Single(
             transaction.AuditEvents,
             item =>
-                item.Name ==
+            item.Name ==
                 "shipment.timely_acceptance_recovered");
+    }
+
+    [Fact]
+    public async Task Managed_return_delivery_is_reconciled_and_retained_once()
+    {
+        await using var database = Database();
+        var transaction = ManagedReturn();
+        await new TransactionRepository(database)
+            .AddAsync(transaction, default);
+        await database.SaveChangesAsync();
+        database.ChangeTracker.Clear();
+        var deliveredAt = Now.AddHours(2);
+        var handler = new ReconcileProviderShipmentsHandler(
+            new TransactionRepository(database),
+            new ManagedReturnTrackingProvider(
+                "complete",
+                "delivered",
+                deliveredAt),
+            database,
+            new FixedClock(deliveredAt.AddMinutes(1)),
+            new TransactionTransitionService());
+
+        var first = await handler.Handle(
+            new ReconcileProviderShipmentsCommand(),
+            default);
+        var second = await handler.Handle(
+            new ReconcileProviderShipmentsCommand(),
+            default);
+        var saved = await new TransactionRepository(database)
+            .GetByIdAsync(transaction.Id, default);
+
+        Assert.Equal(1, first.Processed);
+        Assert.Equal(0, second.Processed);
+        Assert.NotNull(saved);
+        Assert.Equal(deliveredAt, saved.ReturnDeliveredAt);
+        Assert.Equal(
+            ManagedShipmentStatus.Delivered,
+            Assert.Single(
+                saved.ManagedShipments,
+                shipment =>
+                    shipment.Direction ==
+                        ShipmentDirection.Return).Status);
+        Assert.Single(
+            saved.AuditEvents,
+            audit =>
+                audit.Name == "shipping.return_delivered");
+    }
+
+    [Fact]
+    public async Task Managed_return_problem_blocks_automatic_outcomes()
+    {
+        await using var database = Database();
+        var transaction = ManagedReturn();
+        await new TransactionRepository(database)
+            .AddAsync(transaction, default);
+        await database.SaveChangesAsync();
+        database.ChangeTracker.Clear();
+        var handler = new ReconcileProviderShipmentsHandler(
+            new TransactionRepository(database),
+            new ManagedReturnTrackingProvider(
+                "problem",
+                "carrier_exception",
+                null),
+            database,
+            new FixedClock(Now.AddHours(2)),
+            new TransactionTransitionService());
+
+        var result = await handler.Handle(
+            new ReconcileProviderShipmentsCommand(),
+            default);
+        var saved = await new TransactionRepository(database)
+            .GetByIdAsync(transaction.Id, default);
+
+        Assert.Equal(1, result.Processed);
+        Assert.NotNull(saved);
+        Assert.True(saved.HasOpenShippingException);
+        Assert.Equal(
+            ManagedShipmentStatus.CarrierException,
+            Assert.Single(
+                saved.ManagedShipments,
+                shipment =>
+                    shipment.Direction ==
+                        ShipmentDirection.Return).Status);
+    }
+
+    [Fact]
+    public async Task Managed_return_booking_status_remains_confirmed()
+    {
+        await using var database = Database();
+        var transaction = ManagedReturn();
+        await new TransactionRepository(database)
+            .AddAsync(transaction, default);
+        await database.SaveChangesAsync();
+        database.ChangeTracker.Clear();
+        var handler = new ReconcileProviderShipmentsHandler(
+            new TransactionRepository(database),
+            new ManagedReturnTrackingProvider(
+                "booking",
+                null,
+                null),
+            database,
+            new FixedClock(Now.AddHours(2)),
+            new TransactionTransitionService());
+
+        var result = await handler.Handle(
+            new ReconcileProviderShipmentsCommand(),
+            default);
+        var saved = await new TransactionRepository(database)
+            .GetByIdAsync(transaction.Id, default);
+
+        Assert.Equal(1, result.Processed);
+        Assert.NotNull(saved);
+        var shipment = Assert.Single(
+            saved.ManagedShipments,
+            item =>
+                item.Direction == ShipmentDirection.Return);
+        Assert.Equal(
+            ManagedShipmentStatus.Confirmed,
+            shipment.Status);
+        Assert.Equal("booking", shipment.LastProviderStatus);
+        Assert.False(saved.HasOpenShippingException);
+    }
+
+    private static SaleTransaction ManagedReturn()
+    {
+        var transaction = TestTransactionFactory.CreateBuyerOffer(
+            Guid.NewGuid(),
+            "ผู้ซื้อ ทดสอบ",
+            "0800000000",
+            FulfillmentType.PhysicalShipment,
+            "กล้อง",
+            "กล้องพร้อมเลนส์",
+            ConditionCode.UsedGood,
+            "",
+            null,
+            120_000,
+            "terms-v1",
+            Now,
+            new TransactionTransitionService());
+        var shipment = ManagedShipment.CreateReturn(
+            transaction.Id,
+            new ManagedShipmentDraft(
+                "shippop",
+                "buyer-address-snapshot",
+                "seller-address-snapshot",
+                "กล้อง",
+                1_200,
+                20,
+                30,
+                15,
+                "THAIPOST",
+                "EMST",
+                "ไปรษณีย์ไทย EMS",
+                5_200,
+                1_100,
+                120_000,
+                "FULL_VALUE",
+                "return-quote-001",
+                Now.AddHours(3)),
+            Now);
+        transaction.QueueManagedShipment(
+            shipment,
+            ShippingOperation.Queue(
+                transaction.Id,
+                shipment.Id,
+                ShippingOperationType.BookReturn,
+                $"book-return:{transaction.Id:N}:test",
+                new string('b', 64),
+                Now),
+            ActorRole.Reconciliation,
+            "crm-user",
+            Now);
+        shipment.RecordReservation(
+            "return-purchase-001",
+            "return-provider-track-001",
+            null,
+            Now.AddMinutes(1));
+        shipment.RecordConfirmation(
+            "EF987654321TH",
+            "booking",
+            Now.AddMinutes(2));
+        return transaction;
     }
 
     private static async Task<SaleTransaction> ManagedPaidAsync(
@@ -435,6 +617,51 @@ public sealed class ProviderShipmentProcessingTests
             CancelCalls++;
             return Task.CompletedTask;
         }
+
+        public Task<ShipmentReservation> ReserveAsync(
+            ShipmentReservationRequest request,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<ShipmentConfirmation> ConfirmAsync(
+            string purchaseReference,
+            string providerTrackingCode,
+            string carrierCode,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<string> GetLabelHtmlAsync(
+            ShipmentLabelRequest request,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+    }
+
+    private sealed class ManagedReturnTrackingProvider(
+        string providerStatus,
+        string? eventType,
+        DateTimeOffset? occurredAt) :
+        IShipmentProvider
+    {
+        public string ProviderName => "shippop";
+
+        public Task<ShipmentTrackingUpdate> GetTrackingAsync(
+            string providerTrackingCode,
+            string carrierCode,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(
+                new ShipmentTrackingUpdate(
+                    providerTrackingCode,
+                    "EF987654321TH",
+                    carrierCode,
+                    providerStatus,
+                    eventType,
+                    $"return-{providerStatus}",
+                    occurredAt));
+
+        public Task CancelAsync(
+            string courierTrackingCode,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
 
         public Task<ShipmentReservation> ReserveAsync(
             ShipmentReservationRequest request,

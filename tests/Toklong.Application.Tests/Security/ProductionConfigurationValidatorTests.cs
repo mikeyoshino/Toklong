@@ -93,6 +93,32 @@ public sealed class ProductionConfigurationValidatorTests
     }
 
     [Fact]
+    public void Production_rejects_insecure_shippop_http_opt_in()
+    {
+        var values = SafeProductionValues();
+        values["Shippop:BaseUrl"] =
+            "http://mkpservice.shippop.dev/";
+        values["Shippop:AllowInsecureHttp"] = "true";
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(values)
+            .Build();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(
+                configuration,
+                new TestEnvironment("Production"),
+                requireMobileLinks: false,
+                requirePersistentStorage: true));
+
+        Assert.Contains(
+            "Shippop:BaseUrl must be HTTPS",
+            exception.Message);
+        Assert.Contains(
+            "Shippop:AllowInsecureHttp must be false",
+            exception.Message);
+    }
+
+    [Fact]
     public void Production_rejects_development_email_delivery()
     {
         var values = SafeProductionValues();

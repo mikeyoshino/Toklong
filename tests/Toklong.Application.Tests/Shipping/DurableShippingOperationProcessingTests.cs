@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Toklong.Application.Abstractions;
+using Toklong.Application.Features.Shipping;
 using Toklong.Application.Features.Shipping.ProcessShippingOperations;
 using Toklong.Domain.Transactions;
 using Toklong.Infrastructure.Persistence;
@@ -81,6 +82,169 @@ public sealed class DurableShippingOperationProcessingTests
         Assert.Equal(1, provider.ReserveCalls);
     }
 
+    [Fact]
+    public async Task Unexpected_provider_failure_is_sent_to_review_not_left_processing()
+    {
+        await using var database = CreateDatabase();
+        var (transaction, operation) = PendingAcceptance();
+        database.Transactions.Add(transaction);
+        await database.SaveChangesAsync();
+        var provider = new BookingProvider
+        {
+            Failure = new InvalidOperationException(
+                "raw provider response must not escape")
+        };
+        var handler = Handler(
+            database,
+            operation,
+            provider,
+            new FixedClock(Now.AddMinutes(1)));
+
+        Assert.True(await handler.Handle(
+            new ProcessNextShippingOperationCommand("worker-a"),
+            default));
+
+        Assert.Equal(
+            ShippingOperationStatus.NeedsReview,
+            operation.Status);
+        Assert.Equal(
+            "unexpected-provider-failure",
+            operation.LastSanitizedErrorCode);
+        Assert.Equal(1, provider.ReserveCalls);
+    }
+
+    [Fact]
+    public async Task Changed_shipping_intent_is_rejected_before_provider_call()
+    {
+        await using var database = CreateDatabase();
+        var (transaction, _) = PendingAcceptance();
+        var shipment = Assert.Single(
+            transaction.ManagedShipments);
+        var mismatchedOperation = ShippingOperation.Queue(
+            transaction.Id,
+            shipment.Id,
+            ShippingOperationType.BookOutbound,
+            $"book-outbound:{transaction.Id:N}:mismatch",
+            new string('f', 64),
+            Now);
+        transaction.QueueShippingOperation(
+            mismatchedOperation,
+            ActorRole.System,
+            "test",
+            Now);
+        database.Transactions.Add(transaction);
+        await database.SaveChangesAsync();
+        var provider = new BookingProvider();
+        var handler = Handler(
+            database,
+            mismatchedOperation,
+            provider,
+            new FixedClock(Now.AddMinutes(1)));
+
+        Assert.True(await handler.Handle(
+            new ProcessNextShippingOperationCommand("worker-a"),
+            default));
+
+        Assert.Equal(
+            ShippingOperationStatus.NeedsReview,
+            mismatchedOperation.Status);
+        Assert.Equal(0, provider.ReserveCalls);
+    }
+
+    [Fact]
+    public async Task Return_booking_records_separate_approved_operational_cost()
+    {
+        await using var database = CreateDatabase();
+        var (transaction, outboundOperation) =
+            PendingAcceptance();
+        database.Transactions.Add(transaction);
+        await database.SaveChangesAsync();
+        var provider = new BookingProvider();
+        var clock = new FixedClock(Now.AddMinutes(1));
+        await Handler(
+                database,
+                outboundOperation,
+                provider,
+                clock)
+            .Handle(
+                new ProcessNextShippingOperationCommand("worker-a"),
+                default);
+        typeof(SaleTransaction)
+            .GetProperty(nameof(SaleTransaction.State))!
+            .SetValue(
+                transaction,
+                TransactionState.ResolutionPending);
+        var returnShipment = ManagedShipment.CreateReturn(
+            transaction.Id,
+            new ManagedShipmentDraft(
+                "shippop",
+                "destination-ref",
+                "origin-ref",
+                transaction.ProductName,
+                1_200,
+                20,
+                30,
+                15,
+                "THAIPOST",
+                "EMST",
+                "ไปรษณีย์ไทย EMS",
+                5_200,
+                1_100,
+                120_000,
+                "FULL_VALUE",
+                "return-quote-001",
+                Now.AddHours(2)),
+            Now.AddMinutes(2));
+        var returnOperation = ShippingOperation.Queue(
+            transaction.Id,
+            returnShipment.Id,
+            ShippingOperationType.BookReturn,
+            $"book-return:{transaction.Id:N}:test",
+            ManagedShippingOperationQueue.BookingFingerprint(
+                returnShipment),
+            Now.AddMinutes(2));
+        transaction.AuthorizeManagedReturn(
+            returnShipment,
+            returnOperation,
+            "crm-user",
+            "CASE-RETURN-001",
+            "อนุมัติให้ส่งคืน",
+            "crm:return:authorize:001",
+            Now.AddMinutes(2));
+        await database.SaveChangesAsync();
+        var buyerTotalBeforeReturn =
+            transaction.BuyerTotalSatang;
+
+        await Handler(
+                database,
+                returnOperation,
+                provider,
+                new FixedClock(Now.AddMinutes(3)))
+            .Handle(
+                new ProcessNextShippingOperationCommand("worker-b"),
+                default);
+
+        Assert.Equal(
+            ShippingOperationStatus.Succeeded,
+            returnOperation.Status);
+        Assert.Equal(
+            "return-purchase-001",
+            returnShipment.PurchaseReference);
+        Assert.Equal(
+            "purchase-001",
+            transaction.ShippingPurchaseReference);
+        Assert.Equal(
+            buyerTotalBeforeReturn,
+            transaction.BuyerTotalSatang);
+        var cost = Assert.Single(
+            transaction.ProviderShippingAdjustments);
+        Assert.Equal(
+            "authorized-return-cost",
+            cost.ReasonCode);
+        Assert.Equal(6_300, cost.AmountSatang);
+        Assert.False(cost.IsOpen);
+    }
+
     private static ProcessNextShippingOperationHandler Handler(
         ToklongDbContext database,
         ShippingOperation operation,
@@ -159,7 +323,8 @@ public sealed class DurableShippingOperationProcessingTests
             shipment.Id,
             ShippingOperationType.BookOutbound,
             $"book-outbound:{transaction.Id:N}:test",
-            new string('a', 64),
+            ManagedShippingOperationQueue.BookingFingerprint(
+                shipment),
             Now);
         transaction.BeginManagedSellerAcceptance(
             Guid.NewGuid(),
@@ -224,7 +389,7 @@ public sealed class DurableShippingOperationProcessingTests
     private sealed class BookingProvider : IShipmentProvider
     {
         public string ProviderName => "shippop";
-        public ShipmentMutationException? Failure { get; init; }
+        public Exception? Failure { get; init; }
         public int ReserveCalls { get; private set; }
 
         public Task<ShipmentReservation> ReserveAsync(
@@ -236,8 +401,12 @@ public sealed class DurableShippingOperationProcessingTests
                 throw Failure;
             return Task.FromResult(new ShipmentReservation(
                 ProviderName,
-                "purchase-001",
-                "provider-track-001",
+                request.IsReturn
+                    ? "return-purchase-001"
+                    : "purchase-001",
+                request.IsReturn
+                    ? "return-provider-track-001"
+                    : "provider-track-001",
                 null,
                 request.Quote.CarrierCode,
                 request.Quote.ServiceCode,

@@ -609,6 +609,7 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         var shipment = modelBuilder.Entity<ManagedShipment>();
         shipment.ToTable("managed_shipments");
         shipment.HasKey(x => x.Id);
+        shipment.Property(x => x.Id).ValueGeneratedNever();
         shipment.HasIndex(x => new
         {
             x.TransactionId,
@@ -632,15 +633,21 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         shipment.Property(x => x.HandoffMode).HasMaxLength(20);
         shipment.Property(x => x.InsuranceCode).HasMaxLength(80);
         shipment.Property(x => x.QuoteReference).HasMaxLength(160);
+        shipment.Property(x => x.ExceptionResolvedBy)
+            .HasMaxLength(120);
+        shipment.Property(x => x.ExceptionResolutionReference)
+            .HasMaxLength(160);
         shipment.Property(x => x.PurchaseReference).HasMaxLength(160);
         shipment.Property(x => x.ProviderTrackingCode).HasMaxLength(120);
         shipment.Property(x => x.CourierTrackingCode).HasMaxLength(120);
         shipment.Property(x => x.LastProviderStatus).HasMaxLength(40);
         shipment.Property(x => x.Version).IsConcurrencyToken();
+        shipment.Ignore(x => x.HasOpenException);
 
         var operation = modelBuilder.Entity<ShippingOperation>();
         operation.ToTable("shipping_operations");
         operation.HasKey(x => x.Id);
+        operation.Property(x => x.Id).ValueGeneratedNever();
         operation.HasIndex(x => x.IdempotencyKey).IsUnique();
         operation.HasIndex(x => new
         {
@@ -673,12 +680,17 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
             modelBuilder.Entity<ProviderShippingAdjustment>();
         adjustment.ToTable("provider_shipping_adjustments");
         adjustment.HasKey(x => x.Id);
+        adjustment.Property(x => x.Id).ValueGeneratedNever();
         adjustment.HasIndex(x => x.ProviderReference).IsUnique();
         adjustment.Property(x => x.Provider).HasMaxLength(80);
         adjustment.Property(x => x.ProviderReference).HasMaxLength(160);
         adjustment.Property(x => x.Currency).HasMaxLength(3);
         adjustment.Property(x => x.CrmCaseReference).HasMaxLength(160);
         adjustment.Property(x => x.ReasonCode).HasMaxLength(100);
+        adjustment.Property(x => x.ResolutionCode).HasMaxLength(100);
+        adjustment.Property(x => x.ResolvedBy).HasMaxLength(120);
+        adjustment.Property(x => x.Version).IsConcurrencyToken();
+        adjustment.Ignore(x => x.IsOpen);
         adjustment.HasOne<ManagedShipment>()
             .WithMany()
             .HasForeignKey(x => x.ManagedShipmentId)
@@ -688,6 +700,7 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
             modelBuilder.Entity<ShippingInsuranceCase>();
         insurance.ToTable("shipping_insurance_cases");
         insurance.HasKey(x => x.Id);
+        insurance.Property(x => x.Id).ValueGeneratedNever();
         insurance.HasIndex(x => x.ProviderCaseReference).IsUnique();
         insurance.Property(x => x.Provider).HasMaxLength(80);
         insurance.Property(x => x.ProviderCaseReference)

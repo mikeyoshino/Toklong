@@ -244,9 +244,9 @@ public sealed class TransactionPresentationTests
             State = "TrackingSubmitted"
         };
 
-        Assert.Equal("progress_agreement_seller_completed.png", item.ProgressOne.Icon);
-        Assert.Equal("progress_physical_handoff_seller_completed.png", item.ProgressTwo.Icon);
-        Assert.Equal("progress_payout_disabled.png", item.ProgressThree.Icon);
+        Assert.Equal("progress_seller_agreement_proof_seller_completed.png", item.ProgressOne.Icon);
+        Assert.Equal("progress_seller_physical_shipment_proof_seller_completed.png", item.ProgressTwo.Icon);
+        Assert.Equal("progress_seller_payout_proof_seller_current.png", item.ProgressThree.Icon);
         Assert.Equal(
             SellerColorPalette.Surface,
             item.ProgressTwo.BackgroundColor);
@@ -258,6 +258,37 @@ public sealed class TransactionPresentationTests
             item.ProgressTwo.LabelColor);
     }
 
+    [Fact]
+    public void SellerProgressUsesProofGlyphsAndCurrentPalette()
+    {
+        var item = CreateItem(null) with
+        {
+            Role = AppTransactionRole.Seller,
+            FulfillmentType = AppFulfillmentType.Physical,
+            State = "PaidAwaitingShipment"
+        };
+
+        Assert.Equal(
+            TransactionProgressGlyph.SellerAgreementProof,
+            item.ProgressOne.Glyph);
+        Assert.Equal(
+            TransactionProgressGlyph.SellerPhysicalShipmentProof,
+            item.ProgressTwo.Glyph);
+        Assert.Equal(
+            TransactionProgressGlyph.SellerPayoutProof,
+            item.ProgressThree.Glyph);
+        Assert.Equal(
+            SellerColorPalette.Role,
+            item.ProgressOne.StrokeColor);
+        Assert.Equal("#087C68", item.ProgressTwo.StrokeColor);
+        Assert.Equal("#EAFBF7", item.ProgressTwo.BackgroundColor);
+        Assert.Equal("#087C68", item.ProgressTwo.LabelColor);
+        Assert.Equal(
+            "ส่งของ ขั้นปัจจุบัน",
+            item.ProgressTwo.SemanticDescription);
+        Assert.Equal("#E4EAF1", item.ProgressThree.StrokeColor);
+    }
+
     [Theory]
     [InlineData(
         AppTransactionRole.Buyer,
@@ -267,13 +298,13 @@ public sealed class TransactionPresentationTests
     [InlineData(
         AppTransactionRole.Seller,
         AppFulfillmentType.Physical,
-        "progress_physical_handoff_disabled.png",
-        "progress_payout_disabled.png")]
+        "progress_seller_physical_shipment_proof_disabled.png",
+        "progress_seller_payout_proof_disabled.png")]
     [InlineData(
         AppTransactionRole.Seller,
         AppFulfillmentType.Digital,
         "progress_digital_handoff_disabled.png",
-        "progress_payout_disabled.png")]
+        "progress_seller_payout_proof_disabled.png")]
     public void ConnectedProgressUsesRoleAndFulfillmentGlyphs(
         AppTransactionRole role,
         AppFulfillmentType fulfillmentType,
@@ -289,6 +320,25 @@ public sealed class TransactionPresentationTests
 
         Assert.Equal(expectedSecond, item.ProgressTwo.Icon);
         Assert.Equal(expectedThird, item.ProgressThree.Icon);
+        Assert.Equal(
+            role == AppTransactionRole.Seller
+                ? TransactionProgressGlyph.SellerAgreementProof
+                : TransactionProgressGlyph.Agreement,
+            item.ProgressOne.Glyph);
+        Assert.Equal(
+            role == AppTransactionRole.Buyer
+                ? TransactionProgressGlyph.Payment
+                : fulfillmentType == AppFulfillmentType.Physical
+                    ? TransactionProgressGlyph.SellerPhysicalShipmentProof
+                    : TransactionProgressGlyph.DigitalHandoff,
+            item.ProgressTwo.Glyph);
+        Assert.Equal(
+            role == AppTransactionRole.Seller
+                ? TransactionProgressGlyph.SellerPayoutProof
+                : fulfillmentType == AppFulfillmentType.Physical
+                    ? TransactionProgressGlyph.PhysicalReceipt
+                    : TransactionProgressGlyph.DigitalHandoff,
+            item.ProgressThree.Glyph);
     }
 
     [Fact]
@@ -387,9 +437,14 @@ public sealed class TransactionPresentationTests
         Assert.Equal(1, item.ProgressCompletedThrough);
         Assert.Equal(0, item.ProgressActiveStep);
         Assert.Equal(
-            "progress_physical_handoff_disabled.png",
+            "progress_seller_physical_shipment_proof_disabled.png",
             item.ProgressTwo.Icon);
+        Assert.Equal("#FFFFFF", item.ProgressTwo.BackgroundColor);
+        Assert.Equal("#E4EAF1", item.ProgressTwo.StrokeColor);
         Assert.Equal("#98A2B3", item.ProgressTwo.LabelColor);
+        Assert.Equal(
+            "ส่งของ ยังไม่เสร็จ",
+            item.ProgressTwo.SemanticDescription);
     }
 
     [Fact]

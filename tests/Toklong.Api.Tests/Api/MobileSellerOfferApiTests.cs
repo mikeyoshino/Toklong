@@ -221,7 +221,13 @@ public sealed class MobileSellerOfferApiTests
                         HeightCentimeters = 10,
                         quote.QuoteReference,
                         DisclosedShippingFeeSatang =
-                            quote.FeeSatang
+                            quote.FeeSatang,
+                        DisclosedInsuranceFeeSatang =
+                            quote.InsuranceFeeSatang,
+                        DisclosedDeclaredValueSatang =
+                            quote.DeclaredValueSatang,
+                        DisclosedInsuranceCode =
+                            quote.InsuranceCode
                     }
                 });
             Assert.True(
@@ -561,7 +567,13 @@ public sealed class MobileSellerOfferApiTests
                     HeightCentimeters = 15,
                     quote.QuoteReference,
                     DisclosedShippingFeeSatang =
-                        quote.FeeSatang
+                        quote.FeeSatang,
+                    DisclosedInsuranceFeeSatang =
+                        quote.InsuranceFeeSatang,
+                    DisclosedDeclaredValueSatang =
+                        quote.DeclaredValueSatang,
+                    DisclosedInsuranceCode =
+                        quote.InsuranceCode
                 }
             });
         Assert.True(
@@ -948,7 +960,10 @@ public sealed class MobileSellerOfferApiTests
         string ServiceCode,
         string ServiceName,
         long FeeSatang,
-        DateTimeOffset ExpiresAt);
+        DateTimeOffset ExpiresAt,
+        long InsuranceFeeSatang,
+        long DeclaredValueSatang,
+        string? InsuranceCode);
     private sealed record TransactionResponse(
         Guid Id,
         string State,

@@ -548,7 +548,10 @@ public sealed class BuyerOfferFlowTests
             30,
             15,
             "quote-test",
-            5_000);
+            5_000,
+            1_100,
+            450_000,
+            "TEST_FULL_VALUE");
 
     private sealed class TestShippingQuoteProvider
         : IShippingQuoteProvider, IShipmentProvider

@@ -10,7 +10,8 @@
 
 ```text
 SHIPPOP_CERTIFY=1
-SHIPPOP_BASE_URL=https://...
+SHIPPOP_BASE_URL=http://mkpservice.shippop.dev
+SHIPPOP_ALLOW_INSECURE_HTTP=1
 SHIPPOP_API_KEY=<secret>
 SHIPPOP_ACCOUNT_EMAIL=<secret>
 SHIPPOP_SERVICE_CODE=EMST
@@ -21,6 +22,10 @@ SHIPPOP_SYNTHETIC_ADDRESS_JSON=/absolute/path/synthetic-address.json
 ไฟล์ JSON ต้องมี `origin`, `destination`, parcel dimensions,
 `declaredValueSatang` และ postal codes ตามที่ certification test อ่าน
 
+`SHIPPOP_ALLOW_INSECURE_HTTP=1` ใช้ได้เฉพาะเมื่อบัญชี Dev ของ SHIPPOP
+ให้ endpoint แบบ HTTP เท่านั้น การตั้งค่านี้เป็น explicit opt-in เพราะ API key
+และข้อมูลที่อยู่จะเดินทางโดยไม่มี TLS ห้ามใช้กับ Production
+
 รันจาก repository root:
 
 ```bash
@@ -28,6 +33,8 @@ SHIPPOP_SYNTHETIC_ADDRESS_JSON=/absolute/path/synthetic-address.json
 ```
 
 test ไม่พิมพ์ API key, request body, contact, address หรือ raw response
+เมื่อไม่ได้ตั้ง `SHIPPOP_CERTIFY=1` test จะรายงานเป็น `Skipped` อย่างชัดเจน
+ไม่รายงานผ่านแบบ no-op
 
 ## Evidence matrix
 

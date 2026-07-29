@@ -19,6 +19,7 @@ public sealed class ShippopShippingOptions
 
     public string BaseUrl { get; init; } =
         "https://mkpservice.shippop.com/";
+    public bool AllowInsecureHttp { get; init; }
     public string ApiKey { get; init; } = "";
     public string AccountEmail { get; init; } = "";
     public string QuoteSigningSecret { get; init; } = "";
@@ -56,6 +57,8 @@ public sealed class ShippopShippingOptions
             BaseUrl =
                 configuration[$"{SectionName}:BaseUrl"]?.Trim() ??
                 "https://mkpservice.shippop.com/",
+            AllowInsecureHttp = configuration.GetValue<bool>(
+                $"{SectionName}:AllowInsecureHttp"),
             ApiKey =
                 configuration[$"{SectionName}:ApiKey"]?.Trim() ?? "",
             AccountEmail =
@@ -202,6 +205,9 @@ public sealed class ShippopShippingProvider(
                         request,
                         serviceCode,
                         feeSatang,
+                        0,
+                        request.DeclaredValueSatang,
+                        null,
                         expiresAt),
                     service.CarrierCode,
                     serviceCode,
@@ -237,8 +243,8 @@ public sealed class ShippopShippingProvider(
         var parts = cleanQuoteReference.Split(
             '.',
             StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length != 7 ||
-            parts[0] != "sp1" ||
+        if (parts.Length != 10 ||
+            parts[0] != "sp2" ||
             !long.TryParse(
                 parts[1],
                 NumberStyles.None,
@@ -249,14 +255,29 @@ public sealed class ShippopShippingProvider(
                 NumberStyles.None,
                 CultureInfo.InvariantCulture,
                 out var feeSatang) ||
-            !SafeServiceCode(parts[3]) ||
-            TryMapService(parts[3]) is not { } service ||
+            !long.TryParse(
+                parts[3],
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out var insuranceFeeSatang) ||
+            !long.TryParse(
+                parts[4],
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out var declaredValueSatang) ||
+            !SafeServiceCode(parts[5]) ||
+            TryMapService(parts[5]) is not { } service ||
             !CryptographicOperations.FixedTimeEquals(
-                Encoding.ASCII.GetBytes(parts[4]),
+                Encoding.ASCII.GetBytes(parts[7]),
                 Encoding.ASCII.GetBytes(
                     RequestFingerprint(request))) ||
             !VerifyQuoteSignature(parts))
             throw ExpiredQuote();
+        var insuranceCode = DecodeQuoteText(parts[6]);
+        EnsureCapability(
+            parts[5],
+            profile => profile.QuoteEnabled,
+            "quote");
 
         DateTimeOffset expiresAt;
         try
@@ -270,7 +291,11 @@ public sealed class ShippopShippingProvider(
         }
         if (expiresAt <= clock.UtcNow ||
             feeSatang <= 0 ||
-            feeSatang != disclosedFeeSatang)
+            feeSatang != disclosedFeeSatang ||
+            insuranceFeeSatang < 0 ||
+            declaredValueSatang != request.DeclaredValueSatang ||
+            (insuranceFeeSatang > 0) !=
+                !string.IsNullOrWhiteSpace(insuranceCode))
             throw ExpiredQuote();
 
         return Task.FromResult(
@@ -278,12 +303,12 @@ public sealed class ShippopShippingProvider(
                 Provider,
                 cleanQuoteReference,
                 service.CarrierCode,
-                parts[3],
+                parts[5],
                 service.DisplayName,
                 feeSatang,
-                0,
-                request.DeclaredValueSatang,
-                null,
+                insuranceFeeSatang,
+                declaredValueSatang,
+                insuranceCode,
                 expiresAt));
     }
 
@@ -294,8 +319,20 @@ public sealed class ShippopShippingProvider(
         EnsureConfigured();
         EnsureCapability(
             request.Quote.ServiceCode,
-            profile => profile.BookOutboundEnabled,
-            "outbound booking");
+            profile => request.IsReturn
+                ? profile.ReturnEnabled
+                : profile.BookOutboundEnabled,
+            request.IsReturn
+                ? "return booking"
+                : "outbound booking");
+        EnsureCapability(
+            request.Quote.ServiceCode,
+            profile => profile.InsuranceEnabled,
+            "full-value insurance");
+        EnsureCapability(
+            request.Quote.ServiceCode,
+            profile => profile.OperationLookupEnabled,
+            "operation lookup");
         ValidateRequest(request.Shipment);
         if (!string.Equals(
                 request.Quote.Provider,
@@ -310,6 +347,18 @@ public sealed class ShippopShippingProvider(
             throw new DomainException(
                 "ผู้ให้บริการขนส่งไม่ตรงกับราคาที่เลือก");
 
+        return await ExecuteMutationAsync(
+            () => ReserveMutationAsync(
+                request,
+                cancellationToken),
+            "shippop-booking-outcome-unknown",
+            cancellationToken);
+    }
+
+    private async Task<ShipmentReservation> ReserveMutationAsync(
+        ShipmentReservationRequest request,
+        CancellationToken cancellationToken)
+    {
         using var document = await PostJsonAsync(
             "booking/",
             new
@@ -321,7 +370,10 @@ public sealed class ShippopShippingProvider(
                     ShipmentPayload(
                         request.Shipment,
                         request.Quote.ServiceCode,
-                        request.TransactionId.ToString("N"),
+                        (request.ManagedShipmentId == Guid.Empty
+                                ? request.TransactionId
+                                : request.ManagedShipmentId)
+                            .ToString("N"),
                         showAll: false)
                 },
                 force_confirm = 0
@@ -397,24 +449,62 @@ public sealed class ShippopShippingProvider(
         CancellationToken cancellationToken)
     {
         EnsureConfigured();
-        var configuredServiceCode =
-            options.ServiceCodes.SingleOrDefault(
-            configured =>
+        var matchingServices = options.ServiceCodes
+            .Where(configured =>
                 TryMapService(configured)?.CarrierCode ==
-                carrierCode);
-        if (configuredServiceCode is not null)
-            EnsureCapability(
-                configuredServiceCode,
-                profile => profile.ConfirmEnabled,
-                "confirmation");
+                carrierCode)
+            .Take(2)
+            .ToArray();
+        if (matchingServices.Length != 1)
+            throw new DomainException(
+                "ไม่สามารถระบุบริการ SHIPPOP สำหรับการยืนยันได้");
+        return await ConfirmServiceAsync(
+            purchaseReference,
+            providerTrackingCode,
+            carrierCode,
+            matchingServices[0],
+            cancellationToken);
+    }
+
+    public async Task<ShipmentConfirmation> ConfirmServiceAsync(
+        string purchaseReference,
+        string providerTrackingCode,
+        string carrierCode,
+        string serviceCode,
+        CancellationToken cancellationToken)
+    {
+        EnsureConfigured();
+        EnsureCapability(
+            serviceCode,
+            profile => profile.ConfirmEnabled,
+            "confirmation");
+        var cleanPurchaseReference = Required(
+            purchaseReference,
+            "เลขอ้างอิงรายการขนส่ง");
+        var cleanProviderTrackingCode = Required(
+            providerTrackingCode,
+            "เลขติดตามจากผู้ให้บริการ");
+        return await ExecuteMutationAsync(
+            () => ConfirmMutationAsync(
+                cleanPurchaseReference,
+                cleanProviderTrackingCode,
+                carrierCode,
+                cancellationToken),
+            "shippop-confirm-outcome-unknown",
+            cancellationToken);
+    }
+
+    private async Task<ShipmentConfirmation> ConfirmMutationAsync(
+        string purchaseReference,
+        string providerTrackingCode,
+        string carrierCode,
+        CancellationToken cancellationToken)
+    {
         using var content = new MultipartFormDataContent
         {
             { new StringContent(options.ApiKey), "api_key" },
             {
-                new StringContent(
-                    Required(
-                        purchaseReference,
-                        "เลขอ้างอิงรายการขนส่ง")),
+                new StringContent(purchaseReference),
                 "purchase_id"
             }
         };
@@ -577,19 +667,94 @@ public sealed class ShippopShippingProvider(
         CancellationToken cancellationToken)
     {
         EnsureConfigured();
+        await CancelMutationBoundaryAsync(
+            courierTrackingCode,
+            cancellationToken);
+    }
+
+    public async Task CancelServiceAsync(
+        string courierTrackingCode,
+        string serviceCode,
+        bool isReturn,
+        CancellationToken cancellationToken)
+    {
+        EnsureConfigured();
+        EnsureCapability(
+            serviceCode,
+            profile => isReturn
+                ? profile.ReturnEnabled
+                : profile.BookOutboundEnabled,
+            isReturn
+                ? "return cancellation"
+                : "outbound cancellation");
+        await CancelMutationBoundaryAsync(
+            courierTrackingCode,
+            cancellationToken);
+    }
+
+    private async Task CancelMutationBoundaryAsync(
+        string courierTrackingCode,
+        CancellationToken cancellationToken)
+    {
+        var cleanCourierTrackingCode = Required(
+            courierTrackingCode,
+            "หมายเลขพัสดุ");
+        await ExecuteMutationAsync(
+            async () =>
+            {
+                await CancelMutationAsync(
+                    cleanCourierTrackingCode,
+                    cancellationToken);
+                return true;
+            },
+            "shippop-cancel-outcome-unknown",
+            cancellationToken);
+    }
+
+    private async Task CancelMutationAsync(
+        string courierTrackingCode,
+        CancellationToken cancellationToken)
+    {
         using var document = await PostJsonAsync(
             "cancel/",
             new
             {
                 api_key = options.ApiKey,
-                courier_tracking_code = Required(
-                    courierTrackingCode,
-                    "หมายเลขพัสดุ")
+                courier_tracking_code = courierTrackingCode
             },
             cancellationToken);
         EnsureProviderSuccess(
             document.RootElement,
             "ยกเลิกรายการจัดส่ง");
+    }
+
+    private static async Task<T> ExecuteMutationAsync<T>(
+        Func<Task<T>> mutation,
+        string sanitizedCode,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await mutation();
+        }
+        catch (OperationCanceledException)
+            when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (ShipmentMutationException)
+        {
+            throw;
+        }
+        catch
+        {
+            // Once an outbound request may have reached SHIPPOP, an HTTP
+            // error, timeout, malformed response, or contract mismatch
+            // cannot prove that the provider made no state change.
+            throw new ShipmentMutationException(
+                ShipmentMutationOutcome.OutcomeUnknown,
+                sanitizedCode);
+        }
     }
 
     private object ShipmentPayload(
@@ -716,15 +881,23 @@ public sealed class ShippopShippingProvider(
         ShippingQuoteRequest request,
         string serviceCode,
         long feeSatang,
+        long insuranceFeeSatang,
+        long declaredValueSatang,
+        string? insuranceCode,
         DateTimeOffset expiresAt)
     {
         var unsigned = string.Join(
             '.',
-            "sp1",
+            "sp2",
             expiresAt.ToUnixTimeSeconds()
                 .ToString(CultureInfo.InvariantCulture),
             feeSatang.ToString(CultureInfo.InvariantCulture),
+            insuranceFeeSatang.ToString(
+                CultureInfo.InvariantCulture),
+            declaredValueSatang.ToString(
+                CultureInfo.InvariantCulture),
             serviceCode.ToUpperInvariant(),
+            EncodeQuoteText(insuranceCode),
             RequestFingerprint(request),
             Base64Url(RandomNumberGenerator.GetBytes(8)));
         return $"{unsigned}.{Sign(unsigned)}";
@@ -733,11 +906,43 @@ public sealed class ShippopShippingProvider(
     private bool VerifyQuoteSignature(
         IReadOnlyList<string> parts)
     {
-        var unsigned = string.Join('.', parts.Take(6));
+        var unsigned = string.Join(
+            '.',
+            parts.Take(parts.Count - 1));
         var expected = Sign(unsigned);
         return CryptographicOperations.FixedTimeEquals(
             Encoding.ASCII.GetBytes(expected),
-            Encoding.ASCII.GetBytes(parts[6]));
+            Encoding.ASCII.GetBytes(parts[^1]));
+    }
+
+    private static string EncodeQuoteText(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? "-"
+            : Base64Url(
+                Encoding.UTF8.GetBytes(value.Trim()));
+
+    private static string? DecodeQuoteText(string encoded)
+    {
+        if (encoded == "-")
+            return null;
+        try
+        {
+            var padded = encoded
+                .Replace('-', '+')
+                .Replace('_', '/');
+            padded += new string(
+                '=',
+                (4 - padded.Length % 4) % 4);
+            var decoded = Encoding.UTF8.GetString(
+                Convert.FromBase64String(padded)).Trim();
+            return decoded.Length is > 0 and <= 80
+                ? decoded
+                : null;
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
     }
 
     private string Sign(string value)
@@ -793,11 +998,15 @@ public sealed class ShippopShippingProvider(
 
     private void EnsureConfigured()
     {
-        if (!Uri.TryCreate(
+        var validBaseUrl = Uri.TryCreate(
                 options.BaseUrl,
                 UriKind.Absolute,
-                out var uri) ||
-            uri.Scheme != Uri.UriSchemeHttps ||
+                out var uri) &&
+            string.IsNullOrEmpty(uri.UserInfo) &&
+            (uri.Scheme == Uri.UriSchemeHttps ||
+             (options.AllowInsecureHttp &&
+              uri.Scheme == Uri.UriSchemeHttp));
+        if (!validBaseUrl ||
             string.IsNullOrWhiteSpace(options.ApiKey) ||
             string.IsNullOrWhiteSpace(options.AccountEmail) ||
             options.QuoteSigningSecret.Length < 32)
@@ -1019,8 +1228,10 @@ public sealed class ShippopShippingProvider(
             "invalid" or "problem" or "return" or
                 "return_shipping" or "return_problem" or
                 "return_complete" or "return_return" or
-                "return_close" => "unverified",
-            _ => null
+                "return_close" => "carrier_exception",
+            "wait" or "booking" or "package_detail" or
+                "confirm" or "cancel" or "close" => null,
+            _ => "carrier_exception"
         };
 
     private static DateTimeOffset? LatestEventTime(

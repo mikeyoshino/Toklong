@@ -17,6 +17,11 @@ public sealed class ProviderShippingAdjustment
     public string CrmCaseReference { get; private set; } = "";
     public string ReasonCode { get; private set; } = "";
     public DateTimeOffset RecordedAt { get; private set; }
+    public string? ResolutionCode { get; private set; }
+    public string? ResolvedBy { get; private set; }
+    public DateTimeOffset? ResolvedAt { get; private set; }
+    public long Version { get; private set; }
+    public bool IsOpen => !ResolvedAt.HasValue;
 
     public static ProviderShippingAdjustment Create(
         Guid transactionId,
@@ -65,6 +70,29 @@ public sealed class ProviderShippingAdjustment
             ReasonCode = Required(reasonCode, "เหตุผล", 100),
             RecordedAt = recordedAt
         };
+    }
+
+    public void Resolve(
+        ActorRole actorRole,
+        string actorId,
+        string resolutionCode,
+        DateTimeOffset resolvedAt)
+    {
+        if (actorRole != ActorRole.Reconciliation)
+            throw new DomainException(
+                "เฉพาะเจ้าหน้าที่ที่ได้รับอนุญาตเท่านั้นที่ปิดยอดปรับค่าจัดส่งได้");
+        if (ResolvedAt.HasValue)
+            return;
+        ResolvedBy = Required(
+            actorId,
+            "ผู้ปิดยอดปรับ",
+            120);
+        ResolutionCode = Required(
+            resolutionCode,
+            "ผลการตรวจสอบ",
+            100);
+        ResolvedAt = resolvedAt;
+        Version++;
     }
 
     private static string Required(

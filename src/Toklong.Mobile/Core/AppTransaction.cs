@@ -79,6 +79,7 @@ public sealed record AppTransaction(
     bool ShippingManagedByProvider = false,
     string? TrackingNumber = null,
     bool ShippingLabelAvailable = false,
+    bool ReturnShippingLabelAvailable = false,
     DateTimeOffset? ShipByAt = null,
     DateTimeOffset? FirstCarrierScanAt = null,
     string? RefundProviderStatus = null,
@@ -597,25 +598,30 @@ public sealed record AppTransaction(
             ? "ได้รับของ"
             : "รับเงิน";
     public TransactionProgressStep ProgressOne =>
-        CreateProgressStep(1, ProgressOneLabel, "agreement");
+        CreateProgressStep(
+            1,
+            ProgressOneLabel,
+            Role == AppTransactionRole.Seller
+                ? TransactionProgressGlyph.SellerAgreementProof
+                : TransactionProgressGlyph.Agreement);
     public TransactionProgressStep ProgressTwo =>
         CreateProgressStep(
             2,
             ProgressTwoLabel,
             Role == AppTransactionRole.Buyer
-                ? "payment"
+                ? TransactionProgressGlyph.Payment
                 : FulfillmentType == AppFulfillmentType.Physical
-                    ? "physical_handoff"
-                    : "digital_handoff");
+                    ? TransactionProgressGlyph.SellerPhysicalShipmentProof
+                    : TransactionProgressGlyph.DigitalHandoff);
     public TransactionProgressStep ProgressThree =>
         CreateProgressStep(
             3,
             ProgressThreeLabel,
             Role == AppTransactionRole.Seller
-                ? "payout"
+                ? TransactionProgressGlyph.SellerPayoutProof
                 : FulfillmentType == AppFulfillmentType.Physical
-                    ? "physical_receipt"
-                    : "digital_handoff");
+                    ? TransactionProgressGlyph.PhysicalReceipt
+                    : TransactionProgressGlyph.DigitalHandoff);
     public string ProgressConnectorOneColor =>
         ProgressCompletedThrough >= 2
             ? CompletedProgressColor
@@ -675,20 +681,67 @@ public sealed record AppTransaction(
     private TransactionProgressStep CreateProgressStep(
         int step,
         string label,
-        string glyph)
+        TransactionProgressGlyph glyph)
     {
         var completed = step <= ProgressCompletedThrough;
+        var current =
+            Role == AppTransactionRole.Seller &&
+            !completed &&
+            step == ProgressActiveStep;
         var suffix = completed
             ? CompletedProgressVariant
-            : "disabled";
+            : current
+                ? "seller_current"
+                : "disabled";
+        var assetName = glyph switch
+        {
+            TransactionProgressGlyph.Agreement => "agreement",
+            TransactionProgressGlyph.Payment => "payment",
+            TransactionProgressGlyph.PhysicalHandoff =>
+                "physical_handoff",
+            TransactionProgressGlyph.PhysicalReceipt =>
+                "physical_receipt",
+            TransactionProgressGlyph.DigitalHandoff =>
+                "digital_handoff",
+            TransactionProgressGlyph.Payout => "payout",
+            TransactionProgressGlyph.SellerAgreementProof =>
+                "seller_agreement_proof",
+            TransactionProgressGlyph.SellerPhysicalShipmentProof =>
+                "seller_physical_shipment_proof",
+            TransactionProgressGlyph.SellerPayoutProof =>
+                "seller_payout_proof",
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(glyph))
+        };
+        var background = completed
+            ? CompletedProgressBackground
+            : current
+                ? "#EAFBF7"
+                : "#FFFFFF";
+        var stroke = completed
+            ? CompletedProgressColor
+            : current
+                ? "#087C68"
+                : ProgressIncomplete;
+        var labelColor = completed
+            ? CompletedProgressColor
+            : current
+                ? "#087C68"
+                : ProgressMuted;
+        var semanticState = completed
+            ? "เสร็จแล้ว"
+            : current
+                ? "ขั้นปัจจุบัน"
+                : "ยังไม่เสร็จ";
 
         return new TransactionProgressStep(
             label,
-            $"progress_{glyph}_{suffix}.png",
-            completed ? CompletedProgressBackground : "#FFFFFF",
-            completed ? CompletedProgressColor : ProgressIncomplete,
-            completed ? CompletedProgressColor : ProgressMuted,
-            $"{label} {(completed ? "เสร็จแล้ว" : "ยังไม่เสร็จ")}");
+            $"progress_{assetName}_{suffix}.png",
+            glyph,
+            background,
+            stroke,
+            labelColor,
+            $"{label} {semanticState}");
     }
 
 }

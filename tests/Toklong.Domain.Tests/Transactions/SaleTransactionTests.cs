@@ -530,6 +530,150 @@ public sealed class SaleTransactionTests
             item => item.EventId == "carrier-mismatch-001");
     }
 
+    [Fact]
+    public void Authorized_carrier_resolution_closes_managed_shipment_block()
+    {
+        var transaction = Shipped();
+        var shipment = ManagedShipment.CreateOutbound(
+            transaction.Id,
+            ManagedShipmentDraft(),
+            Start.AddHours(1));
+        transaction.QueueManagedShipment(
+            shipment,
+            ShippingOperation.Queue(
+                transaction.Id,
+                shipment.Id,
+                ShippingOperationType.BookOutbound,
+                $"book-outbound:{transaction.Id:N}:test",
+                new string('a', 64),
+                Start.AddHours(1)),
+            ActorRole.System,
+            "shipping-orchestrator",
+            Start.AddHours(1));
+        shipment.RecordReservation(
+            "purchase-001",
+            "provider-track-001",
+            "TH12345678",
+            Start.AddHours(1));
+        shipment.RecordConfirmation(
+            "TH12345678",
+            "booking",
+            Start.AddHours(1));
+        transaction.RecordManagedOutboundCarrierException(
+            shipment.Id,
+            "problem-001",
+            "problem",
+            "shippop",
+            Start.AddHours(2),
+            _transitions);
+
+        transaction.ResolveCarrierException(
+            TransactionState.RefundPending,
+            "crm-user",
+            "ตรวจหลักฐานแล้วให้คืนเงิน",
+            "CASE-SHIP-001",
+            "crm:shipping:resolve:001",
+            Start.AddHours(3),
+            _transitions);
+
+        Assert.Equal(
+            TransactionState.RefundPending,
+            transaction.State);
+        Assert.False(shipment.HasOpenException);
+        Assert.False(transaction.HasOpenShippingException);
+    }
+
+    [Fact]
+    public void Manual_return_resolution_closes_return_tracking_block()
+    {
+        var transaction = Delivered();
+        transaction.OpenDispute(
+            transaction.BuyerAccessToken!,
+            DisputeReason.NotAsDescribed,
+            "สินค้ามีความเสียหาย",
+            Start.AddHours(4),
+            _transitions);
+        transaction.BeginDisputeResolution(
+            "CASE-RETURN-001",
+            "crm-user",
+            "{}",
+            "crm:return:review:001",
+            Start.AddHours(5),
+            _transitions);
+        var shipment = ManagedShipment.CreateReturn(
+            transaction.Id,
+            ManagedShipmentDraft() with
+            {
+                OriginPrivateSnapshotReference =
+                    "buyer-return-origin",
+                DestinationPrivateSnapshotReference =
+                    "seller-return-destination"
+            },
+            Start.AddHours(5));
+        transaction.AuthorizeManagedReturn(
+            shipment,
+            ShippingOperation.Queue(
+                transaction.Id,
+                shipment.Id,
+                ShippingOperationType.BookReturn,
+                $"book-return:{transaction.Id:N}:test",
+                new string('b', 64),
+                Start.AddHours(5)),
+            "crm-user",
+            "CASE-RETURN-001",
+            "อนุมัติให้ส่งคืน",
+            "crm:return:authorize:001",
+            Start.AddHours(5));
+        shipment.RecordReservation(
+            "return-purchase-001",
+            "return-provider-track-001",
+            null,
+            Start.AddHours(5));
+        shipment.RecordConfirmation(
+            "RETURN123456TH",
+            "booking",
+            Start.AddHours(5));
+        var buyerTotalBeforeReturn =
+            transaction.BuyerTotalSatang;
+        transaction.RecordManagedReturnCost(
+            shipment.Id,
+            "shippop",
+            "return-purchase-001",
+            6_100,
+            Start.AddHours(5),
+            Start.AddHours(5));
+        transaction.RecordManagedReturnTrackingEvent(
+            shipment.Id,
+            "return-problem-001",
+            "carrier_exception",
+            "return_problem",
+            null,
+            "shippop",
+            Start.AddHours(6));
+
+        transaction.AuthorizeManualReturnResolution(
+            "RETURN-REVIEW-001",
+            "crm-user",
+            "ตรวจหลักฐานการส่งคืนจากผู้ให้บริการแล้ว",
+            "crm:return:manual:001",
+            Start.AddHours(7));
+
+        Assert.False(shipment.HasOpenException);
+        Assert.False(transaction.HasOpenShippingException);
+        Assert.Equal(
+            "RETURN-REVIEW-001",
+            transaction.ManualReturnResolutionReference);
+        Assert.Equal(
+            buyerTotalBeforeReturn,
+            transaction.BuyerTotalSatang);
+        var returnCost = Assert.Single(
+            transaction.ProviderShippingAdjustments);
+        Assert.Equal(
+            "authorized-return-cost",
+            returnCost.ReasonCode);
+        Assert.False(returnCost.IsOpen);
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
@@ -1746,6 +1890,26 @@ public sealed class SaleTransactionTests
                 Start.AddMinutes(1)));
         return transaction;
     }
+
+    private static ManagedShipmentDraft ManagedShipmentDraft() =>
+        new(
+            "shippop",
+            "seller-origin-snapshot",
+            "buyer-destination-snapshot",
+            "กล้องฟิล์ม",
+            1_200,
+            20,
+            30,
+            15,
+            "FLASH",
+            "FLE",
+            "Flash Express",
+            5_000,
+            1_100,
+            450_000,
+            "FULL_VALUE",
+            "quote-reference",
+            Start.AddHours(8));
 
     private SaleTransaction Checkout()
     {

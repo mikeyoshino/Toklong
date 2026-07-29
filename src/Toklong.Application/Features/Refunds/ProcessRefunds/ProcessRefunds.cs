@@ -2,6 +2,7 @@ using MediatR;
 using System.Text.Json;
 using Toklong.Application.Abstractions;
 using Toklong.Application.Common;
+using Toklong.Application.Features.Shipping;
 using Toklong.Domain.Common;
 using Toklong.Domain.Transactions;
 
@@ -28,7 +29,13 @@ public sealed class EvaluateShipmentDeadlinesHandler(
         foreach (var transaction in due)
         {
             if (transaction.MarkShipmentOverdue(now, transitions))
+            {
+                ManagedShippingOperationQueue
+                    .QueueCancellationIfRequired(
+                        transaction,
+                        now);
                 changed++;
+            }
         }
 
         if (changed > 0)

@@ -203,7 +203,7 @@
                                 Text="{Binding Transaction.DisplayAgreementDetails}"
                                 TextColor="{StaticResource InkSoft}" />
                         </VerticalStackLayout>
-                        <Grid ColumnDefinitions="*,Auto">
+                        <Grid ColumnDefinitions="*,*">
                             <Label
                                 FontSize="13"
                                 Text="สภาพสินค้า"
@@ -212,6 +212,8 @@
                                 Grid.Column="1"
                                 FontAttributes="Bold"
                                 FontSize="13"
+                                HorizontalOptions="Fill"
+                                HorizontalTextAlignment="End"
                                 Text="{Binding Transaction.ConditionLabel}"
                                 TextColor="{StaticResource Ink}" />
                         </Grid>
@@ -228,7 +230,7 @@
                                 Text="{Binding Transaction.KnownDefects}"
                                 TextColor="{StaticResource InkSoft}" />
                         </VerticalStackLayout>
-                        <Grid ColumnDefinitions="*,Auto">
+                        <Grid ColumnDefinitions="*,*">
                             <Label
                                 FontSize="13"
                                 Text="วิธีส่งมอบ"
@@ -237,6 +239,8 @@
                                 Grid.Column="1"
                                 FontAttributes="Bold"
                                 FontSize="13"
+                                HorizontalOptions="Fill"
+                                HorizontalTextAlignment="End"
                                 Text="{Binding Transaction.FulfillmentConsumerLabel}"
                                 TextColor="{StaticResource Ink}" />
                         </Grid>
@@ -258,7 +262,7 @@
                             IsVisible="{Binding Transaction.IsSellerRole}"
                             Spacing="7">
                             <BoxView HeightRequest="1" Color="{StaticResource Line}" />
-                            <Grid ColumnDefinitions="*,Auto">
+                            <Grid ColumnDefinitions="*,*">
                                 <Label
                                     FontSize="13"
                                     Text="ราคาสินค้า"
@@ -266,51 +270,14 @@
                                 <Label
                                     Grid.Column="1"
                                     FontSize="13"
+                                    HorizontalOptions="Fill"
+                                    HorizontalTextAlignment="End"
                                     Text="{Binding Transaction.ItemPriceText}"
                                     TextColor="{StaticResource Ink}" />
                             </Grid>
                             <Grid
                                 IsVisible="{Binding Transaction.HasShippingFee}"
-                                ColumnDefinitions="*,Auto">
-                                <Label
-                                    FontSize="13"
-                                    Text="ค่าจัดส่ง"
-                                    TextColor="{StaticResource Muted}" />
-                                <Label
-                                    Grid.Column="1"
-                                    FontSize="13"
-                                    Text="{Binding Transaction.ShippingFeeText}"
-                                    TextColor="{StaticResource Ink}" />
-                            </Grid>
-                            <Grid
-                                IsVisible="{Binding Transaction.HasParcelInsurance}"
-                                ColumnDefinitions="*,Auto">
-                                <Label
-                                    FontSize="13"
-                                    Text="ประกันพัสดุ"
-                                    TextColor="{StaticResource Muted}" />
-                                <Label
-                                    Grid.Column="1"
-                                    FontSize="13"
-                                    Text="{Binding Transaction.ParcelInsuranceFeeText}"
-                                    TextColor="{StaticResource Ink}" />
-                            </Grid>
-                            <Grid
-                                IsVisible="{Binding Transaction.HasParcelInsurance}"
-                                ColumnDefinitions="*,Auto">
-                                <Label
-                                    FontSize="13"
-                                    Text="มูลค่าที่เอาประกัน"
-                                    TextColor="{StaticResource Muted}" />
-                                <Label
-                                    Grid.Column="1"
-                                    FontSize="13"
-                                    Text="{Binding Transaction.ShippingDeclaredValueText}"
-                                    TextColor="{StaticResource Ink}" />
-                            </Grid>
-                            <Grid
-                                IsVisible="{Binding Transaction.HasShippingFee}"
-                                ColumnDefinitions="*,Auto">
+                                ColumnDefinitions="*,*">
                                 <Label
                                     FontSize="13"
                                     Text="ขนส่ง"
@@ -319,10 +286,12 @@
                                     Grid.Column="1"
                                     FontAttributes="Bold"
                                     FontSize="13"
+                                    HorizontalOptions="Fill"
+                                    HorizontalTextAlignment="End"
                                     Text="{Binding Transaction.ShippingServiceText}"
                                     TextColor="{StaticResource Ink}" />
                             </Grid>
-                            <Grid ColumnDefinitions="*,Auto">
+                            <Grid ColumnDefinitions="*,*">
                                 <Label
                                     FontAttributes="Bold"
                                     FontSize="14"
@@ -332,6 +301,8 @@
                                     Grid.Column="1"
                                     FontAttributes="Bold"
                                     FontSize="14"
+                                    HorizontalOptions="Fill"
+                                    HorizontalTextAlignment="End"
                                     Text="{Binding Transaction.SellerNetText}"
                                     TextColor="{StaticResource Success}" />
                             </Grid>
@@ -662,6 +633,26 @@
             </Border>
 
             <Border
+                IsVisible="{Binding CanDownloadReturnShippingLabel}"
+                Style="{StaticResource SurfaceCard}"
+                Padding="18">
+                <VerticalStackLayout Spacing="12">
+                    <Label
+                        Style="{StaticResource SectionTitle}"
+                        FontSize="18"
+                        Text="ส่งสินค้าคืน" />
+                    <Label
+                        Style="{StaticResource MutedText}"
+                        Text="ดาวน์โหลดใบปะหน้า ตรวจชื่อและที่อยู่ แล้วนำพัสดุไปส่งตามบริการที่ระบุ" />
+                    <Button
+                        AutomationId="OpenReturnShippingLabelButton"
+                        Style="{StaticResource RefinedPrimaryButton}"
+                        Command="{Binding OpenReturnShippingLabelCommand}"
+                        Text="ดูใบปะหน้าส่งคืน" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border
                 IsVisible="{Binding IsPhysicalFulfillmentAction}"
                 Style="{StaticResource SurfaceCard}"
                 Padding="18">
@@ -763,32 +754,50 @@
                         BackgroundColor="{Binding Transaction.RoleColor}"
                         Command="{Binding ConfirmReceiptCommand}"
                         Text="ตรวจแล้ว ทุกอย่างเรียบร้อย" />
-                    <BoxView HeightRequest="1" Color="{StaticResource Line}" />
-                    <Label
-                        Style="{StaticResource RefinedFormLabel}"
-                        Text="มีปัญหา" />
-                    <Border Style="{StaticResource RefinedInputBorder}">
-                        <Picker
-                            Style="{StaticResource RefinedPicker}"
-                            ItemDisplayBinding="{Binding Label}"
-                            ItemsSource="{Binding DisputeReasons}"
-                            SemanticProperties.Description="เลือกประเภทปัญหาที่พบ"
-                            SelectedItem="{Binding SelectedDisputeReason}"
-                            Title="เลือกปัญหาที่พบ" />
-                    </Border>
-                    <Border Style="{StaticResource RefinedEditorBorder}">
-                        <Editor
-                            Style="{StaticResource RefinedEditor}"
-                            AutoSize="TextChanges"
-                            SemanticProperties.Description="อธิบายปัญหาที่พบโดยไม่ใส่ข้อมูลลับ"
-                            Text="{Binding DisputeStatement}"
-                            Placeholder="อธิบายว่าเกิดอะไรขึ้น โดยไม่ใส่รหัสผ่านหรือข้อมูลลับ" />
-                    </Border>
                     <Button
-                        Style="{StaticResource SecondaryButton}"
-                        Command="{Binding ReportProblemCommand}"
-                        Text="แจ้งปัญหา"
-                        TextColor="{StaticResource Danger}" />
+                        AutomationId="ToggleProblemFormButton"
+                        HorizontalOptions="Start"
+                        Style="{StaticResource RefinedInlineButton}"
+                        Command="{Binding ToggleProblemFormCommand}"
+                        SemanticProperties.Description="{Binding ProblemFormToggleText}"
+                        Text="{Binding ProblemFormToggleText}"
+                        TextColor="{StaticResource Muted}" />
+                    <VerticalStackLayout
+                        AutomationId="ProblemReportForm"
+                        IsVisible="{Binding IsProblemFormExpanded}"
+                        Spacing="12">
+                        <BoxView
+                            HeightRequest="1"
+                            Color="{StaticResource Line}" />
+                        <Label
+                            Style="{StaticResource RefinedFormLabel}"
+                            Text="แจ้งปัญหา" />
+                        <Label
+                            Style="{StaticResource RefinedHelperText}"
+                            Text="เลือกประเภทและอธิบายสิ่งที่พบ ทีมงานจะหยุดขั้นตอนจ่ายเงินไว้ระหว่างตรวจสอบ" />
+                        <Border Style="{StaticResource RefinedInputBorder}">
+                            <Picker
+                                Style="{StaticResource RefinedPicker}"
+                                ItemDisplayBinding="{Binding Label}"
+                                ItemsSource="{Binding DisputeReasons}"
+                                SemanticProperties.Description="เลือกประเภทปัญหาที่พบ"
+                                SelectedItem="{Binding SelectedDisputeReason}"
+                                Title="เลือกปัญหาที่พบ" />
+                        </Border>
+                        <Border Style="{StaticResource RefinedEditorBorder}">
+                            <Editor
+                                Style="{StaticResource RefinedEditor}"
+                                AutoSize="TextChanges"
+                                SemanticProperties.Description="อธิบายปัญหาที่พบโดยไม่ใส่ข้อมูลลับ"
+                                Text="{Binding DisputeStatement}"
+                                Placeholder="อธิบายว่าเกิดอะไรขึ้น โดยไม่ใส่รหัสผ่านหรือข้อมูลลับ" />
+                        </Border>
+                        <Button
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding ReportProblemCommand}"
+                            Text="ส่งเรื่องให้ทีมตรวจสอบ"
+                            TextColor="{StaticResource Danger}" />
+                    </VerticalStackLayout>
                 </VerticalStackLayout>
             </Border>
 

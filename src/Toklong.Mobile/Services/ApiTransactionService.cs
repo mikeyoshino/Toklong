@@ -124,6 +124,30 @@ public sealed class ApiTransactionService(MobileApiClient api)
                 cancellationToken));
     }
 
+    public async Task<ShippingLabelFile>
+        DownloadReturnShippingLabelAsync(
+            Guid transactionId,
+            CancellationToken cancellationToken = default)
+    {
+        using var response = await api.SendAuthenticatedAsync(
+            () => new HttpRequestMessage(
+                HttpMethod.Get,
+                $"api/mobile/transactions/{transactionId}/return-shipping-label"),
+            cancellationToken);
+        await MobileApiClient.EnsureSuccessAsync(
+            response,
+            cancellationToken);
+        var fileName = response.Content.Headers.ContentDisposition
+            ?.FileNameStar?.Trim('"') ??
+            response.Content.Headers.ContentDisposition
+                ?.FileName?.Trim('"') ??
+            $"TOKLONG-return-label-{transactionId:N}.html";
+        return new ShippingLabelFile(
+            fileName,
+            await response.Content.ReadAsByteArrayAsync(
+                cancellationToken));
+    }
+
     public async Task<AppTransaction> CreateBuyerOfferAsync(
         CreateBuyerOfferRequest request,
         CancellationToken cancellationToken = default)

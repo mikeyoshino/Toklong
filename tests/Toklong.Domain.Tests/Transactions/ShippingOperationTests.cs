@@ -95,6 +95,45 @@ public sealed class ShippingOperationTests
     }
 
     [Fact]
+    public void Review_operation_requires_explicit_replay_proof_before_retry()
+    {
+        var operation = ShippingOperation.Queue(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            ShippingOperationType.BookReturn,
+            "book-return:review",
+            Fingerprint,
+            Now);
+        operation.Claim(
+            "worker-a",
+            Now,
+            TimeSpan.FromMinutes(5));
+        operation.SendToReview(
+            "worker-a",
+            "provider-result-mismatch",
+            Now.AddSeconds(20));
+
+        Assert.Throws<DomainException>(() =>
+            operation.ScheduleRetry(
+                "crm-user",
+                Now.AddMinutes(5),
+                "manual-review",
+                providerReplayProvenSafe: false,
+                Now.AddMinutes(1)));
+
+        operation.ScheduleRetry(
+            "crm-user",
+            Now.AddMinutes(5),
+            "authorized-provider-reconciliation",
+            providerReplayProvenSafe: true,
+            Now.AddMinutes(1));
+
+        Assert.Equal(
+            ShippingOperationStatus.RetryScheduled,
+            operation.Status);
+    }
+
+    [Fact]
     public void Matching_lease_owner_can_complete_operation_once()
     {
         var operation = ShippingOperation.Queue(
@@ -151,6 +190,16 @@ public sealed class ShippingOperationTests
 
         Assert.Equal(1_500, adjustment.AmountSatang);
         Assert.Equal("THB", adjustment.Currency);
+        Assert.True(adjustment.IsOpen);
+        adjustment.Resolve(
+            ActorRole.Reconciliation,
+            "crm-user",
+            "absorbed-by-platform",
+            Now.AddMinutes(2));
+        Assert.False(adjustment.IsOpen);
+        Assert.Equal(
+            "absorbed-by-platform",
+            adjustment.ResolutionCode);
         Assert.Throws<DomainException>(() =>
             ProviderShippingAdjustment.Create(
                 Guid.NewGuid(),

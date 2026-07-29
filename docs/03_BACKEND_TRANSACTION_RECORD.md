@@ -549,12 +549,19 @@ in_transit_at
 delivered_at
 last_provider_status
 last_reconciled_at
+exception_resolution_reference
+exception_resolved_by
+exception_resolved_at
 created_at
 version
 ```
 
 Outbound and return references are never interchangeable. A paid outbound
 snapshot is immutable; an approved return creates another managed shipment.
+`tracking_unverified` and `carrier_exception` block payout/refund while
+`exception_resolved_at` is null. An authorized resolution retains the shipment
+status as evidence, records actor/reference/time, and a later exception event
+clears that resolution and blocks money flow again.
 
 ### Shipping operation
 
@@ -589,7 +596,9 @@ version
 The idempotency key is unique. Provider credentials, raw address payloads, and
 unredacted responses are not operation fields. A mutation timeout becomes
 `outcome_unknown`; it cannot be replayed until the original provider outcome is
-reconciled or provider idempotency is proven.
+reconciled or provider idempotency is proven. An authorized retry requires a
+step-up CRM actor, reason, provider-outcome reference, and immutable audit
+event. `needs_review` has the same replay-proof requirement.
 
 ### Provider shipping adjustment
 
@@ -607,9 +616,15 @@ provider_occurred_at
 observed_at
 crm_case_reference
 created_at
+resolution_code
+resolved_by
+resolved_at
+version
 ```
 
-They never mutate the paid buyer total or seller payable.
+An adjustment is payout/refund-blocking while `resolved_at` is null. Only an
+authorized reconciliation actor may close it, and closing it records an
+immutable audit event. It never mutates the paid buyer total or seller payable.
 
 ### Shipping insurance case
 

@@ -16,6 +16,21 @@ for name in "${required[@]}"; do
   fi
 done
 
+case "${SHIPPOP_BASE_URL}" in
+  https://*)
+    ;;
+  http://*)
+    if [[ "${SHIPPOP_ALLOW_INSECURE_HTTP:-}" != "1" ]]; then
+      echo "HTTP requires SHIPPOP_ALLOW_INSECURE_HTTP=1 for explicit Dev certification opt-in." >&2
+      exit 2
+    fi
+    ;;
+  *)
+    echo "SHIPPOP_BASE_URL must use http:// or https://." >&2
+    exit 2
+    ;;
+esac
+
 export SHIPPOP_CERTIFY=1
 dotnet test \
   tests/Toklong.Shippop.Certification/Toklong.Shippop.Certification.csproj \

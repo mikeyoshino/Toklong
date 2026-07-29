@@ -142,13 +142,16 @@ public sealed class ShippingOperation
         DateTimeOffset now)
     {
         Required(actorId, "ผู้สั่ง retry", 120);
-        if (Status == ShippingOperationStatus.OutcomeUnknown &&
+        if (Status is (
+                ShippingOperationStatus.OutcomeUnknown or
+                ShippingOperationStatus.NeedsReview) &&
             !providerReplayProvenSafe)
             throw new DomainException(
                 "ยัง retry ไม่ได้จนกว่าจะพิสูจน์ผลเดิมจากผู้ให้บริการ");
         if (Status is not (
                 ShippingOperationStatus.Processing or
-                ShippingOperationStatus.OutcomeUnknown))
+                ShippingOperationStatus.OutcomeUnknown or
+                ShippingOperationStatus.NeedsReview))
             throw new DomainException(
                 "operation นี้ยังตั้ง retry ไม่ได้");
         if (nextAttemptAt <= now)

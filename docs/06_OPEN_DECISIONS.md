@@ -127,11 +127,13 @@ Items below require explicit product, operations, legal, payment-provider, logis
   price, shipping charge, parcel-insurance fee, declared value, buyer total,
   seller origin, package, and quote metadata. Quote validation is server-side
   and the paid tracking carrier cannot silently change.
-- Implemented: seller acceptance creates an unconfirmed SHIPPOP booking;
-  verified payment confirms that purchase, allocates tracking, and enables a
-  4×6 label. The Worker polls tracking and maps SHIPPOP `shipping` to in-transit
-  and `complete`/POD to delivered. Provider-managed transactions have no manual
-  tracking entry.
+- Implemented: seller acceptance commits an immutable managed-shipment intent
+  and `BookOutbound` operation first. The Worker creates an unconfirmed SHIPPOP
+  booking; only a matching provider result starts the one-hour payment window.
+  Verified payment queues `ConfirmOutbound`, which allocates tracking and
+  enables a 4×6 label. The Worker polls tracking and maps SHIPPOP `shipping` to
+  in-transit and trusted `complete`/POD to delivered. Provider-managed
+  transactions have no manual tracking entry.
 - Implemented security decision: do not consume SHIPPOP callbacks because the
   documented webhook payload has no verifiable signature. Use server-side
   polling until SHIPPOP supplies and contractually documents an authenticated,

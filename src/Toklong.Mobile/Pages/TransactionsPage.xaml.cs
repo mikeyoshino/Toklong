@@ -8,7 +8,7 @@ public partial class TransactionsPage :
     IQueryAttributable
 {
     private readonly TransactionsViewModel viewModel;
-    private CancellationTokenSource? refreshLoop;
+    private readonly RefreshLoopLifecycle refreshLoop = new();
 
     public TransactionsPage(TransactionsViewModel viewModel)
     {
@@ -31,19 +31,15 @@ public partial class TransactionsPage :
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        refreshLoop?.Cancel();
-        refreshLoop?.Dispose();
-        refreshLoop = new CancellationTokenSource();
+        var refreshToken = refreshLoop.Begin();
         await viewModel.LoadAsync();
-        _ = RefreshWhileVisibleAsync(
-            refreshLoop.Token);
+        if (refreshLoop.IsCurrent(refreshToken))
+            _ = RefreshWhileVisibleAsync(refreshToken);
     }
 
     protected override void OnDisappearing()
     {
-        refreshLoop?.Cancel();
-        refreshLoop?.Dispose();
-        refreshLoop = null;
+        refreshLoop.End();
         base.OnDisappearing();
     }
 

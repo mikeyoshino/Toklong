@@ -1,11 +1,64 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Toklong.Domain.Transactions;
 
 namespace Toklong.Application.Features.Shipping;
 
 public static class ManagedShippingOperationQueue
 {
+    public static string BookingFingerprint(
+        ManagedShipment shipment)
+    {
+        ArgumentNullException.ThrowIfNull(shipment);
+        return Fingerprint(
+            JsonSerializer.Serialize(new
+            {
+                shipment.TransactionId,
+                shipment.Direction,
+                shipment.Provider,
+                shipment.OriginPrivateSnapshotReference,
+                shipment.DestinationPrivateSnapshotReference,
+                shipment.ParcelName,
+                shipment.WeightGrams,
+                shipment.WidthCentimeters,
+                shipment.LengthCentimeters,
+                shipment.HeightCentimeters,
+                shipment.CarrierCode,
+                shipment.ServiceCode,
+                shipment.BaseShippingFeeSatang,
+                shipment.InsuranceFeeSatang,
+                shipment.DeclaredValueSatang,
+                shipment.InsuranceCode,
+                shipment.QuoteReference,
+                shipment.QuoteExpiresAt
+            }));
+    }
+
+    public static string ConfirmationFingerprint(
+        SaleTransaction transaction,
+        ManagedShipment shipment)
+    {
+        var prefix = shipment.Direction ==
+                     ShipmentDirection.Return
+            ? "confirm-return"
+            : "confirm";
+        return Fingerprint(
+            $"{prefix}|{transaction.Id:N}|{shipment.Id:N}|{shipment.PurchaseReference ?? ""}");
+    }
+
+    public static string CancellationFingerprint(
+        SaleTransaction transaction,
+        ManagedShipment shipment)
+    {
+        var prefix = shipment.Direction ==
+                     ShipmentDirection.Return
+            ? "cancel-return"
+            : "cancel";
+        return Fingerprint(
+            $"{prefix}|{transaction.Id:N}|{shipment.Id:N}|{shipment.PurchaseReference ?? ""}");
+    }
+
     public static void QueueConfirmationIfRequired(
         SaleTransaction transaction,
         DateTimeOffset now,
@@ -17,9 +70,9 @@ public static class ManagedShippingOperationQueue
                     item.Status == ManagedShipmentStatus.Reserved);
         if (shipment is null)
             return;
-        var reference = shipment.PurchaseReference ?? "";
-        var fingerprint = Fingerprint(
-            $"confirm|{transaction.Id:N}|{shipment.Id:N}|{reference}");
+        var fingerprint = ConfirmationFingerprint(
+            transaction,
+            shipment);
         transaction.QueueShippingOperation(
             ShippingOperation.Queue(
                 transaction.Id,
@@ -45,9 +98,9 @@ public static class ManagedShippingOperationQueue
         if (shipment is null ||
             shipment.FirstCarrierScanAt.HasValue)
             return;
-        var reference = shipment.PurchaseReference ?? "";
-        var fingerprint = Fingerprint(
-            $"cancel|{transaction.Id:N}|{shipment.Id:N}|{reference}");
+        var fingerprint = CancellationFingerprint(
+            transaction,
+            shipment);
         transaction.QueueShippingOperation(
             ShippingOperation.Queue(
                 transaction.Id,
@@ -58,6 +111,31 @@ public static class ManagedShippingOperationQueue
                 now),
             ActorRole.System,
             "payment-deadline-job",
+            now);
+    }
+
+    public static void QueueReturnConfirmationIfRequired(
+        SaleTransaction transaction,
+        DateTimeOffset now)
+    {
+        var shipment = transaction.ManagedShipments.SingleOrDefault(
+            item => item.Direction == ShipmentDirection.Return &&
+                    item.Status == ManagedShipmentStatus.Reserved);
+        if (shipment is null)
+            return;
+        var fingerprint = ConfirmationFingerprint(
+            transaction,
+            shipment);
+        transaction.QueueShippingOperation(
+            ShippingOperation.Queue(
+                transaction.Id,
+                shipment.Id,
+                ShippingOperationType.ConfirmReturn,
+                $"confirm-return:{transaction.Id:N}:{fingerprint}",
+                fingerprint,
+                now),
+            ActorRole.System,
+            "shipping-orchestrator",
             now);
     }
 
