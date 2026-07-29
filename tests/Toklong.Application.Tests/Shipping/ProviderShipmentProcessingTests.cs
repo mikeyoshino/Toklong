@@ -231,6 +231,9 @@ public sealed class ProviderShipmentProcessingTests
             "STANDARD",
             "Flash Express Standard",
             5_000,
+            0,
+            0,
+            null,
             Now.AddHours(2));
         var reservation = await provider.ReserveAsync(
             new ShipmentReservationRequest(
@@ -268,6 +271,9 @@ public sealed class ProviderShipmentProcessingTests
                 quote.ServiceCode,
                 quote.ServiceName,
                 quote.FeeSatang,
+                0,
+                0,
+                null,
                 quote.ExpiresAt,
                 "วัฒนา",
                 "คลองเตยเหนือ",

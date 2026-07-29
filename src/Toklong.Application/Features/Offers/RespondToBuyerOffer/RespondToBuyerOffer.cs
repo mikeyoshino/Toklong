@@ -175,7 +175,8 @@ public sealed class AcceptBuyerOfferHandler(
                 transaction.DeliveryPostalCode ??
                 throw new DomainException(
                     "ข้อเสนอไม่มีรหัสไปรษณีย์ปลายทาง")),
-            transaction.ProductName);
+            transaction.ProductName,
+            transaction.PriceSatang);
         var quote = await shippingQuotes.ValidateQuoteAsync(
             quoteRequest,
             input.QuoteReference,
@@ -214,7 +215,15 @@ public sealed class AcceptBuyerOfferHandler(
                 reservation.ServiceCode,
                 quote.ServiceCode,
                 StringComparison.Ordinal) ||
-            reservation.FeeSatang != quote.FeeSatang)
+            reservation.FeeSatang != quote.FeeSatang ||
+            reservation.InsuranceFeeSatang !=
+                quote.InsuranceFeeSatang ||
+            reservation.DeclaredValueSatang !=
+                quote.DeclaredValueSatang ||
+            !string.Equals(
+                reservation.InsuranceCode,
+                quote.InsuranceCode,
+                StringComparison.Ordinal))
             throw new DomainException(
                 "รายการจัดส่งไม่ตรงกับราคาที่เลือก กรุณาดูราคาใหม่");
         if (input.RememberOrigin &&
@@ -237,6 +246,9 @@ public sealed class AcceptBuyerOfferHandler(
             quote.ServiceCode,
             quote.ServiceName,
             quote.FeeSatang,
+            quote.InsuranceFeeSatang,
+            quote.DeclaredValueSatang,
+            quote.InsuranceCode,
             quote.ExpiresAt,
             origin.DistrictName,
             origin.SubdistrictName,

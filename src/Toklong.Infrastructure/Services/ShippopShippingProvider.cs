@@ -24,7 +24,7 @@ public sealed class ShippopShippingOptions
     public string QuoteSigningSecret { get; init; } = "";
     public int QuoteLifetimeMinutes { get; init; } = 120;
     public IReadOnlyList<string> ServiceCodes { get; init; } =
-        ["EMST", "FLE", "KRYX", "KRYS"];
+        [];
 
     public static ShippopShippingOptions From(
         IConfiguration configuration)
@@ -55,9 +55,7 @@ public sealed class ShippopShippingOptions
                     120),
                 61,
                 240),
-            ServiceCodes = configuredServices.Length == 0
-                ? SupportedServiceCodes.ToArray()
-                : configuredServices
+            ServiceCodes = configuredServices
         };
     }
 }
@@ -159,6 +157,9 @@ public sealed class ShippopShippingProvider(
                     serviceCode,
                     serviceName,
                     feeSatang,
+                    0,
+                    request.DeclaredValueSatang,
+                    null,
                     expiresAt));
         }
 
@@ -230,6 +231,9 @@ public sealed class ShippopShippingProvider(
                 parts[3],
                 service.DisplayName,
                 feeSatang,
+                0,
+                request.DeclaredValueSatang,
+                null,
                 expiresAt));
     }
 
@@ -326,6 +330,9 @@ public sealed class ShippopShippingProvider(
             returnedService.CarrierCode,
             returnedServiceCode,
             reservedFeeSatang,
+            0,
+            request.Shipment.DeclaredValueSatang,
+            null,
             clock.UtcNow);
     }
 
@@ -690,6 +697,7 @@ public sealed class ShippopShippingProvider(
             request.WidthCentimeters,
             request.LengthCentimeters,
             request.HeightCentimeters,
+            request.DeclaredValueSatang,
             ContactFingerprint(request.Origin),
             ContactFingerprint(request.Destination),
             request.ParcelName.Trim());

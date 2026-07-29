@@ -9,7 +9,8 @@ public sealed record ShippingQuoteRequest(
     int HeightCentimeters,
     ShippingContactAddress? Origin = null,
     ShippingContactAddress? Destination = null,
-    string ParcelName = "สินค้า");
+    string ParcelName = "สินค้า",
+    long DeclaredValueSatang = 0);
 
 public sealed record ShippingContactAddress(
     string Name,
@@ -27,6 +28,9 @@ public sealed record ShippingQuoteOption(
     string ServiceCode,
     string ServiceName,
     long FeeSatang,
+    long InsuranceFeeSatang,
+    long DeclaredValueSatang,
+    string? InsuranceCode,
     DateTimeOffset ExpiresAt);
 
 public interface IShippingQuoteProvider
@@ -55,6 +59,9 @@ public sealed record ShipmentReservation(
     string CarrierCode,
     string ServiceCode,
     long FeeSatang,
+    long InsuranceFeeSatang,
+    long DeclaredValueSatang,
+    string? InsuranceCode,
     DateTimeOffset ReservedAt);
 
 public sealed record ShipmentConfirmation(

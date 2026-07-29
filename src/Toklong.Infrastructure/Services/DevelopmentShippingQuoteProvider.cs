@@ -88,6 +88,12 @@ public sealed class DevelopmentShippingQuoteProvider(
         var feeSatang = checked(
             baseFeeSatang +
             additionalKilograms * 1_000L);
+        var insuranceFeeSatang =
+            request.DeclaredValueSatang > 0
+                ? Math.Max(
+                    100,
+                    request.DeclaredValueSatang / 100)
+                : 0;
         var reference =
             $"dev-ship-{Guid.NewGuid():N}";
         var option = new ShippingQuoteOption(
@@ -97,6 +103,11 @@ public sealed class DevelopmentShippingQuoteProvider(
             serviceCode,
             serviceName,
             feeSatang,
+            insuranceFeeSatang,
+            request.DeclaredValueSatang,
+            request.DeclaredValueSatang > 0
+                ? "DEV_FULL_VALUE"
+                : null,
             expiresAt);
         quotes[reference] = new StoredQuote(
             request,
@@ -147,6 +158,9 @@ public sealed class DevelopmentShippingQuoteProvider(
                 request.Quote.CarrierCode,
                 request.Quote.ServiceCode,
                 request.Quote.FeeSatang,
+                request.Quote.InsuranceFeeSatang,
+                request.Quote.DeclaredValueSatang,
+                request.Quote.InsuranceCode,
                 clock.UtcNow));
     }
 

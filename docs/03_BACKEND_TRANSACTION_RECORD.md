@@ -323,8 +323,9 @@ created_at
 
 Snapshot schema version 9 retains version 8 and adds the exact buyer-funded
 parcel-insurance fee, insurance code, declared value, and managed-shipment
-reference. Agreement-core schema version 7 adds the same shared material terms.
-Historical snapshots remain readable with no invented insurance coverage.
+reference. The current aggregate uses the same schema number for its
+agreement-core and paid-product documents, so new agreement cores also use
+version 9. Version 8 remains readable with no invented insurance coverage.
 
 Snapshot schema version 8 retains version 7's shipping and managed-booking
 fields and adds the exact buyer-funded Buyer Protection fee to the immutable

@@ -101,7 +101,8 @@ public sealed class GetShippingQuotesHandler(
                     transaction.DeliveryPostalCode ??
                     throw new DomainException(
                         "ข้อเสนอไม่มีรหัสไปรษณีย์ปลายทาง")),
-                transaction.ProductName),
+                transaction.ProductName,
+                transaction.PriceSatang),
             cancellationToken);
     }
 

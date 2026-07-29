@@ -199,10 +199,11 @@ The entity contains an immutable accepted shipment snapshot plus provider
 lifecycle fields. Outbound and return provider references cannot be reused or
 silently exchanged.
 
-New physical agreements use paid snapshot schema version 9 and agreement-core
-schema version 7. They add the parcel-insurance fee, insurance code, declared
-value, and managed-shipment reference. Historical snapshots remain readable
-without inventing coverage that did not exist.
+New physical agreements use schema version 9 for both the agreement-core and
+paid-product documents because the current aggregate has one shared schema
+number. They add the parcel-insurance fee, insurance code, declared value, and
+managed-shipment reference. Version 8 remains readable without inventing
+coverage that did not exist.
 
 ### 4.2 Shipping operation
 

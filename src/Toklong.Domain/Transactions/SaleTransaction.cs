@@ -15,7 +15,7 @@ public sealed class SaleTransaction
     public const int FinancialRetentionYears = 7;
     public const int SellerAcceptanceWindowHours = 24;
     public const int BuyerPaymentWindowHours = 1;
-    public const int AgreementSnapshotSchemaVersion = 8;
+    public const int AgreementSnapshotSchemaVersion = 9;
     public const long MinimumProtectedItemPriceSatang = 100_000;
     public const long MaximumProtectedItemPriceSatang = 99_999_900;
 
@@ -49,6 +49,9 @@ public sealed class SaleTransaction
     public string? PhotoUrl { get; private set; }
     public long PriceSatang { get; private set; }
     public long ShippingFeeSatang { get; private set; }
+    public long ParcelInsuranceFeeSatang { get; private set; }
+    public long ShippingDeclaredValueSatang { get; private set; }
+    public string? ShippingInsuranceCode { get; private set; }
     public long BuyerTotalSatang { get; private set; }
     public string Currency { get; private set; } = "THB";
     public int ShipByDurationHours { get; private set; }
@@ -489,6 +492,9 @@ public sealed class SaleTransaction
                 throw new DomainException(
                     "รายการดิจิทัลไม่ใช้ค่าจัดส่ง");
             ShippingFeeSatang = 0;
+            ParcelInsuranceFeeSatang = 0;
+            ShippingDeclaredValueSatang = 0;
+            ShippingInsuranceCode = null;
             BuyerTotalSatang = checked(
                 PriceSatang +
                 BuyerProtectionFeeSatang);
@@ -501,6 +507,29 @@ public sealed class SaleTransaction
         if (shipping.FeeSatang <= 0)
             throw new DomainException(
                 "ค่าจัดส่งไม่ถูกต้อง");
+        var hasInsurance =
+            shipping.InsuranceFeeSatang != 0 ||
+            shipping.DeclaredValueSatang != 0 ||
+            !string.IsNullOrWhiteSpace(
+                shipping.InsuranceCode);
+        if (shipping.InsuranceFeeSatang < 0 ||
+            shipping.DeclaredValueSatang < 0)
+            throw new DomainException(
+                "ค่าประกันพัสดุไม่ถูกต้อง");
+        if (hasInsurance &&
+            (shipping.InsuranceFeeSatang <= 0 ||
+             shipping.DeclaredValueSatang < PriceSatang ||
+             string.IsNullOrWhiteSpace(
+                 shipping.InsuranceCode)))
+            throw new DomainException(
+                "ประกันพัสดุต้องคุ้มครองเต็มมูลค่าสินค้า");
+        if (string.Equals(
+                shipping.Provider,
+                "shippop",
+                StringComparison.Ordinal) &&
+            !hasInsurance)
+            throw new DomainException(
+                "บริการ SHIPPOP ต้องมีประกันพัสดุเต็มมูลค่า");
         if (shipping.ExpiresAt <
             acceptedAt.AddHours(
                 BuyerPaymentWindowHours))
@@ -588,9 +617,19 @@ public sealed class SaleTransaction
         ShippingLastReconciledAt =
             ShippingReservedAt;
         ShippingFeeSatang = shipping.FeeSatang;
+        ParcelInsuranceFeeSatang =
+            shipping.InsuranceFeeSatang;
+        ShippingDeclaredValueSatang =
+            shipping.DeclaredValueSatang;
+        ShippingInsuranceCode = hasInsurance
+            ? Required(
+                shipping.InsuranceCode!,
+                "รหัสประกันพัสดุ")
+            : null;
         BuyerTotalSatang = checked(
             PriceSatang +
             ShippingFeeSatang +
+            ParcelInsuranceFeeSatang +
             BuyerProtectionFeeSatang);
     }
 
@@ -2065,7 +2104,7 @@ public sealed class SaleTransaction
 
         var schemaVersion = ReadSchemaVersion(
             AgreementCoreSnapshotJson);
-        if (schemaVersion is not (3 or 4 or 5 or
+        if (schemaVersion is not (3 or 4 or 5 or 8 or
             AgreementSnapshotSchemaVersion))
             return false;
 
@@ -2154,6 +2193,8 @@ public sealed class SaleTransaction
             return HasValidVersionFourSnapshot();
         if (SnapshotSchemaVersion == 5)
             return HasValidVersionFiveSnapshot();
+        if (SnapshotSchemaVersion == 8)
+            return HasValidVersionEightSnapshot();
 
         if (SnapshotSchemaVersion !=
                 AgreementSnapshotSchemaVersion ||
@@ -2447,6 +2488,25 @@ public sealed class SaleTransaction
                 TermsSnapshotHash!,
                 AgreementCoreSnapshotHash!));
 
+    private bool HasValidVersionEightSnapshot() =>
+        AgreementSnapshotCreatedAt is not null &&
+        !string.IsNullOrWhiteSpace(
+            ProductSnapshotJson) &&
+        !string.IsNullOrWhiteSpace(
+            ProductSnapshotHash) &&
+        HasValidAgreementCoreSnapshot() &&
+        HasMatchingPartyAcceptances() &&
+        SecureEquals(
+            ProductSnapshotHash,
+            Hash(ProductSnapshotJson)) &&
+        SecureEquals(
+            ProductSnapshotJson,
+            BuildProductSnapshotJson(
+                8,
+                AgreementSnapshotCreatedAt.Value,
+                TermsSnapshotHash!,
+                AgreementCoreSnapshotHash!));
+
     private string BuildTermsSnapshotJson(
         int schemaVersion)
     {
@@ -2582,6 +2642,15 @@ public sealed class SaleTransaction
             JsonNode.Parse(currentJson)!.AsObject();
         currentSnapshot[nameof(BuyerProtectionFeeSatang)] =
             BuyerProtectionFeeSatang;
+        if (schemaVersion >= 9 &&
+            currentSnapshot["Rules"] is JsonObject rules)
+        {
+            rules["BuyerPaysParcelInsurance"] =
+                FulfillmentType ==
+                FulfillmentType.PhysicalShipment;
+            rules["ParcelInsuranceExcludedFromSellerNet"] =
+                true;
+        }
         return currentSnapshot.ToJsonString();
     }
 
@@ -2812,6 +2881,9 @@ public sealed class SaleTransaction
             JsonNode.Parse(currentJson)!.AsObject();
         currentSnapshot[nameof(BuyerProtectionFeeSatang)] =
             BuyerProtectionFeeSatang;
+        if (schemaVersion >= 9)
+            AddInsuranceSnapshotFields(
+                currentSnapshot);
         return currentSnapshot.ToJsonString();
     }
 
@@ -3062,7 +3134,30 @@ public sealed class SaleTransaction
             JsonNode.Parse(currentJson)!.AsObject();
         currentSnapshot[nameof(BuyerProtectionFeeSatang)] =
             BuyerProtectionFeeSatang;
+        if (schemaVersion >= 9)
+            AddInsuranceSnapshotFields(
+                currentSnapshot);
         return currentSnapshot.ToJsonString();
+    }
+
+    private void AddInsuranceSnapshotFields(
+        JsonObject snapshot)
+    {
+        snapshot[nameof(ParcelInsuranceFeeSatang)] =
+            ParcelInsuranceFeeSatang;
+        snapshot[nameof(ShippingDeclaredValueSatang)] =
+            ShippingDeclaredValueSatang;
+        snapshot[nameof(ShippingInsuranceCode)] =
+            ShippingInsuranceCode;
+        if (snapshot["Shipping"] is JsonObject shipping)
+        {
+            shipping[nameof(ParcelInsuranceFeeSatang)] =
+                ParcelInsuranceFeeSatang;
+            shipping[nameof(ShippingDeclaredValueSatang)] =
+                ShippingDeclaredValueSatang;
+            shipping[nameof(ShippingInsuranceCode)] =
+                ShippingInsuranceCode;
+        }
     }
 
     private string SnapshotAuditMetadata() =>
@@ -3251,6 +3346,9 @@ public sealed record AcceptedShippingQuote(
     string ServiceCode,
     string ServiceName,
     long FeeSatang,
+    long InsuranceFeeSatang,
+    long DeclaredValueSatang,
+    string? InsuranceCode,
     DateTimeOffset ExpiresAt,
     string? OriginDistrictName = null,
     string? OriginSubdistrictName = null,

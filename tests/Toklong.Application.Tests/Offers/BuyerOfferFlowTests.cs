@@ -140,7 +140,16 @@ public sealed class BuyerOfferFlowTests
             accepted.State);
         Assert.Equal(450_000, accepted.PriceSatang);
         Assert.Equal(5_000, accepted.ShippingFeeSatang);
-        Assert.Equal(473_000, accepted.BuyerTotalSatang);
+        Assert.Equal(
+            1_100,
+            accepted.ParcelInsuranceFeeSatang);
+        Assert.Equal(
+            450_000,
+            accepted.ShippingDeclaredValueSatang);
+        Assert.Equal(
+            "TEST_FULL_VALUE",
+            accepted.ShippingInsuranceCode);
+        Assert.Equal(474_100, accepted.BuyerTotalSatang);
         Assert.Equal(18_000, accepted.BuyerProtectionFeeSatang);
         Assert.Equal(0, accepted.PlatformFeeSatang);
         Assert.Equal(450_000, accepted.SellerExpectedNetSatang);
@@ -572,6 +581,9 @@ public sealed class BuyerOfferFlowTests
                     request.Quote.CarrierCode,
                     request.Quote.ServiceCode,
                     request.Quote.FeeSatang,
+                    request.Quote.InsuranceFeeSatang,
+                    request.Quote.DeclaredValueSatang,
+                    request.Quote.InsuranceCode,
                     Now));
 
         public Task<ShipmentTrackingUpdate> GetTrackingAsync(
@@ -605,6 +617,9 @@ public sealed class BuyerOfferFlowTests
                 "STANDARD",
                 "Flash Express Standard",
                 5_000,
+                1_100,
+                450_000,
+                "TEST_FULL_VALUE",
                 Now.AddHours(2));
     }
 }

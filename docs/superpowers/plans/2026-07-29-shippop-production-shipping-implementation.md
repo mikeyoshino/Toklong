@@ -34,8 +34,8 @@ MAUI, xUnit 2.9.
 - The seller must not see Buyer Protection fee or buyer total.
 - The buyer sees separate item, shipping, parcel-insurance, Buyer Protection,
   and total rows before payment.
-- New physical snapshots use schema version 9 and agreement-core schema version
-  7; paid snapshots are immutable.
+- New physical agreement-core and paid-product snapshots use schema version 9;
+  version 8 remains readable and paid snapshots are immutable.
 - SHIPPOP credentials remain server-side secrets and must never enter Git,
   mobile payloads, logs, analytics, or test fixtures.
 - Production services `EMST`, `FLE`, `KRYX`, and `KRYS` are drop-off only and
@@ -261,11 +261,11 @@ git commit -m "fix: require trusted SHIPPOP delivery time"
 
 **Interfaces:**
 - Produces: `ShippingQuoteOption` insurance fields.
-- Produces: snapshot version 9 and agreement-core version 7.
+- Produces: agreement-core and paid-product snapshot version 9.
 - Produces: `SaleTransaction.ParcelInsuranceFeeSatang`,
   `ShippingDeclaredValueSatang`, and `ShippingInsuranceCode`.
 
-- [ ] **Step 1: Add failing integer-money and seller-net tests**
+- [x] **Step 1: Add failing integer-money and seller-net tests**
 
 Test a 120,000-satang item, 5,200-satang shipping, 1,100-satang insurance, and
 5,900-satang Buyer Protection:
@@ -281,7 +281,7 @@ Assert.Equal(9, transaction.SnapshotSchemaVersion);
 Also assert negative insurance, coverage below item price, and checked overflow
 throw `DomainException`.
 
-- [ ] **Step 2: Extend quote and reservation contracts**
+- [x] **Step 2: Extend quote and reservation contracts**
 
 Use these exact fields:
 
@@ -306,13 +306,12 @@ public sealed record ShippingQuoteOption(
 `ShipmentReservation` repeats all four money/insurance values returned by the
 provider. Quote fingerprints bind those values.
 
-- [ ] **Step 3: Update agreement and paid snapshots**
+- [x] **Step 3: Update agreement and paid snapshots**
 
 Set:
 
 ```csharp
 public const int AgreementSnapshotSchemaVersion = 9;
-public const int AgreementCoreSchemaVersion = 7;
 ```
 
 Calculate:
@@ -329,15 +328,16 @@ Include shipping fee, insurance fee/code, declared value, service, expiry, and
 seller net in the immutable agreement core. Do not add provider lifecycle
 timestamps or full addresses to the shared core.
 
-- [ ] **Step 4: Keep SHIPPOP services disabled without certified insurance**
+- [x] **Step 4: Keep SHIPPOP services disabled without certified insurance**
 
-Add `ShippopServiceProfile` configuration with `Enabled`, `HandoffMode`,
-`InsuranceCode`, `MaximumDeclaredValueSatang`, and
-`CertificationReference`. `GetQuotesAsync` omits a service unless all values
-are present, handoff is `DropOff`, the item value is covered, and `Enabled` is
-true. Defaults for all four service codes are disabled.
+Default the enabled SHIPPOP service-code list to empty in code and server
+configuration. A SHIPPOP quote without positive insurance fee, full declared
+value, and insurance code is rejected by the domain before seller acceptance.
+Task 10 adds the per-service certified profile and only then permits production
+quotes for that service. This avoids inventing premium fields before provider
+certification.
 
-- [ ] **Step 5: Run money, offer, and provider tests**
+- [x] **Step 5: Run money, offer, and provider tests**
 
 Run:
 
@@ -350,7 +350,7 @@ dotnet test tests/Toklong.Application.Tests/Toklong.Application.Tests.csproj \
 
 Expected: PASS with no floating-point money operations.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/Toklong.Application/Abstractions/IShippingQuoteProvider.cs \

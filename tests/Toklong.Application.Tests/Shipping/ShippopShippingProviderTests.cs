@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 using Toklong.Application.Abstractions;
 using Toklong.Domain.Common;
 using Toklong.Infrastructure.Services;
@@ -11,6 +12,21 @@ public sealed class ShippopShippingProviderTests
 {
     private static readonly DateTimeOffset Now =
         new(2026, 7, 26, 1, 0, 0, TimeSpan.Zero);
+
+    [Fact]
+    public void Options_without_explicit_certification_keep_all_services_disabled()
+    {
+        var configuration =
+            new ConfigurationBuilder()
+                .AddInMemoryCollection(
+                    new Dictionary<string, string?>())
+                .Build();
+
+        var options = ShippopShippingOptions.From(
+            configuration);
+
+        Assert.Empty(options.ServiceCodes);
+    }
 
     [Fact]
     public async Task Quote_is_integer_satang_and_signed_for_exact_request()
@@ -345,6 +361,9 @@ public sealed class ShippopShippingProviderTests
             "EMST",
             "ไปรษณีย์ไทย EMS",
             5_200,
+            0,
+            0,
+            null,
             Now.AddHours(2));
 
     private static HttpResponseMessage Json(

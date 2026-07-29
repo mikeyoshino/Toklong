@@ -30,6 +30,9 @@ public static class TestTransactionFactory
             "STANDARD",
             "Flash Express Standard",
             feeSatang,
+            0,
+            0,
+            null,
             acceptedAt.AddHours(2));
 
     public static SaleTransaction CreateBuyerOffer(
