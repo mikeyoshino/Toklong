@@ -16,10 +16,6 @@ public sealed record AcceptBuyerOfferCommand(
     Guid PayoutAccountId,
     bool TransferRightsAttested,
     bool SellerAcceptedTerms,
-    long DisclosedBuyerProtectionFeeSatang,
-    long DisclosedPlatformFeeSatang,
-    long DisclosedSellerExpectedNetSatang,
-    string DisclosedFeePolicyVersion,
     SellerShippingSelectionInput? Shipping = null) : IRequest<TransactionView>;
 
 public sealed record SellerShippingSelectionInput(
@@ -34,17 +30,13 @@ public sealed record SellerShippingSelectionInput(
     int LengthCentimeters,
     int HeightCentimeters,
     string QuoteReference,
-    long DisclosedShippingFeeSatang,
-    long DisclosedInsuranceFeeSatang = 0,
-    long DisclosedDeclaredValueSatang = 0,
-    string? DisclosedInsuranceCode = null);
+    long DisclosedShippingFeeSatang);
 
 public sealed class AcceptBuyerOfferHandler(
     ITransactionRepository repository,
     ISellerRepository sellers,
     IPaymentFeePolicy feePolicy,
     IShippingQuoteProvider shippingQuotes,
-    IShipmentProvider shipmentProvider,
     IThaiAddressCatalog addressCatalog,
     IUnitOfWork unitOfWork,
     IClock clock,
@@ -77,16 +69,6 @@ public sealed class AcceptBuyerOfferHandler(
             x => x.Id == request.PayoutAccountId)
             ?? throw new DomainException("กรุณาเลือกบัญชีรับเงินของคุณ");
         var fees = feePolicy.GetDisclosure(transaction.PriceSatang);
-        if (fees.PlatformFeeSatang !=
-                request.DisclosedPlatformFeeSatang ||
-            fees.SellerExpectedNetSatang !=
-                request.DisclosedSellerExpectedNetSatang ||
-            !string.Equals(
-                fees.PolicyVersion,
-                request.DisclosedFeePolicyVersion,
-                StringComparison.Ordinal))
-            throw new DomainException(
-                "ข้อมูลค่าบริการเปลี่ยนแล้ว กรุณาตรวจยอดล่าสุดก่อนยืนยันอีกครั้ง");
         var acceptedShipping = transaction.FulfillmentType ==
             FulfillmentType.PhysicalShipment
                 ? await ResolveShippingAsync(
@@ -102,76 +84,21 @@ public sealed class AcceptBuyerOfferHandler(
             throw new DomainException(
                 "รายการดิจิทัลไม่ใช้ข้อมูลจัดส่ง");
 
-        if (acceptedShipping is not null &&
-            string.Equals(
-                acceptedShipping.Provider,
-                "shippop",
-                StringComparison.Ordinal))
-        {
-            var shipment = ManagedShipment.CreateOutbound(
-                transaction.Id,
-                new ManagedShipmentDraft(
-                    acceptedShipping.Provider,
-                    $"shipping-origin:{transaction.Id:N}",
-                    $"shipping-destination:{transaction.Id:N}",
-                    transaction.ProductName,
-                    acceptedShipping.WeightGrams,
-                    acceptedShipping.WidthCentimeters,
-                    acceptedShipping.LengthCentimeters,
-                    acceptedShipping.HeightCentimeters,
-                    acceptedShipping.CarrierCode,
-                    acceptedShipping.ServiceCode,
-                    acceptedShipping.ServiceName,
-                    acceptedShipping.FeeSatang,
-                    acceptedShipping.InsuranceFeeSatang,
-                    acceptedShipping.DeclaredValueSatang,
-                    acceptedShipping.InsuranceCode,
-                    acceptedShipping.QuoteReference,
-                    acceptedShipping.ExpiresAt),
-                now);
-            var fingerprint = ShippingFingerprint(shipment);
-            var operation = ShippingOperation.Queue(
-                transaction.Id,
-                shipment.Id,
-                ShippingOperationType.BookOutbound,
-                $"book-outbound:{transaction.Id:N}:{fingerprint}",
-                fingerprint,
-                now);
-            transaction.BeginManagedSellerAcceptance(
-                seller.Id,
-                seller.DisplayName,
-                seller.PhoneNumber,
-                payout.BankCode,
-                payout.AccountName,
-                payout.AccountNumber,
-                request.TransferRightsAttested,
-                now,
-                fees.BuyerProtectionFeeSatang,
-                fees.PlatformFeeSatang,
-                fees.SellerExpectedNetSatang,
-                fees.PolicyVersion,
-                acceptedShipping,
-                shipment,
-                operation);
-        }
-        else
-        {
-            transaction.AcceptBuyerOffer(
-                seller.Id,
-                seller.DisplayName,
-                seller.PhoneNumber,
-                payout.BankCode,
-                payout.AccountName,
-                payout.AccountNumber,
-                request.TransferRightsAttested,
-                now,
-                transitions,
-                fees.BuyerProtectionFeeSatang,
-                fees.PlatformFeeSatang,
-                fees.SellerExpectedNetSatang,
-                fees.PolicyVersion,
-                acceptedShipping);
-        }
+        transaction.AcceptBuyerOffer(
+            seller.Id,
+            seller.DisplayName,
+            seller.PhoneNumber,
+            payout.BankCode,
+            payout.AccountName,
+            payout.AccountNumber,
+            request.TransferRightsAttested,
+            now,
+            transitions,
+            fees.BuyerProtectionFeeSatang,
+            fees.PlatformFeeSatang,
+            fees.SellerExpectedNetSatang,
+            fees.PolicyVersion,
+            acceptedShipping);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return TransactionView.From(transaction);
@@ -239,16 +166,6 @@ public sealed class AcceptBuyerOfferHandler(
             input.QuoteReference,
             input.DisclosedShippingFeeSatang,
             cancellationToken);
-        if (quote.InsuranceFeeSatang !=
-                input.DisclosedInsuranceFeeSatang ||
-            quote.DeclaredValueSatang !=
-                input.DisclosedDeclaredValueSatang ||
-            !string.Equals(
-                quote.InsuranceCode,
-                input.DisclosedInsuranceCode,
-                StringComparison.Ordinal))
-            throw new DomainException(
-                "ข้อมูลประกันพัสดุเปลี่ยนแล้ว กรุณาดูราคาใหม่");
         if (quote.ExpiresAt <
             now.AddHours(
                 SaleTransaction.BuyerPaymentWindowHours))
@@ -258,48 +175,6 @@ public sealed class AcceptBuyerOfferHandler(
                 quote.CarrierCode) is null)
             throw new DomainException(
                 "ผู้ให้บริการส่งบริษัทขนส่งที่ระบบยังไม่รองรับ");
-        if (!string.Equals(
-                shipmentProvider.ProviderName,
-                quote.Provider,
-                StringComparison.Ordinal))
-            throw new DomainException(
-                "ผู้ให้บริการสร้างรายการจัดส่งไม่ตรงกับราคาที่เลือก");
-        ShipmentReservation? reservation = null;
-        if (!string.Equals(
-                quote.Provider,
-                "shippop",
-                StringComparison.Ordinal))
-        {
-            reservation = await shipmentProvider.ReserveAsync(
-                new ShipmentReservationRequest(
-                    transaction.Id,
-                    quoteRequest,
-                    quote),
-                cancellationToken);
-            if (!string.Equals(
-                    reservation.Provider,
-                    quote.Provider,
-                    StringComparison.Ordinal) ||
-                !string.Equals(
-                    reservation.CarrierCode,
-                    quote.CarrierCode,
-                    StringComparison.Ordinal) ||
-                !string.Equals(
-                    reservation.ServiceCode,
-                    quote.ServiceCode,
-                    StringComparison.Ordinal) ||
-                reservation.FeeSatang != quote.FeeSatang ||
-                reservation.InsuranceFeeSatang !=
-                    quote.InsuranceFeeSatang ||
-                reservation.DeclaredValueSatang !=
-                    quote.DeclaredValueSatang ||
-                !string.Equals(
-                    reservation.InsuranceCode,
-                    quote.InsuranceCode,
-                    StringComparison.Ordinal))
-                throw new DomainException(
-                    "รายการจัดส่งไม่ตรงกับราคาที่เลือก กรุณาดูราคาใหม่");
-        }
         if (input.RememberOrigin &&
             !input.UseSavedOrigin)
             seller.UpdateSavedShippingOrigin(
@@ -326,17 +201,12 @@ public sealed class AcceptBuyerOfferHandler(
             quote.ExpiresAt,
             origin.DistrictName,
             origin.SubdistrictName,
-            reservation?.PurchaseReference,
-            reservation?.ProviderTrackingCode,
-            reservation?.CourierTrackingCode,
-            reservation?.ReservedAt,
+            null,
+            null,
+            null,
+            null,
             origin.AddressLine);
     }
-
-    private static string ShippingFingerprint(
-        ManagedShipment shipment) =>
-        ManagedShippingOperationQueue.BookingFingerprint(
-            shipment);
 
     private SellerShippingOriginAddress ResolveOrigin(
         SellerShippingSelectionInput input)

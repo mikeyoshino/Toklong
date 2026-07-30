@@ -102,10 +102,6 @@ public sealed class ApiSellerOfferService(
         Guid payoutAccountId,
         bool transferRightsAttested,
         bool sellerAcceptedTerms,
-        long disclosedBuyerProtectionFeeSatang,
-        long disclosedPlatformFeeSatang,
-        long disclosedSellerExpectedNetSatang,
-        string disclosedFeePolicyVersion,
         SellerShippingSelection? shipping,
         CancellationToken cancellationToken = default)
     {
@@ -116,12 +112,6 @@ public sealed class ApiSellerOfferService(
                 PayoutAccountId = payoutAccountId,
                 TransferRightsAttested = transferRightsAttested,
                 SellerAcceptedTerms = sellerAcceptedTerms,
-                DisclosedBuyerProtectionFeeSatang =
-                    disclosedBuyerProtectionFeeSatang,
-                DisclosedPlatformFeeSatang = disclosedPlatformFeeSatang,
-                DisclosedSellerExpectedNetSatang =
-                    disclosedSellerExpectedNetSatang,
-                DisclosedFeePolicyVersion = disclosedFeePolicyVersion,
                 Shipping = shipping
             },
             cancellationToken);

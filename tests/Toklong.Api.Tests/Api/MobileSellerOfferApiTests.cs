@@ -158,18 +158,17 @@ public sealed class MobileSellerOfferApiTests
                 "\"BuyerProtectionFeeSatang\"",
                 invitationJson,
                 StringComparison.Ordinal);
+            Assert.DoesNotContain(
+                "feePolicyVersion",
+                invitationJson,
+                StringComparison.OrdinalIgnoreCase);
             var invitation = JsonSerializer.Deserialize<SellerOfferResponse>(
                 invitationJson,
                 new JsonSerializerOptions(JsonSerializerDefaults.Web));
             Assert.NotNull(invitation);
-            Assert.Equal(0, invitation.BuyerProtectionFeeSatang);
-            Assert.Equal(0, invitation.PlatformFeeSatang);
             Assert.Equal(
                 example.ItemPriceSatang,
                 invitation.SellerExpectedNetSatang);
-            Assert.Equal(
-                "buyer-protection-v2",
-                invitation.FeePolicyVersion);
 
             using var quoteResponse = await client.PostAsJsonAsync(
                 $"/api/mobile/seller-offers/{publicToken}/shipping-quotes",
@@ -186,8 +185,12 @@ public sealed class MobileSellerOfferApiTests
                     HeightCentimeters = 10
                 });
             quoteResponse.EnsureSuccessStatusCode();
-            var quotes = await quoteResponse.Content
-                .ReadFromJsonAsync<IReadOnlyList<ShippingQuoteResponse>>();
+            var quoteJson = await quoteResponse.Content.ReadAsStringAsync();
+            Assert.DoesNotContain("insurance", quoteJson, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("declaredValue", quoteJson, StringComparison.OrdinalIgnoreCase);
+            var quotes = JsonSerializer.Deserialize<IReadOnlyList<ShippingQuoteResponse>>(
+                quoteJson,
+                new JsonSerializerOptions(JsonSerializerDefaults.Web));
             Assert.NotNull(quotes);
             var quote = Assert.Single(
                 quotes,
@@ -200,14 +203,6 @@ public sealed class MobileSellerOfferApiTests
                     PayoutAccountId = payout.Id,
                     TransferRightsAttested = true,
                     SellerAcceptedTerms = true,
-                    DisclosedBuyerProtectionFeeSatang =
-                        invitation.BuyerProtectionFeeSatang,
-                    DisclosedPlatformFeeSatang =
-                        invitation.PlatformFeeSatang,
-                    DisclosedSellerExpectedNetSatang =
-                        invitation.SellerExpectedNetSatang,
-                    DisclosedFeePolicyVersion =
-                        invitation.FeePolicyVersion,
                     Shipping = new
                     {
                         UseSavedOrigin = false,
@@ -222,13 +217,7 @@ public sealed class MobileSellerOfferApiTests
                         HeightCentimeters = 10,
                         quote.QuoteReference,
                         DisclosedShippingFeeSatang =
-                            quote.FeeSatang,
-                        DisclosedInsuranceFeeSatang =
-                            quote.InsuranceFeeSatang,
-                        DisclosedDeclaredValueSatang =
-                            quote.DeclaredValueSatang,
-                        DisclosedInsuranceCode =
-                            quote.InsuranceCode
+                            quote.FeeSatang
                     }
                 });
             Assert.True(
@@ -285,7 +274,6 @@ public sealed class MobileSellerOfferApiTests
             Assert.Equal(
                 example.ItemPriceSatang +
                 quote.FeeSatang +
-                stored.ParcelInsuranceFeeSatang +
                 example.FeeSatang,
                 stored.BuyerTotalSatang);
             Assert.Equal(
@@ -439,7 +427,7 @@ public sealed class MobileSellerOfferApiTests
     }
 
     [Fact]
-    public async Task Seller_transaction_json_omits_buyer_only_parcel_protection_price()
+    public async Task Seller_transaction_json_never_contains_parcel_protection_fields()
     {
         using var localFactory = factory.WithWebHostBuilder(_ => { });
         Guid transactionId;
@@ -552,6 +540,26 @@ public sealed class MobileSellerOfferApiTests
             "\"parcelInsuranceFeeSatang\"",
             json,
             StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "\"shippingDeclaredValueSatang\"",
+            json,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "parcelProtection",
+            json,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(
+            "feePolicyVersion",
+            json,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(
+            "termsVersion",
+            json,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(
+            "agreementCoreSnapshotHash",
+            json,
+            StringComparison.OrdinalIgnoreCase);
 
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue(
@@ -679,14 +687,6 @@ public sealed class MobileSellerOfferApiTests
                 PayoutAccountId = payout.Id,
                 TransferRightsAttested = true,
                 SellerAcceptedTerms = true,
-                DisclosedBuyerProtectionFeeSatang =
-                    invitation.BuyerProtectionFeeSatang,
-                DisclosedPlatformFeeSatang =
-                    invitation.PlatformFeeSatang,
-                DisclosedSellerExpectedNetSatang =
-                    invitation.SellerExpectedNetSatang,
-                DisclosedFeePolicyVersion =
-                    invitation.FeePolicyVersion,
                 Shipping = new
                 {
                     UseSavedOrigin = false,
@@ -701,13 +701,7 @@ public sealed class MobileSellerOfferApiTests
                     HeightCentimeters = 15,
                     quote.QuoteReference,
                     DisclosedShippingFeeSatang =
-                        quote.FeeSatang,
-                    DisclosedInsuranceFeeSatang =
-                        quote.InsuranceFeeSatang,
-                    DisclosedDeclaredValueSatang =
-                        quote.DeclaredValueSatang,
-                    DisclosedInsuranceCode =
-                        quote.InsuranceCode
+                        quote.FeeSatang
                 }
             });
         Assert.True(
@@ -1079,10 +1073,7 @@ public sealed class MobileSellerOfferApiTests
         SessionResponse Session,
         IReadOnlyList<PayoutAccount> PayoutAccounts);
     private sealed record SellerOfferResponse(
-        long BuyerProtectionFeeSatang,
-        long PlatformFeeSatang,
         long SellerExpectedNetSatang,
-        string FeePolicyVersion,
         IReadOnlyList<PayoutAccount> PayoutAccounts,
         SavedShippingOriginResponse? SavedShippingOrigin);
     private sealed record SavedShippingOriginResponse(
@@ -1094,10 +1085,7 @@ public sealed class MobileSellerOfferApiTests
         string ServiceCode,
         string ServiceName,
         long FeeSatang,
-        DateTimeOffset ExpiresAt,
-        long InsuranceFeeSatang,
-        long DeclaredValueSatang,
-        string? InsuranceCode);
+        DateTimeOffset ExpiresAt);
     private sealed record TransactionResponse(
         Guid Id,
         string State,

@@ -1234,6 +1234,23 @@ public sealed class UiLayoutConsistencyTests
             label =>
                 AttributeValue(label, "Text") ==
                     "{Binding AmountText}");
+
+        foreach (var forbidden in new[]
+                 {
+                     "Insurance",
+                     "ประกัน",
+                     "ความคุ้มครองพัสดุ",
+                     "DeclaredValue"
+                 })
+        {
+            Assert.DoesNotContain(
+                sellerOffer.Descendants()
+                    .SelectMany(element => element.Attributes())
+                    .Select(attribute => attribute.Value),
+                value => value.Contains(
+                    forbidden,
+                    StringComparison.OrdinalIgnoreCase));
+        }
     }
 
     [Fact]

@@ -822,7 +822,6 @@ public static class MobileApi
             new GetSellerProfileByPhoneQuery(phone),
             cancellationToken);
         var fees = feePolicy.GetDisclosure(transaction.PriceSatang);
-
         return Results.Ok(new MobileSellerOfferResponse(
             ToMobileTransaction(
                 request,
@@ -832,10 +831,7 @@ public static class MobileApi
                     seller?.Id,
                     RequiredPhone(principal)),
                 configuration),
-            null,
-            fees.PlatformFeeSatang,
             fees.SellerExpectedNetSatang,
-            fees.PolicyVersion,
             seller?.PayoutAccounts.Select(ToPayoutAccount).ToArray() ?? [],
             seller?.SavedShippingOrigin is null
                 ? null
@@ -884,10 +880,7 @@ public static class MobileApi
                     quote.ServiceCode,
                     quote.ServiceName,
                     quote.FeeSatang,
-                    quote.ExpiresAt,
-                    quote.InsuranceFeeSatang,
-                    quote.DeclaredValueSatang,
-                    quote.InsuranceCode)));
+                    quote.ExpiresAt)));
     }
 
     private static async Task<IResult> SaveMobileSellerPayoutAccountAsync(
@@ -953,10 +946,6 @@ public static class MobileApi
                 request.PayoutAccountId,
                 request.TransferRightsAttested,
                 request.SellerAcceptedTerms,
-                request.DisclosedBuyerProtectionFeeSatang,
-                request.DisclosedPlatformFeeSatang,
-                request.DisclosedSellerExpectedNetSatang,
-                request.DisclosedFeePolicyVersion,
                 request.Shipping is null
                     ? null
                     : new SellerShippingSelectionInput(
@@ -972,13 +961,7 @@ public static class MobileApi
                         request.Shipping.HeightCentimeters,
                         request.Shipping.QuoteReference,
                         request.Shipping
-                            .DisclosedShippingFeeSatang,
-                        request.Shipping
-                            .DisclosedInsuranceFeeSatang,
-                        request.Shipping
-                            .DisclosedDeclaredValueSatang,
-                        request.Shipping
-                            .DisclosedInsuranceCode)),
+                            .DisclosedShippingFeeSatang)),
             cancellationToken);
         var issued = await AttachSellerSessionAsync(
             principal,
@@ -996,12 +979,7 @@ public static class MobileApi
                     RequiredPhone(principal)),
                 configuration),
             ToResponse(issued));
-        return transaction.ShippingOperationStatus is
-            ShippingOperationStatus.Pending or
-            ShippingOperationStatus.Processing or
-            ShippingOperationStatus.RetryScheduled
-                ? Results.Json(response, statusCode: 202)
-                : Results.Ok(response);
+        return Results.Ok(response);
     }
 
     private static async Task<IResult> DeclineSellerOfferAsync(
@@ -1429,17 +1407,19 @@ public static class MobileApi
             counterparty,
             photoUrl,
             transaction.Description,
-            transaction.TermsVersion,
+            isBuyer
+                ? transaction.TermsVersion
+                : null,
             isBuyer
                 ? transaction.BuyerProtectionFeeSatang
                 : null,
-            isBuyer
-                ? null
-                : transaction.PlatformFeeSatang,
+            null,
             isBuyer
                 ? null
                 : transaction.SellerExpectedNetSatang,
-            transaction.FeePolicyVersion,
+            isBuyer
+                ? transaction.FeePolicyVersion
+                : null,
             transaction.ExpirationReason?.ToString(),
             isBuyer
                 ? new Uri(
@@ -1454,7 +1434,7 @@ public static class MobileApi
                       StringComparison.Ordinal)
                     ? $"toklong://offer/{transaction.PublicToken}"
                 : null,
-            transaction.AgreementCoreSnapshotHash,
+            null,
             transaction.SellerAcceptedAt,
             transaction.BuyerAcceptedAt,
             transaction.DeliveryProvinceName,
@@ -1482,8 +1462,10 @@ public static class MobileApi
             isBuyer
                 ? transaction.ParcelInsuranceFeeSatang
                 : null,
-            transaction.ShippingDeclaredValueSatang,
-            transaction.ShippingOperationStatus?.ToString());
+            isBuyer
+                ? transaction.ShippingDeclaredValueSatang
+                : null,
+            null);
     }
 
     private static async Task<Dictionary<string, string>>
@@ -1769,12 +1751,7 @@ public sealed record MobilePayoutAccountResponse(
 
 public sealed record MobileSellerOfferResponse(
     MobileTransactionResponse Transaction,
-    [property: JsonIgnore(
-        Condition = JsonIgnoreCondition.WhenWritingNull)]
-    long? BuyerProtectionFeeSatang,
-    long PlatformFeeSatang,
     long SellerExpectedNetSatang,
-    string FeePolicyVersion,
     IReadOnlyList<MobilePayoutAccountResponse> PayoutAccounts,
     MobileSavedShippingOriginResponse? SavedShippingOrigin);
 
@@ -1802,10 +1779,6 @@ public sealed record MobileAcceptSellerOfferRequest(
     Guid PayoutAccountId,
     bool TransferRightsAttested,
     bool SellerAcceptedTerms,
-    long DisclosedBuyerProtectionFeeSatang,
-    long DisclosedPlatformFeeSatang,
-    long DisclosedSellerExpectedNetSatang,
-    string DisclosedFeePolicyVersion,
     MobileSellerShippingSelectionRequest? Shipping);
 
 public sealed record MobileSellerShippingSelectionRequest(
@@ -1820,10 +1793,7 @@ public sealed record MobileSellerShippingSelectionRequest(
     int LengthCentimeters,
     int HeightCentimeters,
     string QuoteReference,
-    long DisclosedShippingFeeSatang,
-    long DisclosedInsuranceFeeSatang = 0,
-    long DisclosedDeclaredValueSatang = 0,
-    string? DisclosedInsuranceCode = null);
+    long DisclosedShippingFeeSatang);
 
 public sealed record MobileShippingQuoteRequest(
     bool UseSavedOrigin,
@@ -1843,10 +1813,7 @@ public sealed record MobileShippingQuoteResponse(
     string ServiceCode,
     string ServiceName,
     long FeeSatang,
-    DateTimeOffset ExpiresAt,
-    long InsuranceFeeSatang,
-    long DeclaredValueSatang,
-    string? InsuranceCode);
+    DateTimeOffset ExpiresAt);
 
 public sealed record MobileNotificationDeviceRequest(
     string InstallationId,
@@ -1872,7 +1839,9 @@ public sealed record MobileTransactionResponse(
     string CounterpartyName,
     string? PhotoUrl,
     string AgreementDetails,
-    string TermsVersion,
+    [property: JsonIgnore(
+        Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? TermsVersion,
     [property: JsonIgnore(
         Condition = JsonIgnoreCondition.WhenWritingNull)]
     long? BuyerProtectionFeeSatang,
@@ -1882,9 +1851,13 @@ public sealed record MobileTransactionResponse(
     [property: JsonIgnore(
         Condition = JsonIgnoreCondition.WhenWritingNull)]
     long? SellerExpectedNetSatang,
-    string FeePolicyVersion,
+    [property: JsonIgnore(
+        Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? FeePolicyVersion,
     string? ExpirationReason,
     string? SellerInvitationUrl,
+    [property: JsonIgnore(
+        Condition = JsonIgnoreCondition.WhenWritingNull)]
     string? AgreementCoreSnapshotHash,
     DateTimeOffset? SellerAcceptedAt,
     DateTimeOffset? BuyerAcceptedAt,
@@ -1909,7 +1882,11 @@ public sealed record MobileTransactionResponse(
     [property: JsonIgnore(
         Condition = JsonIgnoreCondition.WhenWritingNull)]
     long? ParcelInsuranceFeeSatang,
-    long ShippingDeclaredValueSatang,
+    [property: JsonIgnore(
+        Condition = JsonIgnoreCondition.WhenWritingNull)]
+    long? ShippingDeclaredValueSatang,
+    [property: JsonIgnore(
+        Condition = JsonIgnoreCondition.WhenWritingNull)]
     string? ShippingOperationStatus);
 
 public sealed record MobilePaymentSheetRequest(bool AcceptedTerms);

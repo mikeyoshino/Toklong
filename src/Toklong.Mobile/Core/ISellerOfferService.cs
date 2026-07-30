@@ -24,18 +24,13 @@ public sealed record MobileShippingQuote(
     string ServiceCode,
     string ServiceName,
     long FeeSatang,
-    DateTimeOffset ExpiresAt,
-    long InsuranceFeeSatang = 0,
-    long DeclaredValueSatang = 0,
-    string? InsuranceCode = null)
+    DateTimeOffset ExpiresAt)
 {
     public string FeeText =>
         MoneyFormatter.Format(FeeSatang, "THB");
 
     public string DisplayText =>
-        InsuranceFeeSatang > 0
-            ? $"{ServiceName} · ค่าส่ง {FeeText} · ประกัน {MoneyFormatter.Format(InsuranceFeeSatang, "THB")}"
-            : $"{ServiceName} · {FeeText}";
+        $"{ServiceName} · {FeeText}";
 }
 
 public sealed record SellerShippingQuoteRequest(
@@ -61,17 +56,11 @@ public sealed record SellerShippingSelection(
     int LengthCentimeters,
     int HeightCentimeters,
     string QuoteReference,
-    long DisclosedShippingFeeSatang,
-    long DisclosedInsuranceFeeSatang = 0,
-    long DisclosedDeclaredValueSatang = 0,
-    string? DisclosedInsuranceCode = null);
+    long DisclosedShippingFeeSatang);
 
 public sealed record SellerOfferInvitation(
     AppTransaction Transaction,
-    long BuyerProtectionFeeSatang,
-    long PlatformFeeSatang,
     long SellerExpectedNetSatang,
-    string FeePolicyVersion,
     IReadOnlyList<MobilePayoutAccount> PayoutAccounts,
     MobileSavedShippingOrigin? SavedShippingOrigin);
 
@@ -101,10 +90,6 @@ public interface ISellerOfferService
         Guid payoutAccountId,
         bool transferRightsAttested,
         bool sellerAcceptedTerms,
-        long disclosedBuyerProtectionFeeSatang,
-        long disclosedPlatformFeeSatang,
-        long disclosedSellerExpectedNetSatang,
-        string disclosedFeePolicyVersion,
         SellerShippingSelection? shipping,
         CancellationToken cancellationToken = default);
 

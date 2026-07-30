@@ -349,10 +349,6 @@ public sealed class SellerOfferViewModel(
                 SelectedPayoutAccount.Id,
                 TransferRightsAttested,
                 AcceptedTerms,
-                invitation.BuyerProtectionFeeSatang,
-                invitation.PlatformFeeSatang,
-                invitation.SellerExpectedNetSatang,
-                invitation.FeePolicyVersion,
                 IsPhysical
                     ? BuildShippingSelection()
                     : null);
@@ -447,10 +443,7 @@ public sealed class SellerOfferViewModel(
             length,
             height,
             SelectedShippingQuote.QuoteReference,
-            SelectedShippingQuote.FeeSatang,
-            SelectedShippingQuote.InsuranceFeeSatang,
-            SelectedShippingQuote.DeclaredValueSatang,
-            SelectedShippingQuote.InsuranceCode);
+            SelectedShippingQuote.FeeSatang);
     }
 
     private void ApplySavedOrigin(

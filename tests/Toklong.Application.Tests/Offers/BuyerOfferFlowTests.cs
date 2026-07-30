@@ -19,7 +19,7 @@ public sealed class BuyerOfferFlowTests
         new(2026, 7, 24, 9, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public async Task Checkout_is_blocked_until_authenticated_seller_accepts()
+    public async Task Seller_acceptance_does_not_book_or_queue_outbound_shipping()
     {
         var options = new DbContextOptionsBuilder<ToklongDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
@@ -117,7 +117,6 @@ public sealed class BuyerOfferFlowTests
                         "buyer-protection-test-v2"
                 }),
             new TestShippingQuoteProvider(),
-            new TestShippingQuoteProvider(),
             new BundledThaiAddressCatalog(),
             db,
             clock,
@@ -128,10 +127,6 @@ public sealed class BuyerOfferFlowTests
                 payout.Id,
                 true,
                 true,
-                18_000,
-                0,
-                450_000,
-                "buyer-protection-test-v2",
                 ShippingSelection()),
             default);
 
@@ -140,16 +135,10 @@ public sealed class BuyerOfferFlowTests
             accepted.State);
         Assert.Equal(450_000, accepted.PriceSatang);
         Assert.Equal(5_000, accepted.ShippingFeeSatang);
-        Assert.Equal(
-            1_100,
-            accepted.ParcelInsuranceFeeSatang);
-        Assert.Equal(
-            450_000,
-            accepted.ShippingDeclaredValueSatang);
-        Assert.Equal(
-            "TEST_FULL_VALUE",
-            accepted.ShippingInsuranceCode);
-        Assert.Equal(474_100, accepted.BuyerTotalSatang);
+        Assert.Equal(0, accepted.ParcelInsuranceFeeSatang);
+        Assert.Equal(0, accepted.ShippingDeclaredValueSatang);
+        Assert.Null(accepted.ShippingInsuranceCode);
+        Assert.Equal(473_000, accepted.BuyerTotalSatang);
         Assert.Equal(18_000, accepted.BuyerProtectionFeeSatang);
         Assert.Equal(0, accepted.PlatformFeeSatang);
         Assert.Equal(450_000, accepted.SellerExpectedNetSatang);
@@ -172,6 +161,13 @@ public sealed class BuyerOfferFlowTests
             accepted.AgreementCoreSnapshotHash,
             sellerAcceptance.AgreementCoreSnapshotHash);
         Assert.Null(accepted.PhotoUrl);
+        var storedAfterAcceptance = await transactions.GetByIdAsync(
+            accepted.Id,
+            default);
+        Assert.NotNull(storedAfterAcceptance);
+        Assert.Empty(storedAfterAcceptance.ManagedShipments);
+        Assert.Empty(storedAfterAcceptance.ShippingOperations);
+        Assert.Null(storedAfterAcceptance.ShippingPurchaseReference);
 
         var checkout = await checkoutHandler.Handle(
             new BeginBuyerOfferCheckoutCommand(
@@ -260,7 +256,6 @@ public sealed class BuyerOfferFlowTests
                 new ConfiguredBuyerProtectionFeePolicy(
                     new BuyerProtectionFeeOptions()),
                 new TestShippingQuoteProvider(),
-                new TestShippingQuoteProvider(),
                 new BundledThaiAddressCatalog(),
                 db,
                 clock,
@@ -270,11 +265,7 @@ public sealed class BuyerOfferFlowTests
                     seller.Id,
                     Guid.NewGuid(),
                     true,
-                    true,
-                    0,
-                    0,
-                    450_000,
-                    "payments-disabled"),
+                    true),
                 default));
     }
 
@@ -337,7 +328,6 @@ public sealed class BuyerOfferFlowTests
                 new ConfiguredBuyerProtectionFeePolicy(
                     new BuyerProtectionFeeOptions()),
                 new TestShippingQuoteProvider(),
-                new TestShippingQuoteProvider(),
                 new BundledThaiAddressCatalog(),
                 db,
                 clock,
@@ -347,11 +337,7 @@ public sealed class BuyerOfferFlowTests
                     otherSeller.Id,
                     payout.Id,
                     true,
-                    true,
-                    0,
-                    0,
-                    450_000,
-                    "payments-disabled"),
+                    true),
                 default));
 
         await Assert.ThrowsAsync<
@@ -548,15 +534,12 @@ public sealed class BuyerOfferFlowTests
             30,
             15,
             "quote-test",
-            5_000,
-            1_100,
-            450_000,
-            "TEST_FULL_VALUE");
+            5_000);
 
     private sealed class TestShippingQuoteProvider
         : IShippingQuoteProvider, IShipmentProvider
     {
-        public string ProviderName => "test-shipping";
+        public string ProviderName => "shippop";
 
         public Task<IReadOnlyList<ShippingQuoteOption>>
             GetQuotesAsync(
@@ -614,7 +597,7 @@ public sealed class BuyerOfferFlowTests
 
         private static ShippingQuoteOption Quote() =>
             new(
-                "test-shipping",
+                "shippop",
                 "quote-test",
                 "FLASH",
                 "STANDARD",

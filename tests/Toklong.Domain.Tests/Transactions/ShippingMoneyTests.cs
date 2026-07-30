@@ -10,7 +10,7 @@ public sealed class ShippingMoneyTests
         new(2026, 7, 29, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public void Insured_physical_offer_freezes_separate_buyer_costs_without_changing_seller_net()
+    public void Physical_offer_freezes_delivery_fee_without_parcel_protection_costs()
     {
         var transitions = new TransactionTransitionService();
         var transaction = TestTransactionFactory.CreateBuyerOffer(
@@ -69,16 +69,10 @@ public sealed class ShippingMoneyTests
             feePolicyVersion: "buyer-protection-test-v1");
 
         Assert.Equal(5_200, transaction.ShippingFeeSatang);
-        Assert.Equal(
-            1_100,
-            transaction.ParcelInsuranceFeeSatang);
-        Assert.Equal(
-            120_000,
-            transaction.ShippingDeclaredValueSatang);
-        Assert.Equal(
-            "FULL_VALUE",
-            transaction.ShippingInsuranceCode);
-        Assert.Equal(132_200, transaction.BuyerTotalSatang);
+        Assert.Equal(0, transaction.ParcelInsuranceFeeSatang);
+        Assert.Equal(0, transaction.ShippingDeclaredValueSatang);
+        Assert.Null(transaction.ShippingInsuranceCode);
+        Assert.Equal(131_100, transaction.BuyerTotalSatang);
         Assert.Equal(
             120_000,
             transaction.SellerExpectedNetSatang);
@@ -87,19 +81,19 @@ public sealed class ShippingMoneyTests
         using var snapshot = JsonDocument.Parse(
             transaction.ProductSnapshotJson!);
         Assert.Equal(
-            1_100,
+            0,
             snapshot.RootElement
                 .GetProperty("ParcelInsuranceFeeSatang")
                 .GetInt64());
         Assert.Equal(
-            120_000,
+            0,
             snapshot.RootElement
                 .GetProperty("ShippingDeclaredValueSatang")
                 .GetInt64());
     }
 
     [Fact]
-    public void Insurance_below_full_item_value_is_rejected()
+    public void Insurance_fields_do_not_block_delivery_quote_acceptance()
     {
         var transitions = new TransactionTransitionService();
         var transaction = TestTransactionFactory.CreateBuyerOffer(
@@ -117,8 +111,7 @@ public sealed class ShippingMoneyTests
             Now,
             transitions);
 
-        Assert.Throws<DomainException>(() =>
-            transaction.AcceptBuyerOffer(
+        transaction.AcceptBuyerOffer(
                 Guid.NewGuid(),
                 "ผู้ขาย ทดสอบ",
                 "+66811111111",
@@ -145,7 +138,12 @@ public sealed class ShippingMoneyTests
                     1_100,
                     119_999,
                     "FULL_VALUE",
-                    Now.AddHours(2))));
+                    Now.AddHours(2)));
+
+        Assert.Equal(
+            TransactionState.SellerAcceptedAwaitingPayment,
+            transaction.State);
+        Assert.Equal(0, transaction.ParcelInsuranceFeeSatang);
     }
 
     [Fact]

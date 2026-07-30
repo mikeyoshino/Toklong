@@ -1161,7 +1161,7 @@ public sealed class SaleTransaction
         ApplyAcceptedShippingQuote(
             shipping,
             now,
-            requireProviderReservation: false);
+            includeParcelProtection: true);
         QueueManagedShipment(
             shipment,
             operation,
@@ -1367,7 +1367,7 @@ public sealed class SaleTransaction
     private void ApplyAcceptedShippingQuote(
         AcceptedShippingQuote? shipping,
         DateTimeOffset acceptedAt,
-        bool requireProviderReservation = true)
+        bool includeParcelProtection = false)
     {
         if (FulfillmentType == FulfillmentType.DigitalHandoff)
         {
@@ -1390,22 +1390,6 @@ public sealed class SaleTransaction
         if (shipping.FeeSatang <= 0)
             throw new DomainException(
                 "ค่าจัดส่งไม่ถูกต้อง");
-        var hasInsurance =
-            shipping.InsuranceFeeSatang != 0 ||
-            shipping.DeclaredValueSatang != 0 ||
-            !string.IsNullOrWhiteSpace(
-                shipping.InsuranceCode);
-        if (shipping.InsuranceFeeSatang < 0 ||
-            shipping.DeclaredValueSatang < 0)
-            throw new DomainException(
-                "ค่าประกันพัสดุไม่ถูกต้อง");
-        if (hasInsurance &&
-            (shipping.InsuranceFeeSatang <= 0 ||
-             shipping.DeclaredValueSatang < PriceSatang ||
-             string.IsNullOrWhiteSpace(
-                 shipping.InsuranceCode)))
-            throw new DomainException(
-                "ประกันพัสดุต้องคุ้มครองเต็มมูลค่าสินค้า");
         if (shipping.ExpiresAt <
             acceptedAt.AddHours(
                 BuyerPaymentWindowHours))
@@ -1459,49 +1443,42 @@ public sealed class SaleTransaction
         ShippingServiceName = Required(
             shipping.ServiceName,
             "ชื่อบริการขนส่ง");
-        if (string.Equals(
-                shipping.Provider,
-                "shippop",
-                StringComparison.Ordinal) &&
-            requireProviderReservation &&
-            (string.IsNullOrWhiteSpace(
-                 shipping.PurchaseReference) ||
-             string.IsNullOrWhiteSpace(
-                 shipping.ProviderTrackingCode) ||
-             !shipping.ReservedAt.HasValue))
-            throw new DomainException(
-                "ยังสร้างรายการจัดส่ง SHIPPOP ไม่สำเร็จ");
-        ShippingPurchaseReference =
-            CleanOptional(
+        var hasReservation = shipping.ReservedAt.HasValue;
+        ShippingPurchaseReference = hasReservation
+            ? CleanOptional(
                 shipping.PurchaseReference,
                 160,
-                "เลขอ้างอิงรายการขนส่ง");
-        ShippingProviderTrackingCode =
-            CleanOptional(
+                "เลขอ้างอิงรายการขนส่ง")
+            : null;
+        ShippingProviderTrackingCode = hasReservation
+            ? CleanOptional(
                 shipping.ProviderTrackingCode,
                 120,
-                "หมายเลขติดตามของผู้ให้บริการ");
-        ShippingCourierTrackingCode =
-            CleanOptional(
+                "หมายเลขติดตามของผู้ให้บริการ")
+            : null;
+        ShippingCourierTrackingCode = hasReservation
+            ? CleanOptional(
                 shipping.CourierTrackingCode,
                 120,
-                "หมายเลขพัสดุ");
-        ShippingReservedAt = shipping.ReservedAt;
-        ShippingLastProviderStatus =
-            ShippingReservedAt.HasValue
-                ? "wait"
-                : null;
-        ShippingLastReconciledAt =
-            ShippingReservedAt;
+                "หมายเลขพัสดุ")
+            : null;
+        ShippingReservedAt = hasReservation
+            ? shipping.ReservedAt
+            : null;
+        ShippingLastProviderStatus = hasReservation
+            ? "wait"
+            : null;
+        ShippingLastReconciledAt = ShippingReservedAt;
         ShippingFeeSatang = shipping.FeeSatang;
-        ParcelInsuranceFeeSatang =
-            shipping.InsuranceFeeSatang;
-        ShippingDeclaredValueSatang =
-            shipping.DeclaredValueSatang;
-        ShippingInsuranceCode = hasInsurance
-            ? Required(
-                shipping.InsuranceCode!,
-                "รหัสประกันพัสดุ")
+        ParcelInsuranceFeeSatang = includeParcelProtection
+            ? shipping.InsuranceFeeSatang
+            : 0;
+        ShippingDeclaredValueSatang = includeParcelProtection
+            ? shipping.DeclaredValueSatang
+            : 0;
+        ShippingInsuranceCode = includeParcelProtection &&
+            !string.IsNullOrWhiteSpace(shipping.InsuranceCode)
+            ? Required(shipping.InsuranceCode, "รหัสประกันพัสดุ")
             : null;
         BuyerTotalSatang = checked(
             PriceSatang +
