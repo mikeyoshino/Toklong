@@ -129,7 +129,7 @@ public sealed class ShippopShippingProvider(
 
     public string ProviderName => Provider;
 
-    public Task<ParcelProtectionAvailability> GetAvailabilityAsync(
+    public async Task<ParcelProtectionAvailability> GetAvailabilityAsync(
         ParcelProtectionQuoteRequest request,
         CancellationToken cancellationToken)
     {
@@ -144,6 +144,19 @@ public sealed class ShippopShippingProvider(
                 StringComparison.Ordinal))
             throw new DomainException("ข้อมูลความคุ้มครองพัสดุไม่ถูกต้อง");
 
+        var deliveryQuote = await ValidateDeliveryQuoteAsync(
+            request,
+            cancellationToken);
+        if (!string.Equals(
+                deliveryQuote.CarrierCode,
+                request.CarrierCode,
+                StringComparison.Ordinal) ||
+            !string.Equals(
+                deliveryQuote.ServiceCode,
+                request.ServiceCode,
+                StringComparison.Ordinal))
+            throw ExpiredQuote();
+
         var profile = options.Profile(request.ServiceCode);
         var certified = profile is
         {
@@ -151,25 +164,48 @@ public sealed class ShippopShippingProvider(
             InsuranceEnabled: true,
             CertificationReference.Length: > 0
         };
-        var includedCoverage = profile?.IncludedCoverageSatang ?? 0;
+        var includedCoverage = certified
+            ? profile!.IncludedCoverageSatang
+            : 0;
         if (!certified)
-            return Task.FromResult(
-                new ParcelProtectionAvailability(
-                    includedCoverage,
-                    null,
-                    ProviderCapabilityCertified: false));
+            return new ParcelProtectionAvailability(
+                includedCoverage,
+                null,
+                ProviderCapabilityCertified: false);
 
         throw new InvalidOperationException(
             "SHIPPOP optional parcel protection is not certified for this service profile.");
     }
 
-    public Task<ProviderParcelProtectionOption> ValidateOptionAsync(
+    public async Task<ProviderParcelProtectionOption> ValidateOptionAsync(
         ParcelProtectionQuoteRequest request,
         string optionReference,
         CancellationToken cancellationToken)
     {
-        _ = GetAvailabilityAsync(request, cancellationToken);
+        await GetAvailabilityAsync(request, cancellationToken);
         throw new DomainException("ตัวเลือกความคุ้มครองพัสดุไม่ถูกต้อง");
+    }
+
+    private async Task<ShippingQuoteOption> ValidateDeliveryQuoteAsync(
+        ParcelProtectionQuoteRequest request,
+        CancellationToken cancellationToken)
+    {
+        var parts = request.DeliveryQuoteReference.Trim().Split(
+            '.',
+            StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length != 10 ||
+            !long.TryParse(
+                parts[2],
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out var feeSatang) ||
+            feeSatang <= 0)
+            throw ExpiredQuote();
+        return await ValidateQuoteAsync(
+            request.Shipment,
+            request.DeliveryQuoteReference,
+            feeSatang,
+            cancellationToken);
     }
 
     public async Task<IReadOnlyList<ShippingQuoteOption>> GetQuotesAsync(
@@ -376,10 +412,14 @@ public sealed class ShippopShippingProvider(
                 : "outbound booking");
         if (request.Quote.InsuranceFeeSatang > 0 ||
             !string.IsNullOrWhiteSpace(request.Quote.InsuranceCode))
+        {
             EnsureCapability(
                 request.Quote.ServiceCode,
                 profile => profile.InsuranceEnabled,
                 "parcel protection");
+            throw new InvalidOperationException(
+                "SHIPPOP optional parcel protection is not certified for this service profile.");
+        }
         EnsureCapability(
             request.Quote.ServiceCode,
             profile => profile.OperationLookupEnabled,

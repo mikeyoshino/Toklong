@@ -125,9 +125,7 @@ public sealed class AcceptBuyerOfferHandler(
                     acceptedShipping.FeeSatang,
                     acceptedShipping.InsuranceFeeSatang,
                     acceptedShipping.DeclaredValueSatang,
-                    acceptedShipping.InsuranceCode ??
-                    throw new DomainException(
-                        "บริการ SHIPPOP ต้องมีประกันเต็มมูลค่า"),
+                    acceptedShipping.InsuranceCode,
                     acceptedShipping.QuoteReference,
                     acceptedShipping.ExpiresAt),
                 now);

@@ -54,11 +54,53 @@ public sealed class ShippopShippingProviderTests
             new FixedClock());
 
         var availability = await provider.GetAvailabilityAsync(
-            ProtectionRequest(90_000),
+            await ProtectionRequest(provider, 90_000),
             default);
 
         Assert.Equal(100_000, availability.IncludedCoverageLimitSatang);
         Assert.Null(availability.AddOn);
+    }
+
+    [Fact]
+    public async Task Development_provider_rejects_forged_delivery_quote_reference()
+    {
+        var provider = new DevelopmentShippingQuoteProvider(
+            new FixedClock());
+
+        await Assert.ThrowsAsync<DomainException>(() =>
+            provider.GetAvailabilityAsync(
+                new ParcelProtectionQuoteRequest(
+                    Request() with { DeclaredValueSatang = 90_000 },
+                    "THAIPOST",
+                    "EMS",
+                    "forged-delivery-quote",
+                    90_000),
+                default));
+    }
+
+    [Fact]
+    public async Task Development_provider_rejects_delivery_quote_for_other_service()
+    {
+        var provider = new DevelopmentShippingQuoteProvider(
+            new FixedClock());
+        var request = await ProtectionRequest(provider, 90_000);
+
+        await Assert.ThrowsAsync<DomainException>(() =>
+            provider.GetAvailabilityAsync(
+                request with { ServiceCode = "STANDARD" },
+                default));
+    }
+
+    [Fact]
+    public async Task Development_provider_rejects_expired_delivery_quote()
+    {
+        var clock = new MutableClock(Now);
+        var provider = new DevelopmentShippingQuoteProvider(clock);
+        var request = await ProtectionRequest(provider, 90_000);
+        clock.UtcNow = Now.AddHours(2);
+
+        await Assert.ThrowsAsync<DomainException>(() =>
+            provider.GetAvailabilityAsync(request, default));
     }
 
     [Fact]
@@ -68,7 +110,7 @@ public sealed class ShippopShippingProviderTests
             new FixedClock());
 
         var availability = await provider.GetAvailabilityAsync(
-            ProtectionRequest(450_000),
+            await ProtectionRequest(provider, 450_000),
             default);
 
         Assert.Equal(450_000, availability.AddOn!.SelectedCoverageLimitSatang);
@@ -80,7 +122,7 @@ public sealed class ShippopShippingProviderTests
     {
         var provider = new DevelopmentShippingQuoteProvider(
             new FixedClock());
-        var request = ProtectionRequest(450_000);
+        var request = await ProtectionRequest(provider, 450_000);
         var option = (await provider.GetAvailabilityAsync(
             request,
             default)).AddOn!;
@@ -127,7 +169,7 @@ public sealed class ShippopShippingProviderTests
     {
         var clock = new MutableClock(Now);
         var provider = new DevelopmentShippingQuoteProvider(clock);
-        var request = ProtectionRequest(450_000);
+        var request = await ProtectionRequest(provider, 450_000);
         var option = (await provider.GetAvailabilityAsync(
             request,
             default)).AddOn!;
@@ -148,14 +190,68 @@ public sealed class ShippopShippingProviderTests
     [Fact]
     public async Task Shippop_uncertified_protection_fails_closed_without_blocking_delivery()
     {
-        var shippop = Provider(_ => Task.FromResult(Json("""{"status":true}""")));
+        var profile = new ShippopServiceProfile(
+            "EMST",
+            QuoteEnabled: true,
+            BookOutboundEnabled: false,
+            ConfirmEnabled: false,
+            ReturnEnabled: false,
+            InsuranceEnabled: false,
+            OperationLookupEnabled: false,
+            "DropOff",
+            500_000,
+            "CERT-DELIVERY-ONLY",
+            IncludedCoverageSatang: 100_000,
+            OptionalProtectionEnabled: false);
+        var shippop = Provider(_ => Task.FromResult(
+            Json(
+                """
+                {
+                  "status": true,
+                  "data": {
+                    "0": {
+                      "EMST": {
+                        "available": true,
+                        "courier_code": "EMST",
+                        "courier_name": "EMS Thailand Post",
+                        "price": "52.00"
+                      }
+                    }
+                  }
+                }
+                """)), profile);
+        var shipment = Request() with { DeclaredValueSatang = 450_000 };
+        var deliveryQuote = Assert.Single(
+            await shippop.GetQuotesAsync(shipment, default));
 
+        var request = new ParcelProtectionQuoteRequest(
+            shipment,
+            deliveryQuote.CarrierCode,
+            deliveryQuote.ServiceCode,
+            deliveryQuote.QuoteReference,
+            450_000);
         var availability = await shippop.GetAvailabilityAsync(
-            ProtectionRequest(450_000),
+            request,
             default);
 
         Assert.False(availability.ProviderCapabilityCertified);
+        Assert.Equal(0, availability.IncludedCoverageLimitSatang);
         Assert.Null(availability.AddOn);
+        await Assert.ThrowsAsync<DomainException>(() =>
+            shippop.GetAvailabilityAsync(
+                request with
+                {
+                    DeliveryQuoteReference =
+                        $"forged-{request.DeliveryQuoteReference}"
+                },
+                default));
+        await Assert.ThrowsAsync<DomainException>(() =>
+            shippop.GetAvailabilityAsync(
+                request with
+                {
+                    Shipment = shipment with { WeightGrams = 1_201 }
+                },
+                default));
     }
 
     [Fact]
@@ -452,6 +548,50 @@ public sealed class ShippopShippingProviderTests
             default);
 
         Assert.Equal(0, reservation.InsuranceFeeSatang);
+    }
+
+    [Fact]
+    public async Task Protected_booking_fails_closed_before_sending_undocumented_payload()
+    {
+        var providerCallMade = false;
+        var profile = new ShippopServiceProfile(
+            "EMST",
+            QuoteEnabled: true,
+            BookOutboundEnabled: true,
+            ConfirmEnabled: true,
+            ReturnEnabled: true,
+            InsuranceEnabled: true,
+            OperationLookupEnabled: true,
+            "DropOff",
+            500_000,
+            "CERT-TEST",
+            IncludedCoverageSatang: 100_000,
+            OptionalProtectionEnabled: true);
+        var provider = Provider(
+            _ =>
+            {
+                providerCallMade = true;
+                return Task.FromResult(Json("""{"status":true}"""));
+            },
+            profile);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => provider.ReserveAsync(
+                new ShipmentReservationRequest(
+                    Guid.NewGuid(),
+                    Request(),
+                    Quote() with
+                    {
+                        InsuranceFeeSatang = 4_500,
+                        DeclaredValueSatang = 450_000,
+                        InsuranceCode = "UNSUPPORTED_PROTECTION"
+                    }),
+                default));
+
+        Assert.Equal(
+            "SHIPPOP optional parcel protection is not certified for this service profile.",
+            exception.Message);
+        Assert.False(providerCallMade);
     }
 
     [Fact]
@@ -802,14 +942,25 @@ public sealed class ShippopShippingProviderTests
                 "10500"),
             "กล้องมือสอง");
 
-    private static ParcelProtectionQuoteRequest ProtectionRequest(
-        long itemPriceSatang) =>
-        new(
-            Request() with { DeclaredValueSatang = itemPriceSatang },
-            "THAIPOST",
-            "EMST",
-            "delivery-quote-reference",
+    private static async Task<ParcelProtectionQuoteRequest> ProtectionRequest(
+        DevelopmentShippingQuoteProvider provider,
+        long itemPriceSatang)
+    {
+        var shipment = Request() with
+        {
+            DeclaredValueSatang = itemPriceSatang
+        };
+        var quote = (await provider.GetQuotesAsync(
+            shipment,
+            default)).First(item =>
+            item.CarrierCode == "THAIPOST");
+        return new(
+            shipment,
+            quote.CarrierCode,
+            quote.ServiceCode,
+            quote.QuoteReference,
             itemPriceSatang);
+    }
 
     private static ShippingQuoteOption Quote() =>
         new(

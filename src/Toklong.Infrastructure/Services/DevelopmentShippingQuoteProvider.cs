@@ -138,6 +138,7 @@ public sealed class DevelopmentShippingQuoteProvider(
         CancellationToken cancellationToken)
     {
         ValidateProtectionRequest(request);
+        ValidateDeliveryQuote(request);
         if (request.ItemPriceSatang <= IncludedCoverageLimitSatang)
             return Task.FromResult(
                 new ParcelProtectionAvailability(
@@ -155,7 +156,7 @@ public sealed class DevelopmentShippingQuoteProvider(
             ProtectionTermsVersion,
             "DEV_PARCEL_PROTECTION",
             quotedAt,
-            quotedAt.AddHours(2));
+            quotedAt.AddHours(1));
         protectionOptions[option.OptionReference] = new(
             request,
             option);
@@ -172,6 +173,7 @@ public sealed class DevelopmentShippingQuoteProvider(
         CancellationToken cancellationToken)
     {
         ValidateProtectionRequest(request);
+        ValidateDeliveryQuote(request);
         if (!protectionOptions.TryGetValue(
                 optionReference?.Trim() ?? "",
                 out var stored) ||
@@ -194,6 +196,26 @@ public sealed class DevelopmentShippingQuoteProvider(
             string.IsNullOrWhiteSpace(request.CarrierCode) ||
             string.IsNullOrWhiteSpace(request.ServiceCode))
             throw new DomainException("ข้อมูลความคุ้มครองพัสดุไม่ถูกต้อง");
+    }
+
+    private void ValidateDeliveryQuote(
+        ParcelProtectionQuoteRequest request)
+    {
+        if (!quotes.TryGetValue(
+                request.DeliveryQuoteReference.Trim(),
+                out var stored) ||
+            stored.Request != request.Shipment ||
+            stored.Option.ExpiresAt <= clock.UtcNow ||
+            !string.Equals(
+                stored.Option.CarrierCode,
+                request.CarrierCode,
+                StringComparison.Ordinal) ||
+            !string.Equals(
+                stored.Option.ServiceCode,
+                request.ServiceCode,
+                StringComparison.Ordinal))
+            throw new DomainException(
+                "ราคาค่าจัดส่งหมดอายุหรือข้อมูลพัสดุเปลี่ยน กรุณาดูราคาใหม่");
     }
 
     private sealed record StoredProtectionOption(

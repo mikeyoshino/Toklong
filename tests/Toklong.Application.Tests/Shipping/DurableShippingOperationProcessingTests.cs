@@ -128,8 +128,37 @@ public sealed class DurableShippingOperationProcessingTests
         Assert.Single(
             transaction.AgreementAcceptances,
             acceptance =>
-                acceptance.Role ==
+            acceptance.Role ==
                 AgreementAcceptanceRole.Seller);
+    }
+
+    [Fact]
+    public async Task Included_only_shippop_acceptance_books_without_insurance()
+    {
+        await using var database = CreateDatabase();
+        var (transaction, operation) = PendingAcceptance(
+            includedOnly: true);
+        database.Transactions.Add(transaction);
+        await database.SaveChangesAsync();
+        var provider = new BookingProvider();
+        var handler = Handler(
+            database,
+            operation,
+            provider,
+            new FixedClock(Now.AddMinutes(1)));
+
+        Assert.True(await handler.Handle(
+            new ProcessNextShippingOperationCommand("worker-a"),
+            default));
+
+        Assert.NotNull(provider.LastReservationRequest);
+        Assert.Equal(
+            0,
+            provider.LastReservationRequest!.Quote.InsuranceFeeSatang);
+        Assert.Null(provider.LastReservationRequest.Quote.InsuranceCode);
+        Assert.Equal(
+            TransactionState.SellerAcceptedAwaitingPayment,
+            transaction.State);
     }
 
     [Fact]
@@ -345,7 +374,7 @@ public sealed class DurableShippingOperationProcessingTests
             new TransactionTransitionService());
 
     private static (SaleTransaction, ShippingOperation)
-        PendingAcceptance()
+        PendingAcceptance(bool includedOnly = false)
     {
         var transaction = TestTransactionFactory.CreateBuyerOffer(
             Guid.NewGuid(),
@@ -375,9 +404,9 @@ public sealed class DurableShippingOperationProcessingTests
             "EMST",
             "ไปรษณีย์ไทย EMS",
             5_200,
-            1_100,
-            120_000,
-            "FULL_VALUE",
+            includedOnly ? 0 : 1_100,
+            includedOnly ? 0 : 120_000,
+            includedOnly ? null : "FULL_VALUE",
             Now.AddHours(2),
             TestTransactionFactory.DeliveryDistrictName,
             TestTransactionFactory.DeliverySubdistrictName,
@@ -398,9 +427,9 @@ public sealed class DurableShippingOperationProcessingTests
                 "EMST",
                 "ไปรษณีย์ไทย EMS",
                 5_200,
-                1_100,
-                120_000,
-                "FULL_VALUE",
+                includedOnly ? 0 : 1_100,
+                includedOnly ? 0 : 120_000,
+                includedOnly ? null : "FULL_VALUE",
                 "quote-001",
                 Now.AddHours(2)),
             Now);
@@ -501,12 +530,15 @@ public sealed class DurableShippingOperationProcessingTests
         public string ProviderName => "shippop";
         public Exception? Failure { get; init; }
         public int ReserveCalls { get; private set; }
+        public ShipmentReservationRequest? LastReservationRequest
+        { get; private set; }
 
         public Task<ShipmentReservation> ReserveAsync(
             ShipmentReservationRequest request,
             CancellationToken cancellationToken)
         {
             ReserveCalls++;
+            LastReservationRequest = request;
             if (Failure is not null)
                 throw Failure;
             return Task.FromResult(new ShipmentReservation(

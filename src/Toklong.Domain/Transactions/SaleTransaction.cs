@@ -1406,13 +1406,6 @@ public sealed class SaleTransaction
                  shipping.InsuranceCode)))
             throw new DomainException(
                 "ประกันพัสดุต้องคุ้มครองเต็มมูลค่าสินค้า");
-        if (string.Equals(
-                shipping.Provider,
-                "shippop",
-                StringComparison.Ordinal) &&
-            !hasInsurance)
-            throw new DomainException(
-                "บริการ SHIPPOP ต้องมีประกันพัสดุเต็มมูลค่า");
         if (shipping.ExpiresAt <
             acceptedAt.AddHours(
                 BuyerPaymentWindowHours))
