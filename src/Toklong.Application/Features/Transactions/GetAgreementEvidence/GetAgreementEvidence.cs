@@ -39,7 +39,8 @@ public sealed class GetAgreementEvidenceHandler(
             request.TransactionId,
             cancellationToken)
             ?? throw new NotFoundException("ไม่พบรายการ");
-        if (!IsParty(transaction, request))
+        var viewer = Viewer(transaction, request);
+        if (viewer is null)
             throw new ForbiddenException(
                 "บัญชีนี้ไม่มีสิทธิ์ดาวน์โหลดหลักฐานรายการ");
         if (!transaction.HasValidAgreementSnapshot() ||
@@ -47,7 +48,9 @@ public sealed class GetAgreementEvidenceHandler(
             throw new DomainException(
                 "หลักฐานข้อตกลงของทั้งสองฝ่ายยังไม่ครบหรือไม่ตรงกับ hash");
 
-        var payload = CreatePayload(transaction);
+        var payload = CreatePayload(
+            transaction,
+            viewer == EvidenceViewer.Buyer);
         var payloadJson = JsonSerializer.Serialize(
             payload,
             JsonOptions);
@@ -65,7 +68,8 @@ public sealed class GetAgreementEvidenceHandler(
             JsonOptions);
         var html = CreateHtml(
             transaction,
-            evidenceHash);
+            evidenceHash,
+            viewer == EvidenceViewer.Buyer);
         var prefix =
             $"TOKLONG-agreement-{transaction.Id:N}";
         return new AgreementEvidenceDownload(
@@ -76,16 +80,28 @@ public sealed class GetAgreementEvidenceHandler(
             evidenceHash);
     }
 
-    private static bool IsParty(
+    private static EvidenceViewer? Viewer(
         SaleTransaction transaction,
-        GetAgreementEvidenceQuery request) =>
-        (request.BuyerId.HasValue &&
-         transaction.BuyerId == request.BuyerId) ||
-        (request.SellerId.HasValue &&
-         transaction.SellerId == request.SellerId);
+        GetAgreementEvidenceQuery request)
+    {
+        if (request.BuyerId.HasValue &&
+            transaction.BuyerId == request.BuyerId)
+            return EvidenceViewer.Buyer;
+        if (request.SellerId.HasValue &&
+            transaction.SellerId == request.SellerId)
+            return EvidenceViewer.Seller;
+        return null;
+    }
+
+    private enum EvidenceViewer
+    {
+        Buyer,
+        Seller
+    }
 
     private static object CreatePayload(
-        SaleTransaction transaction) =>
+        SaleTransaction transaction,
+        bool includeBuyerProtection) =>
         new
         {
             transaction.Id,
@@ -113,23 +129,8 @@ public sealed class GetAgreementEvidenceHandler(
                         transaction.DeliveryPostalCode
                     }
                     : null,
-            Amount = new
-            {
-                transaction.PriceSatang,
-                transaction.ShippingFeeSatang,
-                transaction.BuyerTotalSatang,
-                transaction.BuyerProtectionFeeSatang,
-                transaction.PlatformFeeSatang,
-                transaction.SellerExpectedNetSatang,
-                transaction.Currency
-            },
-            Terms = new
-            {
-                transaction.TermsVersion,
-                transaction.FeePolicyVersion,
-                transaction.ShipByDurationHours,
-                transaction.InspectionWindowDurationHours
-            },
+            Amount = CreateAmount(transaction, includeBuyerProtection),
+            Terms = CreateTerms(transaction, includeBuyerProtection),
             Parties = new
             {
                 Buyer = new
@@ -180,9 +181,50 @@ public sealed class GetAgreementEvidenceHandler(
                 "บันทึกการยอมรับข้อตกลงทางอิเล็กทรอนิกส์ ไม่ใช่ลายเซ็นดิจิทัลแบบมีใบรับรองหรือคำแนะนำทางกฎหมาย"
         };
 
+    private static object CreateAmount(
+        SaleTransaction transaction,
+        bool includeBuyerProtection) =>
+        includeBuyerProtection
+            ? new
+            {
+                transaction.PriceSatang,
+                transaction.ShippingFeeSatang,
+                transaction.BuyerTotalSatang,
+                transaction.BuyerProtectionFeeSatang,
+                transaction.PlatformFeeSatang,
+                transaction.SellerExpectedNetSatang,
+                transaction.Currency
+            }
+            : new
+            {
+                transaction.PriceSatang,
+                transaction.ShippingFeeSatang,
+                transaction.SellerExpectedNetSatang,
+                transaction.Currency
+            };
+
+    private static object CreateTerms(
+        SaleTransaction transaction,
+        bool includeBuyerProtection) =>
+        includeBuyerProtection
+            ? new
+            {
+                transaction.TermsVersion,
+                transaction.FeePolicyVersion,
+                transaction.ShipByDurationHours,
+                transaction.InspectionWindowDurationHours
+            }
+            : new
+            {
+                transaction.TermsVersion,
+                transaction.ShipByDurationHours,
+                transaction.InspectionWindowDurationHours
+            };
+
     private static string CreateHtml(
         SaleTransaction transaction,
-        string evidenceHash)
+        string evidenceHash,
+        bool includeBuyerProtection)
     {
         var acceptances = string.Join(
             "",
@@ -192,6 +234,14 @@ public sealed class GetAgreementEvidenceHandler(
                     $"<tr><td>{H(Role(item.Role))}</td>" +
                     $"<td>{H(ThaiTime(item.AcceptedAt))}</td>" +
                     "<td>บัญชีที่ยืนยันด้วยเบอร์โทร</td></tr>"));
+        var buyerProtectionRows = includeBuyerProtection
+            ? $$"""
+                <dt>ค่าคุ้มครองผู้ซื้อ</dt><dd>{{H(Money(transaction.BuyerProtectionFeeSatang, transaction.Currency))}}</dd>
+                <dt>ยอดรวม</dt><dd>{{H(Money(transaction.BuyerTotalSatang, transaction.Currency))}}</dd>
+                """
+            : $$"""
+                <dt>ยอดที่จะได้รับ</dt><dd>{{H(Money(transaction.SellerExpectedNetSatang, transaction.Currency))}}</dd>
+                """;
         return $$"""
             <!doctype html>
             <html lang="th">
@@ -219,8 +269,7 @@ public sealed class GetAgreementEvidenceHandler(
                 <dt>สินค้า</dt><dd>{{H(transaction.ProductName)}}</dd>
                 <dt>ราคาสินค้า</dt><dd>{{H(Money(transaction.PriceSatang, transaction.Currency))}}</dd>
                 <dt>ค่าจัดส่ง</dt><dd>{{H(Money(transaction.ShippingFeeSatang, transaction.Currency))}}</dd>
-                <dt>ค่าคุ้มครองผู้ซื้อ</dt><dd>{{H(Money(transaction.BuyerProtectionFeeSatang, transaction.Currency))}}</dd>
-                <dt>ยอดรวม</dt><dd>{{H(Money(transaction.BuyerTotalSatang, transaction.Currency))}}</dd>
+                {{buyerProtectionRows}}
                 <dt>พื้นที่จัดส่ง</dt><dd>{{H(Region(transaction))}}</dd>
                 <dt>Terms version</dt><dd>{{H(transaction.TermsVersion)}}</dd>
                 <dt>Agreement Core Hash</dt><dd class="hash">{{H(transaction.AgreementCoreSnapshotHash)}}</dd>

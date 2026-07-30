@@ -13,7 +13,7 @@ public sealed class AgreementEvidenceTests
         new(2026, 7, 25, 9, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public async Task Both_parties_can_download_same_hashed_evidence()
+    public async Task Evidence_is_shaped_for_each_party_without_leaking_buyer_protection_to_seller()
     {
         await using var db = CreateDatabase();
         var transaction = CreateAcceptedAgreement();
@@ -35,19 +35,67 @@ public sealed class AgreementEvidenceTests
                 transaction.SellerId),
             default);
 
-        Assert.Equal(buyerFile.EvidenceHash, sellerFile.EvidenceHash);
-        Assert.Equal(buyerFile.JsonBytes, sellerFile.JsonBytes);
+        Assert.NotEqual(buyerFile.EvidenceHash, sellerFile.EvidenceHash);
+        var buyerHtml = System.Text.Encoding.UTF8.GetString(
+            buyerFile.HtmlBytes);
         Assert.Contains(
             "การยอมรับข้อตกลงทางอิเล็กทรอนิกส์",
-            System.Text.Encoding.UTF8.GetString(
-                buyerFile.HtmlBytes));
-        using var json = JsonDocument.Parse(
+            buyerHtml);
+        Assert.Contains("ค่าคุ้มครองผู้ซื้อ", buyerHtml);
+        Assert.Contains("ยอดรวม", buyerHtml);
+        using var buyerJson = JsonDocument.Parse(
             buyerFile.JsonBytes);
+        using var sellerJson = JsonDocument.Parse(
+            sellerFile.JsonBytes);
         Assert.Equal(
             buyerFile.EvidenceHash,
-            json.RootElement
+            buyerJson.RootElement
                 .GetProperty("evidenceHashSha256")
                 .GetString());
+        var buyerAmount = buyerJson.RootElement
+            .GetProperty("evidence")
+            .GetProperty("amount");
+        Assert.Equal(
+            transaction.BuyerTotalSatang,
+            buyerAmount.GetProperty("buyerTotalSatang").GetInt64());
+        Assert.Equal(
+            transaction.BuyerProtectionFeeSatang,
+            buyerAmount
+                .GetProperty("buyerProtectionFeeSatang")
+                .GetInt64());
+        Assert.Equal(
+            "buyer-protection-v2",
+            buyerJson.RootElement
+                .GetProperty("evidence")
+                .GetProperty("terms")
+                .GetProperty("feePolicyVersion")
+                .GetString());
+
+        var sellerEvidence = sellerJson.RootElement
+            .GetProperty("evidence");
+        var sellerAmount = sellerEvidence.GetProperty("amount");
+        Assert.False(sellerAmount.TryGetProperty(
+            "buyerTotalSatang", out _));
+        Assert.False(sellerAmount.TryGetProperty(
+            "buyerProtectionFeeSatang", out _));
+        Assert.False(sellerAmount.TryGetProperty(
+            "platformFeeSatang", out _));
+        Assert.False(sellerEvidence.GetProperty("terms").TryGetProperty(
+            "feePolicyVersion", out _));
+        var sellerJsonText = System.Text.Encoding.UTF8.GetString(
+            sellerFile.JsonBytes);
+        Assert.DoesNotContain("buyerTotalSatang", sellerJsonText);
+        Assert.DoesNotContain("buyerProtectionFeeSatang", sellerJsonText);
+        Assert.DoesNotContain("feePolicyVersion", sellerJsonText);
+        Assert.DoesNotContain("insurance", sellerJsonText,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("quoteReference", sellerJsonText,
+            StringComparison.OrdinalIgnoreCase);
+
+        var sellerHtml = System.Text.Encoding.UTF8.GetString(
+            sellerFile.HtmlBytes);
+        Assert.DoesNotContain("ค่าคุ้มครองผู้ซื้อ", sellerHtml);
+        Assert.DoesNotContain("ยอดรวม", sellerHtml);
         Assert.DoesNotContain(
             "otp",
             System.Text.Encoding.UTF8.GetString(
@@ -132,6 +180,10 @@ public sealed class AgreementEvidenceTests
             true,
             Now.AddMinutes(1),
             transitions,
+            buyerProtectionFeeSatang: 5_900,
+            platformFeeSatang: 10_000,
+            sellerExpectedNetSatang: 440_000,
+            feePolicyVersion: "buyer-protection-v2",
             shipping: TestTransactionFactory.ShippingQuote(
                 Now.AddMinutes(1)));
         transaction.BeginCheckout(
@@ -139,7 +191,11 @@ public sealed class AgreementEvidenceTests
             "+66811111111",
             "123 ถนนสุขุมวิท กรุงเทพมหานคร 10110",
             Now.AddMinutes(2),
-            transitions);
+            transitions,
+            platformFeeSatang: 10_000,
+            sellerExpectedNetSatang: 440_000,
+            feePolicyVersion: "buyer-protection-v2",
+            buyerProtectionFeeSatang: 5_900);
         return transaction;
     }
 
