@@ -1721,6 +1721,73 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
+    public void ParcelProtection_choice_is_accessible_and_never_exposes_provider_details()
+    {
+        var detail = Load("Ui", "Pages", "TransactionDetailPage.xaml");
+        var labels = detail.Descendants(Maui + "Label")
+            .Select(label => AttributeValue(label, "Text"))
+            .ToArray();
+        var buttons = detail.Descendants(Maui + "Button").ToArray();
+        var choice = detail.Descendants(Maui + "Border").Single(border =>
+            AttributeValue(border, "AutomationId") ==
+                "ParcelProtectionChoiceCard");
+        var payment = detail.Descendants(Maui + "VerticalStackLayout")
+            .Single(stack => AttributeValue(stack, "AutomationId") ==
+                "BuyerPaymentControls");
+
+        Assert.Contains("เพิ่มความคุ้มครองพัสดุไหม?", labels);
+        Assert.Contains(
+            "มูลค่าสินค้าสูงกว่าวงเงินที่รวมมากับการจัดส่ง แนะนำเพิ่มความคุ้มครองก่อนชำระเงิน",
+            labels);
+        Assert.Contains(
+            buttons,
+            button => AttributeValue(button, "Text") ==
+                "{Binding ParcelProtectionPrimaryActionText}" &&
+                AttributeValue(button, "MinimumHeightRequest") == "48");
+        Assert.Contains(
+            buttons,
+            button => AttributeValue(button, "Text") ==
+                "{Binding ParcelProtectionDeclineActionText}" &&
+                AttributeValue(button, "MinimumHeightRequest") == "44");
+        Assert.Contains(
+            buttons,
+            button => AttributeValue(button, "Text") ==
+                "ดูเงื่อนไขและสินค้าที่ไม่คุ้มครอง" &&
+                AttributeValue(button, "MinimumHeightRequest") == "44");
+        Assert.Contains(
+            buttons,
+            button => AttributeValue(button, "Text") == "เปลี่ยน" &&
+                AttributeValue(button, "MinimumHeightRequest") == "44");
+        Assert.Contains("ค่าความคุ้มครองพัสดุ", labels);
+        Assert.Single(
+            choice.Descendants(Maui + "Label"),
+            label => AttributeValue(label, "Text") ==
+                "{Binding MaximumCoverageText}");
+        Assert.Single(
+            choice.Descendants(Maui + "Label"),
+            label => AttributeValue(label, "Text") ==
+                "{Binding ParcelProtectionPriceText}");
+        Assert.DoesNotContain(
+            payment.Descendants(Maui + "Label"),
+            label => AttributeValue(label, "Text") ==
+                "{Binding MaximumCoverageText}");
+        Assert.Contains(
+            buttons,
+            button => AttributeValue(button, "Text") ==
+                "{Binding ParcelProtectionDeclineActionText}" &&
+                AttributeValue(button, "SemanticProperties.Description") ==
+                    "{Binding ParcelProtectionDeclineActionText}");
+        var source = File.ReadAllText(
+            Path.Combine(AppContext.BaseDirectory, "Ui", "Pages",
+                "TransactionDetailPage.xaml"));
+        Assert.DoesNotContain("SHIPPOP", source, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("แพ็กเกจ", source);
+        Assert.DoesNotContain("ส่วนที่ไม่คุ้มครอง", source);
+        Assert.DoesNotContain("providerCost", source, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("serviceFee", source, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void TransactionDetailGradients_HaveColorsBeforeTransactionLoads()
     {
         var detail = Load(

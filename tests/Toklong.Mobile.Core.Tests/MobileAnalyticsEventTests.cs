@@ -5,6 +5,25 @@ namespace Toklong.Mobile.Core.Tests;
 public sealed class MobileAnalyticsEventTests
 {
     [Fact]
+    public void Parcel_protection_analytics_has_only_the_customer_price()
+    {
+        var accepted = ParcelProtectionAnalytics.Accepted(6_000);
+
+        Assert.Equal("parcel_protection_accepted", accepted.Name);
+        Assert.Equal(
+            new Dictionary<string, string>
+            {
+                ["customer_price_satang"] = "6000"
+            },
+            accepted.Properties);
+        Assert.DoesNotContain(
+            accepted.Properties.Keys,
+            key => key.Contains("provider", StringComparison.OrdinalIgnoreCase) ||
+                   key.Contains("address", StringComparison.OrdinalIgnoreCase) ||
+                   key.Contains("phone", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void Seller_events_contain_only_approved_aggregate_properties()
     {
         var filter = SellerWorkspaceAnalytics.FilterSelected(

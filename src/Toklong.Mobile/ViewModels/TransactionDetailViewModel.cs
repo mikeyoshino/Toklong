@@ -7,7 +7,8 @@ namespace Toklong.Mobile.ViewModels;
 
 public sealed class TransactionDetailViewModel(
     ITransactionService transactionService,
-    IStripePaymentSheetService stripePaymentSheet) : ObservableViewModel
+    IStripePaymentSheetService stripePaymentSheet,
+    IMobileAnalytics analytics) : ObservableViewModel
 {
     private AppTransaction? transaction;
     private string message = "";
@@ -26,6 +27,12 @@ public sealed class TransactionDetailViewModel(
         DisputeEvidenceTypeOption.All[0];
     private string evidenceDescription = "";
     private bool carrierDataLoaded;
+    private BuyerParcelProtection? parcelProtection;
+    private bool isParcelProtectionChoiceVisible;
+    private bool isParcelProtectionDetailsVisible;
+    private string? parcelProtectionIdempotencyKey;
+    private string? parcelProtectionPreparationIdempotencyKey;
+    private bool parcelProtectionOfferedTracked;
 
     public AppTransaction? Transaction
     {
@@ -63,6 +70,7 @@ public sealed class TransactionDetailViewModel(
                 OnPropertyChanged(nameof(IsSellerDetail));
                 OnPropertyChanged(nameof(ShowAgreementDetailsContent));
                 OnPropertyChanged(nameof(CanManageDisputeEvidence));
+                OnPropertyChanged(nameof(CanChangeParcelProtection));
             }
         }
     }
@@ -104,6 +112,81 @@ public sealed class TransactionDetailViewModel(
 
     public bool IsPaymentAction =>
         Transaction?.Presentation.PrimaryAction == TransactionAction.ReviewAndPay;
+
+    public BuyerParcelProtection? ParcelProtection
+    {
+        get => parcelProtection;
+        private set
+        {
+            if (!SetProperty(ref parcelProtection, value))
+                return;
+            OnPropertyChanged(nameof(MaximumCoverageText));
+            OnPropertyChanged(nameof(ParcelProtectionPriceText));
+            OnPropertyChanged(nameof(IsParcelProtectionUnavailable));
+            OnPropertyChanged(nameof(IsParcelProtectionChoiceAvailable));
+            OnPropertyChanged(nameof(ParcelProtectionPrimaryActionText));
+            OnPropertyChanged(nameof(ParcelProtectionDeclineActionText));
+            OnPropertyChanged(nameof(CanChangeParcelProtection));
+        }
+    }
+
+    public bool IsParcelProtectionChoiceVisible
+    {
+        get => isParcelProtectionChoiceVisible;
+        private set => SetProperty(
+            ref isParcelProtectionChoiceVisible,
+            value);
+    }
+
+    public bool IsParcelProtectionDetailsVisible
+    {
+        get => isParcelProtectionDetailsVisible;
+        private set => SetProperty(
+            ref isParcelProtectionDetailsVisible,
+            value);
+    }
+
+    public string MaximumCoverageText =>
+        ParcelProtection?.MaximumCoverageLimitSatang is { } limit
+            ? $"คุ้มครองสูงสุด {MoneyFormatter.Format(
+                limit,
+                Transaction?.Currency ?? "THB")}" : "";
+
+    public string ParcelProtectionPriceText =>
+        ParcelProtection?.CustomerPriceSatang is { } price
+            ? $"เพิ่มความคุ้มครอง {MoneyFormatter.Format(
+                price,
+                Transaction?.Currency ?? "THB")}" : "";
+
+    public bool IsParcelProtectionUnavailable =>
+        ParcelProtection is
+        {
+            ReconfirmationRequired: true,
+            AddOnAvailable: false
+        };
+
+    public bool IsParcelProtectionChoiceAvailable =>
+        !IsParcelProtectionUnavailable;
+
+    public string ParcelProtectionPrimaryActionText =>
+        IsParcelProtectionUnavailable
+            ? "ดำเนินการต่อด้วยวงเงินที่รวมอยู่"
+            : ParcelProtectionPriceText;
+
+    public string ParcelProtectionDeclineActionText =>
+        IsParcelProtectionUnavailable
+            ? "กลับไปตรวจรายละเอียด"
+            : "ไม่เพิ่มความคุ้มครอง";
+
+    public bool CanChangeParcelProtection =>
+        Transaction is
+        {
+            Role: AppTransactionRole.Buyer,
+            State: "SellerAcceptedAwaitingPayment"
+        } && ParcelProtection is
+        {
+            Election: not "Pending" and not "ReconfirmationRequired"
+        };
 
     public bool ShowSellerInvitation =>
         Transaction?.Role == AppTransactionRole.Buyer &&
@@ -316,6 +399,19 @@ public sealed class TransactionDetailViewModel(
 
     public ICommand PrimaryActionCommand => new AsyncCommand(ExecutePrimaryActionAsync);
 
+    public ICommand AcceptParcelProtectionCommand =>
+        new AsyncCommand(() => ChooseParcelProtectionAsync(true));
+
+    public ICommand DeclineParcelProtectionCommand =>
+        new AsyncCommand(() => ChooseParcelProtectionAsync(false));
+
+    public ICommand ChangeParcelProtectionCommand =>
+        new AsyncCommand(ChangeParcelProtectionAsync);
+
+    public ICommand ToggleParcelProtectionDetailsCommand =>
+        new Command(() => IsParcelProtectionDetailsVisible =
+            !IsParcelProtectionDetailsVisible);
+
     public ICommand ToggleAgreementDetailsCommand =>
         new Command(() =>
         {
@@ -406,27 +502,13 @@ public sealed class TransactionDetailViewModel(
                 return;
             }
 
-            IsBusy = true;
-            Message = "";
             try
             {
-                var outcome = await stripePaymentSheet.PresentAsync(
-                    transactionId);
-                Message = outcome == PaymentSheetOutcome.Completed
-                    ? "ส่งข้อมูลการจ่ายเงินแล้ว กำลังรอ Stripe ยืนยัน"
-                    : "ยังไม่ได้จ่ายเงิน";
-                Transaction = await transactionService.GetTransactionAsync(
-                    transactionId);
+                await StartPaymentAsync(transactionId);
             }
             catch (Exception exception)
             {
                 Message = exception.Message;
-                Transaction = await transactionService.GetTransactionAsync(
-                    transactionId);
-            }
-            finally
-            {
-                IsBusy = false;
             }
             return;
         }
@@ -482,6 +564,174 @@ public sealed class TransactionDetailViewModel(
             IsBusy = false;
         }
     }
+
+    private async Task StartPaymentAsync(Guid transactionId)
+    {
+        Message = "";
+        var protection = ParcelProtection is null ||
+                         ParcelProtection.Election is "Pending" or
+                             "ReconfirmationRequired"
+            ? await transactionService.PrepareParcelProtectionAsync(
+                transactionId,
+                NewParcelProtectionPreparationIdempotencyKey())
+            : await transactionService.GetParcelProtectionAsync(transactionId);
+        ParcelProtection = protection;
+
+        switch (ParcelProtectionCheckoutPresentation.Next(protection))
+        {
+            case ParcelProtectionCheckoutStep.Reconfirm:
+                await RefreshParcelProtectionForReconfirmationAsync(
+                    transactionId);
+                IsParcelProtectionChoiceVisible = true;
+                return;
+            case ParcelProtectionCheckoutStep.Choose:
+                if (!parcelProtectionOfferedTracked)
+                {
+                    analytics.Track(ParcelProtectionAnalytics.Offered());
+                    parcelProtectionOfferedTracked = true;
+                }
+                IsParcelProtectionChoiceVisible = true;
+                return;
+            case ParcelProtectionCheckoutStep.PresentPayment:
+                await PresentPaymentSheetAsync(transactionId);
+                return;
+            case ParcelProtectionCheckoutStep.SubmitIncludedCoverage:
+                await ChooseParcelProtectionAsync(false);
+                return;
+            default:
+                Message = "กำลังเตรียมรายการจัดส่ง กรุณารอสักครู่";
+                await WaitForParcelProtectionBookingAsync(transactionId);
+                return;
+        }
+    }
+
+    private async Task ChangeParcelProtectionAsync()
+    {
+        if (Transaction is null || !CanChangeParcelProtection)
+            return;
+
+        analytics.Track(ParcelProtectionAnalytics.Changed());
+        parcelProtectionIdempotencyKey = null;
+        parcelProtectionPreparationIdempotencyKey = null;
+        ParcelProtection = await transactionService.PrepareParcelProtectionAsync(
+            Transaction.Id,
+            NewParcelProtectionPreparationIdempotencyKey());
+        IsParcelProtectionChoiceVisible = true;
+    }
+
+    private async Task ChooseParcelProtectionAsync(bool addProtection)
+    {
+        if (Transaction is null || ParcelProtection is null)
+            return;
+
+        addProtection = addProtection && !IsParcelProtectionUnavailable;
+        if (addProtection &&
+            (string.IsNullOrWhiteSpace(ParcelProtection.OptionReference) ||
+             !ParcelProtection.CustomerPriceSatang.HasValue))
+        {
+            Message = "ข้อมูลความคุ้มครองเปลี่ยน กรุณาตรวจและเลือกใหม่ก่อนชำระ";
+            return;
+        }
+
+        IsBusy = true;
+        Message = "";
+        try
+        {
+            var status = await transactionService.ChooseParcelProtectionAsync(
+                Transaction.Id,
+                addProtection,
+                addProtection ? ParcelProtection.OptionReference : null,
+                addProtection
+                    ? ParcelProtection.CustomerPriceSatang
+                    : null,
+                NewParcelProtectionIdempotencyKey());
+            if (status == "reconfirmation_required")
+            {
+                await RefreshParcelProtectionForReconfirmationAsync(
+                    Transaction.Id);
+                IsParcelProtectionChoiceVisible = true;
+                return;
+            }
+
+            analytics.Track(addProtection
+                ? ParcelProtectionAnalytics.Accepted(
+                    ParcelProtection.CustomerPriceSatang!.Value)
+                : ParcelProtectionAnalytics.Declined());
+            IsParcelProtectionChoiceVisible = false;
+            Message = status == "cancelling_shipping"
+                ? "กำลังปรับรายการจัดส่ง"
+                : "กำลังเตรียมรายการจัดส่ง กรุณารอสักครู่";
+            await WaitForParcelProtectionBookingAsync(Transaction.Id);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task WaitForParcelProtectionBookingAsync(Guid transactionId)
+    {
+        for (var attempt = 0; attempt < 8; attempt++)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(750));
+            var current = await transactionService.GetParcelProtectionAsync(
+                transactionId);
+            ParcelProtection = current;
+            if (current.ReconfirmationRequired)
+            {
+                await RefreshParcelProtectionForReconfirmationAsync(
+                    transactionId);
+                IsParcelProtectionChoiceVisible = true;
+                return;
+            }
+            if (!current.BookingReady)
+                continue;
+
+            await PresentPaymentSheetAsync(transactionId);
+            return;
+        }
+        Message = "กำลังเตรียมรายการจัดส่ง กรุณารอสักครู่";
+    }
+
+    private async Task RefreshParcelProtectionForReconfirmationAsync(
+        Guid transactionId)
+    {
+        parcelProtectionIdempotencyKey = null;
+        parcelProtectionPreparationIdempotencyKey = null;
+        ParcelProtection = await transactionService.PrepareParcelProtectionAsync(
+            transactionId,
+            NewParcelProtectionPreparationIdempotencyKey());
+        analytics.Track(ParcelProtectionAnalytics.PriceChanged());
+        if (!ParcelProtection.AddOnAvailable)
+            analytics.Track(ParcelProtectionAnalytics.Unavailable());
+    }
+
+    private async Task PresentPaymentSheetAsync(Guid transactionId)
+    {
+        IsBusy = true;
+        try
+        {
+            var outcome = await stripePaymentSheet.PresentAsync(transactionId);
+            if (outcome == PaymentSheetOutcome.Completed)
+                analytics.Track(ParcelProtectionAnalytics.CheckoutConverted());
+            Message = outcome == PaymentSheetOutcome.Completed
+                ? "ส่งข้อมูลการจ่ายเงินแล้ว กำลังรอ Stripe ยืนยัน"
+                : "ยังไม่ได้จ่ายเงิน";
+            Transaction = await transactionService.GetTransactionAsync(transactionId);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private string NewParcelProtectionIdempotencyKey() =>
+        parcelProtectionIdempotencyKey ??=
+            $"mobile:{Transaction?.Id:N}:{Guid.NewGuid():N}";
+
+    private string NewParcelProtectionPreparationIdempotencyKey() =>
+        parcelProtectionPreparationIdempotencyKey ??=
+            $"mobile:{Transaction?.Id:N}:prepare:{Guid.NewGuid():N}";
 
     private async Task CopyInvitationLinkAsync()
     {

@@ -696,6 +696,55 @@ public sealed class TransactionPresentationTests
         Assert.True(withDefect.HasKnownDefects);
     }
 
+    [Fact]
+    public void Parcel_protection_requires_choice_only_before_a_booking_or_payment()
+    {
+        var offered = new BuyerParcelProtection(
+            RequiresChoice: true,
+            AddOnAvailable: true,
+            IncludedCoverageLimitSatang: 1_000_00,
+            MaximumCoverageLimitSatang: 4_500_00,
+            CustomerPriceSatang: 60_00,
+            OptionReference: "option",
+            TermsVersion: "parcel-v1",
+            ExpiresAt: DateTimeOffset.Parse("2026-07-30T10:55:00+07:00"),
+            Election: "Pending",
+            BookingReady: false,
+            ReconfirmationRequired: false);
+        var included = offered with
+        {
+            RequiresChoice = false,
+            AddOnAvailable = false,
+            MaximumCoverageLimitSatang = null,
+            CustomerPriceSatang = null,
+            OptionReference = null
+        };
+
+        Assert.Equal(
+            ParcelProtectionCheckoutStep.Choose,
+            ParcelProtectionCheckoutPresentation.Next(offered));
+        Assert.Equal(
+            ParcelProtectionCheckoutStep.SubmitIncludedCoverage,
+            ParcelProtectionCheckoutPresentation.Next(included));
+        Assert.Equal(
+            ParcelProtectionCheckoutStep.WaitForBooking,
+            ParcelProtectionCheckoutPresentation.Next(
+                offered with
+                {
+                    RequiresChoice = false,
+                    Election = "Accepted"
+                }));
+        Assert.Equal(
+            ParcelProtectionCheckoutStep.PresentPayment,
+            ParcelProtectionCheckoutPresentation.Next(
+                offered with
+                {
+                    RequiresChoice = false,
+                    Election = "Accepted",
+                    BookingReady = true
+                }));
+    }
+
     private static AppTransaction CreateItem(string? photoUrl) =>
         new(
             Guid.NewGuid(),

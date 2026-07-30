@@ -349,7 +349,7 @@
                                 ColumnDefinitions="*,Auto">
                                 <Label
                                     FontSize="13"
-                                    Text="ประกันพัสดุ"
+                                    Text="ค่าความคุ้มครองพัสดุ"
                                     TextColor="{StaticResource Muted}" />
                                 <Label
                                     Grid.Column="1"
@@ -381,6 +381,79 @@
                                     FontSize="13"
                                     Text="{Binding Transaction.ShippingServiceText}" />
                             </Grid>
+                            <Button
+                                IsVisible="{Binding CanChangeParcelProtection}"
+                                MinimumHeightRequest="44"
+                                HorizontalOptions="Start"
+                                Style="{StaticResource RefinedSecondaryActionButton}"
+                                Command="{Binding ChangeParcelProtectionCommand}"
+                                SemanticProperties.Description="เปลี่ยนความคุ้มครองพัสดุก่อนชำระเงิน"
+                                Text="เปลี่ยน" />
+                            <Border
+                                AutomationId="ParcelProtectionChoiceCard"
+                                IsVisible="{Binding IsParcelProtectionChoiceVisible}"
+                                Margin="0,8,0,0"
+                                Padding="16"
+                                BackgroundColor="White"
+                                Stroke="#B8D6F7"
+                                StrokeShape="RoundRectangle 16">
+                                <VerticalStackLayout Spacing="10">
+                                    <Label
+                                        IsVisible="{Binding IsParcelProtectionChoiceAvailable}"
+                                        FontAttributes="Bold"
+                                        FontSize="18"
+                                        Text="เพิ่มความคุ้มครองพัสดุไหม?"
+                                        TextColor="{StaticResource Ink}" />
+                                    <Label
+                                        IsVisible="{Binding IsParcelProtectionUnavailable}"
+                                        FontAttributes="Bold"
+                                        FontSize="18"
+                                        Text="ความคุ้มครองที่เลือกใช้ไม่ได้แล้ว"
+                                        TextColor="{StaticResource Ink}" />
+                                    <Label
+                                        FontSize="14"
+                                        LineBreakMode="WordWrap"
+                                        Text="มูลค่าสินค้าสูงกว่าวงเงินที่รวมมากับการจัดส่ง แนะนำเพิ่มความคุ้มครองก่อนชำระเงิน"
+                                        TextColor="{StaticResource InkSoft}" />
+                                    <Label
+                                        FontAttributes="Bold"
+                                        FontSize="15"
+                                        Text="{Binding MaximumCoverageText}"
+                                        TextColor="{StaticResource Ink}"
+                                        SemanticProperties.Description="{Binding MaximumCoverageText}" />
+                                    <Label
+                                        FontAttributes="Bold"
+                                        FontSize="15"
+                                        Text="{Binding ParcelProtectionPriceText}"
+                                        TextColor="{StaticResource Ink}"
+                                        SemanticProperties.Description="{Binding ParcelProtectionPriceText}" />
+                                    <Button
+                                        MinimumHeightRequest="48"
+                                        Style="{StaticResource RefinedPrimaryButton}"
+                                        BackgroundColor="{StaticResource BrandBlue}"
+                                        Command="{Binding AcceptParcelProtectionCommand}"
+                                        SemanticProperties.Description="{Binding ParcelProtectionPrimaryActionText}"
+                                        Text="{Binding ParcelProtectionPrimaryActionText}" />
+                                    <Button
+                                        MinimumHeightRequest="44"
+                                        Style="{StaticResource RefinedSecondaryActionButton}"
+                                        Command="{Binding DeclineParcelProtectionCommand}"
+                                        SemanticProperties.Description="{Binding ParcelProtectionDeclineActionText}"
+                                        Text="{Binding ParcelProtectionDeclineActionText}" />
+                                    <Button
+                                        MinimumHeightRequest="44"
+                                        Style="{StaticResource RefinedSecondaryActionButton}"
+                                        Command="{Binding ToggleParcelProtectionDetailsCommand}"
+                                        SemanticProperties.Description="ดูเงื่อนไขและสินค้าที่ไม่คุ้มครอง"
+                                        Text="ดูเงื่อนไขและสินค้าที่ไม่คุ้มครอง" />
+                                    <Label
+                                        IsVisible="{Binding IsParcelProtectionDetailsVisible}"
+                                        FontSize="13"
+                                        LineBreakMode="WordWrap"
+                                        Text="วงเงินและเงื่อนไขที่เลือกใช้จะแสดงในรายละเอียดรายการก่อนชำระเงิน"
+                                        TextColor="{StaticResource InkSoft}" />
+                                </VerticalStackLayout>
+                            </Border>
                             <BoxView HeightRequest="1" Color="{StaticResource Line}" />
                             <VerticalStackLayout
                                 AutomationId="BuyerPaymentControls"

@@ -76,6 +76,74 @@ public sealed class ApiTransactionService(MobileApiClient api)
             cancellationToken: cancellationToken);
     }
 
+    public async Task<BuyerParcelProtection> GetParcelProtectionAsync(
+        Guid transactionId,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await api.SendAuthenticatedAsync(
+            () => new HttpRequestMessage(
+                HttpMethod.Get,
+                $"api/mobile/transactions/{transactionId}/parcel-protection"),
+            cancellationToken);
+        return await ReadParcelProtectionAsync(response, cancellationToken);
+    }
+
+    public async Task<BuyerParcelProtection> PrepareParcelProtectionAsync(
+        Guid transactionId,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await api.SendAuthenticatedAsync(
+            () =>
+            {
+                var request = new HttpRequestMessage(
+                    HttpMethod.Post,
+                    $"api/mobile/transactions/{transactionId}/parcel-protection/prepare");
+                request.Headers.Add("Idempotency-Key", idempotencyKey);
+                return request;
+            },
+            cancellationToken);
+        return await ReadParcelProtectionAsync(response, cancellationToken);
+    }
+
+    public async Task<string> ChooseParcelProtectionAsync(
+        Guid transactionId,
+        bool addProtection,
+        string? optionReference,
+        long? disclosedCustomerPriceSatang,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await api.SendAuthenticatedAsync(
+            () =>
+            {
+                var request = new HttpRequestMessage(
+                    HttpMethod.Post,
+                    $"api/mobile/transactions/{transactionId}/parcel-protection-election")
+                {
+                    Content = JsonContent.Create(new
+                    {
+                        AddProtection = addProtection,
+                        OptionReference = optionReference,
+                        DisclosedCustomerPriceSatang =
+                            disclosedCustomerPriceSatang
+                    })
+                };
+                request.Headers.Add("Idempotency-Key", idempotencyKey);
+                return request;
+            },
+            cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            return "reconfirmation_required";
+        await MobileApiClient.EnsureSuccessAsync(response, cancellationToken);
+        var result = await response.Content.ReadFromJsonAsync<
+            ParcelProtectionElectionResponse>(
+            cancellationToken: cancellationToken)
+            ?? throw new InvalidOperationException(
+                "เลือกความคุ้มครองพัสดุไม่สำเร็จ");
+        return result.BookingStatus;
+    }
+
     public async Task<AgreementEvidenceFile>
         DownloadAgreementEvidenceAsync(
             Guid transactionId,
@@ -266,6 +334,21 @@ public sealed class ApiTransactionService(MobileApiClient api)
                ?? throw new InvalidOperationException(
                    "อัปเดตรายการไม่สำเร็จ");
     }
+
+    private static async Task<BuyerParcelProtection>
+        ReadParcelProtectionAsync(
+            HttpResponseMessage response,
+            CancellationToken cancellationToken)
+    {
+        await MobileApiClient.EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<BuyerParcelProtection>(
+                   cancellationToken: cancellationToken)
+               ?? throw new InvalidOperationException(
+                   "โหลดข้อมูลความคุ้มครองพัสดุไม่สำเร็จ");
+    }
+
+    private sealed record ParcelProtectionElectionResponse(
+        string BookingStatus);
 
     private static HttpRequestMessage CreateOfferRequest(
         CreateBuyerOfferRequest request)

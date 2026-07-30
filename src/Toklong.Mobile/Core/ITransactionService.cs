@@ -16,6 +16,26 @@ public interface ITransactionService
         Guid transactionId,
         CancellationToken cancellationToken = default);
 
+    Task<BuyerParcelProtection> GetParcelProtectionAsync(
+        Guid transactionId,
+        CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException();
+
+    Task<BuyerParcelProtection> PrepareParcelProtectionAsync(
+        Guid transactionId,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException();
+
+    Task<string> ChooseParcelProtectionAsync(
+        Guid transactionId,
+        bool addProtection,
+        string? optionReference,
+        long? disclosedCustomerPriceSatang,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException();
+
     Task<AgreementEvidenceFile> DownloadAgreementEvidenceAsync(
         Guid transactionId,
         CancellationToken cancellationToken = default) =>
@@ -82,6 +102,19 @@ public sealed record AgreementEvidenceFile(
 public sealed record ShippingLabelFile(
     string FileName,
     byte[] Content);
+
+public sealed record BuyerParcelProtection(
+    bool RequiresChoice,
+    bool AddOnAvailable,
+    long IncludedCoverageLimitSatang,
+    long? MaximumCoverageLimitSatang,
+    long? CustomerPriceSatang,
+    string? OptionReference,
+    string TermsVersion,
+    DateTimeOffset? ExpiresAt,
+    string Election,
+    bool BookingReady,
+    bool ReconfirmationRequired);
 
 public sealed record DisputeEvidenceUpload(
     string FileName,
