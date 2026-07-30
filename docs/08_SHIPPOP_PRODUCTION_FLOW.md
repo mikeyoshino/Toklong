@@ -18,6 +18,13 @@
 - endpoint ของ Production ต้องเป็น HTTPS เสมอ ส่วน HTTP ของ SHIPPOP Dev
   เปิดได้เฉพาะ Development/certification ด้วย explicit opt-in และค่าเริ่มต้น
   ต้องปิด
+- optional parcel protection ปิดอยู่จนกว่า account/service เดียวกันจะพิสูจน์
+  included limit, maximum, premium conversion เป็น integer satang, terms/code,
+  Buyer-elected booking result, safe timeout lookup/replay, cancellationก่อน
+  first scan และ weight/width/length/height field/unit ครบทั้งหมด
+- หาก SHIPPOP ไม่ให้ optional-protection payload ที่แยกได้หลัง Buyer election
+  ห้ามสร้างหรือเดาชื่อ field; บันทึกเป็น provider blocker และใช้
+  included-only checkout ต่อไป
 
 ## Outbound flow
 
@@ -88,7 +95,7 @@
 - mobile refresh อ่านข้อมูลจากฐานข้อมูลเท่านั้น ห้ามทำให้เกิด SHIPPOP mutation
   หรือ tracking poll
 
-## Implementation status — 29 July 2026
+## Implementation status — 30 July 2026
 
 ฝั่ง application ที่ทำเสร็จและทดสอบแล้ว:
 
@@ -114,10 +121,14 @@
 
 สิ่งที่ยังเป็น provider certification blocker และห้ามเปิด capability:
 
-- field/unit/rounding ของ insurance premium และ declared value ใน response จริง
-- lookup รายการ booking เดิมด้วย TOKLONG reference หลัง timeout
-- duplicate semantics ของ booking/confirm/cancel, trusted POD timestamp,
-  surcharge schema, return contract และ rate limit ต่อ service
+- optional-protection availability/revalidation/booking payload field names,
+  units, limits, premium rounding, terms/code และ exact Buyer-election result
+- lookup รายการ booking เดิมด้วย TOKLONG reference หลัง timeout และ repeated
+  booking/confirm/cancel semantics ที่ทำให้ replay ปลอดภัย
+- cancellation ก่อน first scan, trusted POD timestamp, surcharge schema,
+  return contract และ rate limit ต่อ service
+- weight และทุก dimension requirement/field/unit ที่ยืนยันโดย account จริง
 
-โค้ดจึงคง `EMST`, `FLE`, `KRYX`, `KRYS` เป็น disabled-by-default และไม่สร้าง
-ค่าประกันหรือ provider contract ที่ SHIPPOP ยังไม่ได้ยืนยัน
+โค้ดจึงคง `EMST`, `FLE`, `KRYX`, `KRYS` และ optional parcel protection เป็น
+disabled-by-default และไม่สร้างค่าประกันหรือ provider contract ที่ SHIPPOP
+ยังไม่ได้ยืนยัน

@@ -1,84 +1,114 @@
 # SHIPPOP certification runbook
 
-ทุกช่องต้องมีหลักฐานจากบัญชีและ environment ที่จะใช้งานจริง ผล “ไม่ทราบ”
-ถือว่าไม่ผ่านและ capability นั้นต้องปิดต่อไป ห้ามใช้ credential ที่เคยส่งผ่าน
-แชตหรือ commit; ให้ rotate ก่อนเริ่ม certification
+ทุก assertion ต้องมีหลักฐานจากบัญชีและ environment ที่จะใช้งานจริง ผล
+`unknown` หรือ `blocked` ถือว่าไม่ผ่าน และ capability นั้นต้องปิดต่อไป
+ห้ามใช้ credential ที่เคยส่งผ่านแชตหรือ commit; ให้ rotate ก่อนเริ่ม
+certification
 
 ## Safe setup
 
-กำหนด secret ผ่าน environment เท่านั้น:
-
-```text
-SHIPPOP_CERTIFY=1
-SHIPPOP_BASE_URL=http://mkpservice.shippop.dev
-SHIPPOP_ALLOW_INSECURE_HTTP=1
-SHIPPOP_API_KEY=<secret>
-SHIPPOP_ACCOUNT_EMAIL=<secret>
-SHIPPOP_SERVICE_CODE=EMST
-SHIPPOP_SYNTHETIC_ADDRESS_JSON=/absolute/path/synthetic-address.json
-```
-
-ใช้ชื่อ เบอร์ และที่อยู่สังเคราะห์ที่ได้รับอนุญาต ห้ามใช้ข้อมูลลูกค้าจริง
-ไฟล์ JSON ต้องมี `origin`, `destination`, parcel dimensions,
-`declaredValueSatang` และ postal codes ตามที่ certification test อ่าน
-
-`SHIPPOP_ALLOW_INSECURE_HTTP=1` ใช้ได้เฉพาะเมื่อบัญชี Dev ของ SHIPPOP
-ให้ endpoint แบบ HTTP เท่านั้น การตั้งค่านี้เป็น explicit opt-in เพราะ API key
-และข้อมูลที่อยู่จะเดินทางโดยไม่มี TLS ห้ามใช้กับ Production
-
-รันจาก repository root:
+credential มาจาก local environment หรือ secret storage เท่านั้น และห้ามใช้
+ที่อยู่หรือเบอร์ของลูกค้าจริง คำสั่ง opt-in ที่ต้องใช้จาก repository root คือ:
 
 ```bash
-./scripts/shippop-certify.sh
+SHIPPOP_CERTIFY=1 \
+SHIPPOP_BASE_URL=http://mkpservice.shippop.dev \
+SHIPPOP_ALLOW_INSECURE_HTTP=1 \
+SHIPPOP_API_KEY="$SHIPPOP_API_KEY" \
+SHIPPOP_ACCOUNT_EMAIL="$SHIPPOP_ACCOUNT_EMAIL" \
+SHIPPOP_SERVICE_CODE=EMST \
+SHIPPOP_SYNTHETIC_ADDRESS_JSON=/absolute/path/synthetic-address.json \
+dotnet test tests/Toklong.Shippop.Certification/Toklong.Shippop.Certification.csproj
 ```
 
-test ไม่พิมพ์ API key, request body, contact, address หรือ raw response
-เมื่อไม่ได้ตั้ง `SHIPPOP_CERTIFY=1` test จะรายงานเป็น `Skipped` อย่างชัดเจน
-ไม่รายงานผ่านแบบ no-op
+`SHIPPOP_ALLOW_INSECURE_HTTP=1` ใช้ได้เฉพาะ SHIPPOP Dev HTTP endpoint และ
+local Development/provider certification เท่านั้น เพราะ API key และข้อมูล
+ที่อยู่จะเดินทางโดยไม่มี TLS ห้ามใช้กับ Production
 
-## Evidence matrix
+เมื่อไม่มี `SHIPPOP_CERTIFY=1` test ทุกตัวต้องรายงาน `Skipped` ไม่ใช่ผ่านแบบ
+no-op:
 
-ทำตารางหนึ่งชุดต่อ service และบันทึก reviewer กับวันที่
+```bash
+dotnet test tests/Toklong.Shippop.Certification/Toklong.Shippop.Certification.csproj \
+  --no-restore
+```
 
-| Capability | EMST | FLE | KRYX | KRYS |
-|---|---|---|---|---|
-| quote fields/units | ☐ | ☐ | ☐ | ☐ |
-| full-value insurance code/value/premium | ☐ | ☐ | ☐ | ☐ |
-| unconfirmed booking | ☐ | ☐ | ☐ | ☐ |
-| lookup by TOKLONG/idempotency reference | ☐ | ☐ | ☐ | ☐ |
-| safe timeout reconciliation | ☐ | ☐ | ☐ | ☐ |
-| confirm | ☐ | ☐ | ☐ | ☐ |
-| 4×6 label | ☐ | ☐ | ☐ | ☐ |
-| trusted first-scan timestamp | ☐ | ☐ | ☐ | ☐ |
-| in-transit normalization | ☐ | ☐ | ☐ | ☐ |
-| delivery/POD timestamp | ☐ | ☐ | ☐ | ☐ |
-| complete without timestamp fails closed | ☐ | ☐ | ☐ | ☐ |
-| cancel before scan | ☐ | ☐ | ☐ | ☐ |
-| cancel after scan rejected | ☐ | ☐ | ☐ | ☐ |
-| surcharge evidence/reference | ☐ | ☐ | ☐ | ☐ |
-| managed return with distinct references | ☐ | ☐ | ☐ | ☐ |
-| rate-limit and retry contract | ☐ | ☐ | ☐ | ☐ |
-| reviewer / date / certification ref | ☐ | ☐ | ☐ | ☐ |
+ไฟล์ JSON เป็น fixture สังเคราะห์ที่ได้รับอนุญาตเท่านั้น ต้องมี
+`origin`, `destination`, `originPostalCode`, `destinationPostalCode`,
+`parcelName`, `weightGrams`, `widthCentimeters`, `lengthCentimeters`,
+`heightCentimeters` และ `declaredValueSatang`.
+
+ทุกค่าเงินใน evidence ต้องเป็น integer satang; ห้ามส่ง decimal THB หรือ
+คาดเดาการปัดเศษ ห้ามใส่วงเงินหรือ premium ที่ยังไม่ได้รับจาก response/document
+ของ account ลงใน fixture เพื่อทำให้ test ผ่าน
+
+test ไม่พิมพ์ API key, request body, contact, address, option reference,
+tracking, terms text หรือ raw provider response. การรันที่ถึง live assertion
+เขียนผลสรุปที่ sanitize แล้วใต้
+`TestResults/shippop-certification/`; directory นี้ถูก ignore โดย Git. รายงานมี
+เฉพาะ service code, เวลา UTC, unit `satang`, ชื่อ field parcel ที่ส่งพร้อม unit,
+และผล `passed`/`blocked` ของ assertion เท่านั้น
+
+## Required evidence
+
+บันทึกหนึ่งชุดต่อ account และ service code พร้อม reviewer, วันที่ และ
+certification reference. บันทึกเฉพาะชื่อ field จาก provider และ unit ที่เห็น
+จริง—not raw response/value/address/contact. ถ้า provider field หรือ unit ไม่ได้
+ระบุชัด ให้ใส่ `blocked`, ไม่ใช่ชื่อที่คาดเดา
+
+| Assertion | Evidence that must be recorded | Current adapter status |
+|---|---|---|
+| included coverage | provider response field name + integer-satang unit + exact value | blocked |
+| optional maximum | provider response field name + integer-satang unit + exact value | blocked |
+| add-on premium | provider response field name + source unit + exact integer-satang conversion | blocked |
+| terms / insurance code | response field names and non-secret code/version shape | blocked |
+| Buyer election → booking | documented payload fields that carry the selected option, exact returned fee/coverage/code | blocked |
+| safe replay after timeout | documented TOKLONG/idempotency lookup and proof that it returns the original booking | blocked |
+| cancellation before first scan | documented cancellable state and exact result without a scan | blocked |
+| weight | required request field name and unit | `weight`, grams (adapter input only) |
+| width | required request field name and unit | `width`, centimeters (adapter input only) |
+| length | required request field name and unit | `length`, centimeters (adapter input only) |
+| height | required request field name and unit | `height`, centimeters (adapter input only) |
+
+The opt-in suite calls `IParcelProtectionQuoteProvider` through the same
+disabled-by-default SHIPPOP boundary used by the application. It records every
+missing optional-protection assertion as `blocked`; it rejects a missing weight
+or any individual missing dimension before a quote request can leave TOKLONG.
+It never enables a test profile or performs booking, confirmation, replay, or
+cancellation by guessing a SHIPPOP endpoint or field.
+
+## Current provider blocker — 30 July 2026
+
+The checked-in SHIPPOP adapter has no documented, account-certified optional
+protection payload. Its protected-booking path deliberately stops before a
+provider mutation, and the public shipment boundary has no safe booking lookup
+operation. Consequently the live test must fail closed until SHIPPOP supplies
+all of the following for the actual account/service:
+
+1. The optional-protection availability/revalidation response field names,
+   units, included limit, maximum, premium rounding, terms/version, and
+   insurance code.
+2. The exact booking payload that binds the Buyer-elected option and the exact
+   booking response fields that prove the same coverage/cost/code.
+3. A TOKLONG/idempotency-reference lookup that makes a timeout outcome safe to
+   reconcile before any replay.
+4. Documented repeated-call behavior for booking, confirm, and cancel; and a
+   cancellation-before-first-scan contract.
+5. Account/service-specific weight and all-dimensions requirements, including
+   field names and units.
+
+Do not enable `OptionalProtectionEnabled`, `InsuranceEnabled`, booking, or any
+service capability from a skipped test, a test fixture, a screenshot, or a
+support assertion. Do not add payload fields until those provider facts are
+documented and the live certification passes. Included-only checkout remains
+the only permitted path.
 
 ## Enablement
 
-หลังทุกช่องที่จำเป็นผ่านแล้ว:
-
-1. เก็บหลักฐานและกำหนด certification reference ที่ตรวจย้อนกลับได้
-2. ตั้ง `MaximumCoverageSatang` จากขีดจำกัดที่พิสูจน์แล้ว
-3. เปิด `QuoteEnabled` ก่อน และตรวจ metrics/error rate
-4. เปิด booking ได้เมื่อ `OperationLookupEnabled` และ `InsuranceEnabled`
-   ผ่านแล้วเท่านั้น
-5. เปิด confirm, return และ capability อื่นแยกกัน
-6. deploy API และ Worker ด้วย configuration เดียวกัน
-7. เฝ้าดู pending age, expired lease, outcome unknown, retry,
-   confirmation/tracking lag, cancellation backlog, missing delivery time,
-   surcharge และ open cases
-8. หากพบ contract drift ให้ปิด capability ที่เกี่ยวข้องทันทีและเปิด CRM case
-
-## Current status
-
-ณ วันที่ 29 กรกฎาคม 2026 ทุก capability ของ `EMST`, `FLE`, `KRYX` และ
-`KRYS` ยังปิดอยู่ เพราะยังไม่มี account-specific certification ของ insurance,
-operation lookup/idempotent replay, trusted POD time, surcharge และ return
-contract ที่ครบถ้วน
+After every required row passes for one service, retain the sanitized report
+with the provider-owned evidence and set a non-empty `CertificationReference`.
+Then make the smallest separately reviewed configuration change: set the
+proved included and maximum values, leave unrelated services disabled, and
+deploy API and Worker with the same configuration. Any contract drift, timeout
+without lookup proof, missing delivery time, or new unknown field/unit closes
+the affected capability immediately and opens a CRM case.
