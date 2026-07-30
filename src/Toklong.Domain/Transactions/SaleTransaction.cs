@@ -1679,9 +1679,11 @@ public sealed class SaleTransaction
             selection.ExpiresAt > paymentDeadline)
             throw new DomainException(
                 "ราคาความคุ้มครองพัสดุหมดอายุหลังเวลาชำระเงิน");
-        if (selection.Election is
-            ParcelProtectionElectionStatus.Pending or
-            ParcelProtectionElectionStatus.ReconfirmationRequired)
+        if (selection.Election is not (
+            ParcelProtectionElectionStatus.Accepted or
+            ParcelProtectionElectionStatus.Declined or
+            ParcelProtectionElectionStatus.NotApplicable or
+            ParcelProtectionElectionStatus.Unavailable))
             throw new DomainException(
                 "สถานะความคุ้มครองพัสดุไม่ถูกต้อง");
 
@@ -1703,6 +1705,10 @@ public sealed class SaleTransaction
                     selection.IncludedCoverageLimitSatang)
                 throw new DomainException(
                     "วงเงินความคุ้มครองพัสดุไม่ถูกต้อง");
+            if (PriceSatang <=
+                selection.IncludedCoverageLimitSatang)
+                throw new DomainException(
+                    "สินค้านี้อยู่ในวงเงินที่รวมแล้ว จึงไม่ต้องซื้อความคุ้มครองเพิ่ม");
             if (string.IsNullOrWhiteSpace(
                     selection.ProviderOptionReference))
                 throw new DomainException(

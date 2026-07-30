@@ -7,6 +7,7 @@ using Toklong.Api.Security;
 using Toklong.Application.Abstractions;
 using Toklong.Application.Features.Authentication;
 using Toklong.Domain.Buyers;
+using Toklong.Domain.Sellers;
 using Toklong.Domain.Transactions;
 using Toklong.Infrastructure.Persistence;
 
@@ -435,6 +436,139 @@ public sealed class MobileSellerOfferApiTests
             historical.ShippingFeeSatang +
             historicalFeeSatang,
             historical.AmountSatang);
+    }
+
+    [Fact]
+    public async Task Seller_transaction_json_omits_buyer_only_parcel_protection_price()
+    {
+        using var localFactory = factory.WithWebHostBuilder(_ => { });
+        Guid transactionId;
+        string buyerAccessToken;
+        string sellerAccessToken;
+        await using (var scope =
+                     localFactory.Services.CreateAsyncScope())
+        {
+            var database = scope.ServiceProvider
+                .GetRequiredService<ToklongDbContext>();
+            var transitions = scope.ServiceProvider
+                .GetRequiredService<TransactionTransitionService>();
+            var now = DateTimeOffset.UtcNow;
+            var buyer = BuyerAccount.Create(
+                "+66855555551",
+                "ผู้ซื้อ Privacy",
+                "buyer-parcel-privacy@example.com",
+                now);
+            var seller = SellerAccount.Create(
+                "+66855555552",
+                now,
+                "ผู้ขาย Privacy");
+            var transaction =
+                TestTransactionFactory.CreateBuyerOffer(
+                    buyer.Id,
+                    buyer.FullName,
+                    buyer.PhoneNumber,
+                    seller.PhoneNumber,
+                    FulfillmentType.PhysicalShipment,
+                    "กล้อง Privacy",
+                    "กล้องพร้อมเลนส์ ใช้งานได้ปกติ",
+                    ConditionCode.UsedGood,
+                    "",
+                    null,
+                    450_000,
+                    "terms-v1",
+                    now,
+                    transitions);
+            transaction.AcceptBuyerOffer(
+                seller.Id,
+                seller.DisplayName,
+                seller.PhoneNumber,
+                "KBANK",
+                seller.DisplayName,
+                "1234567890",
+                true,
+                now.AddMinutes(1),
+                transitions,
+                shipping:
+                    TestTransactionFactory.ShippingQuote(
+                        now.AddMinutes(1)));
+            transaction.RecordParcelProtectionElection(
+                buyer.Id,
+                new ParcelProtectionSelection(
+                    ParcelProtectionElectionStatus.Accepted,
+                    6_000,
+                    4_500,
+                    1_500,
+                    100_000,
+                    450_000,
+                    "parcel-protection-2026-07-30",
+                    "protected-option",
+                    now,
+                    now.AddMinutes(30)),
+                now.AddMinutes(2));
+            database.Buyers.Add(buyer);
+            database.Sellers.Add(seller);
+            database.Transactions.Add(transaction);
+            await database.SaveChangesAsync();
+            transactionId = transaction.Id;
+            var tokens = scope.ServiceProvider
+                .GetRequiredService<MobileSessionTokenService>();
+            buyerAccessToken = (await tokens
+                .CreateAsync(
+                    new MobileSessionProfile(
+                        BuyerId: buyer.Id,
+                        SellerId: null,
+                        PhoneNumber: buyer.PhoneNumber,
+                        DisplayName: buyer.FullName),
+                    CancellationToken.None)).AccessToken;
+            sellerAccessToken = (await tokens
+                .CreateAsync(
+                    new MobileSessionProfile(
+                        BuyerId: null,
+                        SellerId: seller.Id,
+                        PhoneNumber: seller.PhoneNumber,
+                        DisplayName: seller.DisplayName),
+                    CancellationToken.None)).AccessToken;
+        }
+
+        using var client = localFactory.CreateClient(
+            new WebApplicationFactoryClientOptions
+            {
+                BaseAddress = new Uri("https://localhost"),
+                AllowAutoRedirect = false
+            });
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue(
+                "Bearer",
+                sellerAccessToken);
+
+        using var response = await client.GetAsync(
+            $"/api/mobile/transactions/{transactionId}");
+
+        Assert.True(
+            response.IsSuccessStatusCode,
+            await response.Content.ReadAsStringAsync());
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain(
+            "\"parcelInsuranceFeeSatang\"",
+            json,
+            StringComparison.Ordinal);
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue(
+                "Bearer",
+                buyerAccessToken);
+        using var buyerResponse = await client.GetAsync(
+            $"/api/mobile/transactions/{transactionId}");
+        Assert.True(
+            buyerResponse.IsSuccessStatusCode,
+            await buyerResponse.Content.ReadAsStringAsync());
+        using var buyerJson = JsonDocument.Parse(
+            await buyerResponse.Content.ReadAsStringAsync());
+        Assert.Equal(
+            6_000,
+            buyerJson.RootElement
+                .GetProperty("parcelInsuranceFeeSatang")
+                .GetInt64());
     }
 
     [Fact]

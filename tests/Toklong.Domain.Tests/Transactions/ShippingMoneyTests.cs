@@ -293,6 +293,39 @@ public sealed class ShippingMoneyTests
     }
 
     [Theory]
+    [InlineData(100_000)]
+    [InlineData(100_001)]
+    public void Accepted_add_on_is_rejected_when_item_price_is_within_included_coverage(
+        long includedCoverageLimitSatang)
+    {
+        var transaction = AcceptedPhysicalOffer(100_000);
+
+        Assert.Throws<DomainException>(() =>
+            transaction.RecordParcelProtectionElection(
+                transaction.BuyerId!.Value,
+                Selection(
+                    ParcelProtectionElectionStatus.Accepted,
+                    6_000, 4_500, 1_500,
+                    includedCoverageLimitSatang,
+                    includedCoverageLimitSatang,
+                    "protected-option"),
+                Now.AddMinutes(2)));
+    }
+
+    [Fact]
+    public void Undefined_election_status_is_rejected()
+    {
+        var transaction = AcceptedPhysicalOffer(450_000);
+
+        Assert.Throws<DomainException>(() =>
+            transaction.RecordParcelProtectionElection(
+                transaction.BuyerId!.Value,
+                Selection(
+                    (ParcelProtectionElectionStatus)99),
+                Now.AddMinutes(2)));
+    }
+
+    [Theory]
     [InlineData(ParcelProtectionElectionStatus.Declined)]
     [InlineData(ParcelProtectionElectionStatus.NotApplicable)]
     [InlineData(ParcelProtectionElectionStatus.Unavailable)]

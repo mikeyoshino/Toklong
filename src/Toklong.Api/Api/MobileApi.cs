@@ -1479,7 +1479,9 @@ public static class MobileApi
             transaction.RefundActionExpiresAt,
             transaction.RefundInstructionsSentAt,
             transaction.CreatedAt,
-            transaction.ParcelInsuranceFeeSatang,
+            isBuyer
+                ? transaction.ParcelInsuranceFeeSatang
+                : null,
             transaction.ShippingDeclaredValueSatang,
             transaction.ShippingOperationStatus?.ToString());
     }
@@ -1904,7 +1906,9 @@ public sealed record MobileTransactionResponse(
     DateTimeOffset? RefundActionExpiresAt,
     DateTimeOffset? RefundInstructionsSentAt,
     DateTimeOffset CreatedAt,
-    long ParcelInsuranceFeeSatang,
+    [property: JsonIgnore(
+        Condition = JsonIgnoreCondition.WhenWritingNull)]
+    long? ParcelInsuranceFeeSatang,
     long ShippingDeclaredValueSatang,
     string? ShippingOperationStatus);
 
