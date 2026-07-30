@@ -89,6 +89,36 @@ public sealed class StripeWebhookApiTests
             item => item.EventId == "evt_http_001");
     }
 
+    [Theory]
+    [InlineData(ParcelProtectionElectionStatus.Accepted, 461_000)]
+    [InlineData(ParcelProtectionElectionStatus.Unavailable, 455_000)]
+    public async Task Signed_webhook_uses_final_parcel_protection_buyer_total(
+        ParcelProtectionElectionStatus election,
+        long expectedBuyerTotalSatang)
+    {
+        var transaction = await SeedPendingStripeTransactionAsync(
+            $"pi_http_{election.ToString().ToLowerInvariant()}", election);
+        Assert.Equal(expectedBuyerTotalSatang, transaction.BuyerTotalSatang);
+        var payload = Payload(transaction.Id,
+            $"evt_http_{election.ToString().ToLowerInvariant()}",
+            transaction.PaymentReference!, expectedBuyerTotalSatang,
+            DateTimeOffset.UtcNow);
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        using var client = factory.CreateClient();
+        using var response = await PostAsync(client, payload,
+            Signature(payload, timestamp));
+
+        response.EnsureSuccessStatusCode();
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ToklongDbContext>();
+        var stored = await db.Transactions.SingleAsync(item =>
+            item.Id == transaction.Id);
+        // This fixture deliberately has no completed provider booking; the
+        // verified payment therefore enters the existing refund-safe path.
+        Assert.Equal(TransactionState.RefundPending, stored.State);
+        Assert.Equal(expectedBuyerTotalSatang, stored.BuyerTotalSatang);
+    }
+
     [Fact]
     public async Task Invalid_signature_cannot_change_payment_state()
     {
@@ -529,7 +559,8 @@ public sealed class StripeWebhookApiTests
     }
 
     private async Task<SaleTransaction> SeedPendingStripeTransactionAsync(
-        string paymentIntentId = "pi_http_001")
+        string paymentIntentId = "pi_http_001",
+        ParcelProtectionElectionStatus? parcelProtectionElection = null)
     {
         var now = new DateTimeOffset(
             2026,
@@ -570,6 +601,25 @@ public sealed class StripeWebhookApiTests
             "fee-test-v1",
             TestTransactionFactory.ShippingQuote(
                 now.AddMinutes(1)));
+        if (parcelProtectionElection.HasValue)
+        {
+            var accepted = parcelProtectionElection ==
+                ParcelProtectionElectionStatus.Accepted;
+            transaction.RecordParcelProtectionElection(
+                transaction.BuyerId!.Value,
+                new ParcelProtectionSelection(
+                    parcelProtectionElection.Value,
+                    accepted ? 6_000 : 0,
+                    accepted ? 4_500 : 0,
+                    accepted ? 1_500 : 0,
+                    accepted ? 100_000 : 0,
+                    accepted ? 450_000 : 0,
+                    accepted ? "parcel-protection-v1" :
+                        "parcel-protection-unavailable-v1",
+                    accepted ? "protected-option" : null,
+                    now.AddMinutes(1), now.AddHours(1)),
+                now.AddMinutes(1));
+        }
         transaction.BeginCheckout(
             "ผู้ซื้อ ทดสอบ",
             "+66811111111",

@@ -4,6 +4,7 @@ using Toklong.Application.Features.Checkout.ChooseParcelProtection;
 using Toklong.Application.Features.Shipping;
 using Toklong.Application.Features.Shipping.ProcessShippingOperations;
 using Toklong.Application.Pricing;
+using Toklong.Domain.Common;
 using Toklong.Domain.Transactions;
 using Toklong.Infrastructure.Persistence;
 
@@ -178,6 +179,88 @@ public sealed class DurableShippingOperationProcessingTests
             supersededOperation.Status);
         Assert.Single(transaction.ShippingOperations,
             operation => operation.Status == ShippingOperationStatus.Pending);
+    }
+
+    [Fact]
+    public async Task Two_consecutive_quote_changes_preserve_history_and_queue_the_latest_reconfirmation()
+    {
+        await using var database = CreateDatabase();
+        var (transaction, first) = PendingBuyerCheckoutBooking();
+        database.Transactions.Add(transaction);
+        await database.SaveChangesAsync();
+        var secondOption = BookingProvider.DefaultProtectionOption with
+        {
+            TermsVersion = "parcel-protection-2026-08-01"
+        };
+        var secondProvider = new BookingProvider { ProtectionOption = secondOption };
+        await Handler(database, first, secondProvider, new FixedClock(Now.AddMinutes(1)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-a"), default);
+
+        await new ChooseParcelProtectionHandler(
+                new TransactionRepository(database), secondProvider,
+                new ParcelProtectionPricingPolicy(), database,
+                new FixedClock(Now.AddMinutes(2)))
+            .Handle(new ChooseParcelProtectionCommand(
+                transaction.Id, transaction.BuyerId!.Value, true,
+                secondOption.OptionReference, 6_000, "reconfirm-first-change"),
+                default);
+        var second = transaction.ShippingOperations.Single(
+            item => item.Status == ShippingOperationStatus.Pending);
+        var thirdOption = secondOption with
+        {
+            TermsVersion = "parcel-protection-2026-09-01"
+        };
+        var thirdProvider = new BookingProvider { ProtectionOption = thirdOption };
+        await Handler(database, second, thirdProvider, new FixedClock(Now.AddMinutes(3)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-b"), default);
+
+        await new ChooseParcelProtectionHandler(
+                new TransactionRepository(database), thirdProvider,
+                new ParcelProtectionPricingPolicy(), database,
+                new FixedClock(Now.AddMinutes(4)))
+            .Handle(new ChooseParcelProtectionCommand(
+                transaction.Id, transaction.BuyerId!.Value, true,
+                thirdOption.OptionReference, 6_000, "reconfirm-second-change"),
+                default);
+
+        Assert.Equal(3, transaction.ManagedShipments.Count);
+        Assert.Equal(2, transaction.ShippingOperations.Count(item =>
+            item.Status == ShippingOperationStatus.Superseded));
+        Assert.Single(transaction.ShippingOperations, item =>
+            item.Status == ShippingOperationStatus.Pending);
+    }
+
+    [Fact]
+    public void Ambiguous_latest_superseded_outbound_attempt_fails_closed()
+    {
+        var (transaction, first) = PendingBuyerCheckoutBooking();
+        first.Claim("worker-a", Now.AddMinutes(1), TimeSpan.FromMinutes(5));
+        first.Supersede("worker-a", "quote-changed", Now.AddMinutes(1));
+        var secondShipment = ManagedShipment.CreateOutbound(
+            transaction.Id,
+            DraftWithProtection("parcel-protection-v2", "option-v2"),
+            Now.AddMinutes(2));
+        var second = ShippingOperation.Queue(transaction.Id, secondShipment.Id,
+            ShippingOperationType.BookOutbound, "book-second",
+            ManagedShippingOperationQueue.BookingFingerprint(secondShipment),
+            Now.AddMinutes(2));
+        transaction.QueueManagedShipment(secondShipment, second, ActorRole.System,
+            "test", Now.AddMinutes(2));
+        second.Claim("worker-b", Now.AddMinutes(3), TimeSpan.FromMinutes(5));
+        second.Supersede("worker-b", "quote-changed", Now.AddMinutes(3));
+        typeof(ManagedShipment).GetProperty(nameof(ManagedShipment.CreatedAt))!
+            .SetValue(secondShipment, transaction.ManagedShipments.First().CreatedAt);
+        var thirdShipment = ManagedShipment.CreateOutbound(transaction.Id,
+            DraftWithProtection("parcel-protection-v3", "option-v3"),
+            Now.AddMinutes(4));
+        var third = ShippingOperation.Queue(transaction.Id, thirdShipment.Id,
+            ShippingOperationType.BookOutbound, "book-third",
+            ManagedShippingOperationQueue.BookingFingerprint(thirdShipment),
+            Now.AddMinutes(4));
+
+        Assert.Throws<DomainException>(() => transaction.QueueManagedShipment(
+            thirdShipment, third, ActorRole.System, "test", Now.AddMinutes(4)));
+        Assert.Equal(2, transaction.ManagedShipments.Count);
     }
 
     [Theory]

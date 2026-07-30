@@ -13,6 +13,20 @@ public sealed class OptionalParcelProtectionMigrationTests
     private const string PostgreSqlConnectionStringEnvironmentVariable =
         "TOKLONG_POSTGRES_MIGRATION_TEST_CONNECTION";
 
+    [Fact]
+    public void Allowing_superseded_outbound_history_has_an_explicit_safe_rollback_policy()
+    {
+        var migration = new AllowSupersededOutboundBookingIntentProbe();
+        var exception = Assert.Throws<NotSupportedException>(() =>
+            migration.ExecuteDown(
+                new MigrationBuilder("Npgsql.EntityFrameworkCore.PostgreSQL")));
+
+        Assert.Contains("intentionally irreversible", exception.Message,
+            StringComparison.Ordinal);
+        Assert.Contains("superseded booking history", exception.Message,
+            StringComparison.Ordinal);
+    }
+
     [RequiresPostgreSqlMigrationFixture]
     public async Task Up_backfills_persisted_legacy_rows_in_PostgreSql()
     {
@@ -179,6 +193,12 @@ public sealed class OptionalParcelProtectionMigrationTests
             new MigrationProbe().Down(builder);
             return builder.Operations;
         }
+    }
+
+    private sealed class AllowSupersededOutboundBookingIntentProbe
+        : AllowSupersededOutboundBookingIntent
+    {
+        public void ExecuteDown(MigrationBuilder builder) => Down(builder);
     }
 
     private static async Task CreatePreMigrationSchemaAsync(

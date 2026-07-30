@@ -214,6 +214,34 @@ public sealed class ParcelProtectionCheckoutTests
             fixture.Choose(false, null, null, "choose-different-choice"), default));
     }
 
+    [Fact]
+    public async Task Buyer_checkout_annex_evidence_is_append_only()
+    {
+        await using var fixture = await Fixture.CreateAsync(450_000);
+        await fixture.ChooseHandler.Handle(fixture.Choose(false), default);
+        fixture.Transaction.BeginCheckout(
+            "ผู้ซื้อทดสอบ", "0800000000", Now.AddMinutes(2),
+            new TransactionTransitionService(), "manual-bank", null,
+            0, 0, fixture.Transaction.PriceSatang, "fee-v1");
+        fixture.Database.ChangeTracker.DetectChanges();
+        Assert.Equal(EntityState.Added,
+            fixture.Database.Entry(Assert.Single(
+                fixture.Transaction.BuyerCheckoutAnnexAcceptances)).State);
+        await fixture.Database.SaveChangesAsync();
+        var annex = Assert.Single(
+            fixture.Transaction.BuyerCheckoutAnnexAcceptances);
+
+        fixture.Database.Entry(annex)
+            .Property(x => x.CanonicalPayloadJson).CurrentValue = "{}";
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            fixture.Database.SaveChangesAsync());
+
+        fixture.Database.Entry(annex).State = EntityState.Unchanged;
+        fixture.Database.Remove(annex);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            fixture.Database.SaveChangesAsync());
+    }
+
     private sealed class Fixture : IAsyncDisposable
     {
         private Fixture(ToklongDbContext database, SaleTransaction transaction,

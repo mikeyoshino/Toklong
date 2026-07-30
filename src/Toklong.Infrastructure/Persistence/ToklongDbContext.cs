@@ -20,6 +20,9 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         Set<RetentionFileDeletion>();
     public DbSet<AgreementAcceptance> AgreementAcceptances =>
         Set<AgreementAcceptance>();
+    public DbSet<BuyerCheckoutAnnexAcceptance>
+        BuyerCheckoutAnnexAcceptances =>
+        Set<BuyerCheckoutAnnexAcceptance>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<ExternalEvent> ExternalEvents => Set<ExternalEvent>();
     public DbSet<ActivationRiskEvent> ActivationRiskEvents => Set<ActivationRiskEvent>();
@@ -185,6 +188,10 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
             .WithOne()
             .HasForeignKey(x => x.TransactionId)
             .OnDelete(DeleteBehavior.Cascade);
+        transaction.HasMany(x => x.BuyerCheckoutAnnexAcceptances)
+            .WithOne()
+            .HasForeignKey(x => x.TransactionId)
+            .OnDelete(DeleteBehavior.Cascade);
         transaction.HasMany(x => x.ExternalEvents).WithOne().HasForeignKey(x => x.TransactionId).OnDelete(DeleteBehavior.Cascade);
         transaction.HasMany(x => x.Notifications).WithOne().HasForeignKey(x => x.TransactionId).OnDelete(DeleteBehavior.Cascade);
         transaction.HasMany(x => x.DisputeEvidence)
@@ -210,6 +217,9 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         transaction.Navigation(nameof(SaleTransaction.AuditEvents)).UsePropertyAccessMode(PropertyAccessMode.Field);
         transaction.Navigation(nameof(SaleTransaction.AgreementAcceptances))
             .UsePropertyAccessMode(PropertyAccessMode.Field);
+        transaction.Navigation(
+                nameof(SaleTransaction.BuyerCheckoutAnnexAcceptances))
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
         transaction.Navigation(nameof(SaleTransaction.ExternalEvents)).UsePropertyAccessMode(PropertyAccessMode.Field);
         transaction.Navigation(nameof(SaleTransaction.Notifications)).UsePropertyAccessMode(PropertyAccessMode.Field);
         transaction.Navigation(nameof(SaleTransaction.DisputeEvidence))
@@ -225,6 +235,15 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
 
         ConfigureManagedShipping(modelBuilder);
+
+        var checkoutAnnexAcceptance =
+            modelBuilder.Entity<BuyerCheckoutAnnexAcceptance>();
+        checkoutAnnexAcceptance.ToTable("buyer_checkout_annex_acceptances");
+        checkoutAnnexAcceptance.HasKey(x => x.Id);
+        checkoutAnnexAcceptance.HasIndex(x => x.TransactionId).IsUnique();
+        checkoutAnnexAcceptance.Property(x => x.CanonicalPayloadJson)
+            .HasColumnType("jsonb");
+        checkoutAnnexAcceptance.Property(x => x.PayloadHash).HasMaxLength(64);
 
         var financialRetention =
             modelBuilder.Entity<FinancialRetentionRecord>();
@@ -581,6 +600,15 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
                     entry.Entity.TransactionId)))
             throw new InvalidOperationException(
                 "Agreement acceptance records are append-only.");
+
+        if (ChangeTracker
+            .Entries<BuyerCheckoutAnnexAcceptance>()
+            .Any(entry =>
+                entry.State == EntityState.Modified ||
+                entry.State == EntityState.Deleted &&
+                !deletedTransactionIds.Contains(entry.Entity.TransactionId)))
+            throw new InvalidOperationException(
+                "Buyer checkout annex acceptance records are append-only.");
 
         if (ChangeTracker
             .Entries<MobileAccountTermsAcceptance>()

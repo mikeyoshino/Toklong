@@ -22,6 +22,8 @@ public sealed class SaleTransaction
 
     private readonly List<AuditEvent> _auditEvents = [];
     private readonly List<AgreementAcceptance> _agreementAcceptances = [];
+    private readonly List<BuyerCheckoutAnnexAcceptance>
+        _buyerCheckoutAnnexAcceptances = [];
     private readonly List<ExternalEvent> _externalEvents = [];
     private readonly List<NotificationOutboxMessage> _notifications = [];
     private readonly List<DisputeEvidence> _disputeEvidence = [];
@@ -175,6 +177,8 @@ public sealed class SaleTransaction
     public IReadOnlyCollection<AuditEvent> AuditEvents => _auditEvents;
     public IReadOnlyCollection<AgreementAcceptance> AgreementAcceptances =>
         _agreementAcceptances;
+    public IReadOnlyCollection<BuyerCheckoutAnnexAcceptance>
+        BuyerCheckoutAnnexAcceptances => _buyerCheckoutAnnexAcceptances;
     public IReadOnlyCollection<ExternalEvent> ExternalEvents => _externalEvents;
     public IReadOnlyCollection<NotificationOutboxMessage> Notifications =>
         _notifications;
@@ -258,8 +262,19 @@ public sealed class SaleTransaction
             operation.ManagedShipmentId != shipment.Id)
             throw new DomainException(
                 "งานจัดส่งไม่ตรงกับรายการซื้อขาย");
-        var existingShipment = _managedShipments.SingleOrDefault(item =>
-            item.Direction == shipment.Direction);
+        var directionalShipments = _managedShipments
+            .Where(item => item.Direction == shipment.Direction)
+            .OrderByDescending(item => item.CreatedAt)
+            .ToArray();
+        // Only the latest outbound attempt can be replaced. Older superseded
+        // attempts are immutable history; equal timestamps are unsafe to rank.
+        if (shipment.Direction == ShipmentDirection.Outbound &&
+            directionalShipments.Length > 1 &&
+            directionalShipments[0].CreatedAt ==
+            directionalShipments[1].CreatedAt)
+            throw new DomainException(
+                "ไม่สามารถระบุงานจัดส่งล่าสุดได้ ต้องตรวจสอบโดยเจ้าหน้าที่");
+        var existingShipment = directionalShipments.FirstOrDefault();
         var replacesSupersededUnreservedOutbound =
             shipment.Direction == ShipmentDirection.Outbound &&
             existingShipment is not null &&
@@ -3523,6 +3538,14 @@ public sealed class SaleTransaction
                        AgreementCoreSnapshotHash!));
     }
 
+    public bool HasValidBuyerCheckoutAnnexAcceptance() =>
+        _buyerCheckoutAnnexAcceptances.Count == 1 &&
+        _buyerCheckoutAnnexAcceptances[0].TransactionId == Id &&
+        _buyerCheckoutAnnexAcceptances[0].HasValidPayloadHash() &&
+        SecureEquals(
+            _buyerCheckoutAnnexAcceptances[0].CanonicalPayloadJson,
+            BuildBuyerCheckoutAnnexPayloadJson());
+
     private void CreateSellerAcceptanceEvidence(
         Guid sellerId,
         DateTimeOffset acceptedAt)
@@ -4532,22 +4555,15 @@ public sealed class SaleTransaction
     private void RecordBuyerCheckoutAnnexAcceptance(
         DateTimeOffset now)
     {
-        var annexJson = JsonSerializer.Serialize(new
-        {
-            BuyerTotalSatang,
-            ParcelProtectionElection =
-                ParcelProtectionElection.ToString(),
-            ParcelInsuranceFeeSatang,
-            ParcelProtectionProviderCostSatang,
-            ParcelProtectionServiceFeeSatang,
-            ParcelProtectionIncludedCoverageSatang,
-            ParcelProtectionSelectedCoverageSatang,
-            ParcelProtectionTermsVersion,
-            ParcelProtectionOptionReference,
-            ParcelProtectionQuotedAt,
-            ParcelProtectionExpiresAt,
-            ParcelProtectionBuyerElectedAt
-        });
+        // Keep this serialization order stable: it is the canonical record
+        // that the stored SHA-256 hash verifies.
+        var annexJson = BuildBuyerCheckoutAnnexPayloadJson();
+        var acceptance = BuyerCheckoutAnnexAcceptance.Create(
+            Id, annexJson, now);
+        _buyerCheckoutAnnexAcceptances.Add(acceptance);
+        if (!HasValidBuyerCheckoutAnnexAcceptance())
+            throw new DomainException(
+                "ไม่สามารถสร้างหลักฐานการยอมรับค่าใช้จ่ายได้");
         _auditEvents.Add(new AuditEvent(
             Id,
             ActorRole.Buyer,
@@ -4560,14 +4576,30 @@ public sealed class SaleTransaction
             $"buyer-checkout-annex:{Id:N}",
             JsonSerializer.Serialize(new
             {
-                BuyerTotalSatang,
-                ParcelProtectionElection =
-                    ParcelProtectionElection.ToString(),
-                BuyerCheckoutAnnexHash = Hash(annexJson),
-                ProductSnapshotHash
+                BuyerCheckoutAnnexHash = acceptance.PayloadHash
             })));
         Version++;
     }
+
+    private string BuildBuyerCheckoutAnnexPayloadJson() =>
+        JsonSerializer.Serialize(new
+        {
+            SchemaVersion = 1,
+            ProductSnapshotHash,
+            Currency,
+            BuyerTotalSatang,
+            ParcelProtectionElection =
+                ParcelProtectionElection.ToString(),
+            ParcelInsuranceFeeSatang,
+            ParcelProtectionProviderCostSatang,
+            ParcelProtectionServiceFeeSatang,
+            ParcelProtectionIncludedCoverageSatang,
+            ParcelProtectionSelectedCoverageSatang,
+            ParcelProtectionTermsVersion,
+            ParcelProtectionQuotedAt,
+            ParcelProtectionExpiresAt,
+            ParcelProtectionBuyerElectedAt
+        });
 
     private string SnapshotAuditMetadata() =>
         JsonSerializer.Serialize(new

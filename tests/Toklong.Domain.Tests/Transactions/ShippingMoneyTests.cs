@@ -403,27 +403,27 @@ public sealed class ShippingMoneyTests
         var checkoutAnnexAcceptance = Assert.Single(
             transaction.AuditEvents,
             audit => audit.Name == "buyer.checkout_annex_accepted");
-        using var checkoutAnnex = JsonDocument.Parse(
-            checkoutAnnexAcceptance.MetadataJson);
-        Assert.Equal(
-            transaction.BuyerTotalSatang,
-            checkoutAnnex.RootElement
-                .GetProperty("BuyerTotalSatang")
-                .GetInt64());
-        Assert.Equal(
-            "Accepted",
-            checkoutAnnex.RootElement
-                .GetProperty("ParcelProtectionElection")
-                .GetString());
+        var persistedAnnex = Assert.Single(
+            transaction.BuyerCheckoutAnnexAcceptances);
+        Assert.True(persistedAnnex.HasValidPayloadHash());
+        Assert.True(transaction.HasValidBuyerCheckoutAnnexAcceptance());
+        using var persistedPayload = JsonDocument.Parse(
+            persistedAnnex.CanonicalPayloadJson);
         Assert.Equal(
             transaction.ProductSnapshotHash,
-            checkoutAnnex.RootElement
+            persistedPayload.RootElement
                 .GetProperty("ProductSnapshotHash")
                 .GetString());
-        Assert.False(string.IsNullOrWhiteSpace(
-            checkoutAnnex.RootElement
-                .GetProperty("BuyerCheckoutAnnexHash")
-                .GetString()));
+        Assert.Equal(
+            transaction.BuyerTotalSatang,
+            persistedPayload.RootElement
+                .GetProperty("BuyerTotalSatang")
+                .GetInt64());
+        using var checkoutAnnex = JsonDocument.Parse(
+            checkoutAnnexAcceptance.MetadataJson);
+        Assert.Equal(persistedAnnex.PayloadHash,
+            checkoutAnnex.RootElement.GetProperty("BuyerCheckoutAnnexHash")
+                .GetString());
 
         Assert.Throws<DomainException>(() =>
             transaction.RecordParcelProtectionElection(
@@ -433,6 +433,28 @@ public sealed class ShippingMoneyTests
                     includedCoverageLimitSatang: 100_000,
                     selectedCoverageLimitSatang: 100_000),
                 Now.AddMinutes(6)));
+    }
+
+    [Fact]
+    public void Buyer_checkout_annex_hash_detects_tampering()
+    {
+        var transaction = AcceptedPhysicalOffer(450_000);
+        transaction.RecordParcelProtectionElection(
+            transaction.BuyerId!.Value,
+            Selection(ParcelProtectionElectionStatus.Declined,
+                includedCoverageLimitSatang: 100_000,
+                selectedCoverageLimitSatang: 100_000),
+            Now.AddMinutes(2));
+        transaction.BeginCheckout("ผู้ซื้อ", "buyer@example.com", Now.AddMinutes(3),
+            new TransactionTransitionService());
+        var annex = Assert.Single(transaction.BuyerCheckoutAnnexAcceptances);
+
+        typeof(BuyerCheckoutAnnexAcceptance)
+            .GetProperty(nameof(BuyerCheckoutAnnexAcceptance.CanonicalPayloadJson))!
+            .SetValue(annex, "{\"BuyerTotalSatang\":1}");
+
+        Assert.False(annex.HasValidPayloadHash());
+        Assert.False(transaction.HasValidBuyerCheckoutAnnexAcceptance());
     }
 
     [Fact]

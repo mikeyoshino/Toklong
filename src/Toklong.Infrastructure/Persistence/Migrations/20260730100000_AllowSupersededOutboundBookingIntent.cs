@@ -19,13 +19,9 @@ public partial class AllowSupersededOutboundBookingIntent : Migration
 
     protected override void Down(MigrationBuilder migrationBuilder)
     {
-        migrationBuilder.DropIndex(
-            name: "IX_managed_shipments_TransactionId_Direction",
-            table: "managed_shipments");
-        migrationBuilder.CreateIndex(
-            name: "IX_managed_shipments_TransactionId_Direction",
-            table: "managed_shipments",
-            columns: new[] { "TransactionId", "Direction" },
-            unique: true);
+        throw new NotSupportedException(
+            "This migration is intentionally irreversible: restoring the " +
+            "outbound booking uniqueness constraint could discard immutable " +
+            "superseded booking history. Restore a pre-migration backup instead.");
     }
 }
