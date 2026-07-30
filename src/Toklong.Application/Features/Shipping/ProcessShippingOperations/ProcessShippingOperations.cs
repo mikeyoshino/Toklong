@@ -328,6 +328,31 @@ public sealed class ProcessNextShippingOperationHandler(
         string workerId,
         CancellationToken cancellationToken)
     {
+        var change = transaction.ParcelProtectionChangeRequests
+            .SingleOrDefault(request =>
+                request.Status == ParcelProtectionChangeStatus.AwaitingRebooking);
+        if (change is not null &&
+            transaction.CurrentOutboundShipment?.Id == shipment.Id)
+        {
+            if (change.DesiredExpiresAt <= clock.UtcNow)
+                throw new DomainException("parcel-protection-option-expired");
+            if (change.DesiredElection == ParcelProtectionElectionStatus.Accepted)
+            {
+                var validated = await parcelProtectionQuotes.ValidateOptionAsync(
+                    ParcelProtectionCheckout.BuildProtectionRequest(transaction),
+                    change.DesiredOptionReference ?? throw new DomainException(
+                        "parcel-protection-option-reference-missing"),
+                    cancellationToken);
+                if (!MatchesChangeSelection(change, shipment, validated))
+                    throw new DomainException("parcel-protection-selection-mismatch");
+            }
+            else if (shipment.ParcelProtectionElection != change.DesiredElection ||
+                     shipment.InsuranceFeeSatang != 0 ||
+                     shipment.DeclaredValueSatang != 0 ||
+                     !string.IsNullOrWhiteSpace(shipment.InsuranceCode))
+                throw new DomainException("parcel-protection-selection-mismatch");
+            return true;
+        }
         if (transaction.ParcelProtectionElection ==
             ParcelProtectionElectionStatus.Accepted)
         {
@@ -379,6 +404,31 @@ public sealed class ProcessNextShippingOperationHandler(
 
         throw new DomainException("parcel-protection-selection-mismatch");
     }
+
+    private static bool MatchesChangeSelection(
+        ParcelProtectionChangeRequest change,
+        ManagedShipment shipment,
+        ProviderParcelProtectionOption validated) =>
+        string.Equals(validated.OptionReference, change.DesiredOptionReference,
+            StringComparison.Ordinal) &&
+        string.Equals(validated.TermsVersion, change.DesiredTermsVersion,
+            StringComparison.Ordinal) &&
+        validated.ProviderCostSatang == change.DesiredProviderCostSatang &&
+        validated.IncludedCoverageLimitSatang ==
+            change.DesiredIncludedCoverageSatang &&
+        validated.SelectedCoverageLimitSatang ==
+            change.DesiredSelectedCoverageSatang &&
+        validated.QuotedAt == change.DesiredQuotedAt &&
+        validated.ExpiresAt == change.DesiredExpiresAt &&
+        string.Equals(validated.Provider, shipment.Provider,
+            StringComparison.Ordinal) &&
+        shipment.ParcelProtectionElection == change.DesiredElection &&
+        shipment.ParcelProtectionProviderCostSatang ==
+            change.DesiredProviderCostSatang &&
+        shipment.InsuranceFeeSatang == change.DesiredProviderCostSatang &&
+        shipment.DeclaredValueSatang == change.DesiredSelectedCoverageSatang &&
+        string.Equals(shipment.InsuranceCode, change.DesiredInsuranceCode,
+            StringComparison.Ordinal);
 
     private void SupersedeChangedProtectionOption(
         SaleTransaction transaction,
@@ -517,9 +567,31 @@ public sealed class ProcessNextShippingOperationHandler(
             cancellationToken);
         shipment.RecordCancellation(clock.UtcNow);
         if (shipment.Direction == ShipmentDirection.Outbound)
-            transaction.RecordShippingCancellation(
-                shipment.Provider,
-                clock.UtcNow);
+        {
+            var change = transaction.ParcelProtectionChangeRequests
+                .SingleOrDefault(request =>
+                    request.PreviousManagedShipmentId == shipment.Id &&
+                    request.Status ==
+                        ParcelProtectionChangeStatus.AwaitingCancellation);
+            if (change is not null)
+            {
+                transaction.CompleteParcelProtectionCancellation(
+                    shipment.Id, clock.UtcNow);
+                var replacement = transaction.CreateReplacementOutboundShipment(
+                    change.Id, clock.UtcNow);
+                var booking = ShippingOperation.Queue(
+                    transaction.Id, replacement.Id,
+                    ShippingOperationType.BookOutbound,
+                    $"book-outbound-change:{change.Id:N}",
+                    ManagedShippingOperationQueue.BookingFingerprint(replacement),
+                    clock.UtcNow);
+                transaction.QueueReplacementOutboundShipment(
+                    replacement, booking, clock.UtcNow);
+            }
+            else
+                transaction.RecordShippingCancellation(
+                    shipment.Provider, clock.UtcNow);
+        }
         operation.Succeed(
             workerId,
             shipment.PurchaseReference,

@@ -33,6 +33,8 @@ public sealed class SaleTransaction
         _providerShippingAdjustments = [];
     private readonly List<ShippingInsuranceCase>
         _shippingInsuranceCases = [];
+    private readonly List<ParcelProtectionChangeRequest>
+        _parcelProtectionChangeRequests = [];
 
     private SaleTransaction() { }
 
@@ -194,6 +196,16 @@ public sealed class SaleTransaction
     public IReadOnlyCollection<ShippingInsuranceCase>
         ShippingInsuranceCases =>
             _shippingInsuranceCases;
+    public IReadOnlyCollection<ParcelProtectionChangeRequest>
+        ParcelProtectionChangeRequests =>
+            _parcelProtectionChangeRequests;
+    public ManagedShipment? CurrentOutboundShipment =>
+        _managedShipments
+            .Where(item =>
+                item.Direction == ShipmentDirection.Outbound &&
+                item.Status != ManagedShipmentStatus.Cancelled)
+            .OrderByDescending(item => item.CreatedAt)
+            .FirstOrDefault();
     public bool IsProviderManagedShipment =>
         FulfillmentType == FulfillmentType.PhysicalShipment &&
         !string.IsNullOrWhiteSpace(ShippingPurchaseReference) &&
@@ -201,6 +213,9 @@ public sealed class SaleTransaction
     public bool ParcelProtectionBookingReady =>
         FulfillmentType == FulfillmentType.DigitalHandoff ||
         ShippingReservedAt.HasValue &&
+        !_parcelProtectionChangeRequests.Any(item =>
+            item.Status is ParcelProtectionChangeStatus.AwaitingCancellation or
+                ParcelProtectionChangeStatus.AwaitingRebooking) &&
         ParcelProtectionElection is
             ParcelProtectionElectionStatus.Accepted or
             ParcelProtectionElectionStatus.Declined or
@@ -278,12 +293,13 @@ public sealed class SaleTransaction
         var replacesSupersededUnreservedOutbound =
             shipment.Direction == ShipmentDirection.Outbound &&
             existingShipment is not null &&
-            string.IsNullOrWhiteSpace(existingShipment.PurchaseReference) &&
-            string.IsNullOrWhiteSpace(existingShipment.ProviderTrackingCode) &&
-            _shippingOperations.Where(item =>
-                    item.ManagedShipmentId == existingShipment.Id)
-                .All(item => item.Status ==
-                    ShippingOperationStatus.Superseded);
+            (existingShipment.Status == ManagedShipmentStatus.Cancelled ||
+             string.IsNullOrWhiteSpace(existingShipment.PurchaseReference) &&
+             string.IsNullOrWhiteSpace(existingShipment.ProviderTrackingCode) &&
+             _shippingOperations.Where(item =>
+                     item.ManagedShipmentId == existingShipment.Id)
+                 .All(item => item.Status ==
+                     ShippingOperationStatus.Superseded));
         if (existingShipment is not null &&
             !replacesSupersededUnreservedOutbound)
             throw new DomainException(
@@ -1314,7 +1330,12 @@ public sealed class SaleTransaction
             item => item.Id == managedShipmentId &&
                     item.Direction == ShipmentDirection.Outbound)
             ?? throw new DomainException("ไม่พบรายการจัดส่งขาออก");
-        if (ShippingReservedAt.HasValue)
+        var rebooking = _parcelProtectionChangeRequests.SingleOrDefault(item =>
+            item.Status == ParcelProtectionChangeStatus.AwaitingRebooking);
+        if (rebooking is not null &&
+            CurrentOutboundShipment?.Id == managedShipmentId)
+            CompleteParcelProtectionRebooking(managedShipmentId, completedAt);
+        if (ShippingReservedAt.HasValue && rebooking is null)
         {
             if (string.Equals(ShippingPurchaseReference, purchaseReference,
                     StringComparison.Ordinal) &&
@@ -1650,6 +1671,131 @@ public sealed class SaleTransaction
         Version++;
     }
 
+    public ParcelProtectionChangeRequest RequestParcelProtectionChange(
+        Guid buyerId,
+        ManagedShipment previousShipment,
+        ParcelProtectionSelection desiredSelection,
+        string? desiredInsuranceCode,
+        string idempotencyKey,
+        DateTimeOffset now)
+    {
+        if (BuyerId != buyerId || previousShipment.TransactionId != Id ||
+            previousShipment.Direction != ShipmentDirection.Outbound ||
+            previousShipment.Status != ManagedShipmentStatus.Reserved ||
+            State != TransactionState.SellerAcceptedAwaitingPayment ||
+            !string.IsNullOrWhiteSpace(PaymentReference))
+            throw new DomainException("รายการนี้ยังเปลี่ยนความคุ้มครองพัสดุไม่ได้");
+        EnsureBuyerPaymentWindowOpen(now);
+        var existing = _parcelProtectionChangeRequests.SingleOrDefault(item =>
+            string.Equals(item.IdempotencyKey, idempotencyKey,
+                StringComparison.Ordinal));
+        if (existing is not null)
+        {
+            if (existing.DesiredSelection() != desiredSelection ||
+                !string.Equals(existing.DesiredInsuranceCode, desiredInsuranceCode,
+                    StringComparison.Ordinal))
+                throw new DomainException("รหัสป้องกันการทำซ้ำถูกใช้กับตัวเลือกอื่นแล้ว");
+            return existing;
+        }
+        if (_parcelProtectionChangeRequests.Any(item =>
+                item.Status is ParcelProtectionChangeStatus.AwaitingCancellation or
+                    ParcelProtectionChangeStatus.AwaitingRebooking))
+            throw new DomainException("กำลังตรวจสอบรายการจัดส่ง กรุณารอผลก่อนเปลี่ยนตัวเลือก");
+        ValidateParcelProtectionSelection(desiredSelection, now);
+        var request = ParcelProtectionChangeRequest.Create(
+            Id, previousShipment.Id, desiredSelection, idempotencyKey, now,
+            desiredInsuranceCode);
+        _parcelProtectionChangeRequests.Add(request);
+        _auditEvents.Add(new AuditEvent(
+            Id, ActorRole.Buyer, buyerId.ToString("N"),
+            "parcel_protection.change_requested", State, State, now,
+            previousShipment.Id.ToString("N"),
+            $"parcel-protection-change:{idempotencyKey}", "{}"));
+        Version++;
+        return request;
+    }
+
+    public void CompleteParcelProtectionCancellation(
+        Guid previousManagedShipmentId,
+        DateTimeOffset now)
+    {
+        var request = _parcelProtectionChangeRequests.SingleOrDefault(item =>
+            item.PreviousManagedShipmentId == previousManagedShipmentId &&
+            item.Status == ParcelProtectionChangeStatus.AwaitingCancellation)
+            ?? throw new DomainException("ไม่พบคำขอเปลี่ยนความคุ้มครองพัสดุ");
+        var shipment = _managedShipments.SingleOrDefault(item =>
+            item.Id == previousManagedShipmentId &&
+            item.Status == ManagedShipmentStatus.Cancelled)
+            ?? throw new DomainException("ยังยกเลิกรายการจัดส่งเดิมไม่สำเร็จ");
+        request.MarkAwaitingRebooking();
+        _auditEvents.Add(new AuditEvent(
+            Id, ActorRole.Reconciliation, "shipping-worker",
+            "parcel_protection.cancellation_completed", State, State, now,
+            shipment.Id.ToString("N"),
+            $"parcel-protection-cancelled:{request.Id:N}", "{}"));
+        Version++;
+    }
+
+    public ManagedShipment CreateReplacementOutboundShipment(
+        Guid changeRequestId,
+        DateTimeOffset now)
+    {
+        var request = _parcelProtectionChangeRequests.SingleOrDefault(item =>
+            item.Id == changeRequestId &&
+            item.Status == ParcelProtectionChangeStatus.AwaitingRebooking)
+            ?? throw new DomainException("ไม่พบคำขอเปลี่ยนความคุ้มครองพัสดุ");
+        if (request.DesiredExpiresAt <= now)
+            throw new DomainException("ราคาหรือเงื่อนไขความคุ้มครองพัสดุเปลี่ยน กรุณาตรวจสอบใหม่");
+        var selection = request.DesiredSelection();
+        return ManagedShipment.CreateOutbound(Id, new ManagedShipmentDraft(
+            ShippingQuoteProvider ?? throw new DomainException("ไม่พบผู้ให้บริการขนส่งที่เลือก"),
+            $"origin:{Id:N}", $"destination:{Id:N}", ProductName,
+            PackageWeightGrams!.Value, PackageWidthCentimeters!.Value,
+            PackageLengthCentimeters!.Value, PackageHeightCentimeters!.Value,
+            CarrierCode ?? throw new DomainException("ไม่พบผู้ให้บริการขนส่งที่เลือก"),
+            ShippingServiceCode ?? throw new DomainException("ไม่พบบริการขนส่งที่เลือก"),
+            ShippingServiceName ?? throw new DomainException("ไม่พบชื่อบริการขนส่ง"),
+            ShippingFeeSatang, selection.ProviderCostSatang,
+            selection.Election == ParcelProtectionElectionStatus.Accepted
+                ? selection.SelectedCoverageLimitSatang : 0,
+            selection.Election == ParcelProtectionElectionStatus.Accepted
+                ? request.DesiredInsuranceCode : null,
+            ShippingQuoteReference ?? throw new DomainException("ไม่พบราคาอ้างอิงการจัดส่ง"),
+            ShippingQuoteExpiresAt ?? throw new DomainException("ราคาค่าจัดส่งหมดอายุ"),
+            selection.TermsVersion, selection.ProviderOptionReference,
+            selection.Election, selection.ProviderCostSatang,
+            selection.IncludedCoverageLimitSatang,
+            selection.SelectedCoverageLimitSatang), now);
+    }
+
+    public void QueueReplacementOutboundShipment(
+        ManagedShipment shipment,
+        ShippingOperation operation,
+        DateTimeOffset now) => QueueManagedShipment(
+            shipment, operation, ActorRole.System, "parcel-protection-change", now);
+
+    public void CompleteParcelProtectionRebooking(
+        Guid managedShipmentId,
+        DateTimeOffset now)
+    {
+        var request = _parcelProtectionChangeRequests.SingleOrDefault(item =>
+            item.Status == ParcelProtectionChangeStatus.AwaitingRebooking)
+            ?? throw new DomainException("ไม่พบคำขอเปลี่ยนความคุ้มครองพัสดุ");
+        if (CurrentOutboundShipment?.Id != managedShipmentId ||
+            request.DesiredExpiresAt <= now)
+            throw new DomainException("ราคาหรือเงื่อนไขความคุ้มครองพัสดุเปลี่ยน กรุณาตรวจสอบใหม่");
+        InvalidateParcelProtectionElection("buyer-change-rebooked", now);
+        RecordParcelProtectionElection(
+            BuyerId ?? throw new DomainException("ไม่พบบัญชีผู้ซื้อ"),
+            request.DesiredSelection(), now);
+        request.Complete(now);
+        _auditEvents.Add(new AuditEvent(
+            Id, ActorRole.System, "shipping-worker", "parcel_protection.changed",
+            State, State, now, managedShipmentId.ToString("N"),
+            $"parcel-protection-changed:{request.Id:N}", ParcelProtectionAuditMetadata()));
+        Version++;
+    }
+
     public void RecordParcelProtectionAvailabilityPresented(
         Guid buyerId,
         bool addOnAvailable,
@@ -1952,6 +2098,10 @@ public sealed class SaleTransaction
         if (InitiatorRole == InitiatorRole.Buyer &&
             State != TransactionState.SellerAcceptedAwaitingPayment)
             throw new DomainException("ผู้ขายยังไม่ได้ยอมรับข้อเสนอ จึงยังชำระไม่ได้");
+        if (_parcelProtectionChangeRequests.Any(item =>
+                item.Status is ParcelProtectionChangeStatus.AwaitingCancellation or
+                    ParcelProtectionChangeStatus.AwaitingRebooking))
+            throw new DomainException("กำลังตรวจสอบรายการจัดส่ง กรุณารอผลก่อนชำระเงิน");
         EnsureBuyerPaymentWindowOpen(now);
         EnsureAgreementCoreSnapshotIntegrity();
         BuyerAccessToken ??= Token();

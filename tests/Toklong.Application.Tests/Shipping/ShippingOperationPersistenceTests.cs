@@ -56,7 +56,8 @@ public sealed class ShippingOperationPersistenceTests
                      index.Properties.Select(property => property.Name)
                          .SequenceEqual([
                              nameof(ManagedShipment.TransactionId),
-                             nameof(ManagedShipment.Direction)
+                             nameof(ManagedShipment.Direction),
+                             nameof(ManagedShipment.Status)
                          ]));
         Assert.Contains(
             operation.GetIndexes(),

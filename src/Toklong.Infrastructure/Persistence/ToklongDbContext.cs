@@ -52,6 +52,9 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         Set<ManagedShipment>();
     public DbSet<ShippingOperation> ShippingOperations =>
         Set<ShippingOperation>();
+    public DbSet<ParcelProtectionChangeRequest>
+        ParcelProtectionChangeRequests =>
+        Set<ParcelProtectionChangeRequest>();
     public DbSet<ProviderShippingAdjustment>
         ProviderShippingAdjustments =>
         Set<ProviderShippingAdjustment>();
@@ -206,6 +209,10 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
             .WithOne()
             .HasForeignKey(x => x.TransactionId)
             .OnDelete(DeleteBehavior.Cascade);
+        transaction.HasMany(x => x.ParcelProtectionChangeRequests)
+            .WithOne()
+            .HasForeignKey(x => x.TransactionId)
+            .OnDelete(DeleteBehavior.Cascade);
         transaction.HasMany(x => x.ProviderShippingAdjustments)
             .WithOne()
             .HasForeignKey(x => x.TransactionId)
@@ -227,6 +234,8 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         transaction.Navigation(nameof(SaleTransaction.ManagedShipments))
             .UsePropertyAccessMode(PropertyAccessMode.Field);
         transaction.Navigation(nameof(SaleTransaction.ShippingOperations))
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+        transaction.Navigation(nameof(SaleTransaction.ParcelProtectionChangeRequests))
             .UsePropertyAccessMode(PropertyAccessMode.Field);
         transaction.Navigation(
                 nameof(SaleTransaction.ProviderShippingAdjustments))
@@ -611,6 +620,14 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
                 "Buyer checkout annex acceptance records are append-only.");
 
         if (ChangeTracker
+            .Entries<ParcelProtectionChangeRequest>()
+            .Any(entry =>
+                entry.State == EntityState.Deleted &&
+                !deletedTransactionIds.Contains(entry.Entity.TransactionId)))
+            throw new InvalidOperationException(
+                "Parcel protection change requests are append-only.");
+
+        if (ChangeTracker
             .Entries<MobileAccountTermsAcceptance>()
             .Any(entry =>
                 entry.State is
@@ -648,7 +665,8 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         shipment.HasIndex(x => new
         {
             x.TransactionId,
-            x.Direction
+            x.Direction,
+            x.Status
         });
         shipment.Property(x => x.Direction)
             .HasConversion<string>()
@@ -717,6 +735,21 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
             .WithMany()
             .HasForeignKey(x => x.ManagedShipmentId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        var change = modelBuilder.Entity<ParcelProtectionChangeRequest>();
+        change.ToTable("parcel_protection_change_requests");
+        change.HasKey(x => x.Id);
+        change.Property(x => x.Id).ValueGeneratedNever();
+        change.HasIndex(x => x.IdempotencyKey).IsUnique();
+        change.HasIndex(x => new { x.TransactionId, x.Status })
+            .IsUnique()
+            .HasFilter("\"Status\" IN ('AwaitingCancellation', 'AwaitingRebooking')");
+        change.Property(x => x.Status).HasConversion<string>().HasMaxLength(32);
+        change.Property(x => x.DesiredElection).HasConversion<string>().HasMaxLength(32);
+        change.Property(x => x.DesiredTermsVersion).HasMaxLength(80);
+        change.Property(x => x.DesiredOptionReference).HasMaxLength(160);
+        change.Property(x => x.DesiredInsuranceCode).HasMaxLength(80);
+        change.Property(x => x.IdempotencyKey).HasMaxLength(80);
 
         var adjustment =
             modelBuilder.Entity<ProviderShippingAdjustment>();

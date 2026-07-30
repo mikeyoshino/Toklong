@@ -221,6 +221,27 @@ public sealed class ShippingOperation
         Version++;
     }
 
+    public void SupersedeBeforeMutation(
+        string actorId,
+        string sanitizedReasonCode,
+        DateTimeOffset now)
+    {
+        Required(actorId, "actor", 120);
+        if (Status is not (
+                ShippingOperationStatus.Pending or
+                ShippingOperationStatus.RetryScheduled))
+            throw new DomainException(
+                "เปลี่ยนตัวเลือกไม่ได้ระหว่างตรวจสอบผลกับผู้ให้บริการ");
+        Status = ShippingOperationStatus.Superseded;
+        LastSanitizedErrorCode = Required(
+            sanitizedReasonCode,
+            "reason code",
+            100);
+        CompletedAt = now;
+        ClearLease();
+        Version++;
+    }
+
     private void EnsureProcessingLease(
         string workerId,
         DateTimeOffset now)

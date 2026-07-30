@@ -71,10 +71,8 @@ public static class ManagedShippingOperationQueue
         ActorRole actorRole,
         string actorId)
     {
-        var shipment = transaction.ManagedShipments.SingleOrDefault(
-            item => item.Direction == ShipmentDirection.Outbound &&
-                    item.Status == ManagedShipmentStatus.Reserved);
-        if (shipment is null)
+        var shipment = transaction.CurrentOutboundShipment;
+        if (shipment?.Status != ManagedShipmentStatus.Reserved)
             return;
         var fingerprint = ConfirmationFingerprint(
             transaction,
@@ -96,12 +94,10 @@ public static class ManagedShippingOperationQueue
         SaleTransaction transaction,
         DateTimeOffset now)
     {
-        var shipment = transaction.ManagedShipments.SingleOrDefault(
-            item => item.Direction == ShipmentDirection.Outbound &&
-                    item.Status is
-                        ManagedShipmentStatus.Reserved or
-                        ManagedShipmentStatus.Confirmed);
-        if (shipment is null ||
+        var shipment = transaction.CurrentOutboundShipment;
+        if (shipment is null || shipment.Status is not (
+                ManagedShipmentStatus.Reserved or
+                ManagedShipmentStatus.Confirmed) ||
             shipment.FirstCarrierScanAt.HasValue)
             return;
         var fingerprint = CancellationFingerprint(

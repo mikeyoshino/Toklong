@@ -53,6 +53,84 @@ public sealed partial class ChooseParcelProtectionHandler(
             quoteRequest, cancellationToken);
         var resolved = await ResolveSelectionAsync(
             transaction, request, quoteRequest, availability, cancellationToken);
+        var currentShipment = transaction.CurrentOutboundShipment;
+        if (currentShipment is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(transaction.PaymentReference) ||
+                transaction.State == TransactionState.PaymentPending)
+                throw new DomainException("เปลี่ยนตัวเลือกความคุ้มครองพัสดุหลังเริ่มชำระเงินไม่ได้");
+            var currentBooking = transaction.ShippingOperations
+                .Where(operation =>
+                    operation.ManagedShipmentId == currentShipment.Id &&
+                    operation.OperationType == ShippingOperationType.BookOutbound)
+                .OrderByDescending(operation => operation.CreatedAt)
+                .FirstOrDefault();
+            if (currentBooking?.Status is ShippingOperationStatus.Pending or
+                ShippingOperationStatus.RetryScheduled)
+            {
+                currentBooking.SupersedeBeforeMutation(
+                    request.BuyerId.ToString("N"), "buyer-selection-changed",
+                    clock.UtcNow);
+                currentShipment.RecordCancellation(clock.UtcNow);
+                transaction.InvalidateParcelProtectionElection(
+                    "buyer-selection-changed", clock.UtcNow);
+                transaction.RecordParcelProtectionElection(
+                    request.BuyerId, resolved.Selection, clock.UtcNow);
+                return await QueueBookingAsync(
+                    transaction, request, resolved, cancellationToken,
+                    selectionAlreadyRecorded: true);
+            }
+            if (currentBooking?.Status is ShippingOperationStatus.Processing or
+                ShippingOperationStatus.OutcomeUnknown or
+                ShippingOperationStatus.NeedsReview)
+                throw new DomainException(
+                    "กำลังตรวจสอบรายการจัดส่ง กรุณารอผลก่อนเปลี่ยนตัวเลือก");
+            if (currentShipment.Status == ManagedShipmentStatus.Reserved)
+            {
+                var change = transaction.RequestParcelProtectionChange(
+                    request.BuyerId, currentShipment, resolved.Selection,
+                    resolved.InsuranceCode, idempotencyKey, clock.UtcNow);
+                if (!transaction.ShippingOperations.Any(operation =>
+                        operation.ManagedShipmentId == currentShipment.Id &&
+                        operation.OperationType == ShippingOperationType.CancelOutbound &&
+                        operation.Status is not ShippingOperationStatus.Superseded))
+                {
+                    var fingerprint = ManagedShippingOperationQueue
+                        .CancellationFingerprint(transaction, currentShipment);
+                    transaction.QueueShippingOperation(
+                        ShippingOperation.Queue(transaction.Id, currentShipment.Id,
+                            ShippingOperationType.CancelOutbound,
+                            $"cancel-outbound-change:{change.Id:N}", fingerprint,
+                            clock.UtcNow),
+                        ActorRole.System, "parcel-protection-change", clock.UtcNow);
+                }
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+                return new ChooseParcelProtectionResult(
+                    TransactionView.From(transaction), "cancelling_shipping");
+            }
+            if (currentBooking?.Status == ShippingOperationStatus.Superseded &&
+                currentShipment.Status == ManagedShipmentStatus.PendingBooking)
+            {
+                currentShipment.RecordCancellation(clock.UtcNow);
+                return await QueueBookingAsync(
+                    transaction, request, resolved, cancellationToken);
+            }
+            throw new DomainException(
+                "กำลังตรวจสอบรายการจัดส่ง กรุณารอผลก่อนเปลี่ยนตัวเลือก");
+        }
+
+        return await QueueBookingAsync(
+            transaction, request, resolved, cancellationToken);
+    }
+
+    private async Task<ChooseParcelProtectionResult> QueueBookingAsync(
+        SaleTransaction transaction,
+        ChooseParcelProtectionCommand request,
+        ResolvedSelection resolved,
+        CancellationToken cancellationToken,
+        bool selectionAlreadyRecorded = false)
+    {
+        var idempotencyKey = request.IdempotencyKey;
         var draft = BuildDraft(transaction, resolved.Selection, resolved.InsuranceCode);
         var shipment = ManagedShipment.CreateOutbound(transaction.Id, draft, clock.UtcNow);
         var fingerprint = ManagedShippingOperationQueue.BookingFingerprint(shipment);
@@ -69,8 +147,9 @@ public sealed partial class ChooseParcelProtectionHandler(
                 TransactionView.From(transaction), "preparing_shipping");
         }
 
-        transaction.RecordParcelProtectionElection(
-            request.BuyerId, resolved.Selection, clock.UtcNow);
+        if (!selectionAlreadyRecorded)
+            transaction.RecordParcelProtectionElection(
+                request.BuyerId, resolved.Selection, clock.UtcNow);
         var operation = ShippingOperation.Queue(transaction.Id, shipment.Id,
             ShippingOperationType.BookOutbound, bookingKey, fingerprint, clock.UtcNow);
         transaction.QueueManagedShipment(shipment, operation, ActorRole.System,

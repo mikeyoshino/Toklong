@@ -349,6 +349,97 @@ public sealed class DurableShippingOperationProcessingTests
     }
 
     [Fact]
+    public async Task Reserved_change_cancels_definitely_before_queuing_replacement_booking()
+    {
+        await using var database = CreateDatabase();
+        var (transaction, booking) = PendingBuyerCheckoutBooking();
+        database.Transactions.Add(transaction);
+        await database.SaveChangesAsync();
+        var provider = new BookingProvider();
+        await Handler(database, booking, provider, new FixedClock(Now.AddMinutes(1)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-a"), default);
+
+        await new ChooseParcelProtectionHandler(
+                new TransactionRepository(database), provider,
+                new ParcelProtectionPricingPolicy(), database,
+                new FixedClock(Now.AddMinutes(2)))
+            .Handle(new ChooseParcelProtectionCommand(
+                transaction.Id, transaction.BuyerId!.Value, false, null, null,
+                "change-reserved-decline"), default);
+
+        var cancellation = Assert.Single(transaction.ShippingOperations,
+            operation => operation.OperationType == ShippingOperationType.CancelOutbound);
+        Assert.Single(transaction.ManagedShipments);
+        Assert.Equal(ParcelProtectionElectionStatus.Accepted,
+            transaction.ParcelProtectionElection);
+
+        await Handler(database, cancellation, provider, new FixedClock(Now.AddMinutes(3)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-b"), default);
+
+        Assert.Equal(ManagedShipmentStatus.Cancelled,
+            transaction.ManagedShipments.First().Status);
+        Assert.Equal(2, transaction.ManagedShipments.Count);
+        Assert.Single(transaction.ShippingOperations, operation =>
+            operation.OperationType == ShippingOperationType.BookOutbound &&
+            operation.Status == ShippingOperationStatus.Pending);
+        Assert.Equal(ParcelProtectionChangeStatus.AwaitingRebooking,
+            Assert.Single(transaction.ParcelProtectionChangeRequests).Status);
+
+        var replacement = Assert.Single(transaction.ShippingOperations,
+            operation => operation.OperationType == ShippingOperationType.BookOutbound &&
+                operation.Status == ShippingOperationStatus.Pending);
+        await Handler(database, replacement, provider, new FixedClock(Now.AddMinutes(4)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-c"), default);
+
+        Assert.Equal(ShippingOperationStatus.Succeeded, replacement.Status);
+        Assert.Equal(ParcelProtectionElectionStatus.Declined,
+            transaction.ParcelProtectionElection);
+        Assert.Equal(0, transaction.ParcelInsuranceFeeSatang);
+        Assert.Equal(ParcelProtectionChangeStatus.Completed,
+            Assert.Single(transaction.ParcelProtectionChangeRequests).Status);
+        Assert.Contains(transaction.AuditEvents,
+            audit => audit.Name == "parcel_protection.changed");
+    }
+
+    [Theory]
+    [InlineData(ShipmentMutationOutcome.DefiniteFailure,
+        ShippingOperationStatus.RetryScheduled)]
+    [InlineData(ShipmentMutationOutcome.OutcomeUnknown,
+        ShippingOperationStatus.OutcomeUnknown)]
+    public async Task Failed_change_cancellation_never_queues_a_replacement(
+        ShipmentMutationOutcome outcome,
+        ShippingOperationStatus expectedStatus)
+    {
+        await using var database = CreateDatabase();
+        var (transaction, booking) = PendingBuyerCheckoutBooking();
+        database.Transactions.Add(transaction);
+        await database.SaveChangesAsync();
+        var provider = new BookingProvider();
+        await Handler(database, booking, provider, new FixedClock(Now.AddMinutes(1)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-a"), default);
+        await new ChooseParcelProtectionHandler(
+                new TransactionRepository(database), provider,
+                new ParcelProtectionPricingPolicy(), database,
+                new FixedClock(Now.AddMinutes(2)))
+            .Handle(new ChooseParcelProtectionCommand(
+                transaction.Id, transaction.BuyerId!.Value, false, null, null,
+                "change-cancel-failure"), default);
+        var cancellation = Assert.Single(transaction.ShippingOperations,
+            operation => operation.OperationType == ShippingOperationType.CancelOutbound);
+        provider.CancelFailure = new ShipmentMutationException(outcome, "cancel-failed");
+
+        await Handler(database, cancellation, provider, new FixedClock(Now.AddMinutes(3)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-b"), default);
+
+        Assert.Equal(expectedStatus, cancellation.Status);
+        Assert.Equal(ManagedShipmentStatus.Reserved,
+            transaction.CurrentOutboundShipment!.Status);
+        Assert.Single(transaction.ManagedShipments);
+        Assert.Equal(ParcelProtectionChangeStatus.AwaitingCancellation,
+            Assert.Single(transaction.ParcelProtectionChangeRequests).Status);
+    }
+
+    [Fact]
     public async Task Included_only_shippop_acceptance_books_without_insurance()
     {
         await using var database = CreateDatabase();
@@ -885,6 +976,7 @@ public sealed class DurableShippingOperationProcessingTests
 
         public string ProviderName => "shippop";
         public Exception? Failure { get; init; }
+        public Exception? CancelFailure { get; set; }
         public int ReserveCalls { get; private set; }
         public int ValidateProtectionCalls { get; private set; }
         public ProviderParcelProtectionOption ProtectionOption { get; init; } =
@@ -938,8 +1030,12 @@ public sealed class DurableShippingOperationProcessingTests
 
         public Task CancelAsync(
             string courierTrackingCode,
-            CancellationToken cancellationToken) =>
-            throw new NotSupportedException();
+            CancellationToken cancellationToken)
+        {
+            if (CancelFailure is not null)
+                throw CancelFailure;
+            return Task.CompletedTask;
+        }
 
         public Task<ParcelProtectionAvailability> GetAvailabilityAsync(
             ParcelProtectionQuoteRequest request,
