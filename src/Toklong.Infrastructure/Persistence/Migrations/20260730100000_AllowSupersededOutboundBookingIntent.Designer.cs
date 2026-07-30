@@ -12,8 +12,8 @@ using Toklong.Infrastructure.Persistence;
 namespace Toklong.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ToklongDbContext))]
-    [Migration("20260730110000_BuyerCheckoutAnnexAcceptance")]
-    partial class BuyerCheckoutAnnexAcceptance
+    [Migration("20260730100000_AllowSupersededOutboundBookingIntent")]
+    partial class AllowSupersededOutboundBookingIntent
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -723,35 +723,6 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("audit_events", (string)null);
-                });
-
-            modelBuilder.Entity("Toklong.Domain.Transactions.BuyerCheckoutAnnexAcceptance", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("AcceptedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CanonicalPayloadJson")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("PayloadHash")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<Guid>("TransactionId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TransactionId")
-                        .IsUnique();
-
-                    b.ToTable("buyer_checkout_annex_acceptances", (string)null);
                 });
 
             modelBuilder.Entity("Toklong.Domain.Transactions.DisputeEvidence", b =>
@@ -1984,15 +1955,6 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Toklong.Domain.Transactions.BuyerCheckoutAnnexAcceptance", b =>
-                {
-                    b.HasOne("Toklong.Domain.Transactions.SaleTransaction", null)
-                        .WithMany("BuyerCheckoutAnnexAcceptances")
-                        .HasForeignKey("TransactionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("Toklong.Domain.Transactions.DisputeEvidence", b =>
                 {
                     b.HasOne("Toklong.Domain.Transactions.SaleTransaction", null)
@@ -2083,8 +2045,6 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                     b.Navigation("AgreementAcceptances");
 
                     b.Navigation("AuditEvents");
-
-                    b.Navigation("BuyerCheckoutAnnexAcceptances");
 
                     b.Navigation("DisputeEvidence");
 

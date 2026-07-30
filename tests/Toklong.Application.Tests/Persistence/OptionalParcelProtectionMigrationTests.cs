@@ -27,6 +27,30 @@ public sealed class OptionalParcelProtectionMigrationTests
             StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Superseded_outbound_history_migration_is_discoverable_before_annex_migration()
+    {
+        var options = new DbContextOptionsBuilder<ToklongDbContext>()
+            .UseNpgsql("Host=localhost;Database=toklong_migration_metadata;Username=postgres")
+            .Options;
+        using var db = new ToklongDbContext(options);
+        var migrations = db.GetService<IMigrationsAssembly>().Migrations;
+
+        Assert.Contains("20260730100000_AllowSupersededOutboundBookingIntent",
+            migrations.Keys);
+        Assert.True(
+            Array.IndexOf(migrations.Keys.ToArray(),
+                "20260730100000_AllowSupersededOutboundBookingIntent") <
+            Array.IndexOf(migrations.Keys.ToArray(),
+                "20260730110000_BuyerCheckoutAnnexAcceptance"));
+        var builder = new MigrationBuilder("Npgsql.EntityFrameworkCore.PostgreSQL");
+        new AllowSupersededOutboundBookingIntentProbe().ExecuteUp(builder);
+        Assert.Contains(builder.Operations.OfType<CreateIndexOperation>(),
+            operation => operation.Table == "managed_shipments" &&
+                operation.Name == "IX_managed_shipments_TransactionId_Direction" &&
+                !operation.IsUnique);
+    }
+
     [RequiresPostgreSqlMigrationFixture]
     public async Task Up_backfills_persisted_legacy_rows_in_PostgreSql()
     {
@@ -198,6 +222,7 @@ public sealed class OptionalParcelProtectionMigrationTests
     private sealed class AllowSupersededOutboundBookingIntentProbe
         : AllowSupersededOutboundBookingIntent
     {
+        public void ExecuteUp(MigrationBuilder builder) => Up(builder);
         public void ExecuteDown(MigrationBuilder builder) => Down(builder);
     }
 

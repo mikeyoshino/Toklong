@@ -17,7 +17,7 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     TransactionId = table.Column<Guid>(type: "uuid", nullable: false),
-                    CanonicalPayloadJson = table.Column<string>(type: "jsonb", nullable: false),
+                    CanonicalPayloadJson = table.Column<string>(type: "text", nullable: false),
                     PayloadHash = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
                     AcceptedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
                 },

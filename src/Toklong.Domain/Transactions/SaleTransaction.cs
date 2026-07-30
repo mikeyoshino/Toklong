@@ -3713,6 +3713,10 @@ public sealed class SaleTransaction
         if (!HasValidAgreementSnapshot())
             throw new DomainException(
                 "snapshot ของข้อตกลงไม่ครบหรือไม่ตรงกับ hash จึงไม่สามารถดำเนินการด้านการเงินได้");
+        if (SnapshotSchemaVersion >= AgreementSnapshotSchemaVersion &&
+            !HasValidBuyerCheckoutAnnexAcceptance())
+            throw new DomainException(
+                "หลักฐานการยอมรับค่าใช้จ่ายไม่ครบหรือไม่ตรงกับ hash");
     }
 
     private bool HasValidLegacyProductSnapshot() =>

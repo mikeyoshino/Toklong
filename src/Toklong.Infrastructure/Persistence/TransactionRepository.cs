@@ -231,6 +231,7 @@ public sealed class TransactionRepository(ToklongDbContext dbContext) : ITransac
         dbContext.Transactions
             .Include(x => x.AuditEvents)
             .Include(x => x.AgreementAcceptances)
+            .Include(x => x.BuyerCheckoutAnnexAcceptances)
             .Include(x => x.ExternalEvents)
             .Include(x => x.Notifications)
             .Include(x => x.DisputeEvidence)

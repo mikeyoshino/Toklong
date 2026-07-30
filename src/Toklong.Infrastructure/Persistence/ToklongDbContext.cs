@@ -242,7 +242,7 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         checkoutAnnexAcceptance.HasKey(x => x.Id);
         checkoutAnnexAcceptance.HasIndex(x => x.TransactionId).IsUnique();
         checkoutAnnexAcceptance.Property(x => x.CanonicalPayloadJson)
-            .HasColumnType("jsonb");
+            .HasColumnType("text");
         checkoutAnnexAcceptance.Property(x => x.PayloadHash).HasMaxLength(64);
 
         var financialRetention =

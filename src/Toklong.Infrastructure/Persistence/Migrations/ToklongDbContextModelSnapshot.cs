@@ -733,7 +733,7 @@ namespace Toklong.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("CanonicalPayloadJson")
                         .IsRequired()
-                        .HasColumnType("jsonb");
+                        .HasColumnType("text");
 
                     b.Property<string>("PayloadHash")
                         .IsRequired()

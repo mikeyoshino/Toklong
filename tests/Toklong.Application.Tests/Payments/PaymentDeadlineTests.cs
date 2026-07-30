@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Toklong.Application.Abstractions;
 using Toklong.Application.Features.Checkout.PreparePaymentSheet;
+using Toklong.Application.Features.Shipping;
 using Toklong.Domain.Buyers;
 using Toklong.Domain.Common;
 using Toklong.Domain.Transactions;
@@ -88,6 +89,64 @@ public sealed class PaymentDeadlineTests
         Assert.Equal(0, payments.CallCount);
         Assert.Equal(TransactionState.SellerAcceptedAwaitingPayment,
             transaction.State);
+    }
+
+    [Theory]
+    [InlineData(ParcelProtectionElectionStatus.Accepted, 479_000)]
+    [InlineData(ParcelProtectionElectionStatus.Unavailable, 473_000)]
+    public async Task Completed_booking_uses_final_protection_total_for_payment_intent(
+        ParcelProtectionElectionStatus election,
+        long expectedBuyerTotalSatang)
+    {
+        var options = new DbContextOptionsBuilder<ToklongDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var db = new ToklongDbContext(options);
+        var repository = new TransactionRepository(db);
+        var buyers = new BuyerRepository(db);
+        var transitions = new TransactionTransitionService();
+        var buyer = BuyerAccount.Create("+66811111222", "ผู้ซื้อ ทดสอบ", "buyer-total@example.com", Start);
+        await buyers.AddAsync(buyer, default);
+        var transaction = TestTransactionFactory.CreateBuyerOffer(buyer.Id, buyer.FullName,
+            buyer.PhoneNumber, FulfillmentType.PhysicalShipment, "กล้อง", "รายละเอียด",
+            ConditionCode.UsedGood, "ไม่มี", null, 450_000, "mvp-th-2026-07", Start, transitions);
+        var quote = PhysicalQuote();
+        transaction.AcceptBuyerOffer(Guid.NewGuid(), "ผู้ขาย", "+66822222222", "KBANK",
+            "ผู้ขาย", "1234567890", true, Start.AddMinutes(1), transitions,
+            18_000, 0, 450_000, "buyer-protection-test-v2", quote);
+        var accepted = election == ParcelProtectionElectionStatus.Accepted;
+        transaction.RecordParcelProtectionElection(buyer.Id, new ParcelProtectionSelection(
+            election, accepted ? 6_000 : 0, accepted ? 4_500 : 0,
+            accepted ? 1_500 : 0, accepted ? 100_000 : 0,
+            accepted ? 450_000 : 0, accepted ? "parcel-v1" : "parcel-unavailable-v1",
+            accepted ? "option-1" : null, Start.AddMinutes(1), Start.AddHours(1)), Start.AddMinutes(1));
+        var shipment = ManagedShipment.CreateOutbound(transaction.Id, new ManagedShipmentDraft(
+            quote.Provider, "origin", "destination", "กล้อง", quote.WeightGrams,
+            quote.WidthCentimeters, quote.LengthCentimeters, quote.HeightCentimeters,
+            quote.CarrierCode, quote.ServiceCode, quote.ServiceName, quote.FeeSatang,
+            accepted ? 4_500 : 0, accepted ? 450_000 : 0,
+            accepted ? "FULL_VALUE" : null, quote.QuoteReference, quote.ExpiresAt,
+            transaction.ParcelProtectionTermsVersion!, transaction.ParcelProtectionOptionReference,
+            election, transaction.ParcelProtectionProviderCostSatang,
+            transaction.ParcelProtectionIncludedCoverageSatang,
+            transaction.ParcelProtectionSelectedCoverageSatang), Start.AddMinutes(1));
+        var operation = ShippingOperation.Queue(transaction.Id, shipment.Id,
+            ShippingOperationType.BookOutbound, "book-payment-total",
+            ManagedShippingOperationQueue.BookingFingerprint(shipment), Start.AddMinutes(1));
+        transaction.QueueManagedShipment(shipment, operation, ActorRole.System, "test", Start.AddMinutes(1));
+        transaction.CompleteBuyerCheckoutShipmentBooking(shipment.Id, quote.Provider, "purchase", "tracking",
+            null, quote.CarrierCode, quote.ServiceCode, quote.FeeSatang, accepted ? 4_500 : 0,
+            accepted ? 450_000 : 0, accepted ? "FULL_VALUE" : null, Start.AddMinutes(2), Start.AddMinutes(2));
+        await repository.AddAsync(transaction, default);
+        await db.SaveChangesAsync();
+        var payments = new RecordingPaymentIntentProvider();
+        var handler = new PreparePaymentSheetHandler(repository, buyers, payments,
+            new ConfiguredBuyerProtectionFeePolicy(new BuyerProtectionFeeOptions { Enabled = true, PolicyVersion = "buyer-protection-test-v2" }),
+            db, new FixedClock(Start.AddMinutes(3)), transitions);
+
+        await handler.Handle(new PreparePaymentSheetCommand(transaction.Id, buyer.Id, true), default);
+
+        Assert.Equal(expectedBuyerTotalSatang, transaction.BuyerTotalSatang);
+        Assert.Equal(expectedBuyerTotalSatang, payments.LastAmountSatang);
     }
 
     [Fact]
@@ -249,6 +308,7 @@ public sealed class PaymentDeadlineTests
         : IPaymentIntentProvider
     {
         public int CallCount { get; private set; }
+        public long? LastAmountSatang { get; private set; }
 
         public Task<PaymentIntentPreparation> PrepareAsync(
             Guid transactionId,
@@ -260,6 +320,7 @@ public sealed class PaymentDeadlineTests
             CancellationToken cancellationToken)
         {
             CallCount++;
+            LastAmountSatang = amountSatang;
             return Task.FromResult(
                 new PaymentIntentPreparation(
                     "pi_should_not_exist",
