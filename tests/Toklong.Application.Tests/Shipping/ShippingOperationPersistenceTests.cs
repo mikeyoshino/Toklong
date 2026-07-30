@@ -104,6 +104,8 @@ public sealed class ShippingOperationPersistenceTests
                     "worker-a",
                     Now,
                     TimeSpan.FromMinutes(5),
+                    Enum.GetValues<ShippingOperationType>()
+                        .ToHashSet(),
                     default);
             Assert.Equal(operation.Id, claimed?.Id);
         }
@@ -114,6 +116,8 @@ public sealed class ShippingOperationPersistenceTests
                     "worker-b",
                     Now.AddMinutes(1),
                     TimeSpan.FromMinutes(5),
+                    Enum.GetValues<ShippingOperationType>()
+                        .ToHashSet(),
                     default);
             Assert.Null(live);
         }
@@ -125,6 +129,8 @@ public sealed class ShippingOperationPersistenceTests
                         "worker-b",
                         Now.AddMinutes(6),
                         TimeSpan.FromMinutes(5),
+                        Enum.GetValues<ShippingOperationType>()
+                            .ToHashSet(),
                         default);
             Assert.Equal(operation.Id, reclaimed?.Id);
             Assert.Equal("worker-b", reclaimed?.LeaseOwner);
@@ -151,18 +157,83 @@ public sealed class ShippingOperationPersistenceTests
                 "worker-a",
                 Now,
                 TimeSpan.FromMinutes(5),
+                Enum.GetValues<ShippingOperationType>()
+                    .ToHashSet(),
                 default);
         var second = new ShippingOperationRepository(secondContext)
             .ClaimDueAsync(
                 "worker-b",
                 Now,
                 TimeSpan.FromMinutes(5),
+                Enum.GetValues<ShippingOperationType>()
+                    .ToHashSet(),
                 default);
 
         var results = await Task.WhenAll(first, second);
 
         Assert.Single(results, result => result?.Id == operation.Id);
         Assert.Single(results, result => result is null);
+    }
+
+    [Fact]
+    public async Task Allowed_types_claim_confirmation_before_other_backlog()
+    {
+        await using var database =
+            await RelationalDatabase.CreateAsync();
+        var bookingTransaction = NewTransaction();
+        QueueOutbound(bookingTransaction);
+        var confirmationTransaction =
+            NewTransaction();
+        var confirmationShipment =
+            ManagedShipment.CreateOutbound(
+                confirmationTransaction.Id,
+                ShipmentDraft(),
+                Now);
+        var confirmation =
+            ShippingOperation.Queue(
+                confirmationTransaction.Id,
+                confirmationShipment.Id,
+                ShippingOperationType
+                    .ConfirmOutbound,
+                $"confirm-outbound:{confirmationTransaction.Id:N}:test",
+                Fingerprint,
+                Now.AddSeconds(1));
+        confirmationTransaction
+            .QueueManagedShipment(
+                confirmationShipment,
+                confirmation,
+                ActorRole.System,
+                "test",
+                Now.AddSeconds(1));
+        await using (var setup =
+            database.CreateContext())
+        {
+            setup.Transactions.AddRange(
+                bookingTransaction,
+                confirmationTransaction);
+            await setup.SaveChangesAsync();
+        }
+
+        await using var context =
+            database.CreateContext();
+        var claimed =
+            await new ShippingOperationRepository(
+                    context)
+                .ClaimDueAsync(
+                    "worker-a",
+                    Now.AddMinutes(1),
+                    TimeSpan.FromMinutes(5),
+                    new HashSet<
+                        ShippingOperationType>
+                    {
+                        ShippingOperationType
+                            .ConfirmOutbound
+                    },
+                    default);
+
+        Assert.Equal(
+            confirmation.Id,
+            claimed?.Id);
     }
 
     [Fact]

@@ -12,8 +12,16 @@ public sealed class ShippingOperationRepository(
         string workerId,
         DateTimeOffset now,
         TimeSpan leaseDuration,
+        IReadOnlySet<ShippingOperationType>
+            allowedTypes,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(
+            allowedTypes);
+        if (allowedTypes.Count == 0)
+            throw new ArgumentException(
+                "At least one shipping operation type is required.",
+                nameof(allowedTypes));
         await using var transaction =
             await dbContext.Database.BeginTransactionAsync(
                 cancellationToken);
@@ -22,6 +30,11 @@ public sealed class ShippingOperationRepository(
             ShippingOperation? operation;
             if (dbContext.Database.IsNpgsql())
             {
+                var allowedTypeNames =
+                    allowedTypes
+                        .Select(type =>
+                            type.ToString())
+                        .ToArray();
                 operation = await dbContext.ShippingOperations
                     .FromSqlInterpolated($"""
                         SELECT *
@@ -34,15 +47,16 @@ public sealed class ShippingOperationRepository(
                             )
                         )
                         AND "NextAttemptAt" <= {now}
+                        AND "OperationType" = ANY ({allowedTypeNames})
                         ORDER BY "NextAttemptAt", "CreatedAt"
                         FOR UPDATE SKIP LOCKED
                         LIMIT 1
                         """)
-                    .SingleOrDefaultAsync(cancellationToken);
+                    .FirstOrDefaultAsync(cancellationToken);
             }
             else
             {
-                operation = await dbContext.ShippingOperations
+                var due = await dbContext.ShippingOperations
                     .FromSqlInterpolated($"""
                         SELECT *
                         FROM shipping_operations
@@ -55,9 +69,11 @@ public sealed class ShippingOperationRepository(
                         )
                         AND "NextAttemptAt" <= {now}
                         ORDER BY "NextAttemptAt", "CreatedAt"
-                        LIMIT 1
                         """)
-                    .SingleOrDefaultAsync(cancellationToken);
+                    .ToListAsync(cancellationToken);
+                operation = due.FirstOrDefault(
+                    item => allowedTypes.Contains(
+                        item.OperationType));
             }
 
             if (operation is null)

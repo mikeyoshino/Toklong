@@ -8,6 +8,8 @@ public interface IShippingOperationRepository
         string workerId,
         DateTimeOffset now,
         TimeSpan leaseDuration,
+        IReadOnlySet<ShippingOperationType>
+            allowedTypes,
         CancellationToken cancellationToken);
 
     Task<ShippingOperation?> GetByIdAsync(

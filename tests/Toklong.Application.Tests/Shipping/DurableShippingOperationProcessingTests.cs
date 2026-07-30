@@ -178,11 +178,11 @@ public sealed class DurableShippingOperationProcessingTests
                 IdempotencyKey: "reconfirm-declined-choice"),
             default);
 
-        Assert.Equal("preparing_shipping", result.BookingStatus);
+        Assert.Equal("selection_saved", result.BookingStatus);
         Assert.Equal(2, transaction.ManagedShipments.Count);
         Assert.Equal(ShippingOperationStatus.Superseded,
             supersededOperation.Status);
-        Assert.Single(transaction.ShippingOperations,
+        Assert.DoesNotContain(transaction.ShippingOperations,
             operation => operation.Status == ShippingOperationStatus.Pending);
     }
 
@@ -209,6 +209,9 @@ public sealed class DurableShippingOperationProcessingTests
                 transaction.Id, transaction.BuyerId!.Value, true,
                 secondOption.OptionReference, 6_000, "reconfirm-first-change"),
                 default);
+        QueueLegacyReplacementBooking(
+            transaction,
+            Now.AddMinutes(2));
         var second = transaction.ShippingOperations.Single(
             item => item.Status == ShippingOperationStatus.Pending);
         var thirdOption = secondOption with
@@ -227,6 +230,9 @@ public sealed class DurableShippingOperationProcessingTests
                 transaction.Id, transaction.BuyerId!.Value, true,
                 thirdOption.OptionReference, 6_000, "reconfirm-second-change"),
                 default);
+        QueueLegacyReplacementBooking(
+            transaction,
+            Now.AddMinutes(4));
 
         Assert.Equal(3, transaction.ManagedShipments.Count);
         Assert.Equal(2, transaction.ShippingOperations.Count(item =>
@@ -456,8 +462,8 @@ public sealed class DurableShippingOperationProcessingTests
                 transaction.Id, transaction.BuyerId!.Value, false,
                 null, null, "fresh-choice-after-expiry"), default);
 
-        Assert.Equal("preparing_shipping", fresh.BookingStatus);
-        Assert.Single(transaction.ShippingOperations, operation =>
+        Assert.Equal("selection_saved", fresh.BookingStatus);
+        Assert.DoesNotContain(transaction.ShippingOperations, operation =>
             operation.OperationType == ShippingOperationType.BookOutbound &&
             operation.Status == ShippingOperationStatus.Pending);
     }
@@ -485,10 +491,10 @@ public sealed class DurableShippingOperationProcessingTests
         await Handler(database, cancellation, provider,
                 new FixedClock(Now.AddMinutes(3)))
             .Handle(new ProcessNextShippingOperationCommand("worker-b"), default);
-        var replacement = Assert.Single(transaction.ShippingOperations,
-            operation => operation.OperationType ==
-                    ShippingOperationType.BookOutbound &&
-                operation.Status == ShippingOperationStatus.Pending);
+        var replacement =
+            QueueLegacyReplacementBooking(
+                transaction,
+                Now.AddMinutes(3));
         var replacementShipment = transaction.ManagedShipments.Single(
             shipment => shipment.Id == replacement.ManagedShipmentId);
         var changedProvider = new BookingProvider
@@ -526,7 +532,7 @@ public sealed class DurableShippingOperationProcessingTests
             .Handle(new ChooseParcelProtectionCommand(
                 transaction.Id, transaction.BuyerId!.Value, false,
                 null, null, "fresh-choice-after-drift"), default);
-        Assert.Equal("preparing_shipping", fresh.BookingStatus);
+        Assert.Equal("selection_saved", fresh.BookingStatus);
     }
 
     [Fact]
@@ -552,10 +558,10 @@ public sealed class DurableShippingOperationProcessingTests
         await Handler(database, cancellation, provider,
                 new FixedClock(Now.AddMinutes(3)))
             .Handle(new ProcessNextShippingOperationCommand("worker-b"), default);
-        var replacement = Assert.Single(transaction.ShippingOperations,
-            operation => operation.OperationType ==
-                    ShippingOperationType.BookOutbound &&
-                operation.Status == ShippingOperationStatus.Pending);
+        var replacement =
+            QueueLegacyReplacementBooking(
+                transaction,
+                Now.AddMinutes(3));
         var changedProvider = new BookingProvider
         {
             ProtectionOption = BookingProvider.DefaultProtectionOption with
@@ -604,10 +610,10 @@ public sealed class DurableShippingOperationProcessingTests
         await Handler(database, cancellation, provider,
                 new FixedClock(Now.AddMinutes(3)))
             .Handle(new ProcessNextShippingOperationCommand("worker-b"), default);
-        var replacement = Assert.Single(transaction.ShippingOperations,
-            operation => operation.OperationType ==
-                    ShippingOperationType.BookOutbound &&
-                operation.Status == ShippingOperationStatus.Pending);
+        var replacement =
+            QueueLegacyReplacementBooking(
+                transaction,
+                Now.AddMinutes(3));
         var changedProvider = changedField switch
         {
             "included-limit" => new BookingProvider
@@ -720,7 +726,7 @@ public sealed class DurableShippingOperationProcessingTests
         Assert.Equal(ParcelProtectionChangeStatus.AwaitingRebooking,
             Assert.Single(reloaded!.ParcelProtectionChangeRequests).Status);
         Assert.Equal(2, reloaded.ManagedShipments.Count);
-        Assert.Single(reloaded.ShippingOperations, operation =>
+        Assert.DoesNotContain(reloaded.ShippingOperations, operation =>
             operation.OperationType == ShippingOperationType.BookOutbound &&
             operation.Status == ShippingOperationStatus.Pending);
         Assert.Throws<DomainException>(() => reloaded.BeginCheckout(
@@ -728,19 +734,10 @@ public sealed class DurableShippingOperationProcessingTests
             new TransactionTransitionService(), "manual-bank", null, 5_900, 0,
             450_000, "fee-v1"));
 
-        await using (var replacementContext = database.CreateContext())
-        {
-            await RelationalWorker(replacementContext, provider, Now.AddMinutes(5))
-                .Handle(new ProcessNextShippingOperationCommand("worker-c"), default);
-        }
-        await using var completedContext = database.CreateContext();
-        var completed = await new TransactionRepository(completedContext)
-            .GetByIdAsync(transaction.Id, default);
-        Assert.True(completed!.ParcelProtectionBookingReady);
-        completed.BeginCheckout(
-            "ผู้ซื้อ ทดสอบ", "0800000000", Now.AddMinutes(6),
-            new TransactionTransitionService(), "manual-bank", null, 5_900, 0,
-            450_000, "fee-v1");
+        Assert.Contains(
+            reloaded.AuditEvents,
+            audit => audit.Name ==
+                "parcel_protection.rebooking_intent_created");
     }
 
     [Theory]
@@ -802,9 +799,10 @@ public sealed class DurableShippingOperationProcessingTests
             operation => operation.OperationType == ShippingOperationType.CancelOutbound);
         await Handler(database, cancellation, provider, new FixedClock(Now.AddMinutes(3)))
             .Handle(new ProcessNextShippingOperationCommand("worker-b"), default);
-        var replacement = Assert.Single(transaction.ShippingOperations,
-            operation => operation.OperationType == ShippingOperationType.BookOutbound &&
-                operation.Status == ShippingOperationStatus.Pending);
+        var replacement =
+            QueueLegacyReplacementBooking(
+                transaction,
+                Now.AddMinutes(3));
         provider.ReservationFeeOverride = 5_201;
 
         await Handler(database, replacement, provider, new FixedClock(Now.AddMinutes(4)))
@@ -1049,6 +1047,33 @@ public sealed class DurableShippingOperationProcessingTests
             cost.ReasonCode);
         Assert.Equal(6_300, cost.AmountSatang);
         Assert.False(cost.IsOpen);
+    }
+
+    private static ShippingOperation
+        QueueLegacyReplacementBooking(
+            SaleTransaction transaction,
+            DateTimeOffset now)
+    {
+        var shipment =
+            transaction.CurrentOutboundShipment ??
+            throw new InvalidOperationException(
+                "replacement shipment missing");
+        var operation =
+            ShippingOperation.Queue(
+                transaction.Id,
+                shipment.Id,
+                ShippingOperationType
+                    .BookOutbound,
+                $"legacy-book:{shipment.Id:N}:{now.ToUnixTimeSeconds()}",
+                ManagedShippingOperationQueue
+                    .BookingFingerprint(shipment),
+                now);
+        transaction.QueueShippingOperation(
+            operation,
+            ActorRole.System,
+            "legacy-test",
+            now);
+        return operation;
     }
 
     private static ProcessNextShippingOperationHandler Handler(
@@ -1355,8 +1380,14 @@ public sealed class DurableShippingOperationProcessingTests
             string workerId,
             DateTimeOffset now,
             TimeSpan leaseDuration,
+            IReadOnlySet<ShippingOperationType>
+                allowedTypes,
             CancellationToken cancellationToken)
         {
+            if (!allowedTypes.Contains(
+                    operation.OperationType))
+                return Task.FromResult<
+                    ShippingOperation?>(null);
             if (operation.Status is not (
                     ShippingOperationStatus.Pending or
                     ShippingOperationStatus.RetryScheduled or

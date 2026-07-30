@@ -12,6 +12,8 @@ public sealed class ShippingWorkerOptions
 {
     public const string SectionName = "ShippingWorker";
     public int OperationIdleSeconds { get; init; } = 5;
+    public int ConfirmationBatchSize { get; init; } = 50;
+    public int OtherMutationBatchSize { get; init; } = 20;
     public int TrackingIntervalSeconds { get; init; } = 120;
     public int TrackingJitterSeconds { get; init; } = 30;
     public int LeaseSeconds { get; init; } = 300;
@@ -21,7 +23,52 @@ public sealed class ShippingWorkerOptions
 public sealed record ProcessNextShippingOperationCommand(
     string WorkerId,
     int LeaseSeconds = 300,
-    int MaximumAttempts = 8) : IRequest<bool>;
+    int MaximumAttempts = 8,
+    IReadOnlySet<ShippingOperationType>?
+        AllowedTypes = null) : IRequest<bool>;
+
+public sealed record ProcessShippingOperationBatchCommand(
+    string WorkerId,
+    IReadOnlySet<ShippingOperationType> AllowedTypes,
+    int BatchSize,
+    int LeaseSeconds = 300,
+    int MaximumAttempts = 8) : IRequest<int>;
+
+public sealed class ProcessShippingOperationBatchHandler(
+    ISender sender)
+    : IRequestHandler<
+        ProcessShippingOperationBatchCommand,
+        int>
+{
+    public async Task<int> Handle(
+        ProcessShippingOperationBatchCommand request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(
+            request.AllowedTypes);
+        if (request.AllowedTypes.Count == 0)
+            throw new ArgumentException(
+                "At least one shipping operation type is required.");
+        var processed = 0;
+        var limit = Math.Clamp(
+            request.BatchSize,
+            1,
+            100);
+        for (; processed < limit; processed++)
+        {
+            var hadWork = await sender.Send(
+                new ProcessNextShippingOperationCommand(
+                    request.WorkerId,
+                    request.LeaseSeconds,
+                    request.MaximumAttempts,
+                    request.AllowedTypes),
+                cancellationToken);
+            if (!hadWork)
+                break;
+        }
+        return processed;
+    }
+}
 
 public sealed class ProcessNextShippingOperationHandler(
     IShippingOperationRepository operations,
@@ -39,11 +86,17 @@ public sealed class ProcessNextShippingOperationHandler(
         CancellationToken cancellationToken)
     {
         var now = clock.UtcNow;
+        var allowedTypes =
+            request.AllowedTypes ??
+            Enum.GetValues<
+                    ShippingOperationType>()
+                .ToHashSet();
         var operation = await operations.ClaimDueAsync(
             request.WorkerId,
             now,
             TimeSpan.FromSeconds(
                 Math.Clamp(request.LeaseSeconds, 30, 900)),
+            allowedTypes,
             cancellationToken);
         if (operation is null)
             return false;
