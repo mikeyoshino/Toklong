@@ -15,7 +15,7 @@ public sealed class SaleTransaction
     public const int FinancialRetentionYears = 7;
     public const int SellerAcceptanceWindowHours = 24;
     public const int BuyerPaymentWindowHours = 1;
-    public const int AgreementSnapshotSchemaVersion = 10;
+    public const int AgreementSnapshotSchemaVersion = 11;
     public const long ParcelProtectionServiceFeeAmountSatang = 1_500;
     public const long MinimumProtectedItemPriceSatang = 100_000;
     public const long MaximumProtectedItemPriceSatang = 99_999_900;
@@ -3423,7 +3423,7 @@ public sealed class SaleTransaction
 
         var schemaVersion = ReadSchemaVersion(
             AgreementCoreSnapshotJson);
-        if (schemaVersion is not (3 or 4 or 5 or 8 or 9 or
+        if (schemaVersion is not (3 or 4 or 5 or 8 or 9 or 10 or
             AgreementSnapshotSchemaVersion))
             return false;
 
@@ -3517,6 +3517,9 @@ public sealed class SaleTransaction
         if (SnapshotSchemaVersion == 9)
             return HasValidVersionNineSnapshot();
 
+        if (SnapshotSchemaVersion == 10)
+            return HasValidCurrentProductSnapshot(10);
+
         if (SnapshotSchemaVersion !=
                 AgreementSnapshotSchemaVersion ||
             AgreementSnapshotCreatedAt is null ||
@@ -3526,17 +3529,22 @@ public sealed class SaleTransaction
             !HasMatchingPartyAcceptances())
             return false;
 
-        return SecureEquals(
-                   ProductSnapshotHash,
-                   Hash(ProductSnapshotJson)) &&
-               SecureEquals(
-                   ProductSnapshotJson,
-                   BuildProductSnapshotJson(
-                       AgreementSnapshotSchemaVersion,
-                       AgreementSnapshotCreatedAt.Value,
-                       TermsSnapshotHash!,
-                       AgreementCoreSnapshotHash!));
+        return HasValidCurrentProductSnapshot(
+            AgreementSnapshotSchemaVersion);
     }
+
+    private bool HasValidCurrentProductSnapshot(int schemaVersion) =>
+        AgreementSnapshotCreatedAt is not null &&
+        !string.IsNullOrWhiteSpace(ProductSnapshotJson) &&
+        !string.IsNullOrWhiteSpace(ProductSnapshotHash) &&
+        !string.IsNullOrWhiteSpace(TermsSnapshotHash) &&
+        !string.IsNullOrWhiteSpace(AgreementCoreSnapshotHash) &&
+        HasValidAgreementCoreSnapshot() &&
+        HasMatchingPartyAcceptances() &&
+        SecureEquals(ProductSnapshotHash, Hash(ProductSnapshotJson)) &&
+        SecureEquals(ProductSnapshotJson, BuildProductSnapshotJson(
+            schemaVersion, AgreementSnapshotCreatedAt.Value,
+            TermsSnapshotHash, AgreementCoreSnapshotHash));
 
     public bool HasValidBuyerCheckoutAnnexAcceptance() =>
         _buyerCheckoutAnnexAcceptances.Count == 1 &&
@@ -3713,7 +3721,7 @@ public sealed class SaleTransaction
         if (!HasValidAgreementSnapshot())
             throw new DomainException(
                 "snapshot ของข้อตกลงไม่ครบหรือไม่ตรงกับ hash จึงไม่สามารถดำเนินการด้านการเงินได้");
-        if (SnapshotSchemaVersion >= AgreementSnapshotSchemaVersion &&
+        if (SnapshotSchemaVersion >= 11 &&
             !HasValidBuyerCheckoutAnnexAcceptance())
             throw new DomainException(
                 "หลักฐานการยอมรับค่าใช้จ่ายไม่ครบหรือไม่ตรงกับ hash");

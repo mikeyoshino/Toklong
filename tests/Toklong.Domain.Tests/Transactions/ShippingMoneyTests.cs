@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Toklong.Domain.Common;
 using Toklong.Domain.Transactions;
@@ -76,7 +78,7 @@ public sealed class ShippingMoneyTests
         Assert.Equal(
             120_000,
             transaction.SellerExpectedNetSatang);
-        Assert.Equal(10, transaction.SnapshotSchemaVersion);
+        Assert.Equal(11, transaction.SnapshotSchemaVersion);
 
         using var snapshot = JsonDocument.Parse(
             transaction.ProductSnapshotJson!);
@@ -455,7 +457,60 @@ public sealed class ShippingMoneyTests
 
         Assert.False(annex.HasValidPayloadHash());
         Assert.False(transaction.HasValidBuyerCheckoutAnnexAcceptance());
+        Assert.Throws<DomainException>(() => transaction.ConfirmPayment(
+            "tampered-annex", Now.AddMinutes(4),
+            new TransactionTransitionService()));
     }
+
+    [Fact]
+    public void Historical_v10_snapshot_without_annex_remains_valid_for_payment_progression()
+    {
+        var transaction = AcceptedPhysicalOffer(450_000);
+        transaction.RecordParcelProtectionElection(
+            transaction.BuyerId!.Value,
+            Selection(ParcelProtectionElectionStatus.Declined,
+                includedCoverageLimitSatang: 100_000,
+                selectedCoverageLimitSatang: 100_000), Now.AddMinutes(2));
+        var transitions = new TransactionTransitionService();
+        transaction.BeginCheckout("ผู้ซื้อ", "buyer@example.com", Now.AddMinutes(3), transitions);
+        var type = typeof(SaleTransaction);
+        var termsJson = (string)type.GetMethod("BuildTermsSnapshotJson",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(transaction, [10])!;
+        var termsHash = Hash(termsJson);
+        Set(type, transaction, nameof(SaleTransaction.TermsSnapshotJson), termsJson);
+        Set(type, transaction, nameof(SaleTransaction.TermsSnapshotHash), termsHash);
+        var coreJson = (string)type.GetMethod("BuildAgreementCoreSnapshotJson",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(transaction, [10, transaction.AgreementCoreSnapshotCreatedAt!.Value, termsHash])!;
+        var coreHash = Hash(coreJson);
+        Set(type, transaction, nameof(SaleTransaction.AgreementCoreSnapshotJson), coreJson);
+        Set(type, transaction, nameof(SaleTransaction.AgreementCoreSnapshotHash), coreHash);
+        foreach (var acceptance in transaction.AgreementAcceptances)
+        {
+            Set(typeof(AgreementAcceptance), acceptance,
+                nameof(AgreementAcceptance.AgreementCoreSnapshotHash), coreHash);
+            Set(typeof(AgreementAcceptance), acceptance,
+                nameof(AgreementAcceptance.TermsSnapshotHash), termsHash);
+        }
+        var productJson = (string)type.GetMethod("BuildProductSnapshotJson",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(transaction, [10, transaction.AgreementSnapshotCreatedAt!.Value,
+                termsHash, coreHash])!;
+        Set(type, transaction, nameof(SaleTransaction.SnapshotSchemaVersion), 10);
+        Set(type, transaction, nameof(SaleTransaction.ProductSnapshotJson), productJson);
+        Set(type, transaction, nameof(SaleTransaction.ProductSnapshotHash), Hash(productJson));
+
+        Assert.True(transaction.HasValidAgreementSnapshot());
+        transaction.ConfirmPayment("legacy-v10-confirmed", Now.AddMinutes(4), transitions);
+        Assert.Equal(TransactionState.PaidAwaitingShipment, transaction.State);
+    }
+
+    private static string Hash(string value) => Convert.ToHexString(
+        SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
+
+    private static void Set(Type type, object instance, string property, object value) =>
+        type.GetProperty(property)!.SetValue(instance, value);
 
     [Fact]
     public void Invalidating_an_election_preserves_included_coverage_and_requires_reconfirmation()

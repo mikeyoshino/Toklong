@@ -694,6 +694,7 @@ public sealed class MobileEmailChangeApiTests
                 .GetRequiredService<ToklongDbContext>();
             var stored = await database.Transactions
                 .Include(item => item.AgreementAcceptances)
+                .Include(item => item.BuyerCheckoutAnnexAcceptances)
                 .Include(item => item.AuditEvents)
                 .Include(item => item.ExternalEvents)
                 .SingleAsync(item => item.Id == transactionId);

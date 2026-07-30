@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Npgsql;
+using Toklong.Domain.Common;
+using Toklong.Domain.Transactions;
 using Toklong.Infrastructure.Persistence;
 using Toklong.Infrastructure.Persistence.Migrations;
 
@@ -107,6 +109,49 @@ public sealed class OptionalParcelProtectionMigrationTests
         Assert.Null(zero.BuyerElectedAt);
         Assert.Equal(0L, zero.IncludedCoverageSatang);
         Assert.Equal(0L, zero.SelectedCoverageSatang);
+    }
+
+    [RequiresPostgreSqlMigrationFixture]
+    public async Task Annex_canonical_payload_round_trips_through_fresh_PostgreSql_context()
+    {
+        var adminConnectionString = Environment.GetEnvironmentVariable(
+            PostgreSqlConnectionStringEnvironmentVariable)!;
+        await using var database = await PostgreSqlMigrationDatabase.CreateAsync(
+            adminConnectionString);
+        var options = new DbContextOptionsBuilder<ToklongDbContext>()
+            .UseNpgsql(database.ConnectionString).Options;
+        Guid transactionId;
+        await using (var write = new ToklongDbContext(options))
+        {
+            await write.Database.MigrateAsync();
+            var transitions = new TransactionTransitionService();
+            var now = new DateTimeOffset(2026, 7, 30, 10, 0, 0, TimeSpan.Zero);
+            var transaction = TestTransactionFactory.CreateBuyerOffer(
+                Guid.NewGuid(), "ผู้ซื้อ ทดสอบ", "+66811111111",
+                FulfillmentType.PhysicalShipment, "กล้อง", "รายละเอียดสินค้า",
+                ConditionCode.UsedGood, "ไม่มี", null, 450_000,
+                "terms-v1", now, transitions);
+            transaction.AcceptBuyerOffer(Guid.NewGuid(), "ผู้ขาย ทดสอบ",
+                "+66822222222", "KBANK", "ผู้ขาย ทดสอบ", "1234567890",
+                true, now.AddMinutes(1), transitions, 0, 0, 450_000,
+                "fee-v1", TestTransactionFactory.ShippingQuote(now.AddMinutes(1)));
+            transaction.RecordParcelProtectionElection(transaction.BuyerId!.Value,
+                new ParcelProtectionSelection(ParcelProtectionElectionStatus.Declined,
+                    0, 0, 0, 100_000, 100_000, "parcel-v1", null,
+                    now.AddMinutes(1), now.AddHours(1)), now.AddMinutes(2));
+            transaction.BeginCheckout("ผู้ซื้อ ทดสอบ", "+66811111111",
+                now.AddMinutes(3), transitions, "manual-bank", null,
+                0, 0, 450_000, "fee-v1");
+            transactionId = transaction.Id;
+            write.Transactions.Add(transaction);
+            await write.SaveChangesAsync();
+        }
+
+        await using var read = new ToklongDbContext(options);
+        var reloaded = await new TransactionRepository(read).GetByIdAsync(
+            transactionId, CancellationToken.None);
+        Assert.NotNull(reloaded);
+        Assert.True(reloaded.HasValidBuyerCheckoutAnnexAcceptance());
     }
 
     [Fact]
