@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.Sqlite;
 using Toklong.Application.Abstractions;
 using Toklong.Application.Features.Checkout.ChooseParcelProtection;
 using Toklong.Application.Features.Shipping;
@@ -12,6 +13,10 @@ namespace Toklong.Application.Tests.Shipping;
 
 public sealed class DurableShippingOperationProcessingTests
 {
+    static DurableShippingOperationProcessingTests() =>
+        SQLitePCL.raw.SetProvider(
+            new SQLitePCL.SQLite3Provider_sqlite3());
+
     private static readonly DateTimeOffset Now =
         new(2026, 7, 29, 20, 0, 0, TimeSpan.Zero);
 
@@ -401,6 +406,71 @@ public sealed class DurableShippingOperationProcessingTests
             audit => audit.Name == "parcel_protection.changed");
     }
 
+    [Fact]
+    public async Task Fresh_context_cancel_reload_queues_replacement_and_blocks_checkout()
+    {
+        await using var database = await RelationalDatabase.CreateAsync();
+        var (transaction, _) = PendingBuyerCheckoutBooking();
+        await using (var setup = database.CreateContext())
+        {
+            setup.Transactions.Add(transaction);
+            await setup.SaveChangesAsync();
+        }
+        var provider = new BookingProvider();
+
+        await using (var bookingContext = database.CreateContext())
+        {
+            await RelationalWorker(bookingContext, provider, Now.AddMinutes(1))
+                .Handle(new ProcessNextShippingOperationCommand("worker-a"), default);
+        }
+        await using (var choiceContext = database.CreateContext())
+        {
+            var stored = await new TransactionRepository(choiceContext).GetByIdAsync(
+                transaction.Id, default);
+            await new ChooseParcelProtectionHandler(
+                    new TransactionRepository(choiceContext), provider,
+                    new ParcelProtectionPricingPolicy(), choiceContext,
+                    new FixedClock(Now.AddMinutes(2)))
+                .Handle(new ChooseParcelProtectionCommand(
+                    transaction.Id, stored!.BuyerId!.Value, false, null, null,
+                    "fresh-context-change-01"), default);
+        }
+        await using (var cancellationContext = database.CreateContext())
+        {
+            await RelationalWorker(cancellationContext, provider, Now.AddMinutes(3))
+                .Handle(new ProcessNextShippingOperationCommand("worker-b"), default);
+        }
+        await using var assertionContext = database.CreateContext();
+        var reloaded = await new TransactionRepository(assertionContext)
+            .GetByIdAsync(transaction.Id, default);
+
+        Assert.NotNull(reloaded);
+        Assert.Equal(ParcelProtectionChangeStatus.AwaitingRebooking,
+            Assert.Single(reloaded!.ParcelProtectionChangeRequests).Status);
+        Assert.Equal(2, reloaded.ManagedShipments.Count);
+        Assert.Single(reloaded.ShippingOperations, operation =>
+            operation.OperationType == ShippingOperationType.BookOutbound &&
+            operation.Status == ShippingOperationStatus.Pending);
+        Assert.Throws<DomainException>(() => reloaded.BeginCheckout(
+            "ผู้ซื้อ ทดสอบ", "0800000000", Now.AddMinutes(4),
+            new TransactionTransitionService(), "manual-bank", null, 5_900, 0,
+            450_000, "fee-v1"));
+
+        await using (var replacementContext = database.CreateContext())
+        {
+            await RelationalWorker(replacementContext, provider, Now.AddMinutes(5))
+                .Handle(new ProcessNextShippingOperationCommand("worker-c"), default);
+        }
+        await using var completedContext = database.CreateContext();
+        var completed = await new TransactionRepository(completedContext)
+            .GetByIdAsync(transaction.Id, default);
+        Assert.True(completed!.ParcelProtectionBookingReady);
+        completed.BeginCheckout(
+            "ผู้ซื้อ ทดสอบ", "0800000000", Now.AddMinutes(6),
+            new TransactionTransitionService(), "manual-bank", null, 5_900, 0,
+            450_000, "fee-v1");
+    }
+
     [Theory]
     [InlineData(ShipmentMutationOutcome.DefiniteFailure,
         ShippingOperationStatus.RetryScheduled)]
@@ -437,6 +507,45 @@ public sealed class DurableShippingOperationProcessingTests
         Assert.Single(transaction.ManagedShipments);
         Assert.Equal(ParcelProtectionChangeStatus.AwaitingCancellation,
             Assert.Single(transaction.ParcelProtectionChangeRequests).Status);
+    }
+
+    [Fact]
+    public async Task Replacement_reservation_mismatch_keeps_original_election_and_change_active()
+    {
+        await using var database = CreateDatabase();
+        var (transaction, booking) = PendingBuyerCheckoutBooking();
+        database.Transactions.Add(transaction);
+        await database.SaveChangesAsync();
+        var provider = new BookingProvider();
+        await Handler(database, booking, provider, new FixedClock(Now.AddMinutes(1)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-a"), default);
+        await new ChooseParcelProtectionHandler(
+                new TransactionRepository(database), provider,
+                new ParcelProtectionPricingPolicy(), database,
+                new FixedClock(Now.AddMinutes(2)))
+            .Handle(new ChooseParcelProtectionCommand(
+                transaction.Id, transaction.BuyerId!.Value, false, null, null,
+                "change-mismatch-decline"), default);
+        var cancellation = Assert.Single(transaction.ShippingOperations,
+            operation => operation.OperationType == ShippingOperationType.CancelOutbound);
+        await Handler(database, cancellation, provider, new FixedClock(Now.AddMinutes(3)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-b"), default);
+        var replacement = Assert.Single(transaction.ShippingOperations,
+            operation => operation.OperationType == ShippingOperationType.BookOutbound &&
+                operation.Status == ShippingOperationStatus.Pending);
+        provider.ReservationFeeOverride = 5_201;
+
+        await Handler(database, replacement, provider, new FixedClock(Now.AddMinutes(4)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-c"), default);
+
+        Assert.Equal(ShippingOperationStatus.NeedsReview, replacement.Status);
+        Assert.Equal(ParcelProtectionElectionStatus.Accepted,
+            transaction.ParcelProtectionElection);
+        Assert.Equal(ParcelProtectionChangeStatus.AwaitingRebooking,
+            Assert.Single(transaction.ParcelProtectionChangeRequests).Status);
+        Assert.False(transaction.ParcelProtectionBookingReady);
+        Assert.DoesNotContain(transaction.AuditEvents,
+            audit => audit.Name == "parcel_protection.changed");
     }
 
     [Fact]
@@ -684,6 +793,14 @@ public sealed class DurableShippingOperationProcessingTests
             clock,
             new TransactionTransitionService());
 
+    private static ProcessNextShippingOperationHandler RelationalWorker(
+        ToklongDbContext context,
+        BookingProvider provider,
+        DateTimeOffset now) => new(
+            new ShippingOperationRepository(context),
+            new TransactionRepository(context), provider, provider, context,
+            new FixedClock(now), new TransactionTransitionService());
+
     private static (SaleTransaction, ShippingOperation)
         PendingAcceptance(bool includedOnly = false)
     {
@@ -927,6 +1044,37 @@ public sealed class DurableShippingOperationProcessingTests
         return new ToklongDbContext(options);
     }
 
+    private sealed class RelationalDatabase : IAsyncDisposable
+    {
+        private readonly SqliteConnection anchor;
+        private readonly DbContextOptions<ToklongDbContext> options;
+
+        private RelationalDatabase(
+            SqliteConnection anchor,
+            DbContextOptions<ToklongDbContext> options)
+        {
+            this.anchor = anchor;
+            this.options = options;
+        }
+
+        public static async Task<RelationalDatabase> CreateAsync()
+        {
+            var connectionString =
+                $"Data Source={Guid.NewGuid():N};Mode=Memory;Cache=Shared";
+            var anchor = new SqliteConnection(connectionString);
+            await anchor.OpenAsync();
+            var options = new DbContextOptionsBuilder<ToklongDbContext>()
+                .UseSqlite(connectionString).Options;
+            await using var context = new ToklongDbContext(options);
+            await context.Database.EnsureCreatedAsync();
+            return new RelationalDatabase(anchor, options);
+        }
+
+        public ToklongDbContext CreateContext() => new(options);
+
+        public ValueTask DisposeAsync() => anchor.DisposeAsync();
+    }
+
     private sealed class SingleOperationRepository(
         ShippingOperation operation)
         : IShippingOperationRepository
@@ -977,6 +1125,7 @@ public sealed class DurableShippingOperationProcessingTests
         public string ProviderName => "shippop";
         public Exception? Failure { get; init; }
         public Exception? CancelFailure { get; set; }
+        public long? ReservationFeeOverride { get; set; }
         public int ReserveCalls { get; private set; }
         public int ValidateProtectionCalls { get; private set; }
         public ProviderParcelProtectionOption ProtectionOption { get; init; } =
@@ -1003,7 +1152,7 @@ public sealed class DurableShippingOperationProcessingTests
                 null,
                 request.Quote.CarrierCode,
                 request.Quote.ServiceCode,
-                request.Quote.FeeSatang,
+                ReservationFeeOverride ?? request.Quote.FeeSatang,
                 request.Quote.InsuranceFeeSatang,
                 request.Quote.DeclaredValueSatang,
                 request.Quote.InsuranceCode,

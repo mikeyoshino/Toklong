@@ -237,6 +237,7 @@ public sealed class TransactionRepository(ToklongDbContext dbContext) : ITransac
             .Include(x => x.DisputeEvidence)
             .Include(x => x.ManagedShipments)
             .Include(x => x.ShippingOperations)
+            .Include(x => x.ParcelProtectionChangeRequests)
             .Include(x => x.ProviderShippingAdjustments)
             .Include(x => x.ShippingInsuranceCases);
 }

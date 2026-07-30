@@ -1333,8 +1333,8 @@ public sealed class SaleTransaction
         var rebooking = _parcelProtectionChangeRequests.SingleOrDefault(item =>
             item.Status == ParcelProtectionChangeStatus.AwaitingRebooking);
         if (rebooking is not null &&
-            CurrentOutboundShipment?.Id == managedShipmentId)
-            CompleteParcelProtectionRebooking(managedShipmentId, completedAt);
+            CurrentOutboundShipment?.Id != managedShipmentId)
+            throw new DomainException("รายการจัดส่งทดแทนไม่ตรงกับคำขอเปลี่ยนความคุ้มครอง");
         if (ShippingReservedAt.HasValue && rebooking is null)
         {
             if (string.Equals(ShippingPurchaseReference, purchaseReference,
@@ -1344,7 +1344,12 @@ public sealed class SaleTransaction
                 return;
             throw new DomainException("รายการจัดส่งนี้ถูกจองแล้ว");
         }
-        if (!MatchesParcelProtectionElection(shipment) ||
+        var selectionMatches = rebooking is null
+            ? MatchesParcelProtectionElection(shipment)
+            : MatchesParcelProtectionSelection(
+                shipment, rebooking.DesiredSelection(),
+                rebooking.DesiredInsuranceCode);
+        if (!selectionMatches ||
             !string.Equals(provider, shipment.Provider,
                 StringComparison.Ordinal) ||
             !string.Equals(carrierCode, shipment.CarrierCode,
@@ -1364,6 +1369,8 @@ public sealed class SaleTransaction
             providerTrackingCode,
             courierTrackingCode,
             reservedAt);
+        if (rebooking is not null)
+            CompleteParcelProtectionRebooking(managedShipmentId, completedAt);
         ShippingPurchaseReference = purchaseReference;
         ShippingProviderTrackingCode = providerTrackingCode;
         ShippingCourierTrackingCode = courierTrackingCode;
@@ -1989,6 +1996,34 @@ public sealed class SaleTransaction
             ParcelInsuranceFeeSatang == 0 &&
             shipment.ParcelProtectionProviderCostSatang == 0 &&
             shipment.InsuranceFeeSatang == 0 &&
+            shipment.DeclaredValueSatang == 0 &&
+            string.IsNullOrWhiteSpace(shipment.InsuranceCode);
+    }
+
+    private static bool MatchesParcelProtectionSelection(
+        ManagedShipment shipment,
+        ParcelProtectionSelection selection,
+        string? insuranceCode)
+    {
+        if (shipment.ParcelProtectionElection != selection.Election ||
+            shipment.ParcelProtectionProviderCostSatang !=
+                selection.ProviderCostSatang ||
+            shipment.ParcelProtectionIncludedCoverageSatang !=
+                selection.IncludedCoverageLimitSatang ||
+            shipment.ParcelProtectionSelectedCoverageSatang !=
+                selection.SelectedCoverageLimitSatang ||
+            !string.Equals(shipment.ParcelProtectionTermsVersion,
+                selection.TermsVersion, StringComparison.Ordinal) ||
+            !string.Equals(shipment.ParcelProtectionOptionReference,
+                selection.ProviderOptionReference, StringComparison.Ordinal))
+            return false;
+        if (selection.Election == ParcelProtectionElectionStatus.Accepted)
+            return shipment.InsuranceFeeSatang == selection.ProviderCostSatang &&
+                shipment.DeclaredValueSatang ==
+                    selection.SelectedCoverageLimitSatang &&
+                string.Equals(shipment.InsuranceCode, insuranceCode,
+                    StringComparison.Ordinal);
+        return shipment.InsuranceFeeSatang == 0 &&
             shipment.DeclaredValueSatang == 0 &&
             string.IsNullOrWhiteSpace(shipment.InsuranceCode);
     }

@@ -30,6 +30,19 @@ public sealed class OptionalParcelProtectionMigrationTests
     }
 
     [Fact]
+    public void Rebooking_history_migration_has_an_explicit_safe_rollback_policy()
+    {
+        var exception = Assert.Throws<NotSupportedException>(() =>
+            new ParcelProtectionRebookingProbe().ExecuteDown(
+                new MigrationBuilder("Npgsql.EntityFrameworkCore.PostgreSQL")));
+
+        Assert.Contains("intentionally irreversible", exception.Message,
+            StringComparison.Ordinal);
+        Assert.Contains("rebooking history", exception.Message,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Superseded_outbound_history_migration_is_discoverable_before_annex_migration()
     {
         var options = new DbContextOptionsBuilder<ToklongDbContext>()
@@ -268,6 +281,12 @@ public sealed class OptionalParcelProtectionMigrationTests
         : AllowSupersededOutboundBookingIntent
     {
         public void ExecuteUp(MigrationBuilder builder) => Up(builder);
+        public void ExecuteDown(MigrationBuilder builder) => Down(builder);
+    }
+
+    private sealed class ParcelProtectionRebookingProbe
+        : ParcelProtectionRebooking
+    {
         public void ExecuteDown(MigrationBuilder builder) => Down(builder);
     }
 

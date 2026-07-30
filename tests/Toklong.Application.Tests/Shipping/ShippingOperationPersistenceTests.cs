@@ -199,6 +199,51 @@ public sealed class ShippingOperationPersistenceTests
             () => context.SaveChangesAsync());
     }
 
+    [Fact]
+    public async Task Fresh_repository_load_includes_active_parcel_protection_change_request()
+    {
+        await using var database = await RelationalDatabase.CreateAsync();
+        var transaction = AcceptedTransaction();
+        var selection = new ParcelProtectionSelection(
+            ParcelProtectionElectionStatus.Accepted, 2_600, 1_100,
+            SaleTransaction.ParcelProtectionServiceFeeAmountSatang,
+            100_000, 120_000, "parcel-protection-v1", "option-001", Now,
+            Now.AddMinutes(30));
+        transaction.RecordParcelProtectionElection(
+            transaction.BuyerId!.Value, selection, Now);
+        var (shipment, operation) = QueueOutbound(transaction);
+        shipment.RecordReservation("purchase-001", "provider-001", null, Now);
+        operation.Claim("worker-a", Now, TimeSpan.FromMinutes(1));
+        operation.Succeed("worker-a", "purchase-001", "provider-001", Now);
+        transaction.RequestParcelProtectionChange(
+            transaction.BuyerId.Value, shipment,
+            selection with
+            {
+                Election = ParcelProtectionElectionStatus.Declined,
+                CustomerPriceSatang = 0,
+                ProviderCostSatang = 0,
+                ToklongServiceFeeSatang = 0,
+                SelectedCoverageLimitSatang = 100_000,
+                ProviderOptionReference = null,
+                TermsVersion = "parcel-protection-included-v1"
+            },
+            null, "change-request-load-01", Now);
+        await using (var setup = database.CreateContext())
+        {
+            setup.Transactions.Add(transaction);
+            await setup.SaveChangesAsync();
+        }
+
+        await using var fresh = database.CreateContext();
+        var loaded = await new TransactionRepository(fresh).GetByIdAsync(
+            transaction.Id, default);
+
+        Assert.NotNull(loaded);
+        Assert.Single(loaded!.ParcelProtectionChangeRequests);
+        Assert.Equal(ParcelProtectionChangeStatus.AwaitingCancellation,
+            loaded.ParcelProtectionChangeRequests.Single().Status);
+    }
+
     private static SaleTransaction NewTransaction() =>
         TestTransactionFactory.CreateBuyerOffer(
             Guid.NewGuid(),
@@ -214,6 +259,25 @@ public sealed class ShippingOperationPersistenceTests
             "terms-v1",
             Now,
             new TransactionTransitionService());
+
+    private static SaleTransaction AcceptedTransaction()
+    {
+        var transaction = NewTransaction();
+        transaction.AcceptBuyerOffer(
+            Guid.NewGuid(), "ผู้ขาย ทดสอบ", "0811111111", "KBANK",
+            "ผู้ขาย ทดสอบ", "1234567890", true, Now,
+            new TransactionTransitionService(), 0, 0, 120_000, "fee-v1",
+            new AcceptedShippingQuote(
+                TestTransactionFactory.ShippingOriginAddress,
+                TestTransactionFactory.DeliveryProvinceName,
+                TestTransactionFactory.DeliveryPostalCode,
+                1_200, 20, 30, 15, "shippop", "quote-001", "THAIPOST",
+                "EMST", "ไปรษณีย์ไทย EMS", 5_200, 0, 0, null,
+                Now.AddHours(2), TestTransactionFactory.DeliveryDistrictName,
+                TestTransactionFactory.DeliverySubdistrictName,
+                OriginAddressLine: TestTransactionFactory.ShippingOriginAddress));
+        return transaction;
+    }
 
     private static (ManagedShipment Shipment, ShippingOperation Operation)
         QueueOutbound(SaleTransaction transaction)

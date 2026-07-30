@@ -71,17 +71,10 @@ namespace Toklong.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "parcel_protection_change_requests");
-
-            migrationBuilder.DropIndex(
-                name: "IX_managed_shipments_TransactionId_Direction_Status",
-                table: "managed_shipments");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_managed_shipments_TransactionId_Direction",
-                table: "managed_shipments",
-                columns: new[] { "TransactionId", "Direction" });
+            throw new NotSupportedException(
+                "This migration is intentionally irreversible: restoring the " +
+                "outbound shipment uniqueness constraint could discard immutable " +
+                "rebooking history. Restore a pre-migration backup instead.");
         }
     }
 }
