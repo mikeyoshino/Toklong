@@ -213,6 +213,13 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                 name: "ParcelProtectionTermsVersion",
                 table: "managed_shipments");
 
+            migrationBuilder.Sql(
+                """
+                UPDATE managed_shipments
+                SET "InsuranceCode" = ''
+                WHERE "InsuranceCode" IS NULL;
+                """);
+
             migrationBuilder.AlterColumn<string>(
                 name: "InsuranceCode",
                 table: "managed_shipments",
