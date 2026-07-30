@@ -15,11 +15,11 @@ public static class ParcelProtectionCheckoutPresentation
         BuyerParcelProtection protection) =>
         protection.ReconfirmationRequired
             ? ParcelProtectionCheckoutStep.Reconfirm
-            : protection.RequiresChoice
-                ? ParcelProtectionCheckoutStep.Choose
-                : protection.BookingReady
-                    ? ParcelProtectionCheckoutStep.PresentPayment
-                    : protection.Election == "Pending"
-                        ? ParcelProtectionCheckoutStep.SubmitIncludedCoverage
-                        : ParcelProtectionCheckoutStep.WaitForBooking;
+            : protection.BookingReady
+                ? ParcelProtectionCheckoutStep.PresentPayment
+                : protection.Election != "Pending"
+                    ? ParcelProtectionCheckoutStep.WaitForBooking
+                    : protection.RequiresChoice
+                        ? ParcelProtectionCheckoutStep.Choose
+                        : ParcelProtectionCheckoutStep.SubmitIncludedCoverage;
 }

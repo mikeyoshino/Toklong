@@ -411,17 +411,26 @@
                                         Text="ความคุ้มครองที่เลือกใช้ไม่ได้แล้ว"
                                         TextColor="{StaticResource Ink}" />
                                     <Label
+                                        IsVisible="{Binding IsParcelProtectionChoiceAvailable}"
                                         FontSize="14"
                                         LineBreakMode="WordWrap"
                                         Text="มูลค่าสินค้าสูงกว่าวงเงินที่รวมมากับการจัดส่ง แนะนำเพิ่มความคุ้มครองก่อนชำระเงิน"
                                         TextColor="{StaticResource InkSoft}" />
                                     <Label
+                                        IsVisible="{Binding IsParcelProtectionUnavailable}"
+                                        FontSize="14"
+                                        LineBreakMode="WordWrap"
+                                        Text="โปรดตรวจรายละเอียด แล้วเลือกดำเนินการต่อด้วยวงเงินที่รวมอยู่"
+                                        TextColor="{StaticResource InkSoft}" />
+                                    <Label
+                                        IsVisible="{Binding HasParcelProtectionOfferDetails}"
                                         FontAttributes="Bold"
                                         FontSize="15"
                                         Text="{Binding MaximumCoverageText}"
                                         TextColor="{StaticResource Ink}"
                                         SemanticProperties.Description="{Binding MaximumCoverageText}" />
                                     <Label
+                                        IsVisible="{Binding HasParcelProtectionOfferDetails}"
                                         FontAttributes="Bold"
                                         FontSize="15"
                                         Text="{Binding ParcelProtectionPriceText}"
@@ -436,10 +445,14 @@
                                         Text="{Binding ParcelProtectionPrimaryActionText}" />
                                     <Button
                                         MinimumHeightRequest="44"
-                                        Style="{StaticResource RefinedSecondaryActionButton}"
+                                        BackgroundColor="Transparent"
+                                        BorderWidth="0"
+                                        FontAttributes="Bold"
+                                        FontSize="15"
                                         Command="{Binding DeclineParcelProtectionCommand}"
                                         SemanticProperties.Description="{Binding ParcelProtectionDeclineActionText}"
-                                        Text="{Binding ParcelProtectionDeclineActionText}" />
+                                        Text="{Binding ParcelProtectionDeclineActionText}"
+                                        TextColor="{StaticResource BrandBlueDeep}" />
                                     <Button
                                         MinimumHeightRequest="44"
                                         Style="{StaticResource RefinedSecondaryActionButton}"

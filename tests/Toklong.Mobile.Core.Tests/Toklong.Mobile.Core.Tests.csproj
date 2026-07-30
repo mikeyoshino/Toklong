@@ -26,6 +26,8 @@
              Link="MobileServices/MobileApiClient.cs" />
     <Compile Include="../../src/Toklong.Mobile/Services/MobileAuthenticationService.cs"
              Link="MobileServices/MobileAuthenticationService.cs" />
+    <Compile Include="../../src/Toklong.Mobile/Services/ApiTransactionService.cs"
+             Link="MobileServices/ApiTransactionService.cs" />
     <Compile Include="../../src/Toklong.Mobile/ViewModels/ObservableViewModel.cs"
              Link="MobileViewModels/ObservableViewModel.cs" />
     <Compile Include="../../src/Toklong.Mobile/ViewModels/AuthenticatedHomeViewModel.cs"
@@ -38,6 +40,8 @@
              Link="MobileViewModels/VerifyEmailChangeViewModel.cs" />
     <Compile Include="../../src/Toklong.Mobile/ViewModels/TransactionsViewModel.cs"
              Link="MobileViewModels/TransactionsViewModel.cs" />
+    <Compile Include="../../src/Toklong.Mobile/ViewModels/TransactionDetailViewModel.cs"
+             Link="MobileViewModels/TransactionDetailViewModel.cs" />
   </ItemGroup>
 
   <ItemGroup>

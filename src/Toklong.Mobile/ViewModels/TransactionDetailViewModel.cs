@@ -8,7 +8,8 @@ namespace Toklong.Mobile.ViewModels;
 public sealed class TransactionDetailViewModel(
     ITransactionService transactionService,
     IStripePaymentSheetService stripePaymentSheet,
-    IMobileAnalytics analytics) : ObservableViewModel
+    IMobileAnalytics analytics,
+    Func<TimeSpan, Task>? waitAsync = null) : ObservableViewModel
 {
     private AppTransaction? transaction;
     private string message = "";
@@ -124,6 +125,7 @@ public sealed class TransactionDetailViewModel(
             OnPropertyChanged(nameof(ParcelProtectionPriceText));
             OnPropertyChanged(nameof(IsParcelProtectionUnavailable));
             OnPropertyChanged(nameof(IsParcelProtectionChoiceAvailable));
+            OnPropertyChanged(nameof(HasParcelProtectionOfferDetails));
             OnPropertyChanged(nameof(ParcelProtectionPrimaryActionText));
             OnPropertyChanged(nameof(ParcelProtectionDeclineActionText));
             OnPropertyChanged(nameof(CanChangeParcelProtection));
@@ -167,6 +169,11 @@ public sealed class TransactionDetailViewModel(
 
     public bool IsParcelProtectionChoiceAvailable =>
         !IsParcelProtectionUnavailable;
+
+    public bool HasParcelProtectionOfferDetails =>
+        !IsParcelProtectionUnavailable &&
+        ParcelProtection?.MaximumCoverageLimitSatang is not null &&
+        ParcelProtection.CustomerPriceSatang is not null;
 
     public string ParcelProtectionPrimaryActionText =>
         IsParcelProtectionUnavailable
@@ -467,6 +474,9 @@ public sealed class TransactionDetailViewModel(
         {
             Transaction = await transactionService.GetTransactionAsync(transactionId);
             Message = Transaction is null ? "ไม่พบรายการนี้" : "";
+            if (CanLoadParcelProtection())
+                ParcelProtection = await transactionService
+                    .GetParcelProtectionAsync(transactionId);
             if (CanManageDisputeEvidence)
                 await LoadDisputeEvidenceAsync();
             if (IsPhysicalFulfillmentAction && !carrierDataLoaded)
@@ -568,15 +578,37 @@ public sealed class TransactionDetailViewModel(
     private async Task StartPaymentAsync(Guid transactionId)
     {
         Message = "";
-        var protection = ParcelProtection is null ||
-                         ParcelProtection.Election is "Pending" or
-                             "ReconfirmationRequired"
-            ? await transactionService.PrepareParcelProtectionAsync(
-                transactionId,
-                NewParcelProtectionPreparationIdempotencyKey())
-            : await transactionService.GetParcelProtectionAsync(transactionId);
-        ParcelProtection = protection;
+        var persisted = await transactionService.GetParcelProtectionAsync(
+            transactionId);
+        ParcelProtection = persisted;
 
+        switch (ParcelProtectionCheckoutPresentation.Next(persisted))
+        {
+            case ParcelProtectionCheckoutStep.Reconfirm:
+                await RefreshParcelProtectionForReconfirmationAsync(
+                    transactionId);
+                IsParcelProtectionChoiceVisible = true;
+                return;
+            case ParcelProtectionCheckoutStep.PresentPayment:
+                await PresentPaymentSheetAsync(transactionId);
+                return;
+            case ParcelProtectionCheckoutStep.WaitForBooking:
+                Message = "กำลังเตรียมรายการจัดส่ง กรุณารอสักครู่";
+                await WaitForParcelProtectionBookingAsync(transactionId);
+                return;
+        }
+
+        var prepared = await transactionService.PrepareParcelProtectionAsync(
+            transactionId,
+            NewParcelProtectionPreparationIdempotencyKey());
+        ParcelProtection = prepared;
+        await ContinuePreparedParcelProtectionAsync(transactionId, prepared);
+    }
+
+    private async Task ContinuePreparedParcelProtectionAsync(
+        Guid transactionId,
+        BuyerParcelProtection protection)
+    {
         switch (ParcelProtectionCheckoutPresentation.Next(protection))
         {
             case ParcelProtectionCheckoutStep.Reconfirm:
@@ -624,6 +656,8 @@ public sealed class TransactionDetailViewModel(
         if (Transaction is null || ParcelProtection is null)
             return;
 
+        var transactionId = Transaction.Id;
+
         addProtection = addProtection && !IsParcelProtectionUnavailable;
         if (addProtection &&
             (string.IsNullOrWhiteSpace(ParcelProtection.OptionReference) ||
@@ -638,7 +672,7 @@ public sealed class TransactionDetailViewModel(
         try
         {
             var status = await transactionService.ChooseParcelProtectionAsync(
-                Transaction.Id,
+                transactionId,
                 addProtection,
                 addProtection ? ParcelProtection.OptionReference : null,
                 addProtection
@@ -648,7 +682,7 @@ public sealed class TransactionDetailViewModel(
             if (status == "reconfirmation_required")
             {
                 await RefreshParcelProtectionForReconfirmationAsync(
-                    Transaction.Id);
+                    transactionId);
                 IsParcelProtectionChoiceVisible = true;
                 return;
             }
@@ -658,10 +692,12 @@ public sealed class TransactionDetailViewModel(
                     ParcelProtection.CustomerPriceSatang!.Value)
                 : ParcelProtectionAnalytics.Declined());
             IsParcelProtectionChoiceVisible = false;
+            Transaction = await transactionService.GetTransactionAsync(
+                transactionId);
             Message = status == "cancelling_shipping"
                 ? "กำลังปรับรายการจัดส่ง"
                 : "กำลังเตรียมรายการจัดส่ง กรุณารอสักครู่";
-            await WaitForParcelProtectionBookingAsync(Transaction.Id);
+            await WaitForParcelProtectionBookingAsync(transactionId);
         }
         finally
         {
@@ -673,7 +709,9 @@ public sealed class TransactionDetailViewModel(
     {
         for (var attempt = 0; attempt < 8; attempt++)
         {
-            await Task.Delay(TimeSpan.FromMilliseconds(750));
+            await (waitAsync?.Invoke(
+                TimeSpan.FromMilliseconds(750)) ??
+                Task.Delay(TimeSpan.FromMilliseconds(750)));
             var current = await transactionService.GetParcelProtectionAsync(
                 transactionId);
             ParcelProtection = current;
@@ -711,6 +749,7 @@ public sealed class TransactionDetailViewModel(
         IsBusy = true;
         try
         {
+            Transaction = await transactionService.GetTransactionAsync(transactionId);
             var outcome = await stripePaymentSheet.PresentAsync(transactionId);
             if (outcome == PaymentSheetOutcome.Completed)
                 analytics.Track(ParcelProtectionAnalytics.CheckoutConverted());
@@ -732,6 +771,14 @@ public sealed class TransactionDetailViewModel(
     private string NewParcelProtectionPreparationIdempotencyKey() =>
         parcelProtectionPreparationIdempotencyKey ??=
             $"mobile:{Transaction?.Id:N}:prepare:{Guid.NewGuid():N}";
+
+    private bool CanLoadParcelProtection() =>
+        Transaction is
+        {
+            Role: AppTransactionRole.Buyer,
+            FulfillmentType: AppFulfillmentType.Physical,
+            State: "SellerAcceptedAwaitingPayment" or "PaymentPending"
+        };
 
     private async Task CopyInvitationLinkAsync()
     {

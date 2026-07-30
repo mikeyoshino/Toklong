@@ -84,6 +84,12 @@ public sealed class Shell
             new Dictionary<string, object>(
                 parameters)));
     }
+
+    public Task<bool> DisplayAlertAsync(
+        string title,
+        string message,
+        string accept,
+        string cancel) => Task.FromResult(false);
 }
 
 namespace Toklong.Mobile.Pages
@@ -93,4 +99,5 @@ namespace Toklong.Mobile.Pages
     public sealed class PayoutSettingsPage;
     public sealed class TransactionDetailPage;
     public sealed class VerifyEmailChangePage;
+    public sealed class ShippingLabelPage;
 }

@@ -745,6 +745,33 @@ public sealed class TransactionPresentationTests
                 }));
     }
 
+    [Fact]
+    public void Persisted_protection_state_wins_over_an_old_choice_prompt()
+    {
+        var stalePrompt = new BuyerParcelProtection(
+            RequiresChoice: true,
+            AddOnAvailable: true,
+            IncludedCoverageLimitSatang: 1_000_00,
+            MaximumCoverageLimitSatang: 4_500_00,
+            CustomerPriceSatang: 60_00,
+            OptionReference: "old-option",
+            TermsVersion: "parcel-v1",
+            ExpiresAt: DateTimeOffset.Parse("2026-07-30T10:55:00+07:00"),
+            Election: "Accepted",
+            BookingReady: true,
+            ReconfirmationRequired: false);
+
+        Assert.Equal(
+            ParcelProtectionCheckoutStep.PresentPayment,
+            ParcelProtectionCheckoutPresentation.Next(stalePrompt));
+        Assert.Equal(
+            ParcelProtectionCheckoutStep.WaitForBooking,
+            ParcelProtectionCheckoutPresentation.Next(stalePrompt with
+            {
+                BookingReady = false
+            }));
+    }
+
     private static AppTransaction CreateItem(string? photoUrl) =>
         new(
             Guid.NewGuid(),
