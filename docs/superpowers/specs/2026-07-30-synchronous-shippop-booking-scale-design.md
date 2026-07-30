@@ -1,7 +1,7 @@
 # Synchronous SHIPPOP Booking and Scalable Confirmation Design
 
 **Date:** 2026-07-30
-**Status:** Approved design; awaiting written-spec review
+**Status:** Approved for implementation
 **Scope:** Physical checkout booking, post-payment confirmation, and horizontal
 scale without RabbitMQ
 
@@ -129,6 +129,7 @@ A `BookingAttempt` records the pre-payment network operation:
 ```text
 id
 transaction_id
+managed_shipment_id
 buyer_id
 idempotency_key
 request_fingerprint
