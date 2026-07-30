@@ -15,7 +15,8 @@ public sealed class SaleTransaction
     public const int FinancialRetentionYears = 7;
     public const int SellerAcceptanceWindowHours = 24;
     public const int BuyerPaymentWindowHours = 1;
-    public const int AgreementSnapshotSchemaVersion = 9;
+    public const int AgreementSnapshotSchemaVersion = 10;
+    public const long ParcelProtectionServiceFeeAmountSatang = 1_500;
     public const long MinimumProtectedItemPriceSatang = 100_000;
     public const long MaximumProtectedItemPriceSatang = 99_999_900;
 
@@ -56,6 +57,18 @@ public sealed class SaleTransaction
     public long PriceSatang { get; private set; }
     public long ShippingFeeSatang { get; private set; }
     public long ParcelInsuranceFeeSatang { get; private set; }
+    public ParcelProtectionElectionStatus
+        ParcelProtectionElection { get; private set; } =
+        ParcelProtectionElectionStatus.Pending;
+    public long ParcelProtectionProviderCostSatang { get; private set; }
+    public long ParcelProtectionServiceFeeSatang { get; private set; }
+    public long ParcelProtectionIncludedCoverageSatang { get; private set; }
+    public long ParcelProtectionSelectedCoverageSatang { get; private set; }
+    public string? ParcelProtectionTermsVersion { get; private set; }
+    public string? ParcelProtectionOptionReference { get; private set; }
+    public DateTimeOffset? ParcelProtectionQuotedAt { get; private set; }
+    public DateTimeOffset? ParcelProtectionExpiresAt { get; private set; }
+    public DateTimeOffset? ParcelProtectionBuyerElectedAt { get; private set; }
     public long ShippingDeclaredValueSatang { get; private set; }
     public string? ShippingInsuranceCode { get; private set; }
     public long BuyerTotalSatang { get; private set; }
@@ -181,6 +194,9 @@ public sealed class SaleTransaction
         FulfillmentType == FulfillmentType.PhysicalShipment &&
         !string.IsNullOrWhiteSpace(ShippingPurchaseReference) &&
         !string.IsNullOrWhiteSpace(ShippingProviderTrackingCode);
+    public bool ParcelProtectionBookingReady =>
+        FulfillmentType == FulfillmentType.DigitalHandoff ||
+        ShippingReservedAt.HasValue;
     public bool RequiresShippingCancellationBeforeRefund =>
         State == TransactionState.RefundPending &&
         IsProviderManagedShipment &&
@@ -1500,6 +1516,237 @@ public sealed class SaleTransaction
             ParcelInsuranceFeeSatang +
             BuyerProtectionFeeSatang);
     }
+
+    public void RecordParcelProtectionElection(
+        Guid buyerId,
+        ParcelProtectionSelection selection,
+        DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(selection);
+        if (BuyerId != buyerId)
+            throw new DomainException(
+                "บัญชีผู้ซื้อนี้ไม่มีสิทธิ์เลือกความคุ้มครองพัสดุ");
+        if (FulfillmentType != FulfillmentType.PhysicalShipment ||
+            State != TransactionState.SellerAcceptedAwaitingPayment)
+            throw new DomainException(
+                "รายการนี้ยังเลือกความคุ้มครองพัสดุไม่ได้");
+        EnsureBuyerPaymentWindowOpen(now);
+        if (ParcelProtectionBuyerElectedAt.HasValue &&
+            ParcelProtectionElection !=
+                ParcelProtectionElectionStatus.ReconfirmationRequired)
+            throw new DomainException(
+                "บันทึกตัวเลือกแล้ว หากต้องการเปลี่ยนให้เริ่มตรวจราคาใหม่");
+
+        ValidateParcelProtectionSelection(selection, now);
+        ParcelProtectionElection = selection.Election;
+        ParcelInsuranceFeeSatang = selection.CustomerPriceSatang;
+        ParcelProtectionProviderCostSatang =
+            selection.ProviderCostSatang;
+        ParcelProtectionServiceFeeSatang =
+            selection.ToklongServiceFeeSatang;
+        ParcelProtectionIncludedCoverageSatang =
+            selection.IncludedCoverageLimitSatang;
+        ParcelProtectionSelectedCoverageSatang =
+            selection.SelectedCoverageLimitSatang;
+        ParcelProtectionTermsVersion =
+            Required(selection.TermsVersion, "เวอร์ชันเงื่อนไขความคุ้มครอง");
+        ParcelProtectionOptionReference =
+            CleanOptional(
+                selection.ProviderOptionReference,
+                160,
+                "เลขอ้างอิงความคุ้มครอง");
+        ParcelProtectionQuotedAt = selection.QuotedAt;
+        ParcelProtectionExpiresAt = selection.ExpiresAt;
+        ParcelProtectionBuyerElectedAt = now;
+        BuyerTotalSatang = checked(
+            PriceSatang +
+            ShippingFeeSatang +
+            BuyerProtectionFeeSatang +
+            ParcelInsuranceFeeSatang);
+        _auditEvents.Add(new AuditEvent(
+            Id,
+            ActorRole.Buyer,
+            buyerId.ToString("N"),
+            $"parcel_protection.{selection.Election.ToString().ToLowerInvariant()}",
+            State,
+            State,
+            now,
+            Id.ToString("N"),
+            $"parcel-protection-election:{Id:N}:{selection.ExpiresAt.ToUnixTimeSeconds()}",
+            ParcelProtectionAuditMetadata()));
+        Version++;
+    }
+
+    public void RecordParcelProtectionAvailabilityPresented(
+        Guid buyerId,
+        bool addOnAvailable,
+        string idempotencyKey,
+        DateTimeOffset now)
+    {
+        if (BuyerId != buyerId)
+            throw new DomainException(
+                "บัญชีผู้ซื้อนี้ไม่มีสิทธิ์ดูความคุ้มครองพัสดุ");
+        if (FulfillmentType != FulfillmentType.PhysicalShipment ||
+            State != TransactionState.SellerAcceptedAwaitingPayment)
+            throw new DomainException(
+                "รายการนี้ยังดูความคุ้มครองพัสดุไม่ได้");
+        EnsureBuyerPaymentWindowOpen(now);
+        var cleanKey = CleanOptional(
+            idempotencyKey,
+            160,
+            "รหัสป้องกันการทำซ้ำ") ??
+            throw new DomainException("กรุณาระบุรหัสป้องกันการทำซ้ำ");
+        if (_auditEvents.Any(audit =>
+                string.Equals(
+                    audit.IdempotencyKey,
+                    cleanKey,
+                    StringComparison.Ordinal)))
+            return;
+
+        _auditEvents.Add(new AuditEvent(
+            Id,
+            ActorRole.Buyer,
+            buyerId.ToString("N"),
+            addOnAvailable
+                ? "parcel_protection.offered"
+                : "parcel_protection.unavailable",
+            State,
+            State,
+            now,
+            Id.ToString("N"),
+            cleanKey,
+            JsonSerializer.Serialize(new { AddOnAvailable = addOnAvailable })));
+        Version++;
+    }
+
+    public void InvalidateParcelProtectionElection(
+        string reasonCode,
+        DateTimeOffset now)
+    {
+        if (State != TransactionState.SellerAcceptedAwaitingPayment ||
+            !ParcelProtectionBuyerElectedAt.HasValue)
+            throw new DomainException(
+                "รายการนี้ยังยกเลิกตัวเลือกความคุ้มครองพัสดุไม่ได้");
+        EnsureBuyerPaymentWindowOpen(now);
+        var cleanReason = CleanOptional(
+            reasonCode,
+            100,
+            "เหตุผลที่ต้องยืนยันใหม่") ??
+            throw new DomainException(
+                "กรุณาระบุเหตุผลที่ต้องยืนยันใหม่");
+
+        ParcelProtectionElection =
+            ParcelProtectionElectionStatus.ReconfirmationRequired;
+        ParcelInsuranceFeeSatang = 0;
+        ParcelProtectionProviderCostSatang = 0;
+        ParcelProtectionServiceFeeSatang = 0;
+        ParcelProtectionSelectedCoverageSatang = 0;
+        ParcelProtectionTermsVersion = null;
+        ParcelProtectionOptionReference = null;
+        ParcelProtectionQuotedAt = null;
+        ParcelProtectionExpiresAt = null;
+        ParcelProtectionBuyerElectedAt = null;
+        BuyerTotalSatang = checked(
+            PriceSatang +
+            ShippingFeeSatang +
+            BuyerProtectionFeeSatang);
+        _auditEvents.Add(new AuditEvent(
+            Id,
+            ActorRole.System,
+            "parcel-protection",
+            "parcel_protection.reconfirmation_required",
+            State,
+            State,
+            now,
+            Id.ToString("N"),
+            $"parcel-protection-reconfirmation:{Id:N}:{now.ToUnixTimeSeconds()}",
+            JsonSerializer.Serialize(new { ReasonCode = cleanReason })));
+        Version++;
+    }
+
+    private void ValidateParcelProtectionSelection(
+        ParcelProtectionSelection selection,
+        DateTimeOffset now)
+    {
+        _ = Required(
+            selection.TermsVersion,
+            "เวอร์ชันเงื่อนไขความคุ้มครอง");
+        if (selection.QuotedAt > now ||
+            selection.ExpiresAt <= now)
+            throw new DomainException(
+                "ช่วงเวลาราคาความคุ้มครองพัสดุไม่ถูกต้อง");
+        if (BuyerPaymentDeadlineAt is not { } paymentDeadline ||
+            selection.ExpiresAt > paymentDeadline)
+            throw new DomainException(
+                "ราคาความคุ้มครองพัสดุหมดอายุหลังเวลาชำระเงิน");
+        if (selection.Election is
+            ParcelProtectionElectionStatus.Pending or
+            ParcelProtectionElectionStatus.ReconfirmationRequired)
+            throw new DomainException(
+                "สถานะความคุ้มครองพัสดุไม่ถูกต้อง");
+
+        if (selection.Election ==
+            ParcelProtectionElectionStatus.Accepted)
+        {
+            if (selection.CustomerPriceSatang <= 0 ||
+                selection.ProviderCostSatang < 0 ||
+                selection.ToklongServiceFeeSatang !=
+                    ParcelProtectionServiceFeeAmountSatang ||
+                selection.CustomerPriceSatang != checked(
+                    selection.ProviderCostSatang +
+                    ParcelProtectionServiceFeeAmountSatang))
+                throw new DomainException(
+                    "ราคาความคุ้มครองพัสดุไม่ถูกต้อง");
+            if (selection.IncludedCoverageLimitSatang <= 0 ||
+                selection.SelectedCoverageLimitSatang <= 0 ||
+                selection.SelectedCoverageLimitSatang <
+                    selection.IncludedCoverageLimitSatang)
+                throw new DomainException(
+                    "วงเงินความคุ้มครองพัสดุไม่ถูกต้อง");
+            if (string.IsNullOrWhiteSpace(
+                    selection.ProviderOptionReference))
+                throw new DomainException(
+                    "กรุณาระบุเลขอ้างอิงความคุ้มครอง");
+            return;
+        }
+
+        if (selection.CustomerPriceSatang != 0 ||
+            selection.ProviderCostSatang != 0 ||
+            selection.ToklongServiceFeeSatang != 0 ||
+            !string.IsNullOrWhiteSpace(
+                selection.ProviderOptionReference))
+            throw new DomainException(
+                "ตัวเลือกความคุ้มครองพัสดุนี้ต้องไม่มีค่าใช้จ่าย");
+
+        var uncertifiedCoverage =
+            selection.Election ==
+                ParcelProtectionElectionStatus.Unavailable &&
+            selection.IncludedCoverageLimitSatang == 0 &&
+            selection.SelectedCoverageLimitSatang == 0;
+        if (!uncertifiedCoverage &&
+            (selection.IncludedCoverageLimitSatang <= 0 ||
+             selection.SelectedCoverageLimitSatang !=
+                selection.IncludedCoverageLimitSatang))
+            throw new DomainException(
+                "วงเงินความคุ้มครองพัสดุไม่ถูกต้อง");
+    }
+
+    private string ParcelProtectionAuditMetadata() =>
+        JsonSerializer.Serialize(new
+        {
+            ParcelProtectionElection =
+                ParcelProtectionElection.ToString(),
+            ParcelInsuranceFeeSatang,
+            ParcelProtectionProviderCostSatang,
+            ParcelProtectionServiceFeeSatang,
+            ParcelProtectionIncludedCoverageSatang,
+            ParcelProtectionSelectedCoverageSatang,
+            ParcelProtectionTermsVersion,
+            ParcelProtectionOptionReference,
+            ParcelProtectionQuotedAt,
+            ParcelProtectionExpiresAt,
+            ParcelProtectionBuyerElectedAt
+        });
 
     public void BeginCheckout(
         string buyerDisplayName,
@@ -2986,7 +3233,7 @@ public sealed class SaleTransaction
 
         var schemaVersion = ReadSchemaVersion(
             AgreementCoreSnapshotJson);
-        if (schemaVersion is not (3 or 4 or 5 or 8 or
+        if (schemaVersion is not (3 or 4 or 5 or 8 or 9 or
             AgreementSnapshotSchemaVersion))
             return false;
 
@@ -3077,6 +3324,8 @@ public sealed class SaleTransaction
             return HasValidVersionFiveSnapshot();
         if (SnapshotSchemaVersion == 8)
             return HasValidVersionEightSnapshot();
+        if (SnapshotSchemaVersion == 9)
+            return HasValidVersionNineSnapshot();
 
         if (SnapshotSchemaVersion !=
                 AgreementSnapshotSchemaVersion ||
@@ -3385,6 +3634,25 @@ public sealed class SaleTransaction
             ProductSnapshotJson,
             BuildProductSnapshotJson(
                 8,
+                AgreementSnapshotCreatedAt.Value,
+                TermsSnapshotHash!,
+                AgreementCoreSnapshotHash!));
+
+    private bool HasValidVersionNineSnapshot() =>
+        AgreementSnapshotCreatedAt is not null &&
+        !string.IsNullOrWhiteSpace(
+            ProductSnapshotJson) &&
+        !string.IsNullOrWhiteSpace(
+            ProductSnapshotHash) &&
+        HasValidAgreementCoreSnapshot() &&
+        HasMatchingPartyAcceptances() &&
+        SecureEquals(
+            ProductSnapshotHash,
+            Hash(ProductSnapshotJson)) &&
+        SecureEquals(
+            ProductSnapshotJson,
+            BuildProductSnapshotJson(
+                9,
                 AgreementSnapshotCreatedAt.Value,
                 TermsSnapshotHash!,
                 AgreementCoreSnapshotHash!));
@@ -3761,9 +4029,11 @@ public sealed class SaleTransaction
             return currentJson;
         var currentSnapshot =
             JsonNode.Parse(currentJson)!.AsObject();
+        if (schemaVersion >= 10)
+            currentSnapshot.Remove(nameof(BuyerTotalSatang));
         currentSnapshot[nameof(BuyerProtectionFeeSatang)] =
             BuyerProtectionFeeSatang;
-        if (schemaVersion >= 9)
+        if (schemaVersion == 9)
             AddInsuranceSnapshotFields(
                 currentSnapshot);
         return currentSnapshot.ToJsonString();
@@ -4019,6 +4289,9 @@ public sealed class SaleTransaction
         if (schemaVersion >= 9)
             AddInsuranceSnapshotFields(
                 currentSnapshot);
+        if (schemaVersion >= 10)
+            AddParcelProtectionSnapshotFields(
+                currentSnapshot);
         return currentSnapshot.ToJsonString();
     }
 
@@ -4040,6 +4313,36 @@ public sealed class SaleTransaction
             shipping[nameof(ShippingInsuranceCode)] =
                 ShippingInsuranceCode;
         }
+    }
+
+    private void AddParcelProtectionSnapshotFields(
+        JsonObject snapshot)
+    {
+        snapshot["ParcelProtection"] = new JsonObject
+        {
+            [nameof(ParcelProtectionElection)] =
+                ParcelProtectionElection.ToString(),
+            [nameof(ParcelInsuranceFeeSatang)] =
+                ParcelInsuranceFeeSatang,
+            [nameof(ParcelProtectionProviderCostSatang)] =
+                ParcelProtectionProviderCostSatang,
+            [nameof(ParcelProtectionServiceFeeSatang)] =
+                ParcelProtectionServiceFeeSatang,
+            [nameof(ParcelProtectionIncludedCoverageSatang)] =
+                ParcelProtectionIncludedCoverageSatang,
+            [nameof(ParcelProtectionSelectedCoverageSatang)] =
+                ParcelProtectionSelectedCoverageSatang,
+            [nameof(ParcelProtectionTermsVersion)] =
+                ParcelProtectionTermsVersion,
+            [nameof(ParcelProtectionOptionReference)] =
+                ParcelProtectionOptionReference,
+            [nameof(ParcelProtectionQuotedAt)] =
+                ParcelProtectionQuotedAt,
+            [nameof(ParcelProtectionExpiresAt)] =
+                ParcelProtectionExpiresAt,
+            [nameof(ParcelProtectionBuyerElectedAt)] =
+                ParcelProtectionBuyerElectedAt
+        };
     }
 
     private string SnapshotAuditMetadata() =>
