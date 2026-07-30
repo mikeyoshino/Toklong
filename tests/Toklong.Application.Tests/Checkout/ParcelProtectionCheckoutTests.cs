@@ -580,6 +580,9 @@ public sealed class ParcelProtectionCheckoutTests
     {
         await using var fixture = await Fixture.CreateAsync(450_000);
         await fixture.ChooseHandler.Handle(fixture.Choose(false), default);
+        TestTransactionFactory.PreparePhysicalCheckoutBooking(
+            fixture.Transaction,
+            Now.AddMinutes(2));
         fixture.Transaction.BeginCheckout(
             "ผู้ซื้อทดสอบ", "0800000000", Now.AddMinutes(2),
             new TransactionTransitionService(), "manual-bank", null,

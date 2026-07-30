@@ -27,13 +27,13 @@ public sealed class DurableShippingOperationProcessingTests
         var draft = DraftWithProtection(
                 termsVersion: "parcel-protection-2026-07-30",
                 optionReference: "protected-option-a") with
-            {
-                ParcelProtectionElection =
+        {
+            ParcelProtectionElection =
                     ParcelProtectionElectionStatus.Accepted,
-                ParcelProtectionProviderCostSatang = 4_500,
-                ParcelProtectionIncludedCoverageSatang = 100_000,
-                ParcelProtectionSelectedCoverageSatang = 450_000
-            };
+            ParcelProtectionProviderCostSatang = 4_500,
+            ParcelProtectionIncludedCoverageSatang = 100_000,
+            ParcelProtectionSelectedCoverageSatang = 450_000
+        };
         var shipment = ManagedShipment.CreateOutbound(
             transactionId,
             draft,
@@ -404,6 +404,290 @@ public sealed class DurableShippingOperationProcessingTests
             Assert.Single(transaction.ParcelProtectionChangeRequests).Status);
         Assert.Contains(transaction.AuditEvents,
             audit => audit.Name == "parcel_protection.changed");
+    }
+
+    [Fact]
+    public async Task Expired_change_after_definite_cancellation_requires_a_fresh_buyer_choice()
+    {
+        await using var database = CreateDatabase();
+        var (transaction, booking) = PendingBuyerCheckoutBooking();
+        database.Transactions.Add(transaction);
+        await database.SaveChangesAsync();
+        var originalDeadline = transaction.BuyerPaymentDeadlineAt;
+        var initialProvider = new BookingProvider();
+        await Handler(database, booking, initialProvider,
+                new FixedClock(Now.AddMinutes(1)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-a"), default);
+        var expiringProvider = new BookingProvider
+        {
+            ProtectionOption = BookingProvider.DefaultProtectionOption with
+            {
+                ExpiresAt = Now.AddMinutes(5)
+            }
+        };
+        await new ChooseParcelProtectionHandler(
+                new TransactionRepository(database), expiringProvider,
+                new ParcelProtectionPricingPolicy(), database,
+                new FixedClock(Now.AddMinutes(2)))
+            .Handle(new ChooseParcelProtectionCommand(
+                transaction.Id, transaction.BuyerId!.Value, true,
+                "protected-option", 6_000, "change-expiring-protection"), default);
+        var cancellation = Assert.Single(transaction.ShippingOperations,
+            operation => operation.OperationType ==
+                ShippingOperationType.CancelOutbound);
+
+        await Handler(database, cancellation, expiringProvider,
+                new FixedClock(Now.AddMinutes(6)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-b"), default);
+
+        Assert.Equal(ShippingOperationStatus.Succeeded, cancellation.Status);
+        Assert.Equal(ManagedShipmentStatus.Cancelled,
+            transaction.ManagedShipments.Single().Status);
+        Assert.Equal(
+            ParcelProtectionChangeStatus.ReconfirmationRequired,
+            Assert.Single(transaction.ParcelProtectionChangeRequests).Status);
+        Assert.Equal(
+            ParcelProtectionElectionStatus.ReconfirmationRequired,
+            transaction.ParcelProtectionElection);
+        Assert.False(transaction.ParcelProtectionBookingReady);
+        Assert.Equal(originalDeadline, transaction.BuyerPaymentDeadlineAt);
+        Assert.DoesNotContain(transaction.ShippingOperations, operation =>
+            operation.OperationType == ShippingOperationType.BookOutbound &&
+            operation.Status == ShippingOperationStatus.Pending);
+        var auditCount = transaction.AuditEvents.Count;
+        Assert.False(await Handler(database, cancellation, expiringProvider,
+                new FixedClock(Now.AddMinutes(6)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-duplicate"), default));
+        Assert.Equal(auditCount, transaction.AuditEvents.Count);
+
+        var fresh = await new ChooseParcelProtectionHandler(
+                new TransactionRepository(database), expiringProvider,
+                new ParcelProtectionPricingPolicy(), database,
+                new FixedClock(Now.AddMinutes(7)))
+            .Handle(new ChooseParcelProtectionCommand(
+                transaction.Id, transaction.BuyerId!.Value, false,
+                null, null, "fresh-choice-after-expiry"), default);
+
+        Assert.Equal("preparing_shipping", fresh.BookingStatus);
+        Assert.Single(transaction.ShippingOperations, operation =>
+            operation.OperationType == ShippingOperationType.BookOutbound &&
+            operation.Status == ShippingOperationStatus.Pending);
+    }
+
+    [Fact]
+    public async Task Changed_option_during_replacement_revalidation_is_superseded_before_provider_mutation()
+    {
+        await using var database = CreateDatabase();
+        var (transaction, booking) = PendingBuyerCheckoutBooking();
+        database.Transactions.Add(transaction);
+        await database.SaveChangesAsync();
+        var provider = new BookingProvider();
+        await Handler(database, booking, provider, new FixedClock(Now.AddMinutes(1)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-a"), default);
+        await new ChooseParcelProtectionHandler(
+                new TransactionRepository(database), provider,
+                new ParcelProtectionPricingPolicy(), database,
+                new FixedClock(Now.AddMinutes(2)))
+            .Handle(new ChooseParcelProtectionCommand(
+                transaction.Id, transaction.BuyerId!.Value, true,
+                "protected-option", 6_000, "change-before-provider-drift"), default);
+        var cancellation = Assert.Single(transaction.ShippingOperations,
+            operation => operation.OperationType ==
+                ShippingOperationType.CancelOutbound);
+        await Handler(database, cancellation, provider,
+                new FixedClock(Now.AddMinutes(3)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-b"), default);
+        var replacement = Assert.Single(transaction.ShippingOperations,
+            operation => operation.OperationType ==
+                    ShippingOperationType.BookOutbound &&
+                operation.Status == ShippingOperationStatus.Pending);
+        var replacementShipment = transaction.ManagedShipments.Single(
+            shipment => shipment.Id == replacement.ManagedShipmentId);
+        var changedProvider = new BookingProvider
+        {
+            ProtectionOption = BookingProvider.DefaultProtectionOption with
+            {
+                TermsVersion = "parcel-protection-v2"
+            }
+        };
+
+        await Handler(database, replacement, changedProvider,
+                new FixedClock(Now.AddMinutes(4)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-c"), default);
+
+        Assert.Equal(0, changedProvider.ReserveCalls);
+        Assert.Equal(ShippingOperationStatus.Superseded, replacement.Status);
+        Assert.Equal(ManagedShipmentStatus.Cancelled, replacementShipment.Status);
+        Assert.Equal(
+            ParcelProtectionChangeStatus.ReconfirmationRequired,
+            Assert.Single(transaction.ParcelProtectionChangeRequests).Status);
+        Assert.Equal(
+            ParcelProtectionElectionStatus.ReconfirmationRequired,
+            transaction.ParcelProtectionElection);
+        Assert.False(transaction.ParcelProtectionBookingReady);
+        var auditCount = transaction.AuditEvents.Count;
+        Assert.False(await Handler(database, replacement, changedProvider,
+                new FixedClock(Now.AddMinutes(4)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-duplicate"), default));
+        Assert.Equal(auditCount, transaction.AuditEvents.Count);
+
+        var fresh = await new ChooseParcelProtectionHandler(
+                new TransactionRepository(database), changedProvider,
+                new ParcelProtectionPricingPolicy(), database,
+                new FixedClock(Now.AddMinutes(5)))
+            .Handle(new ChooseParcelProtectionCommand(
+                transaction.Id, transaction.BuyerId!.Value, false,
+                null, null, "fresh-choice-after-drift"), default);
+        Assert.Equal("preparing_shipping", fresh.BookingStatus);
+    }
+
+    [Fact]
+    public async Task Changed_insurance_code_during_replacement_revalidation_is_superseded_before_provider_mutation()
+    {
+        await using var database = CreateDatabase();
+        var (transaction, booking) = PendingBuyerCheckoutBooking();
+        database.Transactions.Add(transaction);
+        await database.SaveChangesAsync();
+        var provider = new BookingProvider();
+        await Handler(database, booking, provider, new FixedClock(Now.AddMinutes(1)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-a"), default);
+        await new ChooseParcelProtectionHandler(
+                new TransactionRepository(database), provider,
+                new ParcelProtectionPricingPolicy(), database,
+                new FixedClock(Now.AddMinutes(2)))
+            .Handle(new ChooseParcelProtectionCommand(
+                transaction.Id, transaction.BuyerId!.Value, true,
+                "protected-option", 6_000, "change-before-code-drift"), default);
+        var cancellation = Assert.Single(transaction.ShippingOperations,
+            operation => operation.OperationType ==
+                ShippingOperationType.CancelOutbound);
+        await Handler(database, cancellation, provider,
+                new FixedClock(Now.AddMinutes(3)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-b"), default);
+        var replacement = Assert.Single(transaction.ShippingOperations,
+            operation => operation.OperationType ==
+                    ShippingOperationType.BookOutbound &&
+                operation.Status == ShippingOperationStatus.Pending);
+        var changedProvider = new BookingProvider
+        {
+            ProtectionOption = BookingProvider.DefaultProtectionOption with
+            {
+                InsuranceCode = "FULL_VALUE_V2"
+            }
+        };
+
+        await Handler(database, replacement, changedProvider,
+                new FixedClock(Now.AddMinutes(4)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-c"), default);
+
+        Assert.Equal(0, changedProvider.ReserveCalls);
+        Assert.Equal(ShippingOperationStatus.Superseded, replacement.Status);
+        Assert.Equal(
+            ParcelProtectionChangeStatus.ReconfirmationRequired,
+            Assert.Single(transaction.ParcelProtectionChangeRequests).Status);
+        Assert.Equal(
+            ParcelProtectionElectionStatus.ReconfirmationRequired,
+            transaction.ParcelProtectionElection);
+    }
+
+    [Theory]
+    [InlineData("included-limit")]
+    [InlineData("availability")]
+    public async Task Changed_unprotected_availability_for_replacement_requires_reconfirmation_before_provider_mutation(
+        string changedField)
+    {
+        await using var database = CreateDatabase();
+        var (transaction, booking) = PendingBuyerCheckoutBooking();
+        database.Transactions.Add(transaction);
+        await database.SaveChangesAsync();
+        var provider = new BookingProvider();
+        await Handler(database, booking, provider, new FixedClock(Now.AddMinutes(1)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-a"), default);
+        await new ChooseParcelProtectionHandler(
+                new TransactionRepository(database), provider,
+                new ParcelProtectionPricingPolicy(), database,
+                new FixedClock(Now.AddMinutes(2)))
+            .Handle(new ChooseParcelProtectionCommand(
+                transaction.Id, transaction.BuyerId!.Value, false,
+                null, null, "decline-before-included-drift"), default);
+        var cancellation = Assert.Single(transaction.ShippingOperations,
+            operation => operation.OperationType ==
+                ShippingOperationType.CancelOutbound);
+        await Handler(database, cancellation, provider,
+                new FixedClock(Now.AddMinutes(3)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-b"), default);
+        var replacement = Assert.Single(transaction.ShippingOperations,
+            operation => operation.OperationType ==
+                    ShippingOperationType.BookOutbound &&
+                operation.Status == ShippingOperationStatus.Pending);
+        var changedProvider = changedField switch
+        {
+            "included-limit" => new BookingProvider
+            {
+                IncludedCoverageLimitSatang = 100_001
+            },
+            "availability" => new BookingProvider
+            {
+                ProviderCapabilityCertified = false,
+                AddOnAvailable = false
+            },
+            _ => throw new ArgumentOutOfRangeException(nameof(changedField))
+        };
+
+        await Handler(database, replacement, changedProvider,
+                new FixedClock(Now.AddMinutes(4)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-c"), default);
+
+        Assert.Equal(0, changedProvider.ReserveCalls);
+        Assert.Equal(ShippingOperationStatus.Superseded, replacement.Status);
+        Assert.Equal(
+            ParcelProtectionChangeStatus.ReconfirmationRequired,
+            Assert.Single(transaction.ParcelProtectionChangeRequests).Status);
+        Assert.Equal(
+            ParcelProtectionElectionStatus.ReconfirmationRequired,
+            transaction.ParcelProtectionElection);
+    }
+
+    [Fact]
+    public async Task Reconfirmation_after_cancellation_never_extends_the_payment_deadline()
+    {
+        await using var database = CreateDatabase();
+        var (transaction, booking) = PendingBuyerCheckoutBooking();
+        database.Transactions.Add(transaction);
+        await database.SaveChangesAsync();
+        var provider = new BookingProvider();
+        await Handler(database, booking, provider, new FixedClock(Now.AddMinutes(1)))
+            .Handle(new ProcessNextShippingOperationCommand("worker-a"), default);
+        await new ChooseParcelProtectionHandler(
+                new TransactionRepository(database), provider,
+                new ParcelProtectionPricingPolicy(), database,
+                new FixedClock(Now.AddMinutes(2)))
+            .Handle(new ChooseParcelProtectionCommand(
+                transaction.Id, transaction.BuyerId!.Value, false,
+                null, null, "change-at-payment-deadline"), default);
+        var deadline = transaction.BuyerPaymentDeadlineAt!.Value;
+        var cancellation = Assert.Single(transaction.ShippingOperations,
+            operation => operation.OperationType ==
+                ShippingOperationType.CancelOutbound);
+
+        await Handler(database, cancellation, provider, new FixedClock(deadline))
+            .Handle(new ProcessNextShippingOperationCommand("worker-b"), default);
+
+        Assert.Equal(deadline, transaction.BuyerPaymentDeadlineAt);
+        Assert.Equal(
+            ParcelProtectionChangeStatus.ReconfirmationRequired,
+            Assert.Single(transaction.ParcelProtectionChangeRequests).Status);
+        await Assert.ThrowsAsync<DomainException>(() =>
+            new ChooseParcelProtectionHandler(
+                    new TransactionRepository(database), provider,
+                    new ParcelProtectionPricingPolicy(), database,
+                    new FixedClock(deadline))
+                .Handle(new ChooseParcelProtectionCommand(
+                    transaction.Id, transaction.BuyerId!.Value, false,
+                    null, null, "too-late-fresh-choice"), default));
+        Assert.True(transaction.ExpireIfDue(
+            deadline, new TransactionTransitionService()));
+        Assert.Equal(TransactionState.Expired, transaction.State);
     }
 
     [Fact]
@@ -1130,6 +1414,9 @@ public sealed class DurableShippingOperationProcessingTests
         public int ValidateProtectionCalls { get; private set; }
         public ProviderParcelProtectionOption ProtectionOption { get; init; } =
             DefaultProtectionOption;
+        public long IncludedCoverageLimitSatang { get; init; } = 100_000;
+        public bool ProviderCapabilityCertified { get; init; } = true;
+        public bool AddOnAvailable { get; init; } = true;
         public ShipmentReservationRequest? LastReservationRequest
         { get; private set; }
 
@@ -1190,9 +1477,9 @@ public sealed class DurableShippingOperationProcessingTests
             ParcelProtectionQuoteRequest request,
             CancellationToken cancellationToken) =>
             Task.FromResult(new ParcelProtectionAvailability(
-                100_000,
-                ProtectionOption,
-                ProviderCapabilityCertified: true));
+                IncludedCoverageLimitSatang,
+                AddOnAvailable ? ProtectionOption : null,
+                ProviderCapabilityCertified));
 
         public Task<ProviderParcelProtectionOption> ValidateOptionAsync(
             ParcelProtectionQuoteRequest request,

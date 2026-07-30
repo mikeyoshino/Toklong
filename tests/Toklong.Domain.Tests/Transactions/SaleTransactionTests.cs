@@ -760,6 +760,9 @@ public sealed class SaleTransactionTests
             _transitions,
             shipping: TestTransactionFactory.ShippingQuote(
                 Start.AddMinutes(1)));
+        TestTransactionFactory.PreparePhysicalCheckoutBooking(
+            transaction,
+            Start.AddMinutes(5));
         transaction.BeginCheckout(
             "ผู้ซื้อ",
             "+66811111111",
@@ -1887,7 +1890,24 @@ public sealed class SaleTransactionTests
             "ผู้ขาย", "line:seller", "KBANK", "ผู้ขาย ทดสอบ", "1234567890",
             true, Start.AddMinutes(1), _transitions,
             shipping: TestTransactionFactory.ShippingQuote(
-                Start.AddMinutes(1)));
+                Start.AddMinutes(1)) with
+            {
+                ReservedAt = Start.AddMinutes(1)
+            });
+        transaction.RecordParcelProtectionElection(
+            transaction.BuyerId!.Value,
+            new ParcelProtectionSelection(
+                ParcelProtectionElectionStatus.Declined,
+                0,
+                0,
+                0,
+                0,
+                0,
+                "parcel-protection-included-v1",
+                null,
+                Start.AddMinutes(1),
+                Start.AddMinutes(30)),
+            Start.AddMinutes(2));
         return transaction;
     }
 

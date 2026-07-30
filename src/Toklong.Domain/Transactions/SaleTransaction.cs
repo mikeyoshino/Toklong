@@ -62,7 +62,8 @@ public sealed class SaleTransaction
     public long ShippingFeeSatang { get; private set; }
     public long ParcelInsuranceFeeSatang { get; private set; }
     public ParcelProtectionElectionStatus
-        ParcelProtectionElection { get; private set; } =
+        ParcelProtectionElection
+    { get; private set; } =
         ParcelProtectionElectionStatus.Pending;
     public long ParcelProtectionProviderCostSatang { get; private set; }
     public long ParcelProtectionServiceFeeSatang { get; private set; }
@@ -1781,6 +1782,45 @@ public sealed class SaleTransaction
         DateTimeOffset now) => QueueManagedShipment(
             shipment, operation, ActorRole.System, "parcel-protection-change", now);
 
+    public void RequireParcelProtectionChangeReconfirmation(
+        Guid changeRequestId,
+        Guid? replacementManagedShipmentId,
+        string reasonCode,
+        DateTimeOffset now)
+    {
+        if (State != TransactionState.SellerAcceptedAwaitingPayment)
+            throw new DomainException(
+                "รายการนี้ยังขอให้ยืนยันความคุ้มครองพัสดุใหม่ไม่ได้");
+        var request = _parcelProtectionChangeRequests.SingleOrDefault(item =>
+            item.Id == changeRequestId &&
+            item.Status == ParcelProtectionChangeStatus.AwaitingRebooking)
+            ?? throw new DomainException("ไม่พบคำขอเปลี่ยนความคุ้มครองพัสดุ");
+        if (replacementManagedShipmentId.HasValue)
+        {
+            var replacement = _managedShipments.SingleOrDefault(item =>
+                item.Id == replacementManagedShipmentId.Value &&
+                item.Direction == ShipmentDirection.Outbound &&
+                item.Status == ManagedShipmentStatus.PendingBooking)
+                ?? throw new DomainException("ไม่พบรายการจัดส่งทดแทนที่รอยืนยัน");
+            if (CurrentOutboundShipment?.Id != replacement.Id)
+                throw new DomainException("รายการจัดส่งทดแทนไม่ตรงกับคำขอเปลี่ยน");
+            replacement.RecordCancellation(now);
+        }
+
+        request.RequireReconfirmation(now);
+        ShippingPurchaseReference = null;
+        ShippingProviderTrackingCode = null;
+        ShippingCourierTrackingCode = null;
+        ShippingReservedAt = null;
+        ShippingLastProviderStatus = null;
+        ShippingLastReconciledAt = now;
+        SetParcelProtectionReconfirmationRequired(
+            reasonCode,
+            $"parcel-protection-change-reconfirmation:{request.Id:N}",
+            request.Id.ToString("N"),
+            now);
+    }
+
     public void CompleteParcelProtectionRebooking(
         Guid managedShipmentId,
         DateTimeOffset now)
@@ -1836,7 +1876,9 @@ public sealed class SaleTransaction
             buyerId.ToString("N"),
             offer.AddOnAvailable
                 ? "parcel_protection.offered"
-                : "parcel_protection.unavailable",
+                : offer.Election == ParcelProtectionElectionStatus.Unavailable
+                    ? "parcel_protection.unavailable"
+                    : "parcel_protection.included",
             State,
             State,
             now,
@@ -1894,6 +1936,25 @@ public sealed class SaleTransaction
             throw new DomainException(
                 "กรุณาระบุเหตุผลที่ต้องยืนยันใหม่");
 
+        SetParcelProtectionReconfirmationRequired(
+            cleanReason,
+            $"parcel-protection-reconfirmation:{Id:N}:{now.ToUnixTimeSeconds()}",
+            Id.ToString("N"),
+            now);
+    }
+
+    private void SetParcelProtectionReconfirmationRequired(
+        string reasonCode,
+        string idempotencyKey,
+        string entityId,
+        DateTimeOffset now)
+    {
+        var cleanReason = CleanOptional(
+            reasonCode,
+            100,
+            "เหตุผลที่ต้องยืนยันใหม่") ??
+            throw new DomainException(
+                "กรุณาระบุเหตุผลที่ต้องยืนยันใหม่");
         ParcelProtectionElection =
             ParcelProtectionElectionStatus.ReconfirmationRequired;
         ParcelInsuranceFeeSatang = 0;
@@ -1917,8 +1978,8 @@ public sealed class SaleTransaction
             State,
             State,
             now,
-            Id.ToString("N"),
-            $"parcel-protection-reconfirmation:{Id:N}:{now.ToUnixTimeSeconds()}",
+            entityId,
+            idempotencyKey,
             JsonSerializer.Serialize(new { ReasonCode = cleanReason })));
         Version++;
     }
@@ -2134,6 +2195,10 @@ public sealed class SaleTransaction
         if (InitiatorRole == InitiatorRole.Buyer &&
             State != TransactionState.SellerAcceptedAwaitingPayment)
             throw new DomainException("ผู้ขายยังไม่ได้ยอมรับข้อเสนอ จึงยังชำระไม่ได้");
+        if (FulfillmentType == FulfillmentType.PhysicalShipment &&
+            !ParcelProtectionBookingReady)
+            throw new DomainException(
+                "รายการจัดส่งต้องเลือกความคุ้มครองและจองขนส่งในแอป TOKLONG ก่อนชำระ");
         if (_parcelProtectionChangeRequests.Any(item =>
                 item.Status is ParcelProtectionChangeStatus.AwaitingCancellation or
                     ParcelProtectionChangeStatus.AwaitingRebooking))

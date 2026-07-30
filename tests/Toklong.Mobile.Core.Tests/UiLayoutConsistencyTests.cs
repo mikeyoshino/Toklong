@@ -7,6 +7,41 @@ public sealed class UiLayoutConsistencyTests
     private static readonly XNamespace Maui = "http://schemas.microsoft.com/dotnet/2021/maui";
 
     [Fact]
+    public void Web_checkout_does_not_offer_the_legacy_physical_payment_form()
+    {
+        var page = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "Web",
+            "BuyerTransaction.razor"));
+
+        Assert.Contains(
+            "รายการจัดส่งต้องเลือกความคุ้มครองและจองขนส่งในแอป TOKLONG ก่อนชำระ",
+            page);
+        Assert.Contains(
+            "transaction.FulfillmentType == FulfillmentType.DigitalHandoff",
+            page);
+        Assert.DoesNotContain(
+            "transaction.FulfillmentType == FulfillmentType.PhysicalShipment)\n" +
+            "                        {\n" +
+            "                            <div class=\"address-section\">",
+            page);
+    }
+
+    [Fact]
+    public void Web_seller_quote_does_not_disclose_parcel_protection_cost()
+    {
+        var page = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "Web",
+            "SellerOffer.razor"));
+
+        Assert.DoesNotContain("InsuranceFeeSatang", page);
+        Assert.DoesNotContain("DeclaredValueSatang", page);
+        Assert.DoesNotContain("InsuranceCode", page);
+        Assert.DoesNotContain("ประกัน", page);
+    }
+
+    [Fact]
     public void SharedFormTokens_KeepPhoneAndVerificationCodeAligned()
     {
         var resources = Load("Ui", "App.xaml");
@@ -1749,11 +1784,14 @@ public sealed class UiLayoutConsistencyTests
             button => AttributeValue(button, "Text") ==
                 "{Binding ParcelProtectionDeclineActionText}" &&
                 AttributeValue(button, "MinimumHeightRequest") == "44");
-        Assert.Contains(
+        Assert.DoesNotContain(
             buttons,
             button => AttributeValue(button, "Text") ==
-                "ดูเงื่อนไขและสินค้าที่ไม่คุ้มครอง" &&
-                AttributeValue(button, "MinimumHeightRequest") == "44");
+                "ดูเงื่อนไขและสินค้าที่ไม่คุ้มครอง");
+        Assert.DoesNotContain(
+            labels,
+            text => text ==
+                "วงเงินและเงื่อนไขที่เลือกใช้จะแสดงในรายละเอียดรายการก่อนชำระเงิน");
         Assert.Contains(
             buttons,
             button => AttributeValue(button, "Text") == "เปลี่ยน" &&

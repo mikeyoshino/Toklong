@@ -78,8 +78,13 @@ snapshot and unlocks the full address for seller fulfillment. “Transaction
 details” shows the shared hash and both acceptance times without presenting
 them as a
 certificate-backed digital signature. Either transaction party may download a
-JSON evidence file containing hashes and server acceptance times, or an
-HTML version suitable for printing or saving as PDF.
+role-shaped JSON evidence file containing the same agreement-core hash and
+server acceptance times, or an HTML version suitable for printing or saving as
+PDF. The buyer copy includes the validated buyer checkout annex; the seller
+copy omits buyer-only protection prices and coverage, so their evidence payload
+hashes intentionally differ. Buyer coverage values appear only when known:
+uncertified unavailable coverage is not presented as zero, and digital
+fulfillment is marked not applicable without parcel-protection coverage rows.
 
 Any material change after payment requires cancellation and a new payment link. The paid transaction snapshot must never be silently edited.
 

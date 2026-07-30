@@ -414,6 +414,9 @@ public sealed class MobileSellerOfferApiTests
                 "buyer-protection-v1",
                 TestTransactionFactory.ShippingQuote(
                     now.AddMinutes(1)));
+            TestTransactionFactory.PreparePhysicalCheckoutBooking(
+                transaction,
+                now.AddMinutes(2));
             transaction.BeginCheckout(
                 buyer.FullName,
                 buyer.PhoneNumber,
@@ -824,6 +827,9 @@ public sealed class MobileSellerOfferApiTests
                 seller.GetSavedShippingOrigin()?.ToDisplayText());
             var checkoutAt =
                 transaction.SellerAcceptedAt!.Value.AddMinutes(1);
+            TestTransactionFactory.PreparePhysicalCheckoutBooking(
+                transaction,
+                checkoutAt);
             transaction.BeginCheckout(
                 transaction.BuyerDisplayName!,
                 transaction.BuyerContact!,

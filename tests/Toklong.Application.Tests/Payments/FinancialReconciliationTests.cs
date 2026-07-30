@@ -371,6 +371,9 @@ public sealed class FinancialReconciliationTests
             "buyer-protection-v2",
             TestTransactionFactory.ShippingQuote(
                 Start.AddMinutes(1)));
+        TestTransactionFactory.PreparePhysicalCheckoutBooking(
+            transaction,
+            Start.AddMinutes(2));
         transaction.BeginCheckout(
             "ผู้ซื้อ ทดสอบ",
             "+66811111111",

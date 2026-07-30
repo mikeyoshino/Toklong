@@ -76,8 +76,13 @@ Items below require explicit product, operations, legal, payment-provider, logis
   verified-phone sessions and append-only evidence referencing one shared
   agreement-core hash. This is not presented as a certificate-backed digital
   signature.
-- Decided for MVP: either transaction party can download hashed JSON evidence
-  with server acceptance times and a readable HTML version for printing.
+- Decided for MVP: either transaction party can download role-shaped hashed
+  JSON evidence with server acceptance times and a readable role-shaped HTML
+  version for printing. Both roles receive the same agreement-core hash; only
+  the buyer receives the validated buyer checkout-annex values, so payload
+  hashes intentionally differ. Uncertified unavailable coverage remains unknown
+  rather than zero, and digital evidence contains no parcel-protection coverage
+  claim.
 - Decided for MVP: physical agreement core shows and locks destination province
   and postal code before seller acceptance; the private full-address
   fulfillment annex is selected and locked at offer creation, reviewed without
@@ -206,6 +211,11 @@ Items below require explicit product, operations, legal, payment-provider, logis
   option after buyer election, leave optional protection disabled and use only
   any certified included coverage. No full-value coverage assumption is
   approved.
+- Optional-protection disclosure blocker: do not enable a Production service
+  until the approved buyer terms and exclusions document is versioned,
+  authenticated, and linked from the choice flow. The current placeholder is
+  not a disclosure and Production validation rejects enablement without this
+  capability.
 
 ### Seller Protection and failed delivery
 

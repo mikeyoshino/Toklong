@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Toklong.Application.Common;
 using Toklong.Application.Features.Transactions.GetAgreementEvidence;
+using Toklong.Domain.Common;
 using Toklong.Domain.Transactions;
 using Toklong.Infrastructure.Persistence;
 
@@ -70,6 +71,32 @@ public sealed class AgreementEvidenceTests
                 .GetProperty("terms")
                 .GetProperty("feePolicyVersion")
                 .GetString());
+        var buyerEvidence = buyerJson.RootElement.GetProperty("evidence");
+        var buyerAnnex = buyerEvidence.GetProperty("buyerCheckoutAnnex");
+        Assert.Equal("Accepted",
+            buyerAnnex.GetProperty("parcelProtectionElection").GetString());
+        Assert.Equal(6_000,
+            buyerAnnex.GetProperty("customerPriceSatang").GetInt64());
+        Assert.Equal(100_000,
+            buyerAnnex.GetProperty("includedCoverageLimitSatang").GetInt64());
+        Assert.Equal(450_000,
+            buyerAnnex.GetProperty("selectedCoverageLimitSatang").GetInt64());
+        Assert.Equal("parcel-protection-v1",
+            buyerAnnex.GetProperty("termsVersion").GetString());
+        Assert.Equal(transaction.ProductSnapshotHash,
+            buyerAnnex.GetProperty("productSnapshotHash").GetString());
+        Assert.Equal(
+            Assert.Single(transaction.BuyerCheckoutAnnexAcceptances).PayloadHash,
+            buyerAnnex.GetProperty("payloadHashSha256").GetString());
+        Assert.Equal(
+            buyerEvidence.GetProperty("hashes")
+                .GetProperty("agreementCoreSnapshotHash").GetString(),
+            sellerJson.RootElement.GetProperty("evidence")
+                .GetProperty("hashes")
+                .GetProperty("agreementCoreSnapshotHash").GetString());
+        Assert.Contains("ค่าความคุ้มครองพัสดุ", buyerHtml);
+        Assert.Contains("วงเงินคุ้มครองที่เลือก", buyerHtml);
+        Assert.Contains("Parcel Protection Terms version", buyerHtml);
 
         var sellerEvidence = sellerJson.RootElement
             .GetProperty("evidence");
@@ -82,6 +109,8 @@ public sealed class AgreementEvidenceTests
             "platformFeeSatang", out _));
         Assert.False(sellerEvidence.GetProperty("terms").TryGetProperty(
             "feePolicyVersion", out _));
+        Assert.False(sellerEvidence.TryGetProperty(
+            "buyerCheckoutAnnex", out _));
         var sellerJsonText = System.Text.Encoding.UTF8.GetString(
             sellerFile.JsonBytes);
         Assert.DoesNotContain("buyerTotalSatang", sellerJsonText);
@@ -96,6 +125,9 @@ public sealed class AgreementEvidenceTests
             sellerFile.HtmlBytes);
         Assert.DoesNotContain("ค่าคุ้มครองผู้ซื้อ", sellerHtml);
         Assert.DoesNotContain("ยอดรวม", sellerHtml);
+        Assert.DoesNotContain("ค่าความคุ้มครองพัสดุ", sellerHtml);
+        Assert.DoesNotContain("วงเงินคุ้มครองที่เลือก", sellerHtml);
+        Assert.DoesNotContain("Parcel Protection Terms version", sellerHtml);
         Assert.DoesNotContain(
             "otp",
             System.Text.Encoding.UTF8.GetString(
@@ -149,8 +181,92 @@ public sealed class AgreementEvidenceTests
                 .ValueKind);
     }
 
+    [Fact]
+    public async Task V11_evidence_is_rejected_for_both_parties_when_the_buyer_annex_is_tampered()
+    {
+        await using var db = CreateDatabase();
+        var transaction = CreateAcceptedAgreement();
+        db.Transactions.Add(transaction);
+        await db.SaveChangesAsync();
+        var annex = Assert.Single(transaction.BuyerCheckoutAnnexAcceptances);
+        typeof(BuyerCheckoutAnnexAcceptance)
+            .GetProperty(nameof(BuyerCheckoutAnnexAcceptance.CanonicalPayloadJson))!
+            .SetValue(annex, "{\"SchemaVersion\":1,\"BuyerTotalSatang\":1}");
+        var handler = new GetAgreementEvidenceHandler(
+            new TransactionRepository(db));
+
+        await Assert.ThrowsAsync<DomainException>(() =>
+            handler.Handle(new GetAgreementEvidenceQuery(
+                transaction.Id, transaction.BuyerId, null), default));
+        await Assert.ThrowsAsync<DomainException>(() =>
+            handler.Handle(new GetAgreementEvidenceQuery(
+                transaction.Id, null, transaction.SellerId), default));
+    }
+
+    [Fact]
+    public async Task Unavailable_uncertified_coverage_is_not_presented_as_zero_coverage()
+    {
+        await using var db = CreateDatabase();
+        var transaction = CreateAcceptedAgreement(
+            election: ParcelProtectionElectionStatus.Unavailable,
+            includedCoverageLimitSatang: 0,
+            selectedCoverageLimitSatang: 0);
+        db.Transactions.Add(transaction);
+        await db.SaveChangesAsync();
+
+        var file = await new GetAgreementEvidenceHandler(
+                new TransactionRepository(db))
+            .Handle(new GetAgreementEvidenceQuery(
+                transaction.Id, transaction.BuyerId, null), default);
+
+        using var json = JsonDocument.Parse(file.JsonBytes);
+        var annex = json.RootElement.GetProperty("evidence")
+            .GetProperty("buyerCheckoutAnnex");
+        Assert.Equal("Unavailable",
+            annex.GetProperty("parcelProtectionElection").GetString());
+        Assert.False(annex.TryGetProperty(
+            "includedCoverageLimitSatang", out _));
+        Assert.False(annex.TryGetProperty(
+            "selectedCoverageLimitSatang", out _));
+        var html = System.Text.Encoding.UTF8.GetString(file.HtmlBytes);
+        Assert.DoesNotContain("วงเงินคุ้มครองที่รวม", html);
+        Assert.DoesNotContain("วงเงินคุ้มครองที่เลือก", html);
+    }
+
+    [Fact]
+    public async Task Digital_evidence_marks_protection_not_applicable_without_coverage_claims()
+    {
+        await using var db = CreateDatabase();
+        var transaction = CreateDigitalAgreement();
+        db.Transactions.Add(transaction);
+        await db.SaveChangesAsync();
+
+        var file = await new GetAgreementEvidenceHandler(
+                new TransactionRepository(db))
+            .Handle(new GetAgreementEvidenceQuery(
+                transaction.Id, transaction.BuyerId, null), default);
+
+        using var json = JsonDocument.Parse(file.JsonBytes);
+        var annex = json.RootElement.GetProperty("evidence")
+            .GetProperty("buyerCheckoutAnnex");
+        Assert.Equal("NotApplicable",
+            annex.GetProperty("parcelProtectionElection").GetString());
+        Assert.False(annex.TryGetProperty(
+            "includedCoverageLimitSatang", out _));
+        Assert.False(annex.TryGetProperty(
+            "selectedCoverageLimitSatang", out _));
+        var html = System.Text.Encoding.UTF8.GetString(file.HtmlBytes);
+        Assert.DoesNotContain("ตัวเลือกความคุ้มครองพัสดุ", html);
+        Assert.DoesNotContain("วงเงินคุ้มครองที่รวม", html);
+        Assert.DoesNotContain("วงเงินคุ้มครองที่เลือก", html);
+    }
+
     private static SaleTransaction CreateAcceptedAgreement(
-        string? photoUrl = "https://example.com/photo.jpg")
+        string? photoUrl = "https://example.com/photo.jpg",
+        ParcelProtectionElectionStatus election =
+            ParcelProtectionElectionStatus.Accepted,
+        long includedCoverageLimitSatang = 100_000,
+        long selectedCoverageLimitSatang = 450_000)
     {
         var transitions =
             new TransactionTransitionService();
@@ -185,7 +301,79 @@ public sealed class AgreementEvidenceTests
             sellerExpectedNetSatang: 440_000,
             feePolicyVersion: "buyer-protection-v2",
             shipping: TestTransactionFactory.ShippingQuote(
-                Now.AddMinutes(1)));
+                Now.AddMinutes(1)) with
+            {
+                PurchaseReference = "purchase-evidence",
+                ProviderTrackingCode = "provider-track-evidence",
+                CourierTrackingCode = "courier-track-evidence",
+                ReservedAt = Now.AddMinutes(1)
+            });
+        transaction.RecordParcelProtectionElection(
+            transaction.BuyerId!.Value,
+            new ParcelProtectionSelection(
+                election,
+                CustomerPriceSatang: election ==
+                    ParcelProtectionElectionStatus.Accepted ? 6_000 : 0,
+                ProviderCostSatang: election ==
+                    ParcelProtectionElectionStatus.Accepted ? 4_500 : 0,
+                ToklongServiceFeeSatang: election ==
+                    ParcelProtectionElectionStatus.Accepted
+                        ? SaleTransaction.ParcelProtectionServiceFeeAmountSatang
+                        : 0,
+                IncludedCoverageLimitSatang: includedCoverageLimitSatang,
+                SelectedCoverageLimitSatang: selectedCoverageLimitSatang,
+                TermsVersion: "parcel-protection-v1",
+                ProviderOptionReference: election ==
+                    ParcelProtectionElectionStatus.Accepted
+                        ? "protected-option"
+                        : null,
+                QuotedAt: Now.AddMinutes(1),
+                ExpiresAt: Now.AddMinutes(30)),
+            Now.AddMinutes(2));
+        transaction.BeginCheckout(
+            "ผู้ซื้อ ทดสอบ",
+            "+66811111111",
+            Now.AddMinutes(3),
+            transitions,
+            platformFeeSatang: 10_000,
+            sellerExpectedNetSatang: 440_000,
+            feePolicyVersion: "buyer-protection-v2",
+            buyerProtectionFeeSatang: 5_900);
+        return transaction;
+    }
+
+    private static SaleTransaction CreateDigitalAgreement()
+    {
+        var transitions = new TransactionTransitionService();
+        var transaction = TestTransactionFactory.CreateBuyerOffer(
+            Guid.NewGuid(),
+            "ผู้ซื้อ ทดสอบ",
+            "+66811111111",
+            "+66822222222",
+            FulfillmentType.DigitalHandoff,
+            "สิทธิ์ดิจิทัลที่โอนได้",
+            "รายการดิจิทัลที่ผู้ขายมีสิทธิ์โอน",
+            ConditionCode.UsedGood,
+            "ไม่มี",
+            null,
+            450_000,
+            "mvp-th-2026-07",
+            Now,
+            transitions);
+        transaction.AcceptBuyerOffer(
+            Guid.NewGuid(),
+            "ผู้ขาย ทดสอบ",
+            "+66822222222",
+            "KBANK",
+            "ผู้ขาย ทดสอบ",
+            "1234567890",
+            true,
+            Now.AddMinutes(1),
+            transitions,
+            buyerProtectionFeeSatang: 5_900,
+            platformFeeSatang: 10_000,
+            sellerExpectedNetSatang: 440_000,
+            feePolicyVersion: "buyer-protection-v2");
         transaction.BeginCheckout(
             "ผู้ซื้อ ทดสอบ",
             "+66811111111",

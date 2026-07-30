@@ -1,3 +1,5 @@
+using Toklong.Domain.Common;
+
 namespace Toklong.Domain.Transactions;
 
 public static class TestTransactionFactory
@@ -33,7 +35,8 @@ public static class TestTransactionFactory
             0,
             0,
             null,
-            acceptedAt.AddHours(2));
+            acceptedAt.AddHours(2),
+            ReservedAt: acceptedAt);
 
     public static SaleTransaction CreateBuyerOffer(
         Guid buyerId,
@@ -135,7 +138,9 @@ public static class TestTransactionFactory
         long platformFeeSatang = 0,
         long? sellerExpectedNetSatang = null,
         string feePolicyVersion = "manual-unconfigured",
-        long buyerProtectionFeeSatang = 0) =>
+        long buyerProtectionFeeSatang = 0)
+    {
+        PreparePhysicalCheckoutBooking(transaction, now);
         transaction.BeginCheckout(
             buyerDisplayName,
             buyerContact,
@@ -147,6 +152,120 @@ public static class TestTransactionFactory
             platformFeeSatang,
             sellerExpectedNetSatang,
             feePolicyVersion);
+    }
+
+    public static void PreparePhysicalCheckoutBooking(
+        SaleTransaction transaction,
+        DateTimeOffset now)
+    {
+        if (transaction.FulfillmentType !=
+            FulfillmentType.PhysicalShipment ||
+            transaction.State !=
+                TransactionState.SellerAcceptedAwaitingPayment ||
+            transaction.ParcelProtectionBookingReady)
+            return;
+        if (transaction.ParcelProtectionElection is
+            ParcelProtectionElectionStatus.Pending or
+            ParcelProtectionElectionStatus.ReconfirmationRequired)
+            transaction.RecordParcelProtectionElection(
+                transaction.BuyerId!.Value,
+                new ParcelProtectionSelection(
+                    ParcelProtectionElectionStatus.Declined,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    "parcel-protection-included-v1",
+                    null,
+                    now,
+                    transaction.BuyerPaymentDeadlineAt!.Value),
+                now);
+        if (transaction.ParcelProtectionBookingReady)
+            return;
+
+        var election = transaction.ParcelProtectionElection;
+        var accepted = election ==
+            ParcelProtectionElectionStatus.Accepted;
+        var shipment = transaction.CurrentOutboundShipment ??
+            ManagedShipment.CreateOutbound(
+                transaction.Id,
+                new ManagedShipmentDraft(
+                    transaction.ShippingQuoteProvider!,
+                    $"test-origin:{transaction.Id:N}",
+                    $"test-destination:{transaction.Id:N}",
+                    transaction.ProductName,
+                    transaction.PackageWeightGrams!.Value,
+                    transaction.PackageWidthCentimeters!.Value,
+                    transaction.PackageLengthCentimeters!.Value,
+                    transaction.PackageHeightCentimeters!.Value,
+                    transaction.CarrierCode!,
+                    transaction.ShippingServiceCode!,
+                    transaction.ShippingServiceName!,
+                    transaction.ShippingFeeSatang,
+                    accepted
+                        ? transaction.ParcelProtectionProviderCostSatang
+                        : 0,
+                    accepted
+                        ? transaction.ParcelProtectionSelectedCoverageSatang
+                        : 0,
+                    accepted ? "TEST_PROTECTION" : null,
+                    transaction.ShippingQuoteReference!,
+                    transaction.ShippingQuoteExpiresAt!.Value,
+                    transaction.ParcelProtectionTermsVersion!,
+                    transaction.ParcelProtectionOptionReference,
+                    election,
+                    accepted
+                        ? transaction.ParcelProtectionProviderCostSatang
+                        : 0,
+                    transaction.ParcelProtectionIncludedCoverageSatang,
+                    transaction.ParcelProtectionSelectedCoverageSatang),
+                now);
+        var operation = transaction.ShippingOperations.SingleOrDefault(item =>
+            item.ManagedShipmentId == shipment.Id &&
+            item.OperationType == ShippingOperationType.BookOutbound);
+        if (operation is null)
+        {
+            operation = ShippingOperation.Queue(
+                transaction.Id,
+                shipment.Id,
+                ShippingOperationType.BookOutbound,
+                $"test-book:{shipment.Id:N}",
+                new string('a', 64),
+                now);
+            transaction.QueueManagedShipment(
+                shipment,
+                operation,
+                ActorRole.System,
+                "test-checkout",
+                now);
+        }
+        operation.Claim(
+            "test-checkout",
+            now,
+            TimeSpan.FromMinutes(5));
+        var purchaseReference = $"test-purchase:{shipment.Id:N}";
+        var providerTracking = $"test-provider:{shipment.Id:N}";
+        transaction.CompleteBuyerCheckoutShipmentBooking(
+            shipment.Id,
+            shipment.Provider,
+            purchaseReference,
+            providerTracking,
+            $"test-courier:{shipment.Id:N}",
+            shipment.CarrierCode,
+            shipment.ServiceCode,
+            shipment.BaseShippingFeeSatang,
+            shipment.InsuranceFeeSatang,
+            shipment.DeclaredValueSatang,
+            shipment.InsuranceCode,
+            now,
+            now);
+        operation.Succeed(
+            "test-checkout",
+            purchaseReference,
+            providerTracking,
+            now);
+    }
 
     private static string? RegionValue(
         FulfillmentType fulfillmentType,

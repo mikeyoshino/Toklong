@@ -231,7 +231,7 @@ public sealed class ProductionConfigurationValidatorTests
     }
 
     [Fact]
-    public void Production_accepts_certified_optional_protection_with_zero_included_coverage()
+    public void Production_rejects_optional_protection_until_buyer_terms_route_is_certified()
     {
         var values = SafeProductionValues();
         values["Shippop:Services:EMST:OptionalProtectionEnabled"] =
@@ -245,11 +245,16 @@ public sealed class ProductionConfigurationValidatorTests
             .AddInMemoryCollection(values)
             .Build();
 
-        ProductionConfigurationValidator.Validate(
-            configuration,
-            new TestEnvironment("Production"),
-            requireMobileLinks: false,
-            requirePersistentStorage: true);
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(
+                configuration,
+                new TestEnvironment("Production"),
+                requireMobileLinks: false,
+                requirePersistentStorage: true));
+
+        Assert.Contains(
+            "requires a certified buyer terms and exclusions document",
+            exception.Message);
     }
 
     [Fact]

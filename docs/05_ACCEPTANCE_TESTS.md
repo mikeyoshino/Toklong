@@ -434,8 +434,15 @@ party
 database uniqueness rules
 **And** persisted acceptance rows cannot be updated or deleted through the
 application persistence layer.
-**And** each authenticated party can download byte-identical JSON evidence
-containing the shared hashes and server acceptance times
+**And** each authenticated party can download role-shaped JSON evidence
+containing the same agreement-core hash and server acceptance times
+**And** the v11 buyer copy contains the validated buyer checkout-annex election,
+combined customer price, coverage, terms version, annex hash, and
+product-snapshot linkage
+**And** uncertified unavailable coverage is omitted rather than represented as
+zero, and digital fulfillment is marked not applicable without coverage rows
+**And** the seller copy omits those buyer-only values, so the two role-shaped
+payload hashes intentionally differ
 **And** the ordinary transaction screen does not render the raw hash,
 terms-version code, or acceptance audit details
 **And** a non-party receives no evidence

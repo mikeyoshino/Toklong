@@ -37,6 +37,9 @@ public sealed class ParcelProtectionChangeTests
     {
         await using var fixture = await Fixture.CreateAsync();
         await fixture.Handler.Handle(fixture.ChooseAccepted(), default);
+        TestTransactionFactory.PreparePhysicalCheckoutBooking(
+            fixture.Transaction,
+            Now.AddMinutes(2));
         fixture.Transaction.BeginCheckout(
             "ผู้ซื้อทดสอบ", "0800000000", Now.AddMinutes(2),
             new TransactionTransitionService(), "manual-bank", "pi_test", 0, 0,

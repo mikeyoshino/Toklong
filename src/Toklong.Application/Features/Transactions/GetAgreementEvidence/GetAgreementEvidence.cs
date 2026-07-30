@@ -47,6 +47,10 @@ public sealed class GetAgreementEvidenceHandler(
             !transaction.HasMatchingPartyAcceptances())
             throw new DomainException(
                 "หลักฐานข้อตกลงของทั้งสองฝ่ายยังไม่ครบหรือไม่ตรงกับ hash");
+        if (transaction.SnapshotSchemaVersion >= 11 &&
+            !transaction.HasValidBuyerCheckoutAnnexAcceptance())
+            throw new DomainException(
+                "หลักฐานภาคผนวกการชำระของผู้ซื้อไม่ครบหรือไม่ตรงกับ hash");
 
         var payload = CreatePayload(
             transaction,
@@ -101,15 +105,16 @@ public sealed class GetAgreementEvidenceHandler(
 
     private static object CreatePayload(
         SaleTransaction transaction,
-        bool includeBuyerProtection) =>
-        new
+        bool includeBuyerProtection)
+    {
+        var payload = new Dictionary<string, object?>
         {
-            transaction.Id,
-            SnapshotSchemaVersion =
+            ["id"] = transaction.Id,
+            ["snapshotSchemaVersion"] =
                 transaction.SnapshotSchemaVersion,
-            AgreementType =
+            ["agreementType"] =
                 "electronic-click-acceptance",
-            Item = new
+            ["item"] = new
             {
                 transaction.ProductName,
                 FulfillmentType =
@@ -120,7 +125,7 @@ public sealed class GetAgreementEvidenceHandler(
                 transaction.KnownDefects,
                 transaction.PhotoUrl
             },
-            DeliveryRegion =
+            ["deliveryRegion"] =
                 transaction.FulfillmentType ==
                 FulfillmentType.PhysicalShipment
                     ? new
@@ -129,9 +134,9 @@ public sealed class GetAgreementEvidenceHandler(
                         transaction.DeliveryPostalCode
                     }
                     : null,
-            Amount = CreateAmount(transaction, includeBuyerProtection),
-            Terms = CreateTerms(transaction, includeBuyerProtection),
-            Parties = new
+            ["amount"] = CreateAmount(transaction, includeBuyerProtection),
+            ["terms"] = CreateTerms(transaction, includeBuyerProtection),
+            ["parties"] = new
             {
                 Buyer = new
                 {
@@ -146,13 +151,13 @@ public sealed class GetAgreementEvidenceHandler(
                         transaction.SellerContact)
                 }
             },
-            Hashes = new
+            ["hashes"] = new
             {
                 transaction.AgreementCoreSnapshotHash,
                 transaction.TermsSnapshotHash,
                 transaction.ProductSnapshotHash
             },
-            Acceptance = transaction
+            ["acceptance"] = transaction
                 .AgreementAcceptances
                 .OrderBy(item => item.Role)
                 .Select(item => new
@@ -165,7 +170,7 @@ public sealed class GetAgreementEvidenceHandler(
                     item.AcceptedAt
                 })
                 .ToArray(),
-            Timeline = new
+            ["timeline"] = new
             {
                 transaction.SellerAcceptedAt,
                 transaction.BuyerAcceptedAt,
@@ -177,9 +182,53 @@ public sealed class GetAgreementEvidenceHandler(
                 transaction.DisputeWindowEndsAt,
                 transaction.PayoutConfirmedAt
             },
-            Notice =
+            ["notice"] =
                 "บันทึกการยอมรับข้อตกลงทางอิเล็กทรอนิกส์ ไม่ใช่ลายเซ็นดิจิทัลแบบมีใบรับรองหรือคำแนะนำทางกฎหมาย"
         };
+        if (includeBuyerProtection &&
+            transaction.SnapshotSchemaVersion >= 11)
+        {
+            var annex = transaction.BuyerCheckoutAnnexAcceptances.Single();
+            var election = transaction.FulfillmentType ==
+                FulfillmentType.DigitalHandoff
+                    ? ParcelProtectionElectionStatus.NotApplicable
+                    : transaction.ParcelProtectionElection;
+            var buyerAnnex = new Dictionary<string, object?>
+            {
+                ["parcelProtectionElection"] = election.ToString(),
+                ["productSnapshotHash"] = transaction.ProductSnapshotHash,
+                ["payloadHashSha256"] = annex.PayloadHash,
+                ["acceptedAt"] = annex.AcceptedAt,
+                ["currency"] = transaction.Currency
+            };
+            if (transaction.FulfillmentType ==
+                FulfillmentType.PhysicalShipment)
+            {
+                buyerAnnex["customerPriceSatang"] =
+                    transaction.ParcelInsuranceFeeSatang;
+                buyerAnnex["termsVersion"] =
+                    transaction.ParcelProtectionTermsVersion;
+                buyerAnnex["parcelProtectionBuyerElectedAt"] =
+                    transaction.ParcelProtectionBuyerElectedAt;
+                var coverageIsKnown =
+                    transaction.ParcelProtectionElection !=
+                        ParcelProtectionElectionStatus.Unavailable ||
+                    transaction.ParcelProtectionIncludedCoverageSatang != 0 ||
+                    transaction.ParcelProtectionSelectedCoverageSatang != 0;
+                if (coverageIsKnown)
+                {
+                    buyerAnnex["includedCoverageLimitSatang"] =
+                        transaction.ParcelProtectionIncludedCoverageSatang;
+                    buyerAnnex["selectedCoverageLimitSatang"] =
+                        transaction.ParcelProtectionSelectedCoverageSatang;
+                }
+            }
+
+            payload["buyerCheckoutAnnex"] = buyerAnnex;
+        }
+
+        return payload;
+    }
 
     private static object CreateAmount(
         SaleTransaction transaction,
@@ -234,9 +283,23 @@ public sealed class GetAgreementEvidenceHandler(
                     $"<tr><td>{H(Role(item.Role))}</td>" +
                     $"<td>{H(ThaiTime(item.AcceptedAt))}</td>" +
                     "<td>บัญชีที่ยืนยันด้วยเบอร์โทร</td></tr>"));
+        var buyerParcelProtectionRows =
+            includeBuyerProtection &&
+            transaction.SnapshotSchemaVersion >= 11 &&
+            transaction.FulfillmentType ==
+                FulfillmentType.PhysicalShipment
+                ? $$"""
+                <dt>ตัวเลือกความคุ้มครองพัสดุ</dt><dd>{{H(ParcelProtectionElection(transaction.ParcelProtectionElection))}}</dd>
+                <dt>ค่าความคุ้มครองพัสดุ</dt><dd>{{H(Money(transaction.ParcelInsuranceFeeSatang, transaction.Currency))}}</dd>
+                {{BuyerCoverageRows(transaction)}}
+                <dt>Parcel Protection Terms version</dt><dd>{{H(transaction.ParcelProtectionTermsVersion)}}</dd>
+                <dt>Buyer Checkout Annex Hash</dt><dd class="hash">{{H(transaction.BuyerCheckoutAnnexAcceptances.Single().PayloadHash)}}</dd>
+                """
+                : "";
         var buyerProtectionRows = includeBuyerProtection
             ? $$"""
                 <dt>ค่าคุ้มครองผู้ซื้อ</dt><dd>{{H(Money(transaction.BuyerProtectionFeeSatang, transaction.Currency))}}</dd>
+                {{buyerParcelProtectionRows}}
                 <dt>ยอดรวม</dt><dd>{{H(Money(transaction.BuyerTotalSatang, transaction.Currency))}}</dd>
                 """
             : $$"""
@@ -303,6 +366,35 @@ public sealed class GetAgreementEvidenceHandler(
         role == AgreementAcceptanceRole.Buyer
             ? "ผู้ซื้อ"
             : "ผู้ขาย";
+
+    private static string ParcelProtectionElection(
+        ParcelProtectionElectionStatus election) =>
+        election switch
+        {
+            ParcelProtectionElectionStatus.Accepted =>
+                "เลือกเพิ่มความคุ้มครอง",
+            ParcelProtectionElectionStatus.Declined =>
+                "ไม่เพิ่มความคุ้มครอง",
+            ParcelProtectionElectionStatus.Unavailable =>
+                "ไม่มีตัวเลือกเพิ่มเติม",
+            ParcelProtectionElectionStatus.NotApplicable =>
+                "ไม่ใช้กับรายการนี้",
+            _ => election.ToString()
+        };
+
+    private static string BuyerCoverageRows(
+        SaleTransaction transaction)
+    {
+        if (transaction.ParcelProtectionElection ==
+                ParcelProtectionElectionStatus.Unavailable &&
+            transaction.ParcelProtectionIncludedCoverageSatang == 0 &&
+            transaction.ParcelProtectionSelectedCoverageSatang == 0)
+            return "";
+        return $$"""
+            <dt>วงเงินคุ้มครองที่รวม</dt><dd>{{H(Money(transaction.ParcelProtectionIncludedCoverageSatang, transaction.Currency))}}</dd>
+            <dt>วงเงินคุ้มครองที่เลือก</dt><dd>{{H(Money(transaction.ParcelProtectionSelectedCoverageSatang, transaction.Currency))}}</dd>
+            """;
+    }
 
     private static string ThaiTime(
         DateTimeOffset value) =>

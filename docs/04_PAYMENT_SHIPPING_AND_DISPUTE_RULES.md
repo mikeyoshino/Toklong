@@ -98,10 +98,16 @@ province/postal before payment and the full address after provider-confirmed
 payment unlocks fulfillment. Any address correction requires the unpaid offer
 to end and a new offer, or cancellation/refund handling after payment.
 
-After both acceptances exist, either authenticated party may download the same
-hashed JSON evidence and a readable HTML copy with server acceptance times.
-These are described as records of `การยอมรับข้อตกลงทางอิเล็กทรอนิกส์`, not as a
-certificate-backed digital signature.
+After both acceptances exist, either authenticated party may download
+role-shaped hashed JSON evidence and a readable role-shaped HTML copy with
+server acceptance times. Both copies carry the same agreement-core hash. The
+validated v11 buyer checkout annex appears only in the buyer copy, so the buyer
+and seller payload hashes intentionally differ and the seller never receives
+buyer-only protection prices or coverage. The buyer copy omits uncertified
+unknown coverage rather than presenting it as zero, and digital fulfillment has
+no parcel-protection coverage rows. These are described as records of
+`การยอมรับข้อตกลงทางอิเล็กทรอนิกส์`, not as a certificate-backed digital
+signature.
 
 After confirmed payment, material changes require a new transaction. Do not silently edit the paid snapshot.
 

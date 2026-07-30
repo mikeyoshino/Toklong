@@ -151,7 +151,7 @@ public sealed class ShippopShippingProviderTests
         Assert.Equal(option.SelectedCoverageLimitSatang, validated.SelectedCoverageLimitSatang);
         Assert.Equal(option.TermsVersion, validated.TermsVersion);
         Assert.Equal(option.InsuranceCode, validated.InsuranceCode);
-        await Assert.ThrowsAsync<DomainException>(() =>
+        await Assert.ThrowsAsync<ParcelProtectionOptionChangedException>(() =>
             provider.ValidateOptionAsync(
                 request with { ItemPriceSatang = 450_001 },
                 option.OptionReference,
@@ -171,7 +171,7 @@ public sealed class ShippopShippingProviderTests
                 request with { Shipment = request.Shipment with { WeightGrams = 1_201 } },
                 option.OptionReference,
                 default));
-        await Assert.ThrowsAsync<DomainException>(() =>
+        await Assert.ThrowsAsync<ParcelProtectionOptionChangedException>(() =>
             provider.ValidateOptionAsync(
                 request,
                 $"forged-{option.OptionReference}",
@@ -251,6 +251,11 @@ public sealed class ShippopShippingProviderTests
         Assert.False(availability.ProviderCapabilityCertified);
         Assert.Equal(0, availability.IncludedCoverageLimitSatang);
         Assert.Null(availability.AddOn);
+        await Assert.ThrowsAsync<ParcelProtectionOptionChangedException>(() =>
+            shippop.ValidateOptionAsync(
+                request,
+                "legacy-optional-protection",
+                default));
         await Assert.ThrowsAsync<DomainException>(() =>
             shippop.GetAvailabilityAsync(
                 request with

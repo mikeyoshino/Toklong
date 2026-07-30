@@ -292,8 +292,9 @@ remain auditable. A pending, unknown, or review-needed provider mutation blocks
 both a change and PaymentIntent creation.
 
 The immutable audit trail records the buyer-safe lifecycle with sanitized
-events: `parcel_protection.offered`, `parcel_protection.unavailable`, elected
-outcomes, `parcel_protection.reconfirmation_required`,
+events: `parcel_protection.offered`, `parcel_protection.included`,
+`parcel_protection.unavailable`, elected outcomes,
+`parcel_protection.reconfirmation_required`,
 `parcel_protection.booking_succeeded`, `parcel_protection.booking_outcome`,
 and `parcel_protection.changed`. Booking-outcome audit metadata contains no
 raw address, provider credential, or provider response. These audit events
@@ -475,14 +476,25 @@ managed image.
 After both append-only acceptances exist, an authenticated buyer or seller on
 that transaction may download:
 
-- canonical JSON containing schema version, item/amount/terms, accepted
-  delivery region, shared hashes, party roles, and server acceptance times;
-- a readable HTML rendering suitable for printing or saving as PDF.
+- role-shaped canonical JSON containing schema version, item/amount/terms,
+  accepted delivery region, shared hashes, party roles, and server acceptance
+  times;
+- a role-shaped HTML rendering suitable for printing or saving as PDF.
 
-The evidence payload has its own SHA-256 hash. Contacts are masked and the file
-contains no OTP value, reusable credential, full delivery or shipping-origin
-street address, IP address, or device identifier. These files are evidence of
-electronic click acceptance, not a certificate-backed digital signature.
+For schema v11 and later, export first validates the one immutable buyer
+checkout-annex payload and hash. The buyer JSON/HTML includes the final parcel
+protection election, combined customer price, included and selected coverage,
+terms version, buyer election/acceptance times, annex hash, and product-snapshot
+hash linkage. Coverage fields appear only when the coverage is known; an
+uncertified unavailable zero remains unknown and is omitted, while digital
+fulfillment is represented as not applicable without parcel-protection coverage
+rows. The seller JSON/HTML omits those buyer-only values. Both roles
+retain the same agreement-core, terms, and product-snapshot hashes, but their
+role-shaped evidence payload hashes intentionally differ. Contacts are masked
+and neither file contains an OTP value, reusable credential, full delivery or
+shipping-origin street address, IP address, device identifier, provider cost,
+or TOKLONG protection-service fee. These files are evidence of electronic
+click acceptance, not a certificate-backed digital signature.
 
 ### Payment
 

@@ -6,6 +6,7 @@ public enum ParcelProtectionChangeStatus
 {
     AwaitingCancellation,
     AwaitingRebooking,
+    ReconfirmationRequired,
     Completed
 }
 
@@ -107,6 +108,14 @@ public sealed class ParcelProtectionChangeRequest
         if (Status != ParcelProtectionChangeStatus.AwaitingRebooking)
             throw new DomainException("สถานะการเปลี่ยนความคุ้มครองพัสดุไม่ถูกต้อง");
         Status = ParcelProtectionChangeStatus.Completed;
+        CompletedAt = now;
+    }
+
+    public void RequireReconfirmation(DateTimeOffset now)
+    {
+        if (Status != ParcelProtectionChangeStatus.AwaitingRebooking)
+            throw new DomainException("สถานะการเปลี่ยนความคุ้มครองพัสดุไม่ถูกต้อง");
+        Status = ParcelProtectionChangeStatus.ReconfirmationRequired;
         CompletedAt = now;
     }
 

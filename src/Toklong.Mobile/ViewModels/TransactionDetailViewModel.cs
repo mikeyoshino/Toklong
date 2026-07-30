@@ -30,7 +30,6 @@ public sealed class TransactionDetailViewModel(
     private bool carrierDataLoaded;
     private BuyerParcelProtection? parcelProtection;
     private bool isParcelProtectionChoiceVisible;
-    private bool isParcelProtectionDetailsVisible;
     private string? parcelProtectionIdempotencyKey;
     private string? parcelProtectionPreparationIdempotencyKey;
     private bool parcelProtectionOfferedTracked;
@@ -137,14 +136,6 @@ public sealed class TransactionDetailViewModel(
         get => isParcelProtectionChoiceVisible;
         private set => SetProperty(
             ref isParcelProtectionChoiceVisible,
-            value);
-    }
-
-    public bool IsParcelProtectionDetailsVisible
-    {
-        get => isParcelProtectionDetailsVisible;
-        private set => SetProperty(
-            ref isParcelProtectionDetailsVisible,
             value);
     }
 
@@ -399,7 +390,8 @@ public sealed class TransactionDetailViewModel(
     }
 
     public ObservableCollection<DisputeEvidenceSummary>
-        DisputeEvidence { get; } = [];
+        DisputeEvidence
+    { get; } = [];
 
     public bool HasDisputeEvidence =>
         DisputeEvidence.Count > 0;
@@ -414,10 +406,6 @@ public sealed class TransactionDetailViewModel(
 
     public ICommand ChangeParcelProtectionCommand =>
         new AsyncCommand(ChangeParcelProtectionAsync);
-
-    public ICommand ToggleParcelProtectionDetailsCommand =>
-        new Command(() => IsParcelProtectionDetailsVisible =
-            !IsParcelProtectionDetailsVisible);
 
     public ICommand ToggleAgreementDetailsCommand =>
         new Command(() =>
@@ -1105,7 +1093,8 @@ public sealed record DisputeEvidenceTypeOption(
     string Label)
 {
     public static IReadOnlyList<DisputeEvidenceTypeOption>
-        All { get; } =
+        All
+    { get; } =
     [
         new(AppDisputeEvidenceType.Item, "ภาพสินค้า"),
         new(AppDisputeEvidenceType.Packaging, "บรรจุภัณฑ์"),

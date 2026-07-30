@@ -177,8 +177,25 @@ data.
 
 ## Deploy an update
 
-Build first, run the migration as a separate failure boundary, and then replace
-the long-running services:
+Build first. Before deploying parcel-protection booking-fingerprint or
+rebooking changes, put buyer checkout and the shipping Worker into maintenance
+mode, then drain the existing shipping-operation queue. Reconcile every
+`OutcomeUnknown` or `NeedsReview` operation against the provider, and do not
+continue while any legacy-fingerprint operation remains `Pending`,
+`Processing`, or `RetryScheduled`. Record the reconciliation result, keep the
+API/Web checkout path quiesced, and take a database backup plus `app-data`
+backup. Prove that backup with a restore drill before continuing.
+
+The `AllowSupersededOutboundBookingIntent` and
+`ParcelProtectionRebooking` migrations are intentionally irreversible because
+rolling their uniqueness changes back could discard immutable booking history.
+Do not use EF `Down` as rollback. The rollback boundary is a tested pre-migration
+database and `app-data` restore; after new transactions are accepted, prefer a
+reviewed forward fix unless restoring the whole deployment is explicitly
+authorized.
+
+Run the migration as a separate failure boundary, replace the long-running
+services, and only then resume checkout and the Worker:
 
 ```bash
 docker compose \
@@ -203,8 +220,10 @@ docker compose \
 ```
 
 Review `docker compose ... logs --since=15m` and all readiness endpoints after
-the update. Database migrations need an explicit rollback/forward-fix plan
-before each production deployment.
+the update. Confirm that newly queued booking fingerprints match the deployed
+code and that no stale legacy operation reappears before ending maintenance
+mode. Database migrations need an explicit restore/forward-fix plan before each
+production deployment.
 
 ## Current operational boundary
 

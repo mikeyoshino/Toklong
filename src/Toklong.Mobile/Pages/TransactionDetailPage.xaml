@@ -453,18 +453,6 @@
                                         SemanticProperties.Description="{Binding ParcelProtectionDeclineActionText}"
                                         Text="{Binding ParcelProtectionDeclineActionText}"
                                         TextColor="{StaticResource BrandBlueDeep}" />
-                                    <Button
-                                        MinimumHeightRequest="44"
-                                        Style="{StaticResource RefinedSecondaryActionButton}"
-                                        Command="{Binding ToggleParcelProtectionDetailsCommand}"
-                                        SemanticProperties.Description="ดูเงื่อนไขและสินค้าที่ไม่คุ้มครอง"
-                                        Text="ดูเงื่อนไขและสินค้าที่ไม่คุ้มครอง" />
-                                    <Label
-                                        IsVisible="{Binding IsParcelProtectionDetailsVisible}"
-                                        FontSize="13"
-                                        LineBreakMode="WordWrap"
-                                        Text="วงเงินและเงื่อนไขที่เลือกใช้จะแสดงในรายละเอียดรายการก่อนชำระเงิน"
-                                        TextColor="{StaticResource InkSoft}" />
                                 </VerticalStackLayout>
                             </Border>
                             <BoxView HeightRequest="1" Color="{StaticResource Line}" />

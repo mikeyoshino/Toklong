@@ -58,6 +58,8 @@ public sealed partial class ChooseParcelProtectionHandler(
                 {
                     ParcelProtectionChangeStatus.AwaitingCancellation =>
                         "cancelling_shipping",
+                    ParcelProtectionChangeStatus.ReconfirmationRequired =>
+                        "reconfirmation_required",
                     ParcelProtectionChangeStatus.Completed when
                         transaction.ParcelProtectionBookingReady => "booking_ready",
                     _ => "preparing_shipping"

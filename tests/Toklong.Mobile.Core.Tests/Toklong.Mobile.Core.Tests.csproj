@@ -126,6 +126,12 @@
     <None Include="../../landing.html"
           Link="Brand/landing.html"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Web/Components/Pages/BuyerTransaction.razor"
+          Link="Web/BuyerTransaction.razor"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Web/Components/Pages/SellerOffer.razor"
+          Link="Web/SellerOffer.razor"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

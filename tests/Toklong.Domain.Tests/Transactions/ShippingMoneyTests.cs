@@ -59,12 +59,23 @@ public sealed class ShippingMoneyTests
                 1_100,
                 120_000,
                 "FULL_VALUE",
-                Now.AddHours(2)));
+                Now.AddHours(2),
+                PurchaseReference: "money-test-purchase",
+                ProviderTrackingCode: "money-test-provider",
+                CourierTrackingCode: "money-test-courier",
+                ReservedAt: Now.AddMinutes(1)));
+        transaction.RecordParcelProtectionElection(
+            transaction.BuyerId!.Value,
+            Selection(
+                ParcelProtectionElectionStatus.Declined,
+                includedCoverageLimitSatang: 120_000,
+                selectedCoverageLimitSatang: 120_000),
+            Now.AddMinutes(2));
 
         transaction.BeginCheckout(
             "ผู้ซื้อ ทดสอบ",
             "+66899999999",
-            Now.AddMinutes(2),
+            Now.AddMinutes(3),
             transitions,
             buyerProtectionFeeSatang: 5_900,
             sellerExpectedNetSatang: 120_000,
@@ -250,7 +261,6 @@ public sealed class ShippingMoneyTests
 
     [Theory]
     [InlineData(5_999, 4_500, 1_500, 100_000, 450_000)]
-    [InlineData(6_000, 4_500, 1_500, 0, 450_000)]
     [InlineData(6_000, 4_500, 1_500, 100_000, 0)]
     [InlineData(6_000, 4_500, 1_500, 100_000, 99_999)]
     public void Accepted_add_on_rejects_invalid_money_or_coverage(
@@ -442,6 +452,31 @@ public sealed class ShippingMoneyTests
     }
 
     [Fact]
+    public void Included_coverage_presentation_is_not_audited_as_unavailable()
+    {
+        var transaction = AcceptedPhysicalOffer(100_000);
+
+        transaction.RecordParcelProtectionAvailabilityPresented(
+            transaction.BuyerId!.Value,
+            new ParcelProtectionPreparedOffer(
+                RequiresChoice: false,
+                AddOnAvailable: false,
+                IncludedCoverageLimitSatang: 100_000,
+                MaximumCoverageLimitSatang: null,
+                CustomerPriceSatang: null,
+                OptionReference: null,
+                TermsVersion: "parcel-protection-included-v1",
+                ExpiresAt: null),
+            "parcel-protection-included",
+            Now.AddMinutes(2));
+
+        Assert.Contains(transaction.AuditEvents,
+            audit => audit.Name == "parcel_protection.included");
+        Assert.DoesNotContain(transaction.AuditEvents,
+            audit => audit.Name == "parcel_protection.unavailable");
+    }
+
+    [Fact]
     public void Buyer_checkout_annex_hash_detects_tampering()
     {
         var transaction = AcceptedPhysicalOffer(450_000);
@@ -602,6 +637,31 @@ public sealed class ShippingMoneyTests
         Assert.True(reserved.ParcelProtectionBookingReady);
     }
 
+    [Fact]
+    public void Physical_checkout_requires_a_final_election_and_reserved_booking()
+    {
+        var transaction = AcceptedPhysicalOffer(450_000);
+        var originalAuditCount = transaction.AuditEvents.Count;
+        var originalAcceptanceCount = transaction.AgreementAcceptances.Count;
+
+        var error = Assert.Throws<DomainException>(() =>
+            transaction.BeginCheckout(
+                "ผู้ซื้อ",
+                "buyer@example.com",
+                Now.AddMinutes(2),
+                new TransactionTransitionService()));
+
+        Assert.Contains("แอป TOKLONG", error.Message);
+        Assert.Equal(
+            TransactionState.SellerAcceptedAwaitingPayment,
+            transaction.State);
+        Assert.Equal(originalAuditCount, transaction.AuditEvents.Count);
+        Assert.Equal(
+            originalAcceptanceCount,
+            transaction.AgreementAcceptances.Count);
+        Assert.Null(transaction.ProductSnapshotHash);
+    }
+
     private static SaleTransaction AcceptedPhysicalOffer(long priceSatang)
     {
         var transitions = new TransactionTransitionService();
@@ -613,7 +673,10 @@ public sealed class ShippingMoneyTests
         transaction.AcceptBuyerOffer(
             Guid.NewGuid(), "ผู้ขาย", "+66811111111", "KBANK", "ผู้ขาย",
             "1234567890", true, Now.AddMinutes(1), transitions,
-            shipping: TestTransactionFactory.ShippingQuote(Now.AddMinutes(1)));
+            shipping: TestTransactionFactory.ShippingQuote(Now.AddMinutes(1)) with
+            {
+                ReservedAt = Now.AddMinutes(1)
+            });
         return transaction;
     }
 

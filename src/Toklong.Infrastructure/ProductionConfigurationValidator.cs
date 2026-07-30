@@ -149,6 +149,9 @@ public static class ProductionConfigurationValidator
                          profile.IncludedCoverageSatang))
                     errors.Add(
                         $"Shippop service {serviceCode} optional protection configuration is incomplete");
+                if (profile.OptionalProtectionEnabled)
+                    errors.Add(
+                        $"Shippop service {serviceCode} optional protection requires a certified buyer terms and exclusions document and authenticated route");
             }
         }
 

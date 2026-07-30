@@ -189,7 +189,7 @@
                                          @bind-Value="form.QuoteReference">
                                 @foreach (var quote in shippingQuotes)
                                 {
-                                    <option value="@quote.QuoteReference">@quote.ServiceName · ค่าส่ง @Money(quote.FeeSatang) · ประกัน @Money(quote.InsuranceFeeSatang)</option>
+                                    <option value="@quote.QuoteReference">@quote.ServiceName · ค่าส่ง @Money(quote.FeeSatang)</option>
                                 }
                             </SelectField>
                         }
@@ -335,10 +335,6 @@
                     ?? throw new InvalidOperationException("กรุณาเลือกบัญชีรับเงิน"),
                 form.TransferRightsAttested,
                 form.AcceptedTerms,
-                feeDisclosure.BuyerProtectionFeeSatang,
-                feeDisclosure.PlatformFeeSatang,
-                feeDisclosure.SellerExpectedNetSatang,
-                feeDisclosure.PolicyVersion,
                 transaction?.FulfillmentType ==
                     FulfillmentType.PhysicalShipment
                         ? BuildShippingSelection()
@@ -450,10 +446,7 @@
             length,
             height,
             quote.QuoteReference,
-            quote.FeeSatang,
-            quote.InsuranceFeeSatang,
-            quote.DeclaredValueSatang,
-            quote.InsuranceCode);
+            quote.FeeSatang);
     }
 
     private bool TryGetPackage(

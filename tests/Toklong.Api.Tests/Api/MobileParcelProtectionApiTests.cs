@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using MediatR;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -107,8 +108,12 @@ public sealed class MobileParcelProtectionApiTests
             HttpMethod.Post,
             "/parcel-protection-election",
             "choose-protection-0001",
-            new { AddProtection = false, OptionReference = (string?)null,
-                DisclosedCustomerPriceSatang = (long?)null });
+            new
+            {
+                AddProtection = false,
+                OptionReference = (string?)null,
+                DisclosedCustomerPriceSatang = (long?)null
+            });
         using var conflictResponse = await fixture.Client.SendAsync(conflict);
         Assert.Equal(HttpStatusCode.BadRequest, conflictResponse.StatusCode);
     }
@@ -157,6 +162,53 @@ public sealed class MobileParcelProtectionApiTests
         using var response = await fixture.Client.GetAsync(fixture.Path);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Agreement_evidence_exposes_the_validated_buyer_annex_only_to_the_buyer()
+    {
+        await using var fixture = await CheckoutFixture.CreateAsync(factory);
+        using var choice = fixture.BuyerRequest(
+            HttpMethod.Post,
+            "/parcel-protection-election",
+            "evidence-protection-choice",
+            AcceptedRequest());
+        using var choiceResponse = await fixture.Client.SendAsync(choice);
+        Assert.True(choiceResponse.IsSuccessStatusCode,
+            await choiceResponse.Content.ReadAsStringAsync());
+        await fixture.CompleteCheckoutAsync();
+
+        using var buyerResponse = await fixture.Client.GetAsync(
+            fixture.EvidencePath);
+        var buyerJsonText = await buyerResponse.Content.ReadAsStringAsync();
+        Assert.True(buyerResponse.IsSuccessStatusCode, buyerJsonText);
+        using var buyerJson = JsonDocument.Parse(buyerJsonText);
+        var buyerEvidence = buyerJson.RootElement.GetProperty("evidence");
+        var buyerAnnex = buyerEvidence.GetProperty("buyerCheckoutAnnex");
+        Assert.Equal("Accepted",
+            buyerAnnex.GetProperty("parcelProtectionElection").GetString());
+        Assert.Equal(6_000,
+            buyerAnnex.GetProperty("customerPriceSatang").GetInt64());
+        Assert.Equal(450_000,
+            buyerAnnex.GetProperty("selectedCoverageLimitSatang").GetInt64());
+
+        fixture.Client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue(
+                "Bearer", fixture.SellerAccessToken);
+        using var sellerResponse = await fixture.Client.GetAsync(
+            fixture.EvidencePath);
+        var sellerJsonText = await sellerResponse.Content.ReadAsStringAsync();
+        Assert.True(sellerResponse.IsSuccessStatusCode, sellerJsonText);
+        using var sellerJson = JsonDocument.Parse(sellerJsonText);
+        var sellerEvidence = sellerJson.RootElement.GetProperty("evidence");
+        Assert.False(sellerEvidence.TryGetProperty(
+            "buyerCheckoutAnnex", out _));
+        Assert.DoesNotContain("customerPriceSatang", sellerJsonText);
+        Assert.Equal(
+            buyerEvidence.GetProperty("hashes")
+                .GetProperty("agreementCoreSnapshotHash").GetString(),
+            sellerEvidence.GetProperty("hashes")
+                .GetProperty("agreementCoreSnapshotHash").GetString());
     }
 
     private static object AcceptedRequest() => new
@@ -210,6 +262,8 @@ public sealed class MobileParcelProtectionApiTests
             $"/api/mobile/transactions/{transactionId}/parcel-protection";
         public string ElectionPath =>
             $"/api/mobile/transactions/{transactionId}/parcel-protection-election";
+        public string EvidencePath =>
+            $"/api/mobile/transactions/{transactionId}/agreement-evidence";
 
         public static async Task<CheckoutFixture> CreateAsync(
             MobileApiFactory rootFactory,
@@ -291,6 +345,50 @@ public sealed class MobileParcelProtectionApiTests
             if (body is not null)
                 request.Content = JsonContent.Create(body);
             return request;
+        }
+
+        public async Task CompleteCheckoutAsync()
+        {
+            await using var scope = factory.Services.CreateAsyncScope();
+            var database = scope.ServiceProvider
+                .GetRequiredService<ToklongDbContext>();
+            var transaction = await new TransactionRepository(database)
+                .GetByIdAsync(transactionId, default)
+                ?? throw new InvalidOperationException(
+                    "test transaction missing");
+            var shipment = transaction.CurrentOutboundShipment
+                ?? throw new InvalidOperationException(
+                    "test outbound shipment missing");
+            var operation = transaction.ShippingOperations.Single(item =>
+                item.ManagedShipmentId == shipment.Id &&
+                item.OperationType == ShippingOperationType.BookOutbound);
+            var now = DateTimeOffset.UtcNow;
+            operation.Claim("evidence-test", now, TimeSpan.FromMinutes(5));
+            transaction.CompleteBuyerCheckoutShipmentBooking(
+                shipment.Id,
+                shipment.Provider,
+                "evidence-purchase",
+                "evidence-provider-tracking",
+                "evidence-courier-tracking",
+                shipment.CarrierCode,
+                shipment.ServiceCode,
+                shipment.BaseShippingFeeSatang,
+                shipment.InsuranceFeeSatang,
+                shipment.DeclaredValueSatang,
+                shipment.InsuranceCode,
+                now,
+                now);
+            operation.Succeed(
+                "evidence-test",
+                "evidence-purchase",
+                "evidence-provider-tracking",
+                now);
+            transaction.BeginCheckout(
+                transaction.BuyerDisplayName!,
+                transaction.BuyerContact!,
+                now,
+                new TransactionTransitionService());
+            await database.SaveChangesAsync();
         }
 
         public ValueTask DisposeAsync()

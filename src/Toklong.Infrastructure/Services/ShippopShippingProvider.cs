@@ -27,7 +27,8 @@ public sealed class ShippopShippingOptions
     public IReadOnlyList<string> ServiceCodes { get; init; } =
         [];
     public IReadOnlyDictionary<string, ShippopServiceProfile>
-        ServiceProfiles { get; init; } =
+        ServiceProfiles
+    { get; init; } =
         new Dictionary<string, ShippopServiceProfile>(
             StringComparer.Ordinal);
 
@@ -183,7 +184,8 @@ public sealed class ShippopShippingProvider(
         CancellationToken cancellationToken)
     {
         await GetAvailabilityAsync(request, cancellationToken);
-        throw new DomainException("ตัวเลือกความคุ้มครองพัสดุไม่ถูกต้อง");
+        throw new ParcelProtectionOptionChangedException(
+            "parcel-protection-option-changed");
     }
 
     private async Task<ShippingQuoteOption> ValidateDeliveryQuoteAsync(
@@ -262,7 +264,7 @@ public sealed class ShippopShippingProvider(
                     "courier_code",
                     out var serviceCode) ||
                 TryMapService(serviceCode) is not
-                    { } service ||
+                { } service ||
                 !options.ServiceCodes.Contains(
                     serviceCode,
                     StringComparer.OrdinalIgnoreCase) ||
@@ -430,7 +432,7 @@ public sealed class ShippopShippingProvider(
                 Provider,
                 StringComparison.Ordinal) ||
             TryMapService(request.Quote.ServiceCode) is not
-                { } selectedService ||
+            { } selectedService ||
             !string.Equals(
                 selectedService.CarrierCode,
                 request.Quote.CarrierCode,
@@ -497,7 +499,7 @@ public sealed class ShippopShippingProvider(
                 "courier_code",
                 out var returnedServiceCode) ||
             TryMapService(returnedServiceCode) is not
-                { } returnedService ||
+            { } returnedService ||
             !TryMoneySatang(
                 row,
                 "price",
@@ -880,15 +882,15 @@ public sealed class ShippopShippingProvider(
 
     private static object AddressPayload(
         ShippingContactAddress address) => new
-    {
-        name = address.Name.Trim(),
-        address = address.AddressLine.Trim(),
-        district = address.SubdistrictName.Trim(),
-        state = address.DistrictName.Trim(),
-        province = address.ProvinceName.Trim(),
-        postcode = address.PostalCode.Trim(),
-        tel = address.PhoneNumber.Trim()
-    };
+        {
+            name = address.Name.Trim(),
+            address = address.AddressLine.Trim(),
+            district = address.SubdistrictName.Trim(),
+            state = address.DistrictName.Trim(),
+            province = address.ProvinceName.Trim(),
+            postcode = address.PostalCode.Trim(),
+            tel = address.PhoneNumber.Trim()
+        };
 
     private async Task<JsonDocument> PostJsonAsync(
         string relativeUrl,

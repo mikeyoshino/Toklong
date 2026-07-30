@@ -64,11 +64,12 @@ internal static partial class ParcelProtectionCheckout
     {
         var prepared = transaction.AuditEvents
             .Where(audit => audit.Name is "parcel_protection.offered" or
-                "parcel_protection.unavailable")
+                "parcel_protection.unavailable" or
+                "parcel_protection.included")
             .OrderByDescending(audit => audit.CreatedAt)
             .Select(audit => TryReadPreparedOffer(audit.MetadataJson, transaction))
             .FirstOrDefault(offer => offer is not null &&
-                (!offer.ExpiresAt.HasValue || offer.ExpiresAt > now)) ;
+                (!offer.ExpiresAt.HasValue || offer.ExpiresAt > now));
         if (transaction.ParcelProtectionElection == ParcelProtectionElectionStatus.Pending &&
             prepared is not null)
             return new BuyerParcelProtectionView(prepared.RequiresChoice,

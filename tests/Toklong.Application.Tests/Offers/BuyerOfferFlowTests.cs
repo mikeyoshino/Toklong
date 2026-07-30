@@ -169,38 +169,32 @@ public sealed class BuyerOfferFlowTests
         Assert.Empty(storedAfterAcceptance.ShippingOperations);
         Assert.Null(storedAfterAcceptance.ShippingPurchaseReference);
 
-        var checkout = await checkoutHandler.Handle(
-            new BeginBuyerOfferCheckoutCommand(
-                created.BuyerAccessToken!,
-                buyer.Id,
-                true),
-            default);
+        var checkoutError = await Assert.ThrowsAsync<DomainException>(() =>
+            checkoutHandler.Handle(
+                new BeginBuyerOfferCheckoutCommand(
+                    created.BuyerAccessToken!,
+                    buyer.Id,
+                    true),
+                default));
 
-        Assert.Equal(TransactionState.PaymentPending, checkout.State);
-        Assert.Equal(18_000, checkout.BuyerProtectionFeeSatang);
-        Assert.Equal(0, checkout.PlatformFeeSatang);
-        Assert.Equal(450_000, checkout.SellerExpectedNetSatang);
-        Assert.NotNull(checkout.ProductSnapshotHash);
+        Assert.Contains("แอป TOKLONG", checkoutError.Message);
         Assert.Equal(
-            2,
-            checkout.AgreementAcceptances.Count);
-        Assert.All(
-            checkout.AgreementAcceptances,
-            acceptance =>
-                Assert.Equal(
-                    checkout.AgreementCoreSnapshotHash,
-                    acceptance.AgreementCoreSnapshotHash));
+            TransactionState.SellerAcceptedAwaitingPayment,
+            accepted.State);
+        Assert.Null(accepted.ProductSnapshotHash);
+        Assert.Single(accepted.AgreementAcceptances);
         var persisted = await transactions.GetByIdAsync(
-            checkout.Id,
+            accepted.Id,
             default);
         Assert.NotNull(persisted);
-        Assert.Contains(
+        Assert.Equal(
+            TransactionState.SellerAcceptedAwaitingPayment,
+            persisted.State);
+        Assert.DoesNotContain(
             persisted.AgreementAcceptances,
             acceptance =>
-                acceptance.Role ==
-                AgreementAcceptanceRole.Buyer &&
-                acceptance.ActorUserId == buyer.Id);
-        Assert.Contains("จังหวัด กรุงเทพมหานคร", checkout.DeliveryAddress);
+                acceptance.Role == AgreementAcceptanceRole.Buyer);
+        Assert.Null(persisted.ProductSnapshotHash);
     }
 
     [Fact]

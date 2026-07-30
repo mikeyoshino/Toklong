@@ -189,8 +189,8 @@ public sealed class DevelopmentShippingQuoteProvider(
                 optionReference?.Trim() ?? "",
                 out var stored) ||
             stored.Request != request)
-            throw new DomainException(
-                "ตัวเลือกความคุ้มครองไม่ถูกต้อง");
+            throw new ParcelProtectionOptionChangedException(
+                "parcel-protection-option-changed");
         if (stored.Option.ExpiresAt <= clock.UtcNow)
             throw new ParcelProtectionOptionChangedException(
                 "parcel-protection-option-changed");

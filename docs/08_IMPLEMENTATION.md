@@ -247,10 +247,18 @@ accepted because it has no verifiable signature; the Worker reconciles
 server-to-provider every 15 seconds instead. Live activation still requires a
 contracted/funded SHIPPOP account and credentials.
 
-Authenticated buyers and sellers can download deterministic JSON evidence with
-the shared hashes and acceptance times, or an HTML rendering for printing or
-saving as PDF. The evidence excludes OTP values, reusable credentials, the full
-delivery address, IP addresses, and device identifiers.
+Authenticated buyers and sellers can download deterministic role-shaped JSON
+evidence with the same agreement-core hash and acceptance times, or a
+role-shaped HTML rendering for printing or saving as PDF. Schema-v11 export
+fails closed unless the immutable buyer checkout annex and its hash validate.
+The buyer copy contains the final election, combined customer protection price,
+coverage, terms version, annex hash, and product-snapshot linkage. The seller
+copy omits those buyer-only values, so its evidence payload hash differs.
+Unavailable uncertified zero coverage is treated as an unknown sentinel and is
+not rendered; digital fulfillment is marked not applicable without protection
+coverage rows. Both
+copies exclude OTP values, reusable credentials, the full delivery address, IP
+addresses, and device identifiers.
 
 Terminal states now create a five-year evidence-retention schedule. The Worker
 runs retention once at startup and every 24 hours in batches of 100, capped at
@@ -491,6 +499,9 @@ Money inputs remain strings in the form and are parsed to integer satang at the 
   integer-satang price conversion, terms/code, post-election booking, lookup/
   replay, and cancellation before first scan. No production consumer claim or
   provider-branded protection UI is enabled from code alone.
+- `OptionalProtectionEnabled=true` is rejected in Production until an approved,
+  versioned buyer terms-and-exclusions document and authenticated route exist.
+  The main choice card does not show placeholder exclusions copy.
 
 ## Operations and health
 
