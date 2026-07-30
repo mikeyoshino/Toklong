@@ -136,6 +136,13 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
             .HasMaxLength(160);
         transaction.Property(x => x.ShippingInsuranceCode)
             .HasMaxLength(80);
+        transaction.Property(x => x.ParcelProtectionElection)
+            .HasConversion<string>()
+            .HasMaxLength(32);
+        transaction.Property(x => x.ParcelProtectionTermsVersion)
+            .HasMaxLength(80);
+        transaction.Property(x => x.ParcelProtectionOptionReference)
+            .HasMaxLength(160);
         transaction.Property(x => x.ShippingPurchaseReference)
             .HasMaxLength(160);
         transaction.Property(x => x.ShippingProviderTrackingCode)
@@ -633,6 +640,13 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         shipment.Property(x => x.HandoffMode).HasMaxLength(20);
         shipment.Property(x => x.InsuranceCode).HasMaxLength(80);
         shipment.Property(x => x.QuoteReference).HasMaxLength(160);
+        shipment.Property(x => x.ParcelProtectionTermsVersion)
+            .HasMaxLength(80);
+        shipment.Property(x => x.ParcelProtectionOptionReference)
+            .HasMaxLength(160);
+        shipment.Property(x => x.ParcelProtectionElection)
+            .HasConversion<string>()
+            .HasMaxLength(32);
         shipment.Property(x => x.ExceptionResolvedBy)
             .HasMaxLength(120);
         shipment.Property(x => x.ExceptionResolutionReference)

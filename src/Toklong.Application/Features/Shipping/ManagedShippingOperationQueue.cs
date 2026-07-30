@@ -31,7 +31,13 @@ public static class ManagedShippingOperationQueue
                 shipment.DeclaredValueSatang,
                 shipment.InsuranceCode,
                 shipment.QuoteReference,
-                shipment.QuoteExpiresAt
+                shipment.QuoteExpiresAt,
+                shipment.ParcelProtectionTermsVersion,
+                shipment.ParcelProtectionOptionReference,
+                shipment.ParcelProtectionElection,
+                shipment.ParcelProtectionProviderCostSatang,
+                shipment.ParcelProtectionIncludedCoverageSatang,
+                shipment.ParcelProtectionSelectedCoverageSatang
             }));
     }
 

@@ -36,9 +36,16 @@ public sealed record ManagedShipmentDraft(
     long BaseShippingFeeSatang,
     long InsuranceFeeSatang,
     long DeclaredValueSatang,
-    string InsuranceCode,
+    string? InsuranceCode,
     string QuoteReference,
-    DateTimeOffset QuoteExpiresAt);
+    DateTimeOffset QuoteExpiresAt,
+    string ParcelProtectionTermsVersion = "parcel-protection-pending-v1",
+    string? ParcelProtectionOptionReference = null,
+    ParcelProtectionElectionStatus ParcelProtectionElection =
+        ParcelProtectionElectionStatus.Pending,
+    long ParcelProtectionProviderCostSatang = 0,
+    long ParcelProtectionIncludedCoverageSatang = 0,
+    long ParcelProtectionSelectedCoverageSatang = 0);
 
 public sealed class ManagedShipment
 {
@@ -63,9 +70,16 @@ public sealed class ManagedShipment
     public long BaseShippingFeeSatang { get; private set; }
     public long InsuranceFeeSatang { get; private set; }
     public long DeclaredValueSatang { get; private set; }
-    public string InsuranceCode { get; private set; } = "";
+    public string? InsuranceCode { get; private set; }
     public string QuoteReference { get; private set; } = "";
     public DateTimeOffset QuoteExpiresAt { get; private set; }
+    public string ParcelProtectionTermsVersion { get; private set; } = "";
+    public string? ParcelProtectionOptionReference { get; private set; }
+    public ParcelProtectionElectionStatus ParcelProtectionElection
+    { get; private set; }
+    public long ParcelProtectionProviderCostSatang { get; private set; }
+    public long ParcelProtectionIncludedCoverageSatang { get; private set; }
+    public long ParcelProtectionSelectedCoverageSatang { get; private set; }
     public string? PurchaseReference { get; private set; }
     public string? ProviderTrackingCode { get; private set; }
     public string? CourierTrackingCode { get; private set; }
@@ -123,11 +137,20 @@ public sealed class ManagedShipment
             draft.HeightCentimeters is < 1 or > 200)
             throw new DomainException(
                 "น้ำหนักหรือขนาดพัสดุไม่ถูกต้อง");
-        if (draft.BaseShippingFeeSatang <= 0 ||
-            draft.InsuranceFeeSatang <= 0 ||
-            draft.DeclaredValueSatang <= 0)
+        var hasOptionalProtection =
+            draft.InsuranceFeeSatang > 0 ||
+            !string.IsNullOrWhiteSpace(draft.InsuranceCode);
+        if (draft.BaseShippingFeeSatang <= 0)
             throw new DomainException(
                 "ค่าจัดส่งหรือประกันพัสดุไม่ถูกต้อง");
+        if (draft.InsuranceFeeSatang < 0 ||
+            draft.DeclaredValueSatang < 0 ||
+            hasOptionalProtection &&
+            (draft.InsuranceFeeSatang <= 0 ||
+             draft.DeclaredValueSatang <= 0 ||
+             string.IsNullOrWhiteSpace(draft.InsuranceCode)))
+            throw new DomainException(
+                "ข้อมูลความคุ้มครองพัสดุไม่ครบ");
 
         return new ManagedShipment
         {
@@ -173,15 +196,28 @@ public sealed class ManagedShipment
                 draft.InsuranceFeeSatang,
             DeclaredValueSatang =
                 draft.DeclaredValueSatang,
-            InsuranceCode = Required(
+            InsuranceCode = Optional(
                 draft.InsuranceCode,
-                "รหัสประกัน",
                 80),
             QuoteReference = Required(
                 draft.QuoteReference,
                 "ราคาอ้างอิง",
                 160),
             QuoteExpiresAt = draft.QuoteExpiresAt,
+            ParcelProtectionTermsVersion = Required(
+                draft.ParcelProtectionTermsVersion,
+                "เวอร์ชันเงื่อนไขความคุ้มครองพัสดุ",
+                80),
+            ParcelProtectionOptionReference = Optional(
+                draft.ParcelProtectionOptionReference,
+                160),
+            ParcelProtectionElection = draft.ParcelProtectionElection,
+            ParcelProtectionProviderCostSatang =
+                draft.ParcelProtectionProviderCostSatang,
+            ParcelProtectionIncludedCoverageSatang =
+                draft.ParcelProtectionIncludedCoverageSatang,
+            ParcelProtectionSelectedCoverageSatang =
+                draft.ParcelProtectionSelectedCoverageSatang,
             CreatedAt = now
         };
     }

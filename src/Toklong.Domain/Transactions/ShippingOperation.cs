@@ -19,7 +19,8 @@ public enum ShippingOperationStatus
     RetryScheduled,
     OutcomeUnknown,
     Succeeded,
-    NeedsReview
+    NeedsReview,
+    Superseded
 }
 
 public sealed class ShippingOperation
@@ -198,6 +199,22 @@ public sealed class ShippingOperation
         LastSanitizedErrorCode = Required(
             sanitizedErrorCode,
             "error code",
+            100);
+        CompletedAt = now;
+        ClearLease();
+        Version++;
+    }
+
+    public void Supersede(
+        string workerId,
+        string sanitizedReasonCode,
+        DateTimeOffset now)
+    {
+        EnsureProcessingLease(workerId, now);
+        Status = ShippingOperationStatus.Superseded;
+        LastSanitizedErrorCode = Required(
+            sanitizedReasonCode,
+            "reason code",
             100);
         CompletedAt = now;
         ClearLease();

@@ -13,6 +13,92 @@ public sealed class DurableShippingOperationProcessingTests
         new(2026, 7, 29, 20, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    public void Booking_fingerprint_changes_when_any_protection_field_changes()
+    {
+        var transactionId = Guid.NewGuid();
+        var draft = DraftWithProtection(
+                termsVersion: "parcel-protection-2026-07-30",
+                optionReference: "protected-option-a") with
+            {
+                ParcelProtectionElection =
+                    ParcelProtectionElectionStatus.Accepted,
+                ParcelProtectionProviderCostSatang = 4_500,
+                ParcelProtectionIncludedCoverageSatang = 100_000,
+                ParcelProtectionSelectedCoverageSatang = 450_000
+            };
+        var shipment = ManagedShipment.CreateOutbound(
+            transactionId,
+            draft,
+            Now);
+        var changedTerms = ManagedShipment.CreateOutbound(
+            transactionId,
+            draft with
+            {
+                ParcelProtectionTermsVersion =
+                    "parcel-protection-2026-08-01"
+            },
+            Now);
+        var changedOption = ManagedShipment.CreateOutbound(
+            transactionId,
+            draft with
+            {
+                ParcelProtectionOptionReference = "protected-option-b"
+            },
+            Now);
+        var changedElection = ManagedShipment.CreateOutbound(
+            transactionId,
+            draft with
+            {
+                ParcelProtectionElection =
+                    ParcelProtectionElectionStatus.Declined
+            },
+            Now);
+        var changedProviderCost = ManagedShipment.CreateOutbound(
+            transactionId,
+            draft with
+            {
+                ParcelProtectionProviderCostSatang = 4_600
+            },
+            Now);
+        var changedIncludedCoverage = ManagedShipment.CreateOutbound(
+            transactionId,
+            draft with
+            {
+                ParcelProtectionIncludedCoverageSatang = 100_100
+            },
+            Now);
+        var changedSelectedCoverage = ManagedShipment.CreateOutbound(
+            transactionId,
+            draft with
+            {
+                ParcelProtectionSelectedCoverageSatang = 450_100
+            },
+            Now);
+
+        var fingerprint =
+            ManagedShippingOperationQueue.BookingFingerprint(shipment);
+
+        Assert.NotEqual(
+            fingerprint,
+            ManagedShippingOperationQueue.BookingFingerprint(changedTerms));
+        Assert.NotEqual(
+            fingerprint,
+            ManagedShippingOperationQueue.BookingFingerprint(changedOption));
+        Assert.NotEqual(
+            fingerprint,
+            ManagedShippingOperationQueue.BookingFingerprint(changedElection));
+        Assert.NotEqual(
+            fingerprint,
+            ManagedShippingOperationQueue.BookingFingerprint(changedProviderCost));
+        Assert.NotEqual(
+            fingerprint,
+            ManagedShippingOperationQueue.BookingFingerprint(changedIncludedCoverage));
+        Assert.NotEqual(
+            fingerprint,
+            ManagedShippingOperationQueue.BookingFingerprint(changedSelectedCoverage));
+    }
+
+    [Fact]
     public async Task Successful_booking_completes_acceptance_once()
     {
         await using var database = CreateDatabase();
@@ -344,6 +430,30 @@ public sealed class DurableShippingOperationProcessingTests
             operation);
         return (transaction, operation);
     }
+
+    private static ManagedShipmentDraft DraftWithProtection(
+        string termsVersion,
+        string optionReference) =>
+        new(
+            "shippop",
+            "origin-ref",
+            "destination-ref",
+            "กล้อง",
+            1_200,
+            20,
+            30,
+            15,
+            "THAIPOST",
+            "EMST",
+            "ไปรษณีย์ไทย EMS",
+            5_200,
+            4_500,
+            450_000,
+            "FULL_VALUE",
+            "quote-001",
+            Now.AddHours(2),
+            termsVersion,
+            optionReference);
 
     private static ToklongDbContext CreateDatabase()
     {

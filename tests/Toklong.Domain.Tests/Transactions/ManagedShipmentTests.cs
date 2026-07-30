@@ -59,17 +59,77 @@ public sealed class ManagedShipmentTests
     }
 
     [Fact]
-    public void Shipment_without_full_value_insurance_is_rejected()
+    public void Shipment_with_incomplete_optional_protection_is_rejected()
     {
         Assert.Throws<DomainException>(() =>
             ManagedShipment.CreateOutbound(
                 Guid.NewGuid(),
                 Draft() with
                 {
-                    InsuranceFeeSatang = 0,
+                    InsuranceFeeSatang = 1_100,
                     InsuranceCode = ""
                 },
                 Now));
+    }
+
+    [Fact]
+    public void Outbound_booking_can_use_included_coverage_without_optional_fee()
+    {
+        var shipment = ManagedShipment.CreateOutbound(
+            Guid.NewGuid(),
+            Draft() with
+            {
+                InsuranceFeeSatang = 0,
+                DeclaredValueSatang = 100_000,
+                InsuranceCode = null
+            },
+            Now);
+
+        Assert.Equal(0, shipment.InsuranceFeeSatang);
+        Assert.Equal(100_000, shipment.DeclaredValueSatang);
+        Assert.Null(shipment.InsuranceCode);
+    }
+
+    [Fact]
+    public void Insurance_tuple_must_be_all_zero_or_fully_populated()
+    {
+        Assert.Throws<DomainException>(() =>
+            ManagedShipment.CreateOutbound(
+                Guid.NewGuid(),
+                Draft() with
+                {
+                    InsuranceFeeSatang = 4_500,
+                    DeclaredValueSatang = 450_000,
+                    InsuranceCode = null
+                },
+                Now));
+    }
+
+    [Fact]
+    public void Superseded_operation_cannot_be_claimed()
+    {
+        var operation = ShippingOperation.Queue(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            ShippingOperationType.BookOutbound,
+            "book-outbound:test",
+            new string('a', 64),
+            Now);
+        operation.Claim("worker", Now, TimeSpan.FromMinutes(5));
+
+        operation.Supersede(
+            "worker",
+            "parcel-protection-quote-changed",
+            Now.AddSeconds(1));
+
+        Assert.Equal(
+            ShippingOperationStatus.Superseded,
+            operation.Status);
+        Assert.Throws<DomainException>(() =>
+            operation.Claim(
+                "worker",
+                Now.AddMinutes(6),
+                TimeSpan.FromMinutes(5)));
     }
 
     [Fact]
