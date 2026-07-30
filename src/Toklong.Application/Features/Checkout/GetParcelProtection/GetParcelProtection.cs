@@ -105,8 +105,94 @@ internal static partial class ParcelProtectionCheckout
 
     private static ParcelProtectionPreparedOffer? TryReadPreparedOffer(string value)
     {
-        try { return JsonSerializer.Deserialize<ParcelProtectionPreparedOffer>(value); }
+        try
+        {
+            using var document = JsonDocument.Parse(value);
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object ||
+                !HasCurrentPreparedOfferShape(root))
+                return null;
+            return JsonSerializer.Deserialize<ParcelProtectionPreparedOffer>(value);
+        }
         catch (JsonException) { return null; }
+    }
+
+    private static bool HasCurrentPreparedOfferShape(JsonElement root)
+    {
+        if (!HasInt(root, "MetadataVersion", out var metadataVersion) ||
+            metadataVersion != ParcelProtectionPreparedOffer.CurrentMetadataVersion ||
+            !HasBoolean(root, "RequiresChoice", out var requiresChoice) ||
+            !HasBoolean(root, "AddOnAvailable", out var addOnAvailable) ||
+            !HasInt(root, "IncludedCoverageLimitSatang", out var includedCoverage) ||
+            includedCoverage <= 0 ||
+            !HasNullableInt(root, "MaximumCoverageLimitSatang", out var maximumCoverage) ||
+            !HasNullableInt(root, "CustomerPriceSatang", out var customerPrice) ||
+            !HasNullableString(root, "OptionReference", out var optionReference) ||
+            !HasRequiredString(root, "TermsVersion") ||
+            !HasNullableDateTimeOffset(root, "ExpiresAt") ||
+            !HasInt(root, "Election", out var election) ||
+            !Enum.IsDefined((ParcelProtectionElectionStatus)election))
+            return false;
+
+        if (maximumCoverage.HasValue && maximumCoverage < includedCoverage ||
+            customerPrice.HasValue && customerPrice <= 0 ||
+            requiresChoice && !addOnAvailable)
+            return false;
+
+        return !addOnAvailable || maximumCoverage.HasValue &&
+            customerPrice.HasValue && !string.IsNullOrWhiteSpace(optionReference);
+    }
+
+    private static bool HasBoolean(JsonElement root, string name, out bool value)
+    {
+        value = false;
+        if (!root.TryGetProperty(name, out var property) ||
+            property.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+            return false;
+        value = property.GetBoolean();
+        return true;
+    }
+
+    private static bool HasInt(JsonElement root, string name, out long value)
+    {
+        value = 0;
+        return root.TryGetProperty(name, out var property) &&
+            property.ValueKind == JsonValueKind.Number && property.TryGetInt64(out value);
+    }
+
+    private static bool HasNullableInt(JsonElement root, string name, out long? value)
+    {
+        value = null;
+        if (!root.TryGetProperty(name, out var property)) return false;
+        if (property.ValueKind == JsonValueKind.Null) return true;
+        if (property.ValueKind != JsonValueKind.Number ||
+            !property.TryGetInt64(out var parsed))
+            return false;
+        value = parsed;
+        return true;
+    }
+
+    private static bool HasNullableString(JsonElement root, string name, out string? value)
+    {
+        value = null;
+        if (!root.TryGetProperty(name, out var property)) return false;
+        if (property.ValueKind == JsonValueKind.Null) return true;
+        if (property.ValueKind != JsonValueKind.String) return false;
+        value = property.GetString();
+        return true;
+    }
+
+    private static bool HasRequiredString(JsonElement root, string name) =>
+        root.TryGetProperty(name, out var property) &&
+        property.ValueKind == JsonValueKind.String &&
+        !string.IsNullOrWhiteSpace(property.GetString());
+
+    private static bool HasNullableDateTimeOffset(JsonElement root, string name)
+    {
+        if (!root.TryGetProperty(name, out var property)) return false;
+        if (property.ValueKind == JsonValueKind.Null) return true;
+        return property.ValueKind == JsonValueKind.String &&
+            property.TryGetDateTimeOffset(out _);
     }
 
     internal static ShippingQuoteRequest BuildShipmentRequest(

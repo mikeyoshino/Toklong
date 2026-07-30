@@ -228,6 +228,28 @@ public sealed class ParcelProtectionCheckoutTests
             StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task Legacy_minimal_preparation_metadata_is_ignored_for_safe_aggregate_fallback()
+    {
+        var resumed = await ReloadWithPreparedMetadataAsync(
+            "{\"AddOnAvailable\":true}");
+
+        AssertSafeLegacyFallback(resumed);
+    }
+
+    [Fact]
+    public async Task Malformed_current_preparation_metadata_is_ignored_for_safe_aggregate_fallback()
+    {
+        var resumed = await ReloadWithPreparedMetadataAsync(
+            "{\"MetadataVersion\":1,\"RequiresChoice\":false," +
+            "\"AddOnAvailable\":false,\"IncludedCoverageLimitSatang\":0," +
+            "\"MaximumCoverageLimitSatang\":null,\"CustomerPriceSatang\":null," +
+            "\"OptionReference\":null,\"TermsVersion\":null," +
+            "\"ExpiresAt\":null,\"Election\":0}");
+
+        AssertSafeLegacyFallback(resumed);
+    }
+
     [Theory]
     [InlineData("buyer@example.com")]
     [InlineData("prepare-ผู้ซื้อ-12345")]
@@ -520,6 +542,48 @@ public sealed class ParcelProtectionCheckoutTests
             "KBANK", "ผู้ขายทดสอบ", "1234567890", true, Now,
             new TransactionTransitionService(), 0, 0, priceSatang, "fee-v1", quote);
         return transaction;
+    }
+
+    private static async Task<BuyerParcelProtectionView> ReloadWithPreparedMetadataAsync(
+        string metadataJson)
+    {
+        await using var database = await RelationalDatabase.CreateAsync();
+        var clock = new MutableClock(Now.AddMinutes(1));
+        Guid transactionId;
+        Guid buyerId;
+        await using (var write = database.CreateContext())
+        {
+            var transaction = CreateAcceptedTransaction(450_000);
+            transactionId = transaction.Id;
+            buyerId = transaction.BuyerId!.Value;
+            transaction.RecordParcelProtectionAvailabilityPresented(buyerId,
+                new ParcelProtectionPreparedOffer(false, false, 100_000, null,
+                    null, null, "parcel-protection-included-v1", null),
+                "prepare-metadata-fallback", clock.UtcNow);
+            write.Transactions.Add(transaction);
+            write.Entry(Assert.Single(transaction.AuditEvents,
+                    audit => audit.IdempotencyKey == "prepare-metadata-fallback"))
+                .Property(audit => audit.MetadataJson).CurrentValue = metadataJson;
+            await write.SaveChangesAsync();
+        }
+
+        await using var read = database.CreateContext();
+        return await new GetParcelProtectionHandler(
+            new TransactionRepository(read), clock).Handle(
+            new GetParcelProtectionQuery(transactionId, buyerId), default);
+    }
+
+    private static void AssertSafeLegacyFallback(BuyerParcelProtectionView view)
+    {
+        Assert.Equal("Pending", view.Election);
+        Assert.False(view.RequiresChoice);
+        Assert.False(view.AddOnAvailable);
+        Assert.Equal(0, view.IncludedCoverageLimitSatang);
+        Assert.Equal("parcel-protection-included-v1", view.TermsVersion);
+        Assert.Null(view.MaximumCoverageLimitSatang);
+        Assert.Null(view.CustomerPriceSatang);
+        Assert.Null(view.OptionReference);
+        Assert.Null(view.ExpiresAt);
     }
 
     private static void ReserveCurrentShipment(SaleTransaction transaction)

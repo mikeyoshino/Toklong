@@ -32,4 +32,9 @@ public sealed record ParcelProtectionPreparedOffer(
     string TermsVersion,
     DateTimeOffset? ExpiresAt,
     ParcelProtectionElectionStatus Election =
-        ParcelProtectionElectionStatus.Pending);
+        ParcelProtectionElectionStatus.Pending)
+{
+    public const int CurrentMetadataVersion = 1;
+
+    public int MetadataVersion { get; init; } = CurrentMetadataVersion;
+}
