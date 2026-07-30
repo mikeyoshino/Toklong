@@ -46,6 +46,24 @@ public sealed partial class ChooseParcelProtectionHandler(
         if (transaction.State != TransactionState.SellerAcceptedAwaitingPayment)
             throw new DomainException("รายการนี้ยังเลือกความคุ้มครองพัสดุไม่ได้");
 
+        var priorChange = transaction.ParcelProtectionChangeRequests.SingleOrDefault(
+            change => string.Equals(change.IdempotencyKey, idempotencyKey,
+                StringComparison.Ordinal));
+        if (priorChange is not null)
+        {
+            if (!MatchesPriorChangeElection(priorChange, request))
+                throw new DomainException("รหัสป้องกันการทำซ้ำถูกใช้กับตัวเลือกอื่นแล้ว");
+            return new ChooseParcelProtectionResult(TransactionView.From(transaction),
+                priorChange.Status switch
+                {
+                    ParcelProtectionChangeStatus.AwaitingCancellation =>
+                        "cancelling_shipping",
+                    ParcelProtectionChangeStatus.Completed when
+                        transaction.ParcelProtectionBookingReady => "booking_ready",
+                    _ => "preparing_shipping"
+                });
+        }
+
         var bookingKey = $"book-outbound:{transaction.Id:N}:{idempotencyKey}";
         var priorBooking = transaction.ShippingOperations.SingleOrDefault(
             operation => string.Equals(operation.IdempotencyKey, bookingKey,
@@ -185,6 +203,18 @@ public sealed partial class ChooseParcelProtectionHandler(
         : (transaction.ParcelProtectionElection is
             ParcelProtectionElectionStatus.Declined or
             ParcelProtectionElectionStatus.Unavailable) &&
+          request.OptionReference is null &&
+          request.DisclosedCustomerPriceSatang is null;
+
+    private static bool MatchesPriorChangeElection(
+        ParcelProtectionChangeRequest change,
+        ChooseParcelProtectionCommand request) => request.AddProtection
+        ? change.DesiredElection == ParcelProtectionElectionStatus.Accepted &&
+          request.DisclosedCustomerPriceSatang == change.DesiredCustomerPriceSatang &&
+          string.Equals(request.OptionReference, change.DesiredOptionReference,
+              StringComparison.Ordinal)
+        : change.DesiredElection is ParcelProtectionElectionStatus.Declined or
+            ParcelProtectionElectionStatus.Unavailable &&
           request.OptionReference is null &&
           request.DisclosedCustomerPriceSatang is null;
 

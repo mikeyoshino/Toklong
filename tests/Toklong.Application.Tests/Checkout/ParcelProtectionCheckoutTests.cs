@@ -1,3 +1,5 @@
+using System.Text.Json;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Toklong.Application.Abstractions;
 using Toklong.Application.Common;
@@ -13,6 +15,10 @@ namespace Toklong.Application.Tests.Checkout;
 
 public sealed class ParcelProtectionCheckoutTests
 {
+    static ParcelProtectionCheckoutTests() =>
+        SQLitePCL.raw.SetProvider(
+            new SQLitePCL.SQLite3Provider_sqlite3());
+
     private static readonly DateTimeOffset Now =
         new(2026, 7, 30, 10, 0, 0, TimeSpan.Zero);
 
@@ -83,6 +89,49 @@ public sealed class ParcelProtectionCheckoutTests
             a.IdempotencyKey == "prepare-once-for-resume" &&
             a.Name == "parcel_protection.offered");
         Assert.Empty(fixture.Transaction.ManagedShipments);
+    }
+
+    [Theory]
+    [InlineData(100_000, false)]
+    [InlineData(450_000, true)]
+    public async Task Prepared_protection_resumes_exact_buyer_safe_view_after_fresh_relational_reload(
+        long priceSatang, bool requiresChoice)
+    {
+        await using var database = await RelationalDatabase.CreateAsync();
+        var clock = new MutableClock(Now.AddMinutes(1));
+        Guid transactionId;
+        Guid buyerId;
+        BuyerParcelProtectionView prepared;
+
+        await using (var write = database.CreateContext())
+        {
+            var transaction = CreateAcceptedTransaction(priceSatang);
+            transactionId = transaction.Id;
+            buyerId = transaction.BuyerId!.Value;
+            write.Transactions.Add(transaction);
+            await write.SaveChangesAsync();
+            prepared = await new PrepareParcelProtectionHandler(
+                new TransactionRepository(write), new TestProtectionProvider(),
+                new ParcelProtectionPricingPolicy(), write, clock).Handle(
+                new PrepareParcelProtectionCommand(transactionId, buyerId,
+                    $"prepare-relational-{priceSatang}"), default);
+        }
+
+        await using var read = database.CreateContext();
+        var resumed = await new GetParcelProtectionHandler(
+            new TransactionRepository(read), clock).Handle(
+            new GetParcelProtectionQuery(transactionId, buyerId), default);
+        var json = JsonSerializer.Serialize(resumed);
+
+        Assert.Equal(prepared, resumed);
+        Assert.Equal(requiresChoice, resumed.RequiresChoice);
+        Assert.Equal(100_000, resumed.IncludedCoverageLimitSatang);
+        Assert.Equal(450_000, resumed.MaximumCoverageLimitSatang);
+        Assert.Equal(6_000, resumed.CustomerPriceSatang);
+        Assert.DoesNotContain("providerCost", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("serviceFee", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("development-shipping", json,
+            StringComparison.OrdinalIgnoreCase);
     }
 
     [Theory]
@@ -215,6 +264,52 @@ public sealed class ParcelProtectionCheckoutTests
     }
 
     [Fact]
+    public async Task Reserved_change_same_key_replays_without_provider_or_shipping_mutation()
+    {
+        await using var fixture = await Fixture.CreateAsync(450_000);
+        await fixture.ChooseHandler.Handle(
+            fixture.Choose(true, "protected-option", 6_000, "choose-original-0001"),
+            default);
+        ReserveCurrentShipment(fixture.Transaction);
+        var request = fixture.Choose(false, null, null, "change-reserved-0001");
+
+        var first = await fixture.ChooseHandler.Handle(request, default);
+        fixture.Provider.ResetCalls();
+        var replay = await fixture.ChooseHandler.Handle(request, default);
+
+        Assert.Equal("cancelling_shipping", first.BookingStatus);
+        Assert.Equal(first.BookingStatus, replay.BookingStatus);
+        Assert.Equal(0, fixture.Provider.AvailabilityCalls);
+        Assert.Equal(0, fixture.Provider.ValidateCalls);
+        Assert.Single(fixture.Transaction.ParcelProtectionChangeRequests);
+        Assert.Single(fixture.Transaction.ShippingOperations,
+            operation => operation.OperationType == ShippingOperationType.CancelOutbound);
+    }
+
+    [Fact]
+    public async Task Reserved_change_same_key_conflict_rejects_without_provider_or_shipping_mutation()
+    {
+        await using var fixture = await Fixture.CreateAsync(450_000);
+        await fixture.ChooseHandler.Handle(
+            fixture.Choose(true, "protected-option", 6_000, "choose-original-0001"),
+            default);
+        ReserveCurrentShipment(fixture.Transaction);
+        await fixture.ChooseHandler.Handle(
+            fixture.Choose(false, null, null, "change-reserved-0001"), default);
+        fixture.Provider.ResetCalls();
+
+        await Assert.ThrowsAsync<DomainException>(() => fixture.ChooseHandler.Handle(
+            fixture.Choose(true, "protected-option", 6_000,
+                "change-reserved-0001"), default));
+
+        Assert.Equal(0, fixture.Provider.AvailabilityCalls);
+        Assert.Equal(0, fixture.Provider.ValidateCalls);
+        Assert.Single(fixture.Transaction.ParcelProtectionChangeRequests);
+        Assert.Single(fixture.Transaction.ShippingOperations,
+            operation => operation.OperationType == ShippingOperationType.CancelOutbound);
+    }
+
+    [Fact]
     public async Task Buyer_checkout_annex_evidence_is_append_only()
     {
         await using var fixture = await Fixture.CreateAsync(450_000);
@@ -311,6 +406,68 @@ public sealed class ParcelProtectionCheckoutTests
         public ValueTask DisposeAsync() => Database.DisposeAsync();
     }
 
+    private static SaleTransaction CreateAcceptedTransaction(long priceSatang)
+    {
+        var transaction = TestTransactionFactory.CreateBuyerOffer(
+            Guid.NewGuid(), "ผู้ซื้อทดสอบ", "0800000000",
+            FulfillmentType.PhysicalShipment, "กล้อง", "กล้องพร้อมเลนส์",
+            ConditionCode.UsedGood, "ไม่มี", null, priceSatang, "terms-v1", Now,
+            new TransactionTransitionService());
+        var quote = new AcceptedShippingQuote(
+            TestTransactionFactory.ShippingOriginAddress,
+            TestTransactionFactory.DeliveryProvinceName,
+            TestTransactionFactory.DeliveryPostalCode, 1_200, 20, 30, 15,
+            "development-shipping", "quote-001", "THAIPOST", "EMST", "EMS",
+            5_000, 0, 0, null, Now.AddHours(2),
+            TestTransactionFactory.DeliveryDistrictName,
+            TestTransactionFactory.DeliverySubdistrictName,
+            OriginAddressLine: TestTransactionFactory.ShippingOriginAddress);
+        transaction.AcceptBuyerOffer(Guid.NewGuid(), "ผู้ขายทดสอบ", "0811111111",
+            "KBANK", "ผู้ขายทดสอบ", "1234567890", true, Now,
+            new TransactionTransitionService(), 0, 0, priceSatang, "fee-v1", quote);
+        return transaction;
+    }
+
+    private static void ReserveCurrentShipment(SaleTransaction transaction)
+    {
+        var shipment = transaction.CurrentOutboundShipment!;
+        var booking = Assert.Single(transaction.ShippingOperations);
+        booking.Claim("worker-a", Now.AddMinutes(2), TimeSpan.FromMinutes(5));
+        shipment.RecordReservation("purchase-001", "provider-001", null,
+            Now.AddMinutes(2));
+        booking.Succeed("worker-a", "purchase-001", "provider-001",
+            Now.AddMinutes(2));
+    }
+
+    private sealed class RelationalDatabase : IAsyncDisposable
+    {
+        private readonly SqliteConnection anchor;
+        private readonly DbContextOptions<ToklongDbContext> options;
+
+        private RelationalDatabase(SqliteConnection anchor,
+            DbContextOptions<ToklongDbContext> options)
+        {
+            this.anchor = anchor;
+            this.options = options;
+        }
+
+        public static async Task<RelationalDatabase> CreateAsync()
+        {
+            var connectionString = $"Data Source={Guid.NewGuid():N};Mode=Memory;Cache=Shared";
+            var anchor = new SqliteConnection(connectionString);
+            await anchor.OpenAsync();
+            var options = new DbContextOptionsBuilder<ToklongDbContext>()
+                .UseSqlite(connectionString).Options;
+            await using var context = new ToklongDbContext(options);
+            await context.Database.EnsureCreatedAsync();
+            return new RelationalDatabase(anchor, options);
+        }
+
+        public ToklongDbContext CreateContext() => new(options);
+
+        public ValueTask DisposeAsync() => anchor.DisposeAsync();
+    }
+
     private sealed class MutableClock(DateTimeOffset now) : IClock
     {
         public DateTimeOffset Now { get; set; } = now;
@@ -348,6 +505,12 @@ public sealed class ParcelProtectionCheckoutTests
                     StringComparison.Ordinal))
                 throw new DomainException("ตัวเลือกความคุ้มครองไม่ถูกต้อง");
             return Task.FromResult(Option);
+        }
+
+        public void ResetCalls()
+        {
+            AvailabilityCalls = 0;
+            ValidateCalls = 0;
         }
     }
 }
