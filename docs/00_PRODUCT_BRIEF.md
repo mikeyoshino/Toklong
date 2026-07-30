@@ -38,15 +38,18 @@ For the seller:
 - Open a buyer-created offer, see the expected net payout and exact conditions, and accept without re-entering information that is already correct.
 - For a physical item, reuse one saved shipping origin, enter the parcel weight
   and dimensions, compare an authoritative shipping quote, and lock the selected
-  service before accepting.
+  service before accepting. The seller does not see the buyer's optional
+  parcel-protection choice, price, coverage limit, or provider details.
 - Fulfill only after payment is truly confirmed.
 - Add one tracking number for physical goods, or record a digital handoff without exposing credentials, and see the exact payout condition.
 
 For the buyer:
 
 - Review a frozen description, condition, any supplied photos, item price,
-  shipping charge, parcel-insurance fee, Buyer Protection fee, buyer total, and
-  deadline before paying.
+  shipping charge, Buyer Protection fee, the final buyer-only parcel-protection
+  charge when elected, buyer total, and deadline before paying. When an optional
+  protection choice is available, the buyer sees one combined price and the
+  disclosed maximum only on that choice surface.
 - Track physical shipment or review a digital handoff from the same transaction page.
 - Confirm receipt/handoff or report a problem before payout.
 
@@ -80,10 +83,14 @@ approval.
    before the seller reviews the offer. Only the authenticated matching seller
    can confirm or decline it. Before accepting a physical offer, the seller
    supplies the shipping origin and parcel measurements and selects a quoted
-   service. Acceptance reserves that exact provider shipment without charging
-   it yet. Before paying, the buyer sees the same item, locked address, item
-   price, shipping charge, parcel-insurance fee, Buyer Protection fee, buyer
-   total, payout trigger, and dispute deadline.
+   service. Seller acceptance freezes those delivery facts only; it neither
+   selects nor books buyer parcel protection. At checkout, the system skips the
+   protection question when included coverage applies, otherwise asks the buyer
+   once to accept or decline the optional add-on. It durably records that
+   election, completes a matching unconfirmed shipment booking, and only then
+   creates a PaymentIntent. Before paying, the buyer sees the same item, locked
+   address, item price, shipping charge, any final buyer-only protection charge,
+   Buyer Protection fee, buyer total, payout trigger, and dispute deadline.
 3. A seller never receives a “ship now” signal from an unverified payment state.
    After payment confirmation, the system confirms the reserved shipment and
    gives the seller its carrier tracking number and printable label.
@@ -108,8 +115,10 @@ approval.
 - Item/right already in the seller's possession or control, with a valid right to transfer.
 - Physical: domestic shipment through a supported carrier with a shipping
   service selected before seller acceptance and machine-verifiable tracking
-  events. For the production SHIPPOP path, booking confirmation, tracking, and
-  label creation are managed by TOKLONG rather than typed by the seller.
+  events. A selected service and seller acceptance are not a provider booking.
+  Booking, tracking, and label creation are provider-managed only for a
+  separately certified and enabled service; current SHIPPOP production flags
+  remain off.
 - Digital: handoff outside secret-bearing transaction fields; payout requires buyer confirmation or authorized manual review and has no time-based auto-release.
 - One payment and one payout.
 - Amount denominated in THB.
@@ -147,7 +156,11 @@ Excluded until explicitly reviewed:
 6. **Immutable paid facts.** The item snapshot at checkout must remain available for later reference.
 7. **Human accountability for disputes.** AI assists, humans decide binding outcomes.
 8. **Acceptance before collection.** A buyer-created proposal is not payable until the authenticated seller has accepted the final material terms and completed the required eligibility checks.
-9. **No indefinite waiting.** The seller has 24 hours to respond. After
+9. **Buyer-only optional protection.** The buyer alone may choose an available
+   parcel-protection add-on after seller acceptance. Disclose one combined
+   price and the maximum coverage only at that choice; no selection, durable
+   booking, or PaymentIntent is created from seller acceptance alone.
+10. **No indefinite waiting.** The seller has 24 hours to respond. After
    acceptance, the buyer has one hour to complete provider-confirmed payment.
    Both screens show the exact deadline, and an unpaid expired offer does not
    authorize fulfillment.

@@ -107,9 +107,11 @@ Items below require explicit product, operations, legal, payment-provider, logis
 ## Fees and taxes
 
 - Implemented working rule: for physical offers the buyer pays item price plus
-  the shipping charge selected before seller acceptance; seller expected net is
-  item price minus the disclosed platform fee. Legal, tax, provider, and final
-  commercial approval of this allocation remains required.
+  the shipping charge selected before seller acceptance and, only when elected,
+  the buyer-only combined parcel-protection price. Seller expected net remains
+  item price minus the disclosed platform fee; neither buyer charge is seller
+  proceeds. Legal, tax, provider, and final commercial approval of this
+  allocation remains required.
 - Buyer fee, seller fee, or mixed fee model beyond that working shipping
   allocation.
 - VAT treatment and invoicing party.
@@ -123,17 +125,20 @@ Items below require explicit product, operations, legal, payment-provider, logis
 - Implemented: SHIPPOP is the production adapter boundary. The seller supplies
   one saved-or-new Thai origin and
   transaction-specific parcel weight/dimensions, requests a quote, and locks one
-  carrier/service before accepting. The transaction freezes separate item
-  price, shipping charge, parcel-insurance fee, declared value, buyer total,
-  seller origin, package, and quote metadata. Quote validation is server-side
-  and the paid tracking carrier cannot silently change.
-- Implemented: seller acceptance commits an immutable managed-shipment intent
-  and `BookOutbound` operation first. The Worker creates an unconfirmed SHIPPOP
-  booking; only a matching provider result starts the one-hour payment window.
-  Verified payment queues `ConfirmOutbound`, which allocates tracking and
-  enables a 4×6 label. The Worker polls tracking and maps SHIPPOP `shipping` to
-  in-transit and trusted `complete`/POD to delivered. Provider-managed
-  transactions have no manual tracking entry.
+  carrier/service before accepting. Seller acceptance freezes these delivery
+  facts only. Weight plus width, length, and height remain required until
+  account-specific evidence certifies different provider fields/units. Quote
+  validation is server-side and the paid tracking carrier cannot silently
+  change.
+- Implemented: after seller acceptance, the buyer alone prepares, accepts, or
+  declines optional parcel protection. The durable buyer annex records the
+  election and internal split; buyer presentation exposes only the combined
+  price and maximum at choice, while seller projections expose none of it. The
+  Worker revalidates a selected option and creates the matching unconfirmed
+  booking before PaymentIntent creation. That booking does not alter the
+  one-hour payment deadline. Verified payment queues `ConfirmOutbound`, which
+  allocates tracking and enables a 4×6 label. Provider-managed transactions
+  have no manual tracking entry.
 - Implemented security decision: do not consume SHIPPOP callbacks because the
   documented webhook payload has no verifiable signature. Use server-side
   polling until SHIPPOP supplies and contractually documents an authenticated,
@@ -151,12 +156,14 @@ Items below require explicit product, operations, legal, payment-provider, logis
   timestamp enters review and cannot start the 72-hour window.
 - Approved production design: launch is drop-off only. `EMST`, `FLE`, `KRYX`,
   and `KRYS` remain individually disabled until account-specific certification
-  proves drop-off, full-value insurance, cancellation, tracking/POD, label,
-  duplicate, and rate-limit behavior.
-- Approved production design: shipping and parcel-insurance charges are
-  separate buyer-funded amounts and are not seller proceeds. TOKLONG absorbs
-  post-payment surcharge from operational reserve without mutating the paid
-  snapshot or seller net.
+  proves quote, booking, confirmation, cancellation, tracking/POD, label,
+  duplicate/replay, rate-limit, protection availability/limits/terms, and
+  parcel-field/unit behavior. Checked-in flags stay off until this evidence is
+  recorded.
+- Approved production design: optional protection is buyer-funded only when
+  elected; no full-value coverage is assumed. Provider cost and TOKLONG fee
+  split are internal. TOKLONG absorbs post-payment surcharge from operational
+  reserve without mutating the paid snapshot or seller net.
 - Approved production design: carrier exceptions and insurance claims enter
   authorized CRM review and block automatic payout/refund. An approved return
   creates a distinct provider-managed return shipment; TOKLONG advances return
@@ -177,8 +184,10 @@ Items below require explicit product, operations, legal, payment-provider, logis
 - Provider launch blocker: confirm how to cancel an unconfirmed booking without
   a courier tracking code and whether such bookings naturally expire.
 - Provider launch blocker: certify the trusted delivery status and timestamp,
-  enabled drop-off behavior, rate limits, insurance code/coverage/unit,
-  surcharge fields, and claims SLA separately for each service.
+  enabled drop-off behavior, rate limits, add-on field names, included/maximum
+  limits, integer-satang price units, terms/code, post-election exact booking,
+  lookup/replay, cancellation before first scan, surcharge fields, claims SLA,
+  and required parcel fields/units separately for each service.
 - Confirm per carrier whether a counter may scan the provider barcode directly
   from a phone screen, whether a printed 4×6 label remains mandatory, and
   whether SHIPPOP exposes an authenticated counter QR or branch-locator
@@ -187,10 +196,13 @@ Items below require explicit product, operations, legal, payment-provider, logis
 - Handling of pickup points, locker delivery, recipient refusal, failed delivery, return-to-sender, and carrier status correction.
 - Decided for MVP: ship-by is fixed at 72 hours after provider-confirmed payment and is not user-configurable.
 - Whether same-day/local courier deliveries are supported.
-- Approved insurance baseline: every enabled service must cover the full
-  supported item value and disclose a separate buyer-funded premium. Provider
-  codes, value units/rounding, coverage limits, exclusions, and claims SLA
-  remain per-service certification gates.
+- Optional-protection launch blocker: do not enable a service until the
+  account-specific SHIPPOP evidence confirms add-on field names, included and
+  maximum limits, integer-satang price units, terms/code, post-election booking
+  support, and safe replay/lookup. If the provider cannot return a separable
+  option after buyer election, leave optional protection disabled and use only
+  any certified included coverage. No full-value coverage assumption is
+  approved.
 
 ### Seller Protection and failed delivery
 

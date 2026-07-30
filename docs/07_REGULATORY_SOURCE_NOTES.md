@@ -10,6 +10,10 @@ Product implication:
 
 - A separate visible “sign contract” step is not inherently required merely because the transaction is electronic.
 - The system should preserve the transaction snapshot, terms version, identities/attribution method, and timestamps in a reliable form.
+- For optional parcel protection, retain the buyer's election, the combined
+  disclosed price, applicable limit, terms version, quote/expiry, and a
+  canonical buyer checkout-annex acceptance record. The seller's prior delivery
+  acceptance is not evidence of that later buyer election.
 - The final legal design and evidentiary method require Thai legal review.
 
 Official source:
@@ -25,6 +29,10 @@ Product implication:
 - Conditional release and escrow-related structures are regulated/structured concepts, not merely marketing labels.
 - Do not assume the application can receive, hold, or release customer money directly.
 - Use a payment partner and obtain written confirmation of the supported fund flow and permitted copy before launch.
+- Describe an optional parcel-protection price as a buyer choice with versioned
+  terms and disclosed maximum, not as TOKLONG insurance, a TOKLONG guarantee,
+  or escrow. Do not claim a carrier or provider benefit until the account-
+  specific capability and terms are certified.
 
 Official source:
 
@@ -39,6 +47,11 @@ Product implication:
 - Even though TOKLONG is not a discovery marketplace, its role as an intermediary in a goods transaction may still require digital-platform-service analysis.
 - Supporting transferable digital accounts, items, or rights may introduce additional platform-contract, consumer-protection, cybersecurity, and fraud obligations; each launch category requires legal and provider review.
 - Terms, fees, complaint channels, dispute timing, and prohibited-goods actions should be explicit before launch.
+- Before payment, the buyer must see any optional-protection combined price,
+  maximum, and a route to its exclusions/terms at the point of choice. Retain
+  the accepted terms version and buyer annex evidence for the transaction;
+  seller-facing views must not disclose that buyer-only price or internal
+  accounting split.
 - Determine notification/reporting obligations based on the actual company, revenue, users, contractual relationships, and service design.
 
 Official source:

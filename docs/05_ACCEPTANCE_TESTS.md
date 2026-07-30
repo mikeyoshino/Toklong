@@ -404,12 +404,13 @@ not for the normal reload performed when the page appears.
 **And** both buyer and seller modes order transactions by creation time from
 newest to oldest, including after refresh and within each status filter.
 
-### A0.1 — Seller acceptance enables buyer checkout
+### A0.1 — Seller acceptance enables buyer checkout preparation
 
 **Given** a buyer-created offer in `AWAITING_SELLER_ACCEPTANCE`
 **When** the authenticated eligible seller reviews the buyer-specified record, completes only payout/attestations, and accepts
 **Then** the transaction moves to `SELLER_ACCEPTED_AWAITING_PAYMENT`
-**And** the buyer is notified to review the same unchanged terms and pay
+**And** the buyer is notified to review the same unchanged seller-accepted
+terms and prepare the buyer-only parcel-protection outcome before payment
 **And** the seller is not told that payment has completed
 **And** the server stores a valid agreement-core and terms hash
 **And** for a physical offer the core includes the destination province and
@@ -420,8 +421,9 @@ seller ID, verified-phone session, terms version, and server time.
 ### A0.1.1 — Both parties accept the same immutable agreement core
 
 **Given** the authenticated seller accepted a buyer-created offer
-**When** the authenticated buyer reviews it unchanged and accepts before
-checkout
+**When** the authenticated buyer reviews its unchanged agreement core, records
+the applicable buyer-only parcel-protection outcome, and accepts after the
+matching durable booking is ready
 **Then** exactly one seller and one buyer acceptance exist
 **And** both reference the same agreement-core and terms hashes
 **And** each actor ID and acceptance time matches the corresponding transaction
@@ -454,7 +456,8 @@ once
 **And** no address field or saved-address choice is accepted by checkout
 **And** changing the address requires a new offer
 **And** the buyer sees item price, buyer-protection fee, shipping charge,
-parcel-insurance fee, and exact total before payment
+final buyer-only parcel-protection price when elected, and exact total before
+payment
 **And** confirmation and the exact-total payment action follow that breakdown
 without a separate pre-payment card
 **And** seller offer and seller transaction views do not show the
@@ -462,13 +465,20 @@ buyer-protection amount or buyer total
 **And** seller views still show applicable shipping information and exact
 expected net payout.
 
-**Given** a material field, party identity, fee, deadline, or normalized terms
-changes after seller acceptance
+**Given** a seller-accepted agreement-core field, party identity, delivery
+quote, deadline, or normalized terms changes after seller acceptance
 **When** the buyer attempts to accept or pay
 **Then** checkout is rejected before creating a buyer acceptance or payment
 object
 **And** the seller acceptance remains unchanged
 **And** the parties must use a new offer.
+
+**Given** only the buyer-only parcel-protection price, limit, expiry, or terms
+changes after seller acceptance and before payment
+**When** the Worker revalidates the option
+**Then** the prior election is superseded and buyer reconfirmation is required
+**And** the existing seller acceptance and payment deadline remain unchanged
+**And** no PaymentIntent is created until replacement booking succeeds.
 
 ### A0.2 — Buyer cannot pay before seller acceptance
 
@@ -601,10 +611,9 @@ only provider quote options matching those inputs
 **And** a later save replaces that profile origin
 **And** the accepted transaction retains its own origin, package, quote,
 carrier/service, and shipping-fee snapshot
-**And** the production SHIPPOP path creates an unconfirmed booking for the
-exact transaction with `force_confirm=0`
-**And** the returned fee, carrier, and service must match the selected quote
-**And** no fulfillment action or paid status is exposed.
+**And** seller acceptance freezes delivery only; it creates neither a parcel-
+protection election nor a provider booking
+**And** no fulfillment action, paid status, or PaymentIntent is exposed.
 
 **Given** a saved seller origin exists
 **When** another physical offer opens
@@ -618,15 +627,94 @@ ends
 **When** the seller attempts acceptance
 **Then** acceptance is rejected and a new quote is required.
 
+### B0.2 — Buyer-only optional parcel protection is elected and booked before payment
+
+**Given** an accepted physical offer whose item price is within the certified
+included coverage limit
+**When** the buyer starts payment preparation
+**Then** no choice is shown and no parcel-protection charge is added
+**And** the system records the included-only outcome, creates the matching
+durable booking, and does not create a PaymentIntent until that booking is ready.
+
+**Given** an accepted physical offer above the included limit with a certified
+available add-on
+**When** the buyer starts payment preparation
+**Then** the buyer sees one choice surface with the disclosed maximum and one
+combined price
+**And** the buyer may accept the add-on or explicitly decline it
+**And** neither provider cost, TOKLONG fee split, provider identity, address,
+nor option reference is exposed to the buyer UI or any seller projection.
+
+**When** the buyer accepts
+**Then** the final buyer total includes exactly the disclosed combined price
+**And** the verified Stripe amount must equal that final integer-satang total.
+
+**When** the buyer declines
+**Then** the final buyer total contains no optional-protection charge
+**And** the result remains buyer-only and does not alter seller net.
+
+**Given** an over-limit offer whose add-on is unavailable or uncertified
+**When** the buyer continues
+**Then** no charge or coverage claim is created
+**And** the buyer can proceed only with the disclosed available outcome.
+
+**Given** the buyer closes a required choice without deciding
+**When** the buyer tries payment again
+**Then** the same choice appears once again
+**And** no election, booking, or PaymentIntent was created by closing it.
+
+**Given** a buyer election whose price, selected/included limit, expiry, or
+terms changes before booking
+**When** revalidation runs
+**Then** the old booking operation is superseded before provider mutation
+**And** the buyer must reconfirm before a new booking or PaymentIntent.
+
+**Given** a matching durable booking completes before the existing payment
+deadline
+**When** the buyer prepares payment
+**Then** PaymentIntent creation is allowed without extending that deadline.
+
+**Given** booking fails, times out, is unknown, or returns a mismatch
+**When** payment preparation is requested
+**Then** no PaymentIntent is created and the outcome is auditable.
+
+**Given** a buyer changes a stored election before a PaymentIntent exists
+**When** an outbound booking is already reserved
+**Then** the prior booking is durably cancelled before the replacement is booked
+**And** historical attempts remain queryable
+**And** payment remains blocked through cancel-and-rebook.
+
+**Given** a seller or another buyer requests parcel-protection data
+**When** the API or transaction projection is read or written
+**Then** access is forbidden and no annex price, limit, terms, option, booking,
+or change-request value is disclosed.
+
+**Given** the buyer is offered, accepts, declines, changes, or finds optional
+protection unavailable
+**When** checkout presentation records analytics
+**Then** only the approved coarse event and, for acceptance, the combined
+customer price are emitted
+**And** no address, phone, provider reference, raw quote, terms text, or
+credential-shaped key is emitted
+**And** `parcel_protection_checkout_converted` may be recorded only after
+PaymentSheet completion and never marks payment successful.
+
+**Given** checked-in SHIPPOP production configuration
+**Then** quote, booking, confirmation, return, insurance, and optional-
+protection capabilities remain disabled until account-specific certification
+evidence passes
+**And** parcel weight plus width, length, and height remain required until the
+certified provider field/unit evidence says otherwise.
+
 ### B1 — Buyer sees material terms before payment
 
 **Given** an active link
 **When** the buyer opens checkout
 **Then** the buyer sees any supplied agreement photos, the frozen agreement
 description including represented condition and defects, item price, shipping
-charge, parcel-insurance fee and declared value, Buyer Protection fee, buyer
-total, selected service, ship-by deadline, payout trigger, dispute window, and
-terms version before confirming payment
+charge, Buyer Protection fee, final optional parcel-protection price when
+elected, buyer total, selected service, ship-by deadline, payout trigger,
+dispute window, and terms version before confirming payment
 **And** the buyer-funded fee uses `buyer-protection-v2` marginal tiers: the
 first 5,000 THB at 4%, the portion through 15,000 THB at 3.5%, and the portion
 through 30,000 THB at 3%, with a 59 THB minimum and one final round-up to satang
@@ -635,7 +723,7 @@ through 30,000 THB at 3%, with a 59 THB minimum and one final round-up to satang
 **And** a normal application command rejects an item price above the active
 30,000 THB Pilot limit even though the domain technical boundary is 999,999 THB
 **And** the seller-funded platform fee is zero and seller expected net equals
-item price, without adding buyer-paid shipping, parcel insurance, or Buyer
+item price, without adding buyer-paid shipping, parcel protection, or Buyer
 Protection fee
 **And** a full refund uses the complete buyer total including that fee.
 
@@ -660,7 +748,8 @@ account screen before payment
 **Given** a physical transaction has item price and a locked shipping quote
 **When** PaymentSheet is prepared or a payment/refund webhook is validated
 **Then** the expected amount equals item price plus shipping charge plus
-parcel-insurance fee plus Buyer Protection fee in integer satang
+Buyer Protection fee plus the final buyer-elected parcel-protection price in
+integer satang
 **And** an event for item price alone is rejected as an amount mismatch.
 
 ### B3 — Verified payment enables shipment
@@ -669,13 +758,13 @@ parcel-insurance fee plus Buyer Protection fee in integer satang
 **When** the webhook signature and idempotency checks pass
 **Then** the transaction moves to `PAID_AWAITING_SHIPMENT` once
 **And** an immutable paid snapshot exists
-**And** it contains separate item price, shipping charge, parcel-insurance fee,
-buyer total, seller-origin snapshot, package measurements, declared value, and
-selected quote/service
+**And** it contains separate item price, shipping charge, buyer-only parcel-
+protection outcome/price, buyer total, seller-origin snapshot, package
+measurements, and selected quote/service
 **And** its normalized product and terms documents each match their stored SHA-256 hash
 **And** the snapshot seal time equals the authoritative provider confirmation time
-**And** the shipping Worker confirms the exact reserved SHIPPOP purchase
-idempotently
+**And** the shipping Worker confirms the exact reserved certified-provider
+purchase idempotently
 **And** the seller receives the provider-issued tracking number, label action,
 and exact ship-by notification
 **And** the seller cannot replace the managed tracking number manually.
@@ -818,13 +907,15 @@ booking.
 remain empty
 **And** poll-observation time is not used as delivery time.
 
-### C1.8 — Insurance and post-payment adjustments preserve paid amounts
+### C1.8 — Optional protection and post-payment adjustments preserve paid amounts
 
-**Given** an enabled service quote includes full-value parcel insurance
-**When** the seller accepts and the buyer pays
-**Then** shipping and insurance are separate integer-satang snapshot amounts
-**And** the buyer total includes both
-**And** neither amount is seller proceeds.
+**Given** a certified service makes an optional parcel-protection add-on
+available after seller acceptance
+**When** the buyer accepts it and the exact booking is ready before payment
+**Then** the paid snapshot retains the final combined buyer price and immutable
+buyer annex evidence
+**And** the buyer total includes that price
+**And** it is not seller proceeds.
 
 **When** SHIPPOP later reports a fuel, remote, travel, island, weight, or other
 surcharge
@@ -1069,7 +1160,7 @@ ordered newest first
 
 **Given** payment is confirmed
 **When** the seller attempts to edit item price, shipping charge,
-parcel-insurance fee, declared value, origin/package snapshot, selected
+buyer-only parcel-protection outcome, origin/package snapshot, selected
 carrier/service, buyer total, condition, photos, defects, fulfillment deadline,
 or terms
 **Then** the paid snapshot remains unchanged

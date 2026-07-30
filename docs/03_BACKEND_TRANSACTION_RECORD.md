@@ -138,8 +138,9 @@ refund bank details.
 
 For physical offers, `proposed_item_price_satang` excludes shipping. Shipping
 is not buyer-authored: the intended seller selects a validated quote before
-acceptance, after which item price, shipping charge, parcel-insurance fee,
-declared value, and buyer total are frozen.
+acceptance, which freezes delivery facts only. The buyer-only optional
+parcel-protection election, final combined charge, and buyer total are created
+after acceptance and before PaymentIntent creation.
 The domain accepts no item price above the absolute 999,999 THB technical
 boundary. The application independently enforces the lower active commercial
 maximum from the versioned fee policy before storing the offer. Supporting the
@@ -204,17 +205,17 @@ agreement_core_snapshot_hash
 agreement_core_snapshot_created_at
 terms_snapshot_json
 terms_snapshot_hash
-agreement_core_schema_version = 7 (inside JSON)
+agreement_core_schema_version = 11 (inside JSON)
 buyer_id
 seller_id
 buyer_and_seller_display_identity
 item_description_condition_defects_and_optional_photo
-item_price_shipping_fee_parcel_insurance_fee_buyer_total_platform_fee_seller_net_and_currency
+item_price_shipping_fee_buyer_protection_fee_platform_fee_seller_net_and_currency
 fulfillment_type_and_duration
 delivery_province_name_and_postal_code_for_physical_goods
 origin_province_name_and_postal_code_for_physical_goods
 package_weight_and_dimensions_for_physical_goods
-shipping_quote_provider_reference_expiry_carrier_service_insurance_and_declared_value
+shipping_quote_provider_reference_expiry_carrier_and_service
 inspection_or_digital_release_rules
 terms_and_fee_policy_versions
 seller_accepted_at
@@ -252,6 +253,58 @@ nor reusable authentication credentials. There is no update method for an
 acceptance, and the persistence layer rejects `Modified` or `Deleted`
 acceptance entries. Corrections require a new offer.
 
+### Buyer-only parcel-protection annex
+
+Seller acceptance neither writes nor displays this annex. The authenticated
+buyer creates it only in `SELLER_ACCEPTED_AWAITING_PAYMENT`; it is read and
+written only through buyer-authorized checkout commands. Every money value is
+integer satang. The persisted selection contains:
+
+```text
+election
+customer_price_satang
+provider_cost_satang
+toklong_service_fee_satang
+included_coverage_limit_satang
+selected_coverage_limit_satang
+protection_terms_version
+provider_option_reference
+quoted_at
+expires_at
+buyer_elected_at
+```
+
+`provider_cost_satang` and `toklong_service_fee_satang` are internal accounting
+fields. The buyer sees only the combined `customer_price_satang`, and only at
+the choice surface, together with the disclosed maximum. The seller sees none
+of these annex values. A declined, unavailable, or included-only outcome has a
+zero customer price and no provider option reference. Unavailable never means
+or implies zero included coverage.
+
+The election is immutable once checkout begins. Before that point, a buyer
+change supersedes an unmutated booking intent, or durably cancels a reserved
+attempt before a replacement is booked. Previous attempts and change requests
+remain auditable. A pending, unknown, or review-needed provider mutation blocks
+both a change and PaymentIntent creation.
+
+The immutable audit trail records the buyer-safe lifecycle with sanitized
+events: `parcel_protection.offered`, `parcel_protection.unavailable`, elected
+outcomes, `parcel_protection.reconfirmation_required`,
+`parcel_protection.booking_succeeded`, `parcel_protection.booking_outcome`,
+and `parcel_protection.changed`. Booking-outcome audit metadata contains no
+raw address, provider credential, or provider response. These audit events
+record authorization and state evidence; they never make payment, refund, or
+payout successful.
+
+Mobile analytics are coarse and non-sensitive: `parcel_protection_offered`,
+`parcel_protection_accepted` (combined customer price only),
+`parcel_protection_declined`, `parcel_protection_unavailable`,
+`parcel_protection_changed`, `parcel_protection_price_changed`, and
+`parcel_protection_checkout_converted`. Analytics contain no address, phone,
+provider reference, quote, terms text, or credential-shaped key.
+`parcel_protection_checkout_converted` means only that PaymentSheet reported
+completion; provider-confirmed payment still requires the verified webhook.
+
 ### Private fulfillment annex and paid transaction snapshot
 
 For a physical offer, the private full-delivery-address annex is created and
@@ -259,10 +312,10 @@ locked with the offer before seller acceptance. When the seller accepts, a
 private full-origin snapshot and the selected shipping quote are also locked.
 Only resolved province/postal values, parcel measurements, carrier/service,
 quote metadata, and shipping charge enter the shared core; street-level origin
-and destination remain private fulfillment data. The parcel-insurance fee,
-insurance code, and declared value also enter the shared core. After the buyer
-accepts the validated agreement core and the payment intent is established,
-the product
+and destination remain private fulfillment data. After the buyer has elected
+or recorded the applicable protection outcome, a Worker creates and validates
+the matching unconfirmed booking. The buyer then accepts the validated core and
+the final buyer-only annex before the payment intent is established. The product
 snapshot references the shared core hash, both already-locked address records,
 and the buyer acceptance time. The full destination is not disclosed to the
 seller before provider-confirmed payment.
@@ -282,7 +335,7 @@ agreement_snapshot_created_at
 agreement_snapshot_sealed_at
 price_satang
 shipping_fee_satang
-parcel_insurance_fee_satang
+parcel_protection_customer_price_satang
 buyer_total_satang
 buyer_protection_fee_satang
 platform_fee_satang
@@ -304,12 +357,16 @@ shipping_quote_expires_at
 carrier_code
 shipping_service_code
 shipping_service_name
-shipping_insurance_code
-shipping_declared_value_satang
-shipping_purchase_reference
-shipping_provider_tracking_code
-shipping_courier_tracking_code_or_null
-shipping_reserved_at
+parcel_protection_election
+parcel_protection_provider_cost_satang
+parcel_protection_service_fee_satang
+parcel_protection_included_coverage_limit_satang
+parcel_protection_selected_coverage_limit_satang
+parcel_protection_terms_version
+parcel_protection_option_reference
+parcel_protection_quoted_at
+parcel_protection_expires_at
+parcel_protection_buyer_elected_at
 ship_by_at
 inspection_window_duration_hours
 terms_version
@@ -321,33 +378,27 @@ initiator_role
 created_at
 ```
 
-Snapshot schema version 9 retains version 8 and adds the exact buyer-funded
-parcel-insurance fee, insurance code, declared value, and managed-shipment
-reference. The current aggregate uses the same schema number for its
-agreement-core and paid-product documents, so new agreement cores also use
-version 9. Version 8 remains readable with no invented insurance coverage.
+Snapshot schema version 11 adds a single append-only buyer checkout-annex
+acceptance record. Its canonical payload binds the product-snapshot hash,
+currency, final integer-satang buyer total, election, combined price, internal
+cost fields, coverage limits, terms, quote/expiry, and buyer-election time; its
+SHA-256 hash is retained in a buyer checkout audit event. It contains no
+address, account, or provider credentials. Schema 11 requires this valid annex
+evidence for financial progression.
 
-Snapshot schema version 8 retains version 7's shipping and managed-booking
-fields and adds the exact buyer-funded Buyer Protection fee to the immutable
-agreement core, product snapshot, and retained financial record. Version 7
-remains readable with an implicit historical value of zero.
+Snapshot schema version 10 remains readable and progresses under its prior
+validation rules; it is never backfilled with fabricated buyer-annex evidence.
+Earlier schemas remain historical records. No schema version permits seller
+acceptance to stand in for the buyer's later election or booking result.
 
-Snapshot schema version 7 retains version 6's separate shipping fee, buyer
-total, package, and quote/service fields and adds structured private origin and
-destination address parts plus the unconfirmed provider-booking references
-created at seller acceptance. The shared agreement core still contains only
-province/postal disclosure for each address; street, district, and subdistrict
-remain in the private fulfillment/product snapshot. Version 7 binds the
-provider purchase/tracking references and reservation time without presenting
-them as consumer-facing contract jargon.
-
-It retains version 5's optional photo as its managed reference or explicit
-`null`, and version 4's rule that the private physical address is locked at
-offer creation. Seller acceptance creates the core and terms documents; buyer
-acceptance creates the checkout/product document referencing the pre-locked
-fulfillment annex; provider-confirmed payment seals it. A missing acceptance,
-actor mismatch, shared-hash mismatch, or content/hash mismatch blocks payment
-confirmation and subsequent financial release.
+The record retains version 5's optional photo as its managed reference or
+explicit `null`, and version 4's rule that the private physical address is
+locked at offer creation. Seller acceptance creates the core and terms
+documents; buyer election and matching booking precede buyer checkout
+acceptance; provider-confirmed payment seals the snapshot. A missing
+acceptance, actor mismatch, shared-hash mismatch, missing v11 annex evidence,
+or content/hash mismatch blocks payment confirmation and subsequent financial
+release.
 
 Schema versions 1–6 remain readable for historical paid records. Existing rows
 must never be assigned invented acceptances, delivery addresses, delivery

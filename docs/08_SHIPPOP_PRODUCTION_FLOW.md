@@ -7,12 +7,12 @@
 ## Capability gate
 
 - `EMST`, `FLE`, `KRYX` และ `KRYS` ปิดแยกกันเป็นราย capability ตั้งแต่
-  quote, outbound booking, confirm, return และ insurance
+  quote, outbound booking, confirm, return และ optional protection
 - เปิด capability ได้ต่อเมื่อมีผล certification ของบัญชีจริงและใส่
   `CertificationReference`
 - รองรับเฉพาะ `DropOff`
-- outbound booking ต้องมี operation lookup ที่พิสูจน์ผลเดิมได้ และมีประกัน
-  ตาม maximum ที่ provider รับรองสำหรับ account/service นั้น
+- outbound booking ต้องมี operation lookup ที่พิสูจน์ผลเดิมได้ และ optional
+  protection ต้องมี maximum ที่ provider รับรองสำหรับ account/service นั้น
 - API key, account email และ secret ต้องมาจาก secret storage เท่านั้น
   ห้ามใส่ใน source, migration, log, audit หรือ mobile response
 - endpoint ของ Production ต้องเป็น HTTPS เสมอ ส่วน HTTP ของ SHIPPOP Dev
@@ -39,20 +39,24 @@
 
 ## Outbound flow
 
-1. ผู้ขายเลือกบริการที่ยังไม่หมดอายุและมีวงเงินคุ้มครองตามที่รับรอง
-2. API บันทึก immutable shipment intent กับ `BookOutbound` ใน transaction
-   เดียวกัน แล้วตอบ `202 Accepted`
-3. ผู้ซื้อยังชำระไม่ได้ระหว่าง booking ค้างอยู่
-4. Worker claim งานด้วย lease และ idempotency key แล้วจึงเรียก SHIPPOP
-5. เมื่อผล provider ตรงกับ carrier, service, ค่าจัดส่ง, ค่าเบี้ย,
-   declared value และ insurance code ที่เลือกไว้ ระบบจึงบันทึก reservation
-   และเริ่มเวลาชำระ 1 ชั่วโมง
-6. payment-provider webhook ที่ตรวจลายเซ็นแล้วเท่านั้นที่ queue
+1. ผู้ขายเลือกบริการที่ยังไม่หมดอายุและยืนยันเฉพาะข้อมูลการจัดส่ง:
+   ต้นทาง น้ำหนัก ขนาด และบริการขนส่ง การยืนยันของผู้ขายไม่สร้าง booking
+   และไม่เลือกความคุ้มครองแทนผู้ซื้อ
+2. หลังผู้ขายยอมรับ ระบบตรวจ availability แล้วข้ามคำถามเมื่ออยู่ในวงเงิน
+   ที่รวมอยู่ หรือถามผู้ซื้อครั้งเดียวให้เพิ่มหรือไม่เพิ่ม optional add-on
+3. API บันทึก Buyer election และ immutable shipment intent กับ `BookOutbound`
+   ใน transaction เดียวกัน แล้วตอบ `202 Accepted`
+4. ผู้ซื้อยังชำระไม่ได้ระหว่าง booking ค้างอยู่
+5. Worker claim งานด้วย lease และ idempotency key, revalidate ราคา/วงเงิน/
+   terms/expiry ที่ผู้ซื้อเลือก แล้วจึงเรียก SHIPPOP
+6. เมื่อผล provider ตรงกับ carrier, service, ค่าจัดส่ง และ selection ที่
+   บันทึกไว้ ระบบจึงบันทึก reservation โดยไม่เปลี่ยน deadline ชำระเงิน
+7. payment-provider webhook ที่ตรวจลายเซ็นแล้วเท่านั้นที่ queue
    `ConfirmOutbound`
-7. label พร้อมแต่ยังไม่มี trusted scan แสดง “เตรียมจัดส่ง”
-8. trusted first scan แสดง “ขนส่งรับพัสดุแล้ว”
-9. trusted in-transit event แสดง “กำลังจัดส่ง”
-10. trusted delivered event ที่มีเวลาจาก carrier แสดง “ส่งถึงแล้ว” และเริ่ม
+8. label พร้อมแต่ยังไม่มี trusted scan แสดง “เตรียมจัดส่ง”
+9. trusted first scan แสดง “ขนส่งรับพัสดุแล้ว”
+10. trusted in-transit event แสดง “กำลังจัดส่ง”
+11. trusted delivered event ที่มีเวลาจาก carrier แสดง “ส่งถึงแล้ว” และเริ่ม
     inspection window 72 ชั่วโมงจากเวลานั้น
 
 ## Timeout and retry
@@ -100,9 +104,13 @@
 
 ## Consumer disclosure
 
-- ผู้ซื้อเห็นราคาสินค้า ค่าจัดส่ง ค่าประกัน ค่าคุ้มครอง และยอดรวมก่อนจ่าย
-- ผู้ขายเห็นราคาสินค้า ค่าจัดส่ง ค่าประกัน มูลค่าที่เอาประกัน และยอดรับสุทธิ
-  แต่ไม่เห็นค่าคุ้มครองผู้ซื้อหรือยอดรวมฝั่งผู้ซื้อ
+- ผู้ซื้อเห็นราคาสินค้า ค่าจัดส่ง ค่าคุ้มครองผู้ซื้อ และยอดรวมก่อนจ่าย
+  เมื่อมี optional parcel protection ให้แสดง maximum กับราคา combined เพียง
+  ในหน้าที่เลือกเท่านั้น; summary แสดงได้เฉพาะค่ารวมสุดท้าย ห้ามแสดงชื่อ
+  SHIPPOP, provider cost หรือ TOKLONG fee split
+- ผู้ขายเห็นราคาสินค้า ค่าจัดส่ง และยอดรับสุทธิเท่านั้น ห้ามเห็น Buyer
+  Protection, parcel-protection election, price, limit, provider option หรือ
+  ยอดรวมฝั่งผู้ซื้อ
 - mobile refresh อ่านข้อมูลจากฐานข้อมูลเท่านั้น ห้ามทำให้เกิด SHIPPOP mutation
   หรือ tracking poll
 
@@ -110,8 +118,9 @@
 
 ฝั่ง application ที่ทำเสร็จและทดสอบแล้ว:
 
-- signed quote รุ่น `sp2` ผูกค่าขนส่ง ค่าเบี้ย มูลค่าประกัน insurance code,
-  service, parcel, ต้นทาง/ปลายทาง และเวลาหมดอายุ
+- signed quote รุ่น `sp2` ผูกค่าขนส่งและ provider protection tuple ภายในเมื่อ
+  ได้รับการรับรอง (price/limit/code), service, parcel, ต้นทาง/ปลายทาง และเวลา
+  หมดอายุ; ไม่มีข้อสันนิษฐานว่าคุ้มครองเต็มมูลค่า
 - timeout, HTTP error, response ผิดรูปแบบ หรือผล mutation ที่พิสูจน์ไม่ได้
   ถูกบันทึกเป็น `OutcomeUnknown`; Worker ไม่ยิง mutation ซ้ำ
 - Worker ตรวจ request fingerprint จาก immutable shipment intent ก่อนเรียก
@@ -144,5 +153,5 @@
 - weight และทุก dimension requirement/field/unit ที่ยืนยันโดย account จริง
 
 โค้ดจึงคง `EMST`, `FLE`, `KRYX`, `KRYS` และ optional parcel protection เป็น
-disabled-by-default และไม่สร้างค่าประกันหรือ provider contract ที่ SHIPPOP
-ยังไม่ได้ยืนยัน
+disabled-by-default และไม่สร้างราคา/วงเงิน/terms หรือ provider contract ที่
+SHIPPOP ยังไม่ได้ยืนยัน

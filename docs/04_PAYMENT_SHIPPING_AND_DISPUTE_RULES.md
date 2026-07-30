@@ -39,17 +39,19 @@
     reserve, legal, risk, and operations gates are approved. See
     `docs/17_PRICING_AND_TRANSACTION_LIMITS.md`.
 17. `buyer_total_satang = item_price_satang + shipping_fee_satang +
-    parcel_insurance_fee_satang + buyer_protection_fee_satang`. Provider
-    payment, full refund, evidence, and reconciliation use that exact buyer
-    total. The seller-funded platform fee is zero for new
-    `buyer-protection-v2` transactions, so
+    buyer_protection_fee_satang + parcel_protection_customer_price_satang`.
+    The final parcel-protection price is zero unless the buyer elected an
+    available add-on. Provider payment, full refund, evidence, and
+    reconciliation use that exact buyer total. The seller-funded platform fee
+    is zero for new `buyer-protection-v2` transactions, so
     `seller_expected_net_satang = item_price_satang`; buyer-paid shipping,
-    parcel insurance, and Buyer Protection fee are not added to seller
-    proceeds.
-18. The exact Buyer Protection fee, item price, shipping charge,
-    parcel-insurance fee and declared value, buyer total, seller expected net,
-    and policy version are frozen before checkout. A policy change requires the
-    unpaid offer to end and be recreated.
+    Buyer Protection, and parcel protection are not seller proceeds.
+18. Seller acceptance freezes the item and delivery facts, not a parcel-
+    protection election. After acceptance, the buyer is shown the optional
+    choice only when it is applicable; the selection, combined price, limits,
+    and terms are frozen only after the buyer elects and the exact booking is
+    ready. Changed price, limit, expiry, or terms requires reconfirmation; a
+    paid snapshot is never changed.
 
 ## Product snapshot and acceptance
 
@@ -57,8 +59,9 @@ Before payment, the buyer must be shown and accept the complete agreement record
 
 - Agreed item identity and any supplied agreement photos.
 - The frozen agreement description, including represented condition, included items, functionality, and known defects.
-- Item price, shipping charge, parcel-insurance fee, Buyer Protection fee, and
-  buyer total as separate integer-satang values.
+- Item price, shipping charge, Buyer Protection fee, final buyer-only
+  parcel-protection charge when elected, and buyer total as separate
+  integer-satang values.
 - Physical ship-by or digital handoff deadline.
 - Supported delivery method.
 - For physical goods, destination province and postal code visible to the
@@ -66,7 +69,8 @@ Before payment, the buyer must be shown and accept the complete agreement record
 - For physical goods, seller-origin province/postal code, parcel weight and
   dimensions, selected carrier/service, quote reference/expiry, and shipping
   charge. Full origin and destination street addresses remain private
-  fulfillment data.
+  fulfillment data. Until account-specific certification establishes other
+  requirements, weight and every dimension are mandatory.
 - Physical 72-hour inspection and payout-hold rule or digital no-auto-release rule.
 - The exact payout condition for the fulfillment type.
 - Prohibited-item and problem-reporting policy.
@@ -74,10 +78,12 @@ Before payment, the buyer must be shown and accept the complete agreement record
 
 Seller acceptance creates an immutable agreement-core hash and one append-only
 acceptance record tied to the authenticated seller account. Buyer checkout must
-recompute and validate that core, then append the buyer's acceptance of the same
-hash before creating a payment intent. Actor identity, verified-phone
-authentication method, terms hash/version, and server acceptance time are
-retained; OTP values are not.
+recompute and validate that core. Seller acceptance does not create a provider
+booking. The buyer must first make or resume the buyer-only protection election;
+the system then revalidates it and records an exact durable booking. Only a
+matching booking permits buyer acceptance and PaymentIntent creation. Actor
+identity, verified-phone authentication method, terms hash/version, and server
+acceptance time are retained; OTP values are not.
 
 For a physical item, destination province and postal code are part of the
 agreement core seen by the seller. The buyer supplies the full delivery address
@@ -111,23 +117,23 @@ The text and normalized snapshot must preserve what the buyer specified and the 
    replaces the prior value; the transaction always retains its own immutable
    origin snapshot. Package measurements are transaction-specific.
 3. A quote must match origin postal code, destination postal code, weight,
-   dimensions, disclosed fee, and provider reference. It must remain valid
-   through the one-hour buyer payment window. Any change or expiry requires a
-   new quote.
-4. Seller acceptance of a production SHIPPOP quote queues a durable booking
-   operation using `force_confirm=0`. The returned purchase reference, SHIPPOP
-   tracking
-   reference, any courier tracking reference, exact fee, and reservation time
-   are locked into snapshot schema version 9. A returned fee or
-   carrier/service mismatch rejects acceptance.
-5. The unconfirmed booking does not prove buyer payment and does not authorize
-   shipment. After a verified Stripe payment for
-   `item_price_satang + shipping_fee_satang +
-   parcel_insurance_fee_satang + buyer_protection_fee_satang`, the Worker
-   confirms that exact
-   SHIPPOP purchase. The resulting shipping charge is paid from the
-   buyer-funded shipping and insurance allocation and is never added to seller
-   proceeds.
+   dimensions, disclosed fee, and provider reference. Delivery facts are frozen
+   at seller acceptance, but no shipment is booked there. Any delivery-quote
+   change requires a new seller acceptance.
+4. After seller acceptance, checkout obtains the buyer-only protection
+   availability. Included coverage skips the prompt and charge; an over-limit
+   available add-on is accepted or explicitly declined once by the buyer.
+   The election and durable booking intent are idempotent. Before provider
+   mutation, the Worker revalidates elected price, included/selected limits,
+   option, terms, and expiry. A changed or expired option requires buyer
+   reconfirmation and no PaymentIntent.
+5. The matching unconfirmed booking records the exact carrier/service,
+   delivery quote, buyer election, and final price without changing the
+   seller-acceptance timestamp or one-hour payment deadline. Booking failure,
+   timeout, unknown outcome, or mismatch blocks PaymentIntent creation. After
+   verified payment for the exact final buyer total, the Worker confirms that
+   booking. Buyer-paid shipping and optional protection are never added to
+   seller proceeds.
 6. SHIPPOP supplies the courier tracking number and 4×6 HTML label. The seller
    may open, zoom, save, share, or print the label only after authenticated
    authorization and provider confirmation. The in-app preview disables
@@ -191,10 +197,15 @@ The text and normalized snapshot must preserve what the buyer specified and the 
     cleanup retries in the background and never extends the consumer deadline.
 19. Each enabled service is drop-off only and must pass account-specific
     certification for quote, booking, confirmation, cancellation, label,
-    tracking/POD timestamp, rate limit, insurance, and duplicate behavior.
-20. Every enabled service must carry approved insurance for the full supported
-    item value. Shipping and insurance fees are disclosed separately, frozen
-    before checkout, and are not seller proceeds.
+    tracking/POD timestamp, rate limit, optional-protection availability,
+    limits, terms, safe lookup/replay, cancellation before first scan, and
+    weight/dimension fields and units. All SHIPPOP service flags remain off
+    until that evidence is recorded.
+20. No service is assumed to provide full-value coverage. Where an optional
+    buyer add-on is certified and elected, only its combined buyer price and
+    disclosed maximum are shown at choice; provider cost and TOKLONG fee split
+    remain internal. Included coverage may be zero, and unavailable capability
+    creates no charge or coverage claim.
 21. A post-payment carrier surcharge is recorded as an append-only TOKLONG
     operational cost and CRM case. It never changes the paid snapshot, requests
     more money automatically, or reduces seller net.

@@ -49,9 +49,8 @@ The buyer records:
 - The intended seller's valid 10-digit Thai mobile number. It must differ from
   the buyer's verified phone.
 - One agreed item price. For a physical item, the seller's selected shipping
-  quote and parcel-insurance fee are added later; the buyer sees item price,
-  shipping charge, parcel-insurance fee, and buyer total before accepting and
-  paying.
+  charge is added later. Any optional parcel-protection charge is a buyer-only
+  post-acceptance choice, not a seller-authored delivery term.
 - For a physical item, one complete Thai delivery address selected from the
   server-owned hierarchy or the buyer's single saved address. The transaction
   stores a private address snapshot immediately; only its province and postal
@@ -119,9 +118,20 @@ silently reactivated.
 
 After seller acceptance, the buyer sees the same buyer-specified description,
 condition, defects, any supplied photos, item price, selected shipping service
-and charge, parcel-insurance fee and declared value, Buyer Protection fee,
-buyer total, fulfillment deadline, payout trigger, and dispute rule. Seller
-acceptance must not mutate the buyer-authored item fields.
+and charge, Buyer Protection fee, fulfillment deadline, payout trigger, and
+dispute rule. Seller acceptance must not mutate the buyer-authored item fields
+and freezes delivery facts only.
+
+For a physical offer, checkout first obtains the buyer-only parcel-protection
+availability. If the item is within the included limit, it records the
+included-only outcome without prompting or charging. If an available add-on is
+needed, it asks the buyer once to accept or explicitly decline; only that card
+shows the disclosed maximum and one combined price. The buyer may change an
+election before a PaymentIntent exists. A change after an unconfirmed booking
+is reserved must durably cancel that attempt before creating a replacement;
+unknown or review-needed provider outcomes block a change and payment. An
+unavailable add-on records no charge and never claims that zero coverage is
+included.
 
 Seller acceptance creates a fixed one-hour payment deadline. The seller sees
 that the item is reserved only until that exact time and must not fulfill before
@@ -134,15 +144,19 @@ must validate that core unchanged and append a buyer-acceptance record pointing
 to the exact same agreement-core hash. Neither acceptance stores an OTP code.
 For physical goods, the seller must first select a valid shipping quote using
 the destination region, a complete seller origin, and parcel weight and
-dimensions. The core includes the destination province/postal code, seller
-origin province/postal code, parcel measurements, selected service, shipping
-charge, Buyer Protection fee, and buyer total. Full street addresses remain
-private fulfillment data.
+dimensions. Until account-specific certification supplies different evidence,
+weight and every dimension remain required. The shared core includes the
+destination province/postal code, seller origin province/postal code, parcel
+measurements, selected service, shipping charge, and Buyer Protection fee.
+Full street addresses remain private fulfillment data. The buyer-only
+protection annex and final total are created after this acceptance, never in
+the seller's accepted core.
 
 ```text
 SELLER_ACCEPTED_AWAITING_PAYMENT
-  → CHECKOUT_STARTED
-  → PAYMENT_PENDING
+  → buyer chooses or records included/unavailable parcel protection
+  → durable matching booking is ready
+  → CHECKOUT_STARTED → PAYMENT_PENDING
 ```
 
 For physical goods, checkout shows the complete delivery address already locked
@@ -216,24 +230,22 @@ For a physical offer, the seller also:
 - Enters actual parcel weight in grams and width, length, and height in
   centimeters.
 - Requests available shipping quotes, selects one service, and reviews item
-  price, shipping charge, full-value parcel-insurance fee, insured value, zero
-  seller platform fee, and expected seller net. The seller does not see the
-  buyer-funded Buyer Protection fee or buyer total.
+  price, shipping charge, zero seller platform fee, and expected seller net.
+  The seller does not see buyer-funded Buyer Protection or parcel-protection
+  values, coverage limits, election, provider option, or buyer total.
 - Requests a new quote after the origin, measurements, or selected quote
   expires. The seller cannot accept using client-supplied or stale pricing.
-- Accepting a production SHIPPOP quote creates an unconfirmed provider booking
-  for that exact transaction, carrier/service, addresses, parcel, and fee. This
-  does not tell the seller that the buyer has paid or permit fulfillment. The
-  booking is created through a durable shipping operation. A timeout becomes an
-  unknown provider outcome and is reconciled before any retry; the seller
-  cannot create a second booking by tapping again.
+- Accepting freezes the delivery selection but does not book a shipment. The
+  buyer's later protection election drives the durable, matching unconfirmed
+  booking. A timeout becomes an unknown provider outcome and is reconciled
+  before any retry; it never permits a second booking or a PaymentIntent.
 
 Before acceptance the seller must confirm:
 
 - The buyer-specified item, description, condition, defects, included items,
   functionality, any supplied managed photo, item price, selected physical
-  shipping service and charge where applicable, parcel-insurance fee, insured
-  value, seller expected net, plus the system-fixed 72-hour fulfillment rule.
+  shipping service and charge where applicable, seller expected net, plus the
+  system-fixed 72-hour fulfillment rule.
 - Possession/control, right-to-transfer, prohibited-goods, and seller-terms attestations.
 - Owned payout account.
 
@@ -261,9 +273,10 @@ PAYMENT_PENDING
   or PAID_AWAITING_DIGITAL_DELIVERY
 ```
 
-- Physical with managed SHIPPOP shipping: the background worker confirms the
-  pre-payment reservation only after provider-confirmed buyer payment. SHIPPOP
-  supplies the carrier tracking number and printable 4×6 label; the seller
+- Physical with a certified, enabled managed service: the background worker
+  confirms the pre-payment reservation only after provider-confirmed buyer
+  payment. The provider supplies the carrier tracking number and printable 4×6
+  label; the seller
   opens the label full-screen, may zoom it, and may save, share, or print the
   original provider HTML before handing the parcel to the selected carrier by
   `ship_by_at`. The seller does not type or replace tracking. Consumer copy
@@ -471,10 +484,15 @@ AI may assist with evidence but cannot select the binding outcome.
   agreement-core hash; actor IDs and server timestamps must match the
   transaction parties and acceptance times.
 - Offer details are buyer-authored and read-only for the seller; any correction requires decline and a new offer.
-- Seller acceptance creates the immutable agreement core; buyer acceptance
-  references the private physical delivery-address annex locked at offer
-  creation and creates the checkout snapshot; provider-confirmed payment seals
-  it and is the only path exposing the full address for fulfillment.
+- Seller acceptance creates the immutable agreement core and freezes delivery
+  only. The buyer's post-acceptance protection election is buyer-only and must
+  be durably booked and revalidated against the selected service before buyer
+  checkout can create a PaymentIntent. Booking success never changes the
+  seller-acceptance time or buyer-payment deadline.
+- Buyer acceptance references the private physical delivery-address annex
+  locked at offer creation and the immutable buyer checkout annex; provider-
+  confirmed payment seals the paid snapshot and is the only path exposing the
+  full address for fulfillment.
 - Trusted carrier delivery is the only default source of the physical 72-hour clock; shipped or in-transit status never starts it.
 - Digital handoff never becomes payout eligible from seller assertion or time.
 - Any dispute/refund/hold blocks payout.

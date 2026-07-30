@@ -148,9 +148,12 @@ credentials from the environment or the authenticated Stripe CLI config,
 starts `stripe listen`, and then exercises this exact path:
 
 1. Create authenticated buyer and seller test accounts.
-2. Create and accept one ฿1,000 physical-item offer and verify the 59 THB
-   `buyer-protection-v2` fee plus the selected shipping charge.
-3. Ask the backend to create the Stripe PaymentIntent.
+2. Create and accept one ฿1,000 physical-item offer, verify the 59 THB
+   `buyer-protection-v2` fee plus the selected shipping charge, then record
+   the buyer parcel-protection outcome and wait for its matching Development
+   booking.
+3. Ask the backend to create the Stripe PaymentIntent only after that booking
+   is ready.
 4. Confirm it with Stripe's `pm_card_visa` test payment method.
 5. Forward `payment_intent.succeeded` with a Stripe CLI signing secret.
 6. Poll the authenticated transaction API until the state is
@@ -208,27 +211,23 @@ in-transit and delivered one backend step at a time; after the buyer taps
 the next step. No carrier or payout command is needed during the demo. Stop the
 command with `Ctrl+C`.
 
-As of 2026-07-27, new offers use snapshot schema version 8. The product photo is
-optional and is represented by its managed reference or explicit `null`; when
-supplied it remains immutable. For physical goods, offer creation resolves and
-locks the private full delivery address. Before accepting, the seller supplies
-a saved-or-new full origin, transaction-specific package weight/dimensions, and
-one provider-validated shipping quote. SHIPPOP acceptance creates an
-unconfirmed booking and version 7 retains its purchase/tracking references,
-reservation time, and structured private address parts. The shared core
-includes only origin and destination province/postal values plus parcel
-measurements, carrier/service, quote/booking metadata, item price, shipping
-charge, and buyer total. Authenticated seller acceptance
-creates canonical agreement-core and terms JSON plus separate SHA-256 hashes
-and an append-only seller acceptance. Authenticated buyer acceptance validates
-that unchanged core, appends a buyer acceptance pointing to the same hash, and
-creates the checkout/product snapshot referencing both locked address records.
-Checkout does not accept address changes. Provider-confirmed payment for the
-buyer total seals the snapshot and unlocks the full destination for seller
-fulfillment. Version 8 also freezes the exact buyer-funded Buyer Protection fee.
-OTP values and reusable credentials are never stored. Schema
-versions 1–7 remain readable without inventing historical party acceptances,
-addresses, or regions.
+New offers use snapshot schema version 11. The product photo is optional and is
+represented by its managed reference or explicit `null`; when supplied it
+remains immutable. For physical goods, offer creation resolves and locks the
+private full delivery address. Before accepting, the seller supplies a
+saved-or-new full origin, transaction-specific package weight/dimensions, and
+one provider-validated shipping quote. Seller acceptance freezes those delivery
+facts only; it does not book a shipment or select parcel protection. After
+acceptance, the buyer records an included-only, unavailable, declined, or
+accepted optional-protection outcome. The Worker revalidates an accepted option
+and reserves the exact booking before PaymentIntent creation, without extending
+the existing payment deadline. The shared core contains delivery facts but not
+the buyer-only election. A v11 append-only buyer checkout-annex acceptance
+binds the final buyer total and protection commercial terms with a canonical
+hash; schema v10 remains readable without invented annex evidence. Checkout
+does not accept address changes. Provider-confirmed payment seals the snapshot
+and unlocks the full destination for seller fulfillment. OTP values and
+reusable credentials are never stored.
 
 `ShippingQuotes:Provider=Development` enables only the deterministic in-memory
 local managed-shipping adapter. It is never selected by default for production
@@ -336,12 +335,16 @@ Money inputs remain strings in the form and are parsed to integer satang at the 
   evidence export service remains available without rendering raw hashes,
   terms-version codes, or acceptance audit rows to everyday users.
 - Physical seller acceptance requires a valid server-side shipping quote. The
-  seller may keep one saved origin, while package measurements remain
-  transaction-specific. The snapshot separates item price, shipping charge,
-  buyer total, and seller net; Stripe payment/refund validation uses buyer
-  total. SHIPPOP acceptance reserves the exact price and service without
-  confirming it; the Worker confirms it only after verified payment and records
-  provider-issued tracking through the transition service.
+  seller may keep one saved origin, while package weight and every dimension
+  remain transaction-specific and required pending certified provider evidence.
+  Seller acceptance freezes delivery only. Buyer checkout separately records
+  the optional-protection outcome, then a matching durable booking must succeed
+  before Stripe may create a PaymentIntent. The booking does not change the
+  buyer-payment deadline. The snapshot separates item price, shipping charge,
+  final buyer-only protection charge, buyer total, and seller net; Stripe
+  payment/refund validation uses that final buyer total. A certified provider
+  is confirmed only after verified payment and records provider-issued tracking
+  through the transition service.
 - Seller detail uses one single-line `รายละเอียดสินค้า` accordion. The mobile
   transaction response includes condition and known defects so the expanded
   content shows the actual item facts, hides the deterministic description
@@ -365,8 +368,10 @@ Money inputs remain strings in the form and are parsed to integer satang at the 
   authenticated transaction actions authorize the party ID before calling the
   domain transition service.
 - PaymentSheet receives a backend-created client secret and publishable key.
-  Amount, currency, fee, and idempotency key are server-controlled. Payment is
-  confirmed only by a verified, replay-safe Stripe webhook.
+  Amount, currency, fee, and idempotency key are server-controlled. For a
+  physical transaction, PaymentSheet cannot be prepared until the buyer-only
+  protection election and exact durable booking are ready. Payment is confirmed
+  only by a verified, replay-safe Stripe webhook.
 - Mobile can create and list buyer offers, pay, download a managed-shipping
   label, record a digital handoff, confirm receipt, open a dispute, claim an
   allow-listed HTTPS/custom
@@ -473,6 +478,12 @@ Money inputs remain strings in the form and are parsed to integer satang at the 
   approved bank/carrier mappings, private object storage, and live operational
   credentials remain blocked external capabilities. Code readiness does not
   imply those capabilities are active.
+- SHIPPOP production capability flags, including optional parcel protection,
+  remain disabled by default. Account-specific certification must prove field
+  names/units for weight and every dimension, included and maximum limits,
+  integer-satang price conversion, terms/code, post-election booking, lookup/
+  replay, and cancellation before first scan. No production consumer claim or
+  provider-branded protection UI is enabled from code alone.
 
 ## Operations and health
 

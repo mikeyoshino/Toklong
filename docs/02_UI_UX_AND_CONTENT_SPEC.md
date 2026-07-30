@@ -192,9 +192,9 @@ Show:
 - Current heading `ตรวจข้อเสนอจากผู้ซื้อ`.
 - The same offer as read-only, its exact response deadline, item price,
   destination province/postal code, fixed fulfillment rule, applicable
-  shipping charge, insured value and parcel-insurance fee, and expected seller
-  net. Do not show the
-  buyer-protection amount or buyer total to the seller.
+  shipping charge, and expected seller net. Do not show the Buyer Protection
+  amount, parcel-protection choice/price/limit, provider option, or buyer total
+  to the seller.
 - For a physical offer, one `เตรียมค่าจัดส่ง` section before acceptance:
   saved-origin summary or complete origin editor, `จำต้นทางนี้ไว้`, parcel
   weight and width/length/height, `ดูค่าจัดส่ง`, selectable quote rows, and the
@@ -216,10 +216,17 @@ Show:
 - Allowed seller identity signals, the amount breakdown, and the exact payment
   deadline.
 - Show the complete locked delivery address once in the agreement details.
-- Show the exact item price, buyer-protection fee, shipping charge,
-  parcel-insurance fee, and total in one buyer-only breakdown.
-- Place the required confirmation and exact-total payment button directly
-  below that breakdown, without a separate pre-payment card.
+- Before payment preparation, obtain the buyer-only parcel-protection outcome.
+  When an add-on is available, show exactly one accessible choice card titled
+  `เพิ่มความคุ้มครองพัสดุไหม`: disclose its maximum and one combined price,
+  then offer `เพิ่มความคุ้มครอง` and `ไม่เพิ่มความคุ้มครอง`. Do not show a
+  provider name, internal cost split, package label, or coverage gap. Included
+  coverage skips this card and adds no charge; unavailable add-on status offers
+  the included-only continuation without claiming coverage where none is known.
+- Show the exact item price, Buyer Protection fee, shipping charge, final
+  `ค่าความคุ้มครองพัสดุ` when elected, and total in one buyer-only breakdown.
+  The maximum is not repeated in that summary. Place the required confirmation
+  and exact-total payment button directly below it.
 - Plain-language payout condition.
 - Primary action `ชำระ <ยอดทั้งหมด>`.
 
@@ -289,19 +296,19 @@ The unguessable invitation requires seller phone authentication. Show:
 
 - Proposed product and item price.
 - For physical goods, seller origin, parcel weight/dimensions, selected carrier
-  service, shipping charge, parcel-insurance fee, insured value, and expected
-  seller net.
-- Do not show the Buyer Protection fee or buyer total to the seller. For
+  service, shipping charge, and expected seller net.
+- Do not show Buyer Protection or parcel-protection values, coverage limits,
+  provider option details, or buyer total to the seller. For
   `buyer-protection-v2`, seller platform fee is zero and exact seller net is the
-  item price; buyer-paid shipping, insurance, and protection fee are not seller
+  item price; buyer-paid shipping and buyer-only protection charges are not seller
   proceeds.
 - Exact shipping/handoff expectation.
 - Payout trigger and dispute rule.
 - A read-only offer record and required seller confirmations.
 
 Show the buyer-specified material description, condition, item price, and any
-supplied managed product photo as read-only; the selected shipping charge,
-parcel-insurance fee, insured value, and expected seller net are also read-only.
+supplied managed product photo as read-only; the selected shipping charge and
+expected seller net are also read-only.
 When no photo was supplied, use
 the normal item-type placeholder without implying an error. Show the
 system-fixed rule `ส่งภายใน 3 วันหลังยืนยันยอดชำระ`; neither party can edit it.
@@ -505,8 +512,9 @@ Must show before payment:
 - For a physical agreement, show the complete locked address exactly once for
   review. The payment action must not repeat it.
 - Show separate rows for `ราคาสินค้า`, `ค่าคุ้มครองผู้ซื้อ`, `ค่าจัดส่ง`,
-  `ค่าประกันพัสดุ`, and `ยอดชำระทั้งหมด`, plus the selected carrier service.
-  The payment intent amount equals the displayed total.
+  `ค่าความคุ้มครองพัสดุ`, and `ยอดชำระทั้งหมด`, plus the selected carrier
+  service. The protection row is the buyer's final combined price only; the
+  payment intent amount equals the displayed total.
 - Do not show an address editor, saved-address selector, or
   `จำที่อยู่นี้ไว้` control in checkout.
 - The seller may see the complete address only after provider-confirmed payment
@@ -517,6 +525,12 @@ Must show before payment:
 - Approved provider checkout.
 - No hidden fee added after the final review screen.
 - For buyer-created offers, checkout is unavailable until the seller has accepted the final terms.
+- For physical offers, PaymentIntent creation is also unavailable until the
+  buyer election is recorded and the exact durable booking is ready. The
+  booking-wait state says `กำลังเตรียมรายการจัดส่ง กรุณารอสักครู่`; retrying
+  does not write a second election. A changed price, limit, expiry, or terms
+  requires fresh buyer confirmation, while the original payment deadline stays
+  unchanged.
 - The final buyer action is `ยอมรับข้อตกลงและไปชำระเงิน`. It records electronic
   acceptance of the same agreement-core hash already accepted by the seller;
   do not label it as a certificate-backed digital signature.
@@ -584,9 +598,10 @@ one primary action `ดูรายละเอียด`. Never show `สำเ
 was delivered; the transaction still has inspection, dispute, and payout
 stages.
 
-Before payment, separate `ค่าจัดส่ง` and `ค่าประกันพัสดุ`. The seller may see
-the insured item value and that the buyer funds the premium, but neither amount
-is seller proceeds.
+Before payment, show a buyer-only `ค่าความคุ้มครองพัสดุ` row only after the
+buyer has made an election. Never show its maximum, internal split, provider
+identity, or option reference in the payment summary, and never expose any of
+these values to the seller.
 
 ## Transaction details / terms
 
