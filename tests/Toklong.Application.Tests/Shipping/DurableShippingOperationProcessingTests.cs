@@ -354,7 +354,7 @@ public sealed class DurableShippingOperationProcessingTests
     }
 
     [Fact]
-    public async Task Reserved_change_cancels_definitely_before_queuing_replacement_booking()
+    public async Task Reserved_change_cancels_definitely_before_saving_replacement_intent()
     {
         await using var database = CreateDatabase();
         var (transaction, booking) = PendingBuyerCheckoutBooking();
@@ -384,26 +384,14 @@ public sealed class DurableShippingOperationProcessingTests
         Assert.Equal(ManagedShipmentStatus.Cancelled,
             transaction.ManagedShipments.First().Status);
         Assert.Equal(2, transaction.ManagedShipments.Count);
-        Assert.Single(transaction.ShippingOperations, operation =>
+        Assert.DoesNotContain(transaction.ShippingOperations, operation =>
             operation.OperationType == ShippingOperationType.BookOutbound &&
             operation.Status == ShippingOperationStatus.Pending);
         Assert.Equal(ParcelProtectionChangeStatus.AwaitingRebooking,
             Assert.Single(transaction.ParcelProtectionChangeRequests).Status);
-
-        var replacement = Assert.Single(transaction.ShippingOperations,
-            operation => operation.OperationType == ShippingOperationType.BookOutbound &&
-                operation.Status == ShippingOperationStatus.Pending);
-        await Handler(database, replacement, provider, new FixedClock(Now.AddMinutes(4)))
-            .Handle(new ProcessNextShippingOperationCommand("worker-c"), default);
-
-        Assert.Equal(ShippingOperationStatus.Succeeded, replacement.Status);
-        Assert.Equal(ParcelProtectionElectionStatus.Declined,
-            transaction.ParcelProtectionElection);
-        Assert.Equal(0, transaction.ParcelInsuranceFeeSatang);
-        Assert.Equal(ParcelProtectionChangeStatus.Completed,
-            Assert.Single(transaction.ParcelProtectionChangeRequests).Status);
         Assert.Contains(transaction.AuditEvents,
-            audit => audit.Name == "parcel_protection.changed");
+            audit => audit.Name ==
+                "parcel_protection.rebooking_intent_created");
     }
 
     [Fact]

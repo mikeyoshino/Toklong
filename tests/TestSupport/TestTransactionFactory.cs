@@ -221,29 +221,14 @@ public static class TestTransactionFactory
                     transaction.ParcelProtectionIncludedCoverageSatang,
                     transaction.ParcelProtectionSelectedCoverageSatang),
                 now);
-        var operation = transaction.ShippingOperations.SingleOrDefault(item =>
-            item.ManagedShipmentId == shipment.Id &&
-            item.OperationType == ShippingOperationType.BookOutbound);
-        if (operation is null)
+        if (transaction.CurrentOutboundShipment is null)
         {
-            operation = ShippingOperation.Queue(
-                transaction.Id,
-                shipment.Id,
-                ShippingOperationType.BookOutbound,
-                $"test-book:{shipment.Id:N}",
-                new string('a', 64),
-                now);
-            transaction.QueueManagedShipment(
+            transaction.QueueBuyerCheckoutShipmentIntent(
                 shipment,
-                operation,
-                ActorRole.System,
-                "test-checkout",
+                transaction.BuyerId!.Value,
+                $"test-book:{shipment.Id:N}",
                 now);
         }
-        operation.Claim(
-            "test-checkout",
-            now,
-            TimeSpan.FromMinutes(5));
         var purchaseReference = $"test-purchase:{shipment.Id:N}";
         var providerTracking = $"test-provider:{shipment.Id:N}";
         transaction.CompleteBuyerCheckoutShipmentBooking(
@@ -259,11 +244,6 @@ public static class TestTransactionFactory
             shipment.DeclaredValueSatang,
             shipment.InsuranceCode,
             now,
-            now);
-        operation.Succeed(
-            "test-checkout",
-            purchaseReference,
-            providerTracking,
             now);
     }
 

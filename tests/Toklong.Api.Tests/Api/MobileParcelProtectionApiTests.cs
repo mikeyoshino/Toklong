@@ -92,7 +92,7 @@ public sealed class MobileParcelProtectionApiTests
         using var firstResponse = await fixture.Client.SendAsync(first);
         var firstJson = await firstResponse.Content.ReadAsStringAsync();
         Assert.True(firstResponse.IsSuccessStatusCode, firstJson);
-        Assert.Contains("\"bookingStatus\":\"preparing_shipping\"", firstJson);
+        Assert.Contains("\"bookingStatus\":\"selection_saved\"", firstJson);
         Assert.DoesNotContain("providerCost", firstJson,
             StringComparison.OrdinalIgnoreCase);
 
@@ -359,11 +359,7 @@ public sealed class MobileParcelProtectionApiTests
             var shipment = transaction.CurrentOutboundShipment
                 ?? throw new InvalidOperationException(
                     "test outbound shipment missing");
-            var operation = transaction.ShippingOperations.Single(item =>
-                item.ManagedShipmentId == shipment.Id &&
-                item.OperationType == ShippingOperationType.BookOutbound);
             var now = DateTimeOffset.UtcNow;
-            operation.Claim("evidence-test", now, TimeSpan.FromMinutes(5));
             transaction.CompleteBuyerCheckoutShipmentBooking(
                 shipment.Id,
                 shipment.Provider,
@@ -377,11 +373,6 @@ public sealed class MobileParcelProtectionApiTests
                 shipment.DeclaredValueSatang,
                 shipment.InsuranceCode,
                 now,
-                now);
-            operation.Succeed(
-                "evidence-test",
-                "evidence-purchase",
-                "evidence-provider-tracking",
                 now);
             transaction.BeginCheckout(
                 transaction.BuyerDisplayName!,

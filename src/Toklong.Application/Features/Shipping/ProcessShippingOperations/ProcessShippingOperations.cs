@@ -723,14 +723,8 @@ public sealed class ProcessNextShippingOperationHandler(
                 {
                     var replacement = transaction.CreateReplacementOutboundShipment(
                         change.Id, clock.UtcNow);
-                    var booking = ShippingOperation.Queue(
-                        transaction.Id, replacement.Id,
-                        ShippingOperationType.BookOutbound,
-                        $"book-outbound-change:{change.Id:N}",
-                        ManagedShippingOperationQueue.BookingFingerprint(replacement),
-                        clock.UtcNow);
-                    transaction.QueueReplacementOutboundShipment(
-                        replacement, booking, clock.UtcNow);
+                    transaction.QueueReplacementOutboundShipmentIntent(
+                        replacement, change.Id, clock.UtcNow);
                 }
             }
             else

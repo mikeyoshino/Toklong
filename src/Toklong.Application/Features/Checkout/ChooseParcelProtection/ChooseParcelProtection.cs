@@ -66,6 +66,24 @@ public sealed partial class ChooseParcelProtectionHandler(
                 });
         }
 
+        var intentKey =
+            $"parcel-protection-booking:{transaction.Id:N}:{idempotencyKey}";
+        if (transaction.AuditEvents.Any(
+                audit => string.Equals(
+                    audit.IdempotencyKey,
+                    intentKey,
+                    StringComparison.Ordinal)))
+        {
+            if (!MatchesPriorElection(
+                    transaction,
+                    request))
+                throw new DomainException(
+                    "รหัสป้องกันการทำซ้ำถูกใช้กับตัวเลือกอื่นแล้ว");
+            return new ChooseParcelProtectionResult(
+                TransactionView.From(transaction),
+                "selection_saved");
+        }
+
         var bookingKey = $"book-outbound:{transaction.Id:N}:{idempotencyKey}";
         var priorBooking = transaction.ShippingOperations.SingleOrDefault(
             operation => string.Equals(operation.IdempotencyKey, bookingKey,
@@ -112,6 +130,27 @@ public sealed partial class ChooseParcelProtectionHandler(
                     request.BuyerId, resolved.Selection, clock.UtcNow);
                 return await QueueBookingAsync(
                     transaction, request, resolved, cancellationToken,
+                    selectionAlreadyRecorded: true);
+            }
+            if (currentBooking is null &&
+                currentShipment.Status ==
+                    ManagedShipmentStatus.PendingBooking)
+            {
+                currentShipment.RecordCancellation(
+                    clock.UtcNow);
+                transaction
+                    .InvalidateParcelProtectionElection(
+                        "buyer-selection-changed",
+                        clock.UtcNow);
+                transaction.RecordParcelProtectionElection(
+                    request.BuyerId,
+                    resolved.Selection,
+                    clock.UtcNow);
+                return await QueueBookingAsync(
+                    transaction,
+                    request,
+                    resolved,
+                    cancellationToken,
                     selectionAlreadyRecorded: true);
             }
             if (currentBooking?.Status is ShippingOperationStatus.Processing or
@@ -167,32 +206,16 @@ public sealed partial class ChooseParcelProtectionHandler(
         var idempotencyKey = request.IdempotencyKey;
         var draft = BuildDraft(transaction, resolved.Selection, resolved.InsuranceCode);
         var shipment = ManagedShipment.CreateOutbound(transaction.Id, draft, clock.UtcNow);
-        var fingerprint = ManagedShippingOperationQueue.BookingFingerprint(shipment);
-        var bookingKey = $"book-outbound:{transaction.Id:N}:{idempotencyKey}";
-        var duplicate = transaction.ShippingOperations.SingleOrDefault(operation =>
-            string.Equals(operation.IdempotencyKey, bookingKey,
-                StringComparison.Ordinal));
-        if (duplicate is not null)
-        {
-            if (!string.Equals(duplicate.RequestFingerprint, fingerprint,
-                    StringComparison.Ordinal))
-                throw new DomainException("รหัสป้องกันการทำซ้ำถูกใช้กับตัวเลือกอื่นแล้ว");
-            return new ChooseParcelProtectionResult(
-                TransactionView.From(transaction), "preparing_shipping");
-        }
-
         if (!selectionAlreadyRecorded)
             transaction.RecordParcelProtectionElection(
                 request.BuyerId, resolved.Selection, clock.UtcNow);
-        var operation = ShippingOperation.Queue(transaction.Id, shipment.Id,
-            ShippingOperationType.BookOutbound, bookingKey, fingerprint, clock.UtcNow);
-        transaction.QueueManagedShipment(shipment, operation, ActorRole.System,
-            "parcel-protection-checkout", clock.UtcNow);
-        transaction.RecordParcelProtectionBookingIntent(shipment, request.BuyerId,
+        transaction.QueueBuyerCheckoutShipmentIntent(
+            shipment,
+            request.BuyerId,
             idempotencyKey, clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return new ChooseParcelProtectionResult(TransactionView.From(transaction),
-            "preparing_shipping");
+            "selection_saved");
     }
 
     private static bool MatchesPriorElection(

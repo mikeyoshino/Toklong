@@ -23,7 +23,7 @@ public sealed class ParcelProtectionCheckoutTests
         new(2026, 7, 30, 10, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public async Task Within_included_limit_queues_unprotected_booking_without_prompt()
+    public async Task Within_included_limit_saves_shipment_intent_without_booking_operation()
     {
         await using var fixture = await Fixture.CreateAsync(100_000);
 
@@ -37,9 +37,9 @@ public sealed class ParcelProtectionCheckoutTests
             audit.Name == "parcel_protection.offered");
         var result = await fixture.ChooseHandler.Handle(fixture.Choose(false), default);
 
-        Assert.Equal("preparing_shipping", result.BookingStatus);
+        Assert.Equal("selection_saved", result.BookingStatus);
         Assert.Single(fixture.Transaction.ManagedShipments);
-        Assert.Single(fixture.Transaction.ShippingOperations);
+        Assert.Empty(fixture.Transaction.ShippingOperations);
         Assert.Equal(0, fixture.Transaction.ManagedShipments.Single().InsuranceFeeSatang);
         Assert.Equal(0, fixture.Transaction.ManagedShipments.Single().DeclaredValueSatang);
         Assert.Equal(ParcelProtectionElectionStatus.Declined,
@@ -60,7 +60,7 @@ public sealed class ParcelProtectionCheckoutTests
         Assert.Equal(450_000, shipment.DeclaredValueSatang);
         Assert.Equal("DEV_FULL_VALUE", shipment.InsuranceCode);
         Assert.Equal(6_000, fixture.Transaction.ParcelInsuranceFeeSatang);
-        Assert.Equal("preparing_shipping", result.BookingStatus);
+        Assert.Equal("selection_saved", result.BookingStatus);
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public sealed class ParcelProtectionCheckoutTests
         Assert.Equal(0, fixture.Transaction.ParcelProtectionIncludedCoverageSatang);
         Assert.Equal(100_000, shipment.DeclaredValueSatang);
         Assert.Equal("CERTIFIED_PARTIAL", shipment.InsuranceCode);
-        Assert.Equal("preparing_shipping", result.BookingStatus);
+        Assert.Equal("selection_saved", result.BookingStatus);
     }
 
     [Fact]
@@ -115,7 +115,7 @@ public sealed class ParcelProtectionCheckoutTests
             fixture.Transaction.ParcelProtectionElection);
         Assert.Equal(0, fixture.Transaction.ParcelProtectionIncludedCoverageSatang);
         Assert.Equal(0, fixture.Transaction.ManagedShipments.Single().DeclaredValueSatang);
-        Assert.Equal("preparing_shipping", result.BookingStatus);
+        Assert.Equal("selection_saved", result.BookingStatus);
     }
 
     [Fact]
@@ -413,7 +413,7 @@ public sealed class ParcelProtectionCheckoutTests
         Assert.Equal("Unavailable", view.Election);
         Assert.Equal(ParcelProtectionElectionStatus.Unavailable,
             fixture.Transaction.ParcelProtectionElection);
-        Assert.Equal("preparing_shipping", result.BookingStatus);
+        Assert.Equal("selection_saved", result.BookingStatus);
         Assert.Equal(0, fixture.Provider.ValidateCalls);
     }
 
@@ -522,7 +522,7 @@ public sealed class ParcelProtectionCheckoutTests
 
         await fixture.ChooseHandler.Handle(first, default);
         var duplicate = await fixture.ChooseHandler.Handle(first, default);
-        Assert.Equal("preparing_shipping", duplicate.BookingStatus);
+        Assert.Equal("selection_saved", duplicate.BookingStatus);
         Assert.Single(fixture.Transaction.ManagedShipments);
 
         await Assert.ThrowsAsync<DomainException>(() => fixture.ChooseHandler.Handle(
@@ -742,11 +742,19 @@ public sealed class ParcelProtectionCheckoutTests
     private static void ReserveCurrentShipment(SaleTransaction transaction)
     {
         var shipment = transaction.CurrentOutboundShipment!;
-        var booking = Assert.Single(transaction.ShippingOperations);
-        booking.Claim("worker-a", Now.AddMinutes(2), TimeSpan.FromMinutes(5));
-        shipment.RecordReservation("purchase-001", "provider-001", null,
-            Now.AddMinutes(2));
-        booking.Succeed("worker-a", "purchase-001", "provider-001",
+        transaction.CompleteBuyerCheckoutShipmentBooking(
+            shipment.Id,
+            shipment.Provider,
+            "purchase-001",
+            "provider-001",
+            null,
+            shipment.CarrierCode,
+            shipment.ServiceCode,
+            shipment.BaseShippingFeeSatang,
+            shipment.InsuranceFeeSatang,
+            shipment.DeclaredValueSatang,
+            shipment.InsuranceCode,
+            Now.AddMinutes(2),
             Now.AddMinutes(2));
     }
 

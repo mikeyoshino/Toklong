@@ -336,6 +336,51 @@ public sealed class SaleTransaction
         Version++;
     }
 
+    public void QueueBuyerCheckoutShipmentIntent(
+        ManagedShipment shipment,
+        Guid buyerId,
+        string idempotencyKey,
+        DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(shipment);
+        if (State !=
+                TransactionState.SellerAcceptedAwaitingPayment ||
+            BuyerId != buyerId ||
+            shipment.TransactionId != Id ||
+            shipment.Direction !=
+                ShipmentDirection.Outbound)
+            throw new DomainException(
+                "ข้อมูลรายการจัดส่งไม่ถูกต้อง");
+        EnsureBuyerPaymentWindowOpen(now);
+        var cleanKey = CleanOptional(
+            idempotencyKey,
+            80,
+            "รหัสป้องกันการทำซ้ำ") ??
+            throw new DomainException(
+                "กรุณาระบุรหัสป้องกันการทำซ้ำ");
+        var auditKey =
+            $"parcel-protection-booking:{Id:N}:{cleanKey}";
+        if (_auditEvents.Any(
+                audit =>
+                    audit.IdempotencyKey == auditKey))
+            return;
+        if (_managedShipments.Any(
+                item =>
+                    item.Direction ==
+                        ShipmentDirection.Outbound &&
+                    item.Status !=
+                        ManagedShipmentStatus.Cancelled))
+            throw new DomainException(
+                "รายการนี้มีการจัดส่งขาออกแล้ว");
+
+        _managedShipments.Add(shipment);
+        RecordParcelProtectionBookingIntent(
+            shipment,
+            buyerId,
+            cleanKey,
+            now);
+    }
+
     public void QueueShippingOperation(
         ShippingOperation operation,
         ActorRole actorRole,
@@ -1781,6 +1826,58 @@ public sealed class SaleTransaction
         ShippingOperation operation,
         DateTimeOffset now) => QueueManagedShipment(
             shipment, operation, ActorRole.System, "parcel-protection-change", now);
+
+    public void QueueReplacementOutboundShipmentIntent(
+        ManagedShipment shipment,
+        Guid changeRequestId,
+        DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(shipment);
+        var request = _parcelProtectionChangeRequests.SingleOrDefault(item =>
+            item.Id == changeRequestId &&
+            item.Status == ParcelProtectionChangeStatus.AwaitingRebooking)
+            ?? throw new DomainException(
+                "ไม่พบคำขอเปลี่ยนความคุ้มครองพัสดุ");
+        if (State != TransactionState.SellerAcceptedAwaitingPayment ||
+            shipment.TransactionId != Id ||
+            shipment.Direction != ShipmentDirection.Outbound ||
+            request.DesiredExpiresAt <= now)
+            throw new DomainException(
+                "ข้อมูลรายการจัดส่งทดแทนไม่ถูกต้อง");
+        var auditKey =
+            $"parcel-protection-rebooking-intent:{request.Id:N}";
+        if (_auditEvents.Any(
+                audit => audit.IdempotencyKey == auditKey))
+            return;
+        if (_managedShipments.Any(item =>
+                item.Direction == ShipmentDirection.Outbound &&
+                item.Status != ManagedShipmentStatus.Cancelled))
+            throw new DomainException(
+                "รายการนี้มีการจัดส่งขาออกแล้ว");
+
+        _managedShipments.Add(shipment);
+        _auditEvents.Add(new AuditEvent(
+            Id,
+            ActorRole.System,
+            "parcel-protection-change",
+            "parcel_protection.rebooking_intent_created",
+            State,
+            State,
+            now,
+            shipment.Id.ToString("N"),
+            auditKey,
+            JsonSerializer.Serialize(new
+            {
+                ChangeRequestId = request.Id,
+                ShipmentId = shipment.Id,
+                DesiredElection =
+                    request.DesiredElection.ToString(),
+                request.DesiredTermsVersion,
+                request.DesiredSelectedCoverageSatang,
+                request.DesiredProviderCostSatang
+            })));
+        Version++;
+    }
 
     public void RequireParcelProtectionChangeReconfirmation(
         Guid changeRequestId,

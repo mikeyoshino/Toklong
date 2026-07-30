@@ -23,9 +23,9 @@ public sealed class ParcelProtectionChangeTests
         var result = await fixture.Handler.Handle(
             fixture.ChooseDeclined("change-before-claim-01"), default);
 
-        Assert.Equal("preparing_shipping", result.BookingStatus);
-        Assert.Equal(ShippingOperationStatus.Superseded,
-            fixture.Transaction.ShippingOperations.First().Status);
+        Assert.Equal("selection_saved", result.BookingStatus);
+        Assert.Empty(
+            fixture.Transaction.ShippingOperations);
         Assert.Equal(ParcelProtectionElectionStatus.Declined,
             fixture.Transaction.ParcelProtectionElection);
         Assert.Equal(0, fixture.Transaction.ParcelInsuranceFeeSatang);
@@ -55,10 +55,20 @@ public sealed class ParcelProtectionChangeTests
         await using var fixture = await Fixture.CreateAsync();
         await fixture.Handler.Handle(fixture.ChooseAccepted(), default);
         var shipment = fixture.Transaction.CurrentOutboundShipment!;
-        shipment.RecordReservation("purchase-001", "provider-001", null, Now.AddMinutes(2));
-        var booking = Assert.Single(fixture.Transaction.ShippingOperations);
-        booking.Claim("worker-a", Now.AddMinutes(2), TimeSpan.FromMinutes(5));
-        booking.Succeed("worker-a", "purchase-001", "provider-001", Now.AddMinutes(2));
+        fixture.Transaction.CompleteBuyerCheckoutShipmentBooking(
+            shipment.Id,
+            shipment.Provider,
+            "purchase-001",
+            "provider-001",
+            null,
+            shipment.CarrierCode,
+            shipment.ServiceCode,
+            shipment.BaseShippingFeeSatang,
+            shipment.InsuranceFeeSatang,
+            shipment.DeclaredValueSatang,
+            shipment.InsuranceCode,
+            Now.AddMinutes(2),
+            Now.AddMinutes(2));
 
         var result = await fixture.Handler.Handle(
             fixture.ChooseDeclined("change-after-reserve-01"), default);
