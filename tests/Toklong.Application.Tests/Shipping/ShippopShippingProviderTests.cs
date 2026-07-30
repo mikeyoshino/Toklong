@@ -423,7 +423,10 @@ public sealed class ShippopShippingProviderTests
                 Guid.Parse(
                     "11111111-2222-3333-4444-555555555555"),
                 shipment,
-                quote),
+                quote,
+                Guid.Empty,
+                false,
+                "checkout:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
             default);
 
         Assert.Equal("452002", reservation.PurchaseReference);
@@ -436,7 +439,7 @@ public sealed class ShippopShippingProviderTests
         Assert.Equal(5_200, reservation.FeeSatang);
         Assert.Contains("\"force_confirm\":0", body);
         Assert.Contains(
-            "\"ref_no_1\":\"11111111222233334444555555555555\"",
+            "\"ref_no_1\":\"checkout:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",
             body);
     }
 
@@ -473,11 +476,12 @@ public sealed class ShippopShippingProviderTests
                 Request(),
                 Quote(),
                 shipmentId,
-                IsReturn: true),
+                IsReturn: true,
+                OperationReference: $"return:{shipmentId:N}"),
             default);
 
         Assert.Contains(
-            $"\"ref_no_1\":\"{shipmentId:N}\"",
+            $"\"ref_no_1\":\"return:{shipmentId:N}\"",
             body);
         Assert.DoesNotContain(
             "\"ref_no_1\":\"11111111222233334444555555555555\"",
@@ -513,7 +517,10 @@ public sealed class ShippopShippingProviderTests
                     new ShipmentReservationRequest(
                         Guid.NewGuid(),
                         Request(),
-                        Quote()),
+                        Quote(),
+                        Guid.Empty,
+                        false,
+                        "test-operation"),
                     default));
 
         Assert.Contains(
@@ -563,7 +570,10 @@ public sealed class ShippopShippingProviderTests
                 {
                     InsuranceFeeSatang = 0,
                     InsuranceCode = null
-                }),
+                },
+                Guid.Empty,
+                false,
+                "test-operation"),
             default);
 
         Assert.Equal(0, reservation.InsuranceFeeSatang);
@@ -604,7 +614,10 @@ public sealed class ShippopShippingProviderTests
                         InsuranceFeeSatang = 4_500,
                         DeclaredValueSatang = 450_000,
                         InsuranceCode = "UNSUPPORTED_PROTECTION"
-                    }),
+                    },
+                    Guid.Empty,
+                    false,
+                    "test-operation"),
                 default));
 
         Assert.Equal(
@@ -821,7 +834,10 @@ public sealed class ShippopShippingProviderTests
                 new ShipmentReservationRequest(
                     Guid.NewGuid(),
                     Request(),
-                    Quote()),
+                    Quote(),
+                    Guid.Empty,
+                    false,
+                    "test-operation"),
                 default));
 
         Assert.Equal(
@@ -844,7 +860,10 @@ public sealed class ShippopShippingProviderTests
                 new ShipmentReservationRequest(
                     Guid.NewGuid(),
                     Request(),
-                    Quote()),
+                    Quote(),
+                    Guid.Empty,
+                    false,
+                    "test-operation"),
                 default));
 
         Assert.Equal(

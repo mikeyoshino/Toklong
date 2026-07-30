@@ -427,7 +427,10 @@ public sealed class ProviderShipmentProcessingTests
                     20,
                     30,
                     15),
-                quote),
+                quote,
+                Guid.Empty,
+                false,
+                "test-operation"),
             default);
         transaction.AcceptBuyerOffer(
             Guid.NewGuid(),

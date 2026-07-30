@@ -452,6 +452,8 @@ public sealed class ShippopShippingProvider(
         ShipmentReservationRequest request,
         CancellationToken cancellationToken)
     {
+        var operationReference = RequireSafeOperationReference(
+            request.OperationReference);
         using var document = await PostJsonAsync(
             "booking/",
             new
@@ -463,10 +465,7 @@ public sealed class ShippopShippingProvider(
                     ShipmentPayload(
                         request.Shipment,
                         request.Quote.ServiceCode,
-                        (request.ManagedShipmentId == Guid.Empty
-                                ? request.TransactionId
-                                : request.ManagedShipmentId)
-                            .ToString("N"),
+                        operationReference,
                         showAll: false)
                 },
                 force_confirm = 0
@@ -878,6 +877,19 @@ public sealed class ShippopShippingProvider(
                 ref_no_1 = includeReference
             };
         return payload;
+    }
+
+    private static string RequireSafeOperationReference(
+        string? value)
+    {
+        var clean = value?.Trim() ?? "";
+        if (clean.Length is < 1 or > 80 ||
+            clean.Any(character =>
+                !char.IsAsciiLetterOrDigit(character) &&
+                character is not ':' and not '-' and not '_' and not '.'))
+            throw new DomainException(
+                "รหัสอ้างอิงรายการจัดส่งไม่ถูกต้อง");
+        return clean;
     }
 
     private static object AddressPayload(

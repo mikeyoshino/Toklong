@@ -50,8 +50,9 @@ public sealed record ShipmentReservationRequest(
     Guid TransactionId,
     ShippingQuoteRequest Shipment,
     ShippingQuoteOption Quote,
-    Guid ManagedShipmentId = default,
-    bool IsReturn = false);
+    Guid ManagedShipmentId,
+    bool IsReturn,
+    string OperationReference);
 
 public sealed record ShipmentReservation(
     string Provider,

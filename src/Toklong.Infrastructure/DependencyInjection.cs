@@ -10,6 +10,7 @@ using Toklong.Infrastructure.Pricing;
 using Toklong.Infrastructure.Security;
 using Toklong.Infrastructure.Services;
 using Toklong.Application.Features.Shipping.ProcessShippingOperations;
+using Toklong.Application.Features.Checkout.BookShipmentForPayment;
 
 namespace Toklong.Infrastructure;
 
@@ -28,6 +29,9 @@ public static class DependencyInjection
         services.AddScoped<
             IBookingAttemptRepository,
             BookingAttemptRepository>();
+        services.AddScoped<
+            IDirectCheckoutBooking,
+            BookShipmentForPaymentHandler>();
         services.AddSingleton<ShippingOperationMetrics>();
         services.AddScoped<IRetentionRepository, RetentionRepository>();
         services.AddScoped<IBuyerRepository, BuyerRepository>();

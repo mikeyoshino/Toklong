@@ -272,7 +272,8 @@ public sealed class ProcessNextShippingOperationHandler(
                 quote,
                 shipment.Id,
                 shipment.Direction ==
-                    ShipmentDirection.Return),
+                    ShipmentDirection.Return,
+                operation.Id.ToString("N")),
             cancellationToken);
 
         if (shipment.Direction == ShipmentDirection.Return)
