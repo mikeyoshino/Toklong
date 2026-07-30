@@ -40,11 +40,12 @@ public sealed class PrepareParcelProtectionHandler(
             ParcelProtectionCheckout.BuildProtectionRequest(transaction), cancellationToken);
         var addOnAvailable = availability.AddOn is not null &&
             availability.ProviderCapabilityCertified;
+        var addOn = addOnAvailable ? availability.AddOn : null;
         var requiresChoice = transaction.PriceSatang >
             availability.IncludedCoverageLimitSatang && addOnAvailable;
         long? customerPrice = null;
-        if (availability.AddOn is not null)
-            customerPrice = pricing.Price(availability.AddOn.ProviderCostSatang)
+        if (addOn is not null)
+            customerPrice = pricing.Price(addOn.ProviderCostSatang)
                 .CustomerPriceSatang;
         var presentationElection = transaction.PriceSatang >
             availability.IncludedCoverageLimitSatang && !addOnAvailable
@@ -57,12 +58,12 @@ public sealed class PrepareParcelProtectionHandler(
                 requiresChoice,
                 addOnAvailable,
                 availability.IncludedCoverageLimitSatang,
-                availability.AddOn?.SelectedCoverageLimitSatang,
+                addOn?.SelectedCoverageLimitSatang,
                 customerPrice,
-                availability.AddOn?.OptionReference,
-                availability.AddOn?.TermsVersion ??
+                addOn?.OptionReference,
+                addOn?.TermsVersion ??
                     ParcelProtectionCheckout.IncludedTermsVersion,
-                availability.AddOn?.ExpiresAt,
+                addOn?.ExpiresAt,
                 presentationElection),
             idempotencyKey,
             clock.UtcNow);
@@ -72,11 +73,11 @@ public sealed class PrepareParcelProtectionHandler(
             requiresChoice,
             addOnAvailable,
             availability.IncludedCoverageLimitSatang,
-            availability.AddOn?.SelectedCoverageLimitSatang,
+            addOn?.SelectedCoverageLimitSatang,
             customerPrice,
-            availability.AddOn?.OptionReference,
-            availability.AddOn?.TermsVersion ?? ParcelProtectionCheckout.IncludedTermsVersion,
-            availability.AddOn?.ExpiresAt,
+            addOn?.OptionReference,
+            addOn?.TermsVersion ?? ParcelProtectionCheckout.IncludedTermsVersion,
+            addOn?.ExpiresAt,
             presentationElection.ToString(),
             transaction.ParcelProtectionBookingReady,
             transaction.ParcelProtectionElection ==

@@ -251,6 +251,36 @@ public sealed class ParcelProtectionCheckoutTests
     }
 
     [Theory]
+    [InlineData(ParcelProtectionElectionStatus.Accepted)]
+    [InlineData(ParcelProtectionElectionStatus.Declined)]
+    [InlineData(ParcelProtectionElectionStatus.NotApplicable)]
+    [InlineData(ParcelProtectionElectionStatus.ReconfirmationRequired)]
+    public async Task Impossible_pre_election_presentation_status_is_ignored_for_safe_aggregate_fallback(
+        ParcelProtectionElectionStatus election)
+    {
+        var metadata = JsonSerializer.Serialize(new ParcelProtectionPreparedOffer(
+            true, true, 100_000, 450_000, 6_000, "protected-option",
+            "parcel-protection-v1", Now.AddHours(1), election));
+
+        var resumed = await ReloadWithPreparedMetadataAsync(metadata);
+
+        AssertSafeLegacyFallback(resumed);
+    }
+
+    [Fact]
+    public async Task Unavailable_presentation_with_add_on_fields_is_ignored_for_safe_aggregate_fallback()
+    {
+        var metadata = JsonSerializer.Serialize(new ParcelProtectionPreparedOffer(
+            false, false, 100_000, 450_000, 6_000, "protected-option",
+            "parcel-protection-v1", Now.AddHours(1),
+            ParcelProtectionElectionStatus.Unavailable));
+
+        var resumed = await ReloadWithPreparedMetadataAsync(metadata);
+
+        AssertSafeLegacyFallback(resumed);
+    }
+
+    [Theory]
     [InlineData("buyer@example.com")]
     [InlineData("prepare-ผู้ซื้อ-12345")]
     public async Task Prepare_rejects_unsafe_idempotency_key_before_provider_or_audit_mutation(
@@ -283,6 +313,24 @@ public sealed class ParcelProtectionCheckoutTests
             fixture.Transaction.ParcelProtectionElection);
         Assert.Equal("preparing_shipping", result.BookingStatus);
         Assert.Equal(0, fixture.Provider.ValidateCalls);
+    }
+
+    [Fact]
+    public async Task Uncertified_add_on_is_presented_as_an_unavailable_tuple()
+    {
+        await using var fixture = await Fixture.CreateAsync(450_000);
+        fixture.Provider.Availability = new ParcelProtectionAvailability(
+            100_000, fixture.Provider.Option, ProviderCapabilityCertified: false);
+
+        var view = await fixture.Prepare.Handle(fixture.PrepareCommand(), default);
+
+        Assert.Equal("Unavailable", view.Election);
+        Assert.False(view.AddOnAvailable);
+        Assert.False(view.RequiresChoice);
+        Assert.Null(view.MaximumCoverageLimitSatang);
+        Assert.Null(view.CustomerPriceSatang);
+        Assert.Null(view.OptionReference);
+        Assert.Null(view.ExpiresAt);
     }
 
     [Fact]

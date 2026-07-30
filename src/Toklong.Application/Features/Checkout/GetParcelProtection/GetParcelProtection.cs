@@ -66,7 +66,7 @@ internal static partial class ParcelProtectionCheckout
             .Where(audit => audit.Name is "parcel_protection.offered" or
                 "parcel_protection.unavailable")
             .OrderByDescending(audit => audit.CreatedAt)
-            .Select(audit => TryReadPreparedOffer(audit.MetadataJson))
+            .Select(audit => TryReadPreparedOffer(audit.MetadataJson, transaction))
             .FirstOrDefault(offer => offer is not null &&
                 (!offer.ExpiresAt.HasValue || offer.ExpiresAt > now)) ;
         if (transaction.ParcelProtectionElection == ParcelProtectionElectionStatus.Pending &&
@@ -103,7 +103,8 @@ internal static partial class ParcelProtectionCheckout
             reconfirmationRequired);
     }
 
-    private static ParcelProtectionPreparedOffer? TryReadPreparedOffer(string value)
+    private static ParcelProtectionPreparedOffer? TryReadPreparedOffer(
+        string value, SaleTransaction transaction)
     {
         try
         {
@@ -112,7 +113,10 @@ internal static partial class ParcelProtectionCheckout
             if (root.ValueKind != JsonValueKind.Object ||
                 !HasCurrentPreparedOfferShape(root))
                 return null;
-            return JsonSerializer.Deserialize<ParcelProtectionPreparedOffer>(value);
+            var offer = JsonSerializer.Deserialize<ParcelProtectionPreparedOffer>(value);
+            return offer is not null && IsValidPreparedPresentation(transaction, offer)
+                ? offer
+                : null;
         }
         catch (JsonException) { return null; }
     }
@@ -121,13 +125,13 @@ internal static partial class ParcelProtectionCheckout
     {
         if (!HasInt(root, "MetadataVersion", out var metadataVersion) ||
             metadataVersion != ParcelProtectionPreparedOffer.CurrentMetadataVersion ||
-            !HasBoolean(root, "RequiresChoice", out var requiresChoice) ||
-            !HasBoolean(root, "AddOnAvailable", out var addOnAvailable) ||
+            !HasBoolean(root, "RequiresChoice") ||
+            !HasBoolean(root, "AddOnAvailable") ||
             !HasInt(root, "IncludedCoverageLimitSatang", out var includedCoverage) ||
             includedCoverage <= 0 ||
             !HasNullableInt(root, "MaximumCoverageLimitSatang", out var maximumCoverage) ||
             !HasNullableInt(root, "CustomerPriceSatang", out var customerPrice) ||
-            !HasNullableString(root, "OptionReference", out var optionReference) ||
+            !HasNullableString(root, "OptionReference") ||
             !HasRequiredString(root, "TermsVersion") ||
             !HasNullableDateTimeOffset(root, "ExpiresAt") ||
             !HasInt(root, "Election", out var election) ||
@@ -135,21 +139,46 @@ internal static partial class ParcelProtectionCheckout
             return false;
 
         if (maximumCoverage.HasValue && maximumCoverage < includedCoverage ||
-            customerPrice.HasValue && customerPrice <= 0 ||
-            requiresChoice && !addOnAvailable)
+            customerPrice.HasValue && customerPrice <= 0)
             return false;
 
-        return !addOnAvailable || maximumCoverage.HasValue &&
-            customerPrice.HasValue && !string.IsNullOrWhiteSpace(optionReference);
+        return true;
     }
 
-    private static bool HasBoolean(JsonElement root, string name, out bool value)
+    private static bool IsValidPreparedPresentation(
+        SaleTransaction transaction, ParcelProtectionPreparedOffer offer)
     {
-        value = false;
+        if (offer.Election is not (ParcelProtectionElectionStatus.Pending or
+            ParcelProtectionElectionStatus.Unavailable) ||
+            offer.IncludedCoverageLimitSatang <= 0 ||
+            offer.RequiresChoice != (transaction.PriceSatang >
+                offer.IncludedCoverageLimitSatang && offer.AddOnAvailable))
+            return false;
+
+        if (!offer.AddOnAvailable)
+        {
+            if (offer.RequiresChoice || offer.MaximumCoverageLimitSatang.HasValue ||
+                offer.CustomerPriceSatang.HasValue ||
+                offer.OptionReference is not null || offer.ExpiresAt.HasValue)
+                return false;
+            return offer.Election == (transaction.PriceSatang >
+                offer.IncludedCoverageLimitSatang
+                    ? ParcelProtectionElectionStatus.Unavailable
+                    : ParcelProtectionElectionStatus.Pending);
+        }
+
+        return offer.Election == ParcelProtectionElectionStatus.Pending &&
+            offer.MaximumCoverageLimitSatang >= transaction.PriceSatang &&
+            offer.CustomerPriceSatang > 0 &&
+            !string.IsNullOrWhiteSpace(offer.OptionReference) &&
+            offer.ExpiresAt.HasValue;
+    }
+
+    private static bool HasBoolean(JsonElement root, string name)
+    {
         if (!root.TryGetProperty(name, out var property) ||
             property.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
             return false;
-        value = property.GetBoolean();
         return true;
     }
 
@@ -172,13 +201,11 @@ internal static partial class ParcelProtectionCheckout
         return true;
     }
 
-    private static bool HasNullableString(JsonElement root, string name, out string? value)
+    private static bool HasNullableString(JsonElement root, string name)
     {
-        value = null;
         if (!root.TryGetProperty(name, out var property)) return false;
         if (property.ValueKind == JsonValueKind.Null) return true;
         if (property.ValueKind != JsonValueKind.String) return false;
-        value = property.GetString();
         return true;
     }
 
