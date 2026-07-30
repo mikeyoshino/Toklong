@@ -199,7 +199,7 @@ public sealed class BookShipmentForPaymentHandler(
             return new(
                 DirectBookingState.TimedOut,
                 attempt.Id,
-                "shippop-timeout");
+                "shipping_retry_required");
         }
         catch (ShipmentMutationException exception)
         {
@@ -219,7 +219,7 @@ public sealed class BookShipmentForPaymentHandler(
                 return new(
                     DirectBookingState.TimedOut,
                     attempt.Id,
-                    exception.SanitizedCode);
+                    "shipping_retry_required");
             }
 
             attempt.Fail(
@@ -235,7 +235,7 @@ public sealed class BookShipmentForPaymentHandler(
             return new(
                 DirectBookingState.Failed,
                 attempt.Id,
-                exception.SanitizedCode);
+                "shipping_retry_required");
         }
     }
 
@@ -265,7 +265,7 @@ public sealed class BookShipmentForPaymentHandler(
                 DirectBookingState
                     .ReconfirmationRequired,
                 attempt.Id,
-                "shipping-option-changed");
+                "shipping_reconfirmation_required");
         }
 
         var success = Success(
@@ -325,19 +325,19 @@ public sealed class BookShipmentForPaymentHandler(
                 new(
                     DirectBookingState.InProgress,
                     attempt.Id,
-                    "preparing-shipping"),
+                    "shipping_preparing"),
             BookingAttemptAcquireState.TimedOut =>
                 new(
                     DirectBookingState.TimedOut,
                     attempt.Id,
-                    attempt.SafeFailureCode),
+                    "shipping_retry_required"),
             BookingAttemptAcquireState
                 .RetryLimitReached =>
                 new(
                     DirectBookingState
                         .RetryLimitReached,
                     attempt.Id,
-                    "booking-retry-limit"),
+                    "shipping_retry_limit"),
             BookingAttemptAcquireState
                 .FingerprintConflict =>
                 new(
@@ -347,8 +347,7 @@ public sealed class BookShipmentForPaymentHandler(
             _ => new(
                 DirectBookingState.Failed,
                 attempt.Id,
-                attempt.SafeFailureCode ??
-                "shipping-preparation-failed")
+                "shipping_retry_required")
         };
     }
 
