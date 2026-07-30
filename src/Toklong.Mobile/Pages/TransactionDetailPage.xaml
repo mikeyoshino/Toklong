@@ -398,6 +398,15 @@
                                 Stroke="#B8D6F7"
                                 StrokeShape="RoundRectangle 16">
                                 <VerticalStackLayout Spacing="10">
+                                    <Button
+                                        HorizontalOptions="End"
+                                        MinimumHeightRequest="44"
+                                        BackgroundColor="Transparent"
+                                        BorderWidth="0"
+                                        Command="{Binding DismissParcelProtectionCommand}"
+                                        SemanticProperties.Description="ปิดตัวเลือกความคุ้มครอง"
+                                        Text="ปิด"
+                                        TextColor="{StaticResource InkSoft}" />
                                     <Label
                                         IsVisible="{Binding IsParcelProtectionChoiceAvailable}"
                                         FontAttributes="Bold"

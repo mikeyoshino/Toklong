@@ -247,5 +247,18 @@ public interface IStripePaymentSheetService
 {
     Task<PaymentSheetOutcome> PresentAsync(
         Guid transactionId,
+        string idempotencyKey,
         CancellationToken cancellationToken = default);
+}
+
+public sealed class PaymentPreparationException(
+    string code,
+    bool canRetry,
+    string consumerMessage)
+    : Exception(consumerMessage)
+{
+    public string Code { get; } = code;
+    public bool CanRetry { get; } = canRetry;
+    public string ConsumerMessage { get; } =
+        consumerMessage;
 }

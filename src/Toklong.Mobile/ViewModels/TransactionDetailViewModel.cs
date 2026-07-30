@@ -8,8 +8,7 @@ namespace Toklong.Mobile.ViewModels;
 public sealed class TransactionDetailViewModel(
     ITransactionService transactionService,
     IStripePaymentSheetService stripePaymentSheet,
-    IMobileAnalytics analytics,
-    Func<TimeSpan, Task>? waitAsync = null) : ObservableViewModel
+    IMobileAnalytics analytics) : ObservableViewModel
 {
     private AppTransaction? transaction;
     private string message = "";
@@ -32,6 +31,7 @@ public sealed class TransactionDetailViewModel(
     private bool isParcelProtectionChoiceVisible;
     private string? parcelProtectionIdempotencyKey;
     private string? parcelProtectionPreparationIdempotencyKey;
+    private string? checkoutIdempotencyKey;
     private bool parcelProtectionOfferedTracked;
 
     public AppTransaction? Transaction
@@ -407,6 +407,13 @@ public sealed class TransactionDetailViewModel(
     public ICommand ChangeParcelProtectionCommand =>
         new AsyncCommand(ChangeParcelProtectionAsync);
 
+    public ICommand DismissParcelProtectionCommand =>
+        new Command(() =>
+        {
+            IsParcelProtectionChoiceVisible = false;
+            Message = "";
+        });
+
     public ICommand ToggleAgreementDetailsCommand =>
         new Command(() =>
         {
@@ -580,10 +587,6 @@ public sealed class TransactionDetailViewModel(
             case ParcelProtectionCheckoutStep.PresentPayment:
                 await PresentPaymentSheetAsync(transactionId);
                 return;
-            case ParcelProtectionCheckoutStep.WaitForBooking:
-                Message = "กำลังเตรียมรายการจัดส่ง กรุณารอสักครู่";
-                await WaitForParcelProtectionBookingAsync(transactionId);
-                return;
         }
 
         var prepared = await transactionService.PrepareParcelProtectionAsync(
@@ -619,8 +622,8 @@ public sealed class TransactionDetailViewModel(
                 await ChooseParcelProtectionAsync(false);
                 return;
             default:
-                Message = "กำลังเตรียมรายการจัดส่ง กรุณารอสักครู่";
-                await WaitForParcelProtectionBookingAsync(transactionId);
+                await PresentPaymentSheetAsync(
+                    transactionId);
                 return;
         }
     }
@@ -633,6 +636,7 @@ public sealed class TransactionDetailViewModel(
         analytics.Track(ParcelProtectionAnalytics.Changed());
         parcelProtectionIdempotencyKey = null;
         parcelProtectionPreparationIdempotencyKey = null;
+        checkoutIdempotencyKey = null;
         ParcelProtection = await transactionService.PrepareParcelProtectionAsync(
             Transaction.Id,
             NewParcelProtectionPreparationIdempotencyKey());
@@ -682,41 +686,21 @@ public sealed class TransactionDetailViewModel(
             IsParcelProtectionChoiceVisible = false;
             Transaction = await transactionService.GetTransactionAsync(
                 transactionId);
-            Message = status == "cancelling_shipping"
-                ? "กำลังปรับรายการจัดส่ง"
-                : "กำลังเตรียมรายการจัดส่ง กรุณารอสักครู่";
-            await WaitForParcelProtectionBookingAsync(transactionId);
+            checkoutIdempotencyKey = null;
+            if (status == "cancelling_shipping")
+            {
+                Message =
+                    "กำลังปรับรายการจัดส่ง กรุณาลองชำระอีกครั้ง";
+                return;
+            }
+            Message = "กำลังเตรียมการจัดส่ง…";
+            await PresentPaymentSheetAsync(
+                transactionId);
         }
         finally
         {
             IsBusy = false;
         }
-    }
-
-    private async Task WaitForParcelProtectionBookingAsync(Guid transactionId)
-    {
-        for (var attempt = 0; attempt < 8; attempt++)
-        {
-            await (waitAsync?.Invoke(
-                TimeSpan.FromMilliseconds(750)) ??
-                Task.Delay(TimeSpan.FromMilliseconds(750)));
-            var current = await transactionService.GetParcelProtectionAsync(
-                transactionId);
-            ParcelProtection = current;
-            if (current.ReconfirmationRequired)
-            {
-                await RefreshParcelProtectionForReconfirmationAsync(
-                    transactionId);
-                IsParcelProtectionChoiceVisible = true;
-                return;
-            }
-            if (!current.BookingReady)
-                continue;
-
-            await PresentPaymentSheetAsync(transactionId);
-            return;
-        }
-        Message = "กำลังเตรียมรายการจัดส่ง กรุณารอสักครู่";
     }
 
     private async Task RefreshParcelProtectionForReconfirmationAsync(
@@ -738,13 +722,21 @@ public sealed class TransactionDetailViewModel(
         try
         {
             Transaction = await transactionService.GetTransactionAsync(transactionId);
-            var outcome = await stripePaymentSheet.PresentAsync(transactionId);
+            var outcome = await stripePaymentSheet.PresentAsync(
+                transactionId,
+                NewCheckoutIdempotencyKey());
             if (outcome == PaymentSheetOutcome.Completed)
                 analytics.Track(ParcelProtectionAnalytics.CheckoutConverted());
             Message = outcome == PaymentSheetOutcome.Completed
                 ? "ส่งข้อมูลการจ่ายเงินแล้ว กำลังรอ Stripe ยืนยัน"
                 : "ยังไม่ได้จ่ายเงิน";
             Transaction = await transactionService.GetTransactionAsync(transactionId);
+        }
+        catch (PaymentPreparationException exception)
+        {
+            if (exception.CanRetry)
+                checkoutIdempotencyKey = null;
+            Message = exception.ConsumerMessage;
         }
         finally
         {
@@ -759,6 +751,10 @@ public sealed class TransactionDetailViewModel(
     private string NewParcelProtectionPreparationIdempotencyKey() =>
         parcelProtectionPreparationIdempotencyKey ??=
             $"mobile:{Transaction?.Id:N}:prepare:{Guid.NewGuid():N}";
+
+    private string NewCheckoutIdempotencyKey() =>
+        checkoutIdempotencyKey ??=
+            $"mobile:{Transaction?.Id:N}:checkout:{Guid.NewGuid():N}";
 
     private bool CanLoadParcelProtection() =>
         Transaction is

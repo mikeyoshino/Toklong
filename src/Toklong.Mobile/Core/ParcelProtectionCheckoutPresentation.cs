@@ -4,7 +4,6 @@ public enum ParcelProtectionCheckoutStep
 {
     Choose,
     SubmitIncludedCoverage,
-    WaitForBooking,
     PresentPayment,
     Reconfirm
 }
@@ -15,11 +14,10 @@ public static class ParcelProtectionCheckoutPresentation
         BuyerParcelProtection protection) =>
         protection.ReconfirmationRequired
             ? ParcelProtectionCheckoutStep.Reconfirm
-            : protection.BookingReady
+            : protection.BookingReady ||
+              protection.Election != "Pending"
                 ? ParcelProtectionCheckoutStep.PresentPayment
-                : protection.Election != "Pending"
-                    ? ParcelProtectionCheckoutStep.WaitForBooking
-                    : protection.RequiresChoice
+                : protection.RequiresChoice
                         ? ParcelProtectionCheckoutStep.Choose
                         : ParcelProtectionCheckoutStep.SubmitIncludedCoverage;
 }

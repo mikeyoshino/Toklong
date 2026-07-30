@@ -33,7 +33,7 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
     }
 
     [Fact]
-    public async Task Pending_election_polls_eight_times_without_resubmitting()
+    public async Task Pending_saved_election_opens_payment_without_polling()
     {
         var service = new ParcelProtectionService
         {
@@ -47,15 +47,14 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
         viewModel.AcceptedTerms = true;
         await ExecuteAsync(viewModel.PrimaryActionCommand);
 
-        Assert.Equal(10, service.GetProtectionCalls);
+        Assert.Equal(2, service.GetProtectionCalls);
         Assert.Equal(0, service.PrepareCalls);
         Assert.Equal(0, service.ChooseCalls);
-        Assert.Equal(0, sheet.Calls);
-        Assert.Contains("กำลังเตรียมรายการจัดส่ง", viewModel.Message);
+        Assert.Equal(1, sheet.Calls);
     }
 
     [Fact]
-    public async Task Retrying_a_pending_election_does_not_resubmit_it()
+    public async Task Retrying_a_pending_election_uses_checkout_again_without_resubmitting()
     {
         var service = new ParcelProtectionService
         {
@@ -70,10 +69,41 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
         await ExecuteAsync(viewModel.PrimaryActionCommand);
         await ExecuteAsync(viewModel.PrimaryActionCommand);
 
-        Assert.Equal(19, service.GetProtectionCalls);
+        Assert.Equal(3, service.GetProtectionCalls);
         Assert.Equal(0, service.PrepareCalls);
         Assert.Equal(0, service.ChooseCalls);
-        Assert.Equal(0, sheet.Calls);
+        Assert.Equal(2, sheet.Calls);
+    }
+
+    [Fact]
+    public async Task Retryable_preparation_failure_uses_a_new_checkout_key()
+    {
+        var service = new ParcelProtectionService
+        {
+            Protection = ReadyProtection(),
+            Transaction = Transaction()
+        };
+        var sheet = new RecordingSheet();
+        sheet.Failures.Enqueue(
+            new PaymentPreparationException(
+                "shipping_retry_required",
+                true,
+                "เตรียมการจัดส่งไม่สำเร็จ"));
+        var viewModel = ViewModel(service, sheet);
+
+        await viewModel.LoadAsync(
+            service.Transaction.Id);
+        viewModel.AcceptedTerms = true;
+        await ExecuteAsync(
+            viewModel.PrimaryActionCommand);
+        await ExecuteAsync(
+            viewModel.PrimaryActionCommand);
+
+        Assert.Equal(2, sheet.Calls);
+        Assert.Equal(2, sheet.Keys.Count);
+        Assert.NotEqual(
+            sheet.Keys[0],
+            sheet.Keys[1]);
     }
 
     [Fact]
@@ -118,6 +148,8 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
         await viewModel.LoadAsync(service.Transaction.Id);
         viewModel.AcceptedTerms = true;
         await ExecuteAsync(viewModel.PrimaryActionCommand);
+        viewModel.DismissParcelProtectionCommand
+            .Execute(null);
         await ExecuteAsync(viewModel.PrimaryActionCommand);
 
         Assert.True(viewModel.IsParcelProtectionChoiceVisible);
@@ -178,8 +210,10 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
         ParcelProtectionService service,
         RecordingSheet? sheet = null,
         RecordingAnalytics? analytics = null) =>
-        new(service, sheet ?? new RecordingSheet(), analytics ?? new RecordingAnalytics(),
-            _ => Task.CompletedTask);
+        new(
+            service,
+            sheet ?? new RecordingSheet(),
+            analytics ?? new RecordingAnalytics());
 
     private static async Task ExecuteAsync(ICommand command)
     {
@@ -226,12 +260,19 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
         : IStripePaymentSheetService
     {
         public int Calls { get; private set; }
+        public List<string> Keys { get; } = [];
+        public Queue<Exception> Failures { get; } = [];
 
         public Task<PaymentSheetOutcome> PresentAsync(
             Guid transactionId,
+            string idempotencyKey,
             CancellationToken cancellationToken = default)
         {
             Calls++;
+            Keys.Add(idempotencyKey);
+            if (Failures.TryDequeue(
+                    out var failure))
+                throw failure;
             return Task.FromResult(outcome);
         }
     }

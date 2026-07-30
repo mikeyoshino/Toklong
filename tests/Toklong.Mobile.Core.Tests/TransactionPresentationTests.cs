@@ -727,7 +727,7 @@ public sealed class TransactionPresentationTests
             ParcelProtectionCheckoutStep.SubmitIncludedCoverage,
             ParcelProtectionCheckoutPresentation.Next(included));
         Assert.Equal(
-            ParcelProtectionCheckoutStep.WaitForBooking,
+            ParcelProtectionCheckoutStep.PresentPayment,
             ParcelProtectionCheckoutPresentation.Next(
                 offered with
                 {
@@ -765,7 +765,7 @@ public sealed class TransactionPresentationTests
             ParcelProtectionCheckoutStep.PresentPayment,
             ParcelProtectionCheckoutPresentation.Next(stalePrompt));
         Assert.Equal(
-            ParcelProtectionCheckoutStep.WaitForBooking,
+            ParcelProtectionCheckoutStep.PresentPayment,
             ParcelProtectionCheckoutPresentation.Next(stalePrompt with
             {
                 BookingReady = false
