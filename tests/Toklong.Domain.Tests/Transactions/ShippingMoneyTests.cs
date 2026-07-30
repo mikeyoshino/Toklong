@@ -474,6 +474,13 @@ public sealed class ShippingMoneyTests
         var transitions = new TransactionTransitionService();
         transaction.BeginCheckout("ผู้ซื้อ", "buyer@example.com", Now.AddMinutes(3), transitions);
         var type = typeof(SaleTransaction);
+        var annexes = (IList<BuyerCheckoutAnnexAcceptance>)type
+            .GetField("_buyerCheckoutAnnexAcceptances",
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(transaction)!;
+        annexes.Clear();
+        Assert.Empty(transaction.BuyerCheckoutAnnexAcceptances);
         var termsJson = (string)type.GetMethod("BuildTermsSnapshotJson",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .Invoke(transaction, [10])!;
