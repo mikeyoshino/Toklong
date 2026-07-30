@@ -1,8 +1,10 @@
 using System.Security.Cryptography;
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using MediatR;
 using Toklong.Application.Abstractions;
+using Toklong.Application.Common;
 using Toklong.Application.Features.Checkout.GetParcelProtection;
 using Toklong.Application.Features.Shipping;
 using Toklong.Domain.Common;
@@ -45,13 +47,15 @@ public sealed class BookShipmentForPaymentHandler(
     IBookingAttemptRepository attempts,
     IShipmentProvider provider,
     IUnitOfWork unitOfWork,
-    IClock clock)
+    IClock clock,
+    IDirectBookingAdmission? admission = null,
+    DirectBookingMetrics? metrics = null)
     : IRequestHandler<
           BookShipmentForPaymentCommand,
           DirectBookingResult>,
       IDirectCheckoutBooking
 {
-    private static readonly TimeSpan ProviderBudget =
+    private static readonly TimeSpan DefaultProviderBudget =
         TimeSpan.FromMilliseconds(2_200);
 
     public async Task<DirectBookingResult> Handle(
@@ -122,6 +126,7 @@ public sealed class BookShipmentForPaymentHandler(
                 cancellationToken);
 
         var attempt = acquired.Attempt;
+        var started = Stopwatch.GetTimestamp();
         try
         {
             var request = BuildReservationRequest(
@@ -132,51 +137,65 @@ public sealed class BookShipmentForPaymentHandler(
                 CancellationTokenSource
                     .CreateLinkedTokenSource(
                         cancellationToken);
-            budget.CancelAfter(ProviderBudget);
-            var reservation = await provider.ReserveAsync(
-                request,
-                budget.Token);
-            if (!Matches(shipment, reservation))
+            budget.CancelAfter(
+                admission?.ProviderTimeout ??
+                DefaultProviderBudget);
+            IDisposable? admissionLease = null;
+            if (admission is not null &&
+                !admission.TryEnter(
+                    out admissionLease))
             {
-                attempt.Fail(
-                    "shipping-option-changed",
-                    clock.UtcNow);
-                await unitOfWork.SaveChangesAsync(
-                    CancellationToken.None);
-                return new(
-                    DirectBookingState
-                        .ReconfirmationRequired,
-                    attempt.Id,
-                    "shipping-option-changed");
+                metrics?.RecordBulkheadRejection(
+                    shipment.ServiceCode);
+                throw new RequestCooldownException(
+                    "ระบบกำลังมีผู้ใช้งานจำนวนมาก กรุณาลองอีกครั้ง",
+                    TimeSpan.FromSeconds(2));
             }
-
-            var success = Success(
-                transaction.Currency,
-                reservation);
-            attempt.Succeed(
-                success,
-                clock.UtcNow);
-            ApplySuccess(
-                transaction,
-                shipment,
-                reservation,
-                clock.UtcNow);
-            await unitOfWork.SaveChangesAsync(
-                cancellationToken);
-            return new(
-                DirectBookingState.Ready,
-                attempt.Id,
-                null);
+            using (admissionLease)
+            {
+                ShipmentReservation reservation;
+                try
+                {
+                    reservation =
+                        await provider.ReserveAsync(
+                            request,
+                            budget.Token);
+                    admission
+                        ?.RecordProviderSuccess();
+                }
+                catch (
+                    ShipmentMutationException)
+                {
+                    admission
+                        ?.RecordProviderFailure(
+                            clock.UtcNow);
+                    throw;
+                }
+                return await CompleteReservationAsync(
+                    transaction,
+                    shipment,
+                    attempt,
+                    reservation,
+                    started,
+                    cancellationToken);
+            }
         }
         catch (OperationCanceledException)
             when (!cancellationToken
                 .IsCancellationRequested)
         {
+            admission?.RecordProviderFailure(
+                clock.UtcNow);
             attempt.TimeOut(
                 "shippop-timeout",
                 clock.UtcNow);
             await unitOfWork.SaveChangesAsync(
                 CancellationToken.None);
+            metrics?.Record(
+                shipment.ServiceCode,
+                DirectBookingState.TimedOut,
+                Stopwatch.GetElapsedTime(
+                    started));
             return new(
                 DirectBookingState.TimedOut,
                 attempt.Id,
@@ -192,6 +211,11 @@ public sealed class BookShipmentForPaymentHandler(
                     clock.UtcNow);
                 await unitOfWork.SaveChangesAsync(
                     CancellationToken.None);
+                metrics?.Record(
+                    shipment.ServiceCode,
+                    DirectBookingState.TimedOut,
+                    Stopwatch.GetElapsedTime(
+                        started));
                 return new(
                     DirectBookingState.TimedOut,
                     attempt.Id,
@@ -203,11 +227,68 @@ public sealed class BookShipmentForPaymentHandler(
                 clock.UtcNow);
             await unitOfWork.SaveChangesAsync(
                 CancellationToken.None);
+            metrics?.Record(
+                shipment.ServiceCode,
+                DirectBookingState.Failed,
+                Stopwatch.GetElapsedTime(
+                    started));
             return new(
                 DirectBookingState.Failed,
                 attempt.Id,
                 exception.SanitizedCode);
         }
+    }
+
+    private async Task<DirectBookingResult>
+        CompleteReservationAsync(
+            SaleTransaction transaction,
+            ManagedShipment shipment,
+            BookingAttempt attempt,
+            ShipmentReservation reservation,
+            long started,
+            CancellationToken cancellationToken)
+    {
+        if (!Matches(shipment, reservation))
+        {
+            attempt.Fail(
+                "shipping-option-changed",
+                clock.UtcNow);
+            await unitOfWork.SaveChangesAsync(
+                CancellationToken.None);
+            metrics?.Record(
+                shipment.ServiceCode,
+                DirectBookingState
+                    .ReconfirmationRequired,
+                Stopwatch.GetElapsedTime(
+                    started));
+            return new(
+                DirectBookingState
+                    .ReconfirmationRequired,
+                attempt.Id,
+                "shipping-option-changed");
+        }
+
+        var success = Success(
+            transaction.Currency,
+            reservation);
+        attempt.Succeed(
+            success,
+            clock.UtcNow);
+        ApplySuccess(
+            transaction,
+            shipment,
+            reservation,
+            clock.UtcNow);
+        await unitOfWork.SaveChangesAsync(
+            cancellationToken);
+        metrics?.Record(
+            shipment.ServiceCode,
+            DirectBookingState.Ready,
+            Stopwatch.GetElapsedTime(started));
+        return new(
+            DirectBookingState.Ready,
+            attempt.Id,
+            null);
     }
 
     private async Task<DirectBookingResult>

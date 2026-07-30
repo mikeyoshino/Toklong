@@ -313,6 +313,99 @@ public sealed class ProductionConfigurationValidatorTests
             requirePersistentStorage: false);
     }
 
+    [Fact]
+    public void Production_rejects_direct_booking_without_certification()
+    {
+        var values =
+            ValidDirectBookingValues();
+        values[
+            "Shippop:DirectBookingCertificationReference"] =
+            "";
+
+        var exception =
+            Assert.Throws<
+                InvalidOperationException>(() =>
+                ProductionConfigurationValidator
+                    .Validate(
+                        new ConfigurationBuilder()
+                            .AddInMemoryCollection(
+                                values)
+                            .Build(),
+                        new TestEnvironment(
+                            "Production"),
+                        requireMobileLinks: false,
+                        requirePersistentStorage:
+                            true));
+
+        Assert.Contains(
+            "DirectBookingCertificationReference",
+            exception.Message);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2201)]
+    public void Production_rejects_invalid_direct_booking_timeout(
+        int milliseconds)
+    {
+        var values =
+            ValidDirectBookingValues();
+        values[
+            "Shippop:DirectBookingTimeoutMilliseconds"] =
+            milliseconds.ToString();
+
+        var exception =
+            Assert.Throws<
+                InvalidOperationException>(() =>
+                ProductionConfigurationValidator
+                    .Validate(
+                        new ConfigurationBuilder()
+                            .AddInMemoryCollection(
+                                values)
+                            .Build(),
+                        new TestEnvironment(
+                            "Production"),
+                        requireMobileLinks: false,
+                        requirePersistentStorage:
+                            true));
+
+        Assert.Contains(
+            "DirectBookingTimeoutMilliseconds",
+            exception.Message);
+    }
+
+    private static Dictionary<string, string?>
+        ValidDirectBookingValues()
+    {
+        var values =
+            SafeProductionValues();
+        values[
+            "Shippop:DirectBookingEnabled"] =
+            "true";
+        values[
+            "Shippop:DirectBookingTimeoutMilliseconds"] =
+            "2200";
+        values[
+            "Shippop:DirectBookingMaximumConcurrency"] =
+            "32";
+        values[
+            "Shippop:DirectBookingCertificationReference"] =
+            "cert-direct-001";
+        values[
+            "Shippop:Services:EMST:BookOutboundEnabled"] =
+            "true";
+        values[
+            "Shippop:Services:EMST:ConfirmEnabled"] =
+            "true";
+        values[
+            "Shippop:Services:EMST:OperationLookupEnabled"] =
+            "true";
+        values[
+            "Shippop:Services:EMST:CertificationReference"] =
+            "cert-service-001";
+        return values;
+    }
+
     private static Dictionary<string, string?> SafeProductionValues() =>
         new()
         {

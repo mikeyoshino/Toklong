@@ -104,6 +104,24 @@ public static class ProductionConfigurationValidator
                     StringComparison.Ordinal))
                 errors.Add(
                     "Shippop API key and quote signing secret must be different");
+            if (shippop.DirectBookingEnabled)
+            {
+                if (string.IsNullOrWhiteSpace(
+                        shippop
+                            .DirectBookingCertificationReference))
+                    errors.Add(
+                        "Shippop:DirectBookingCertificationReference is required when direct booking is enabled");
+                if (shippop
+                        .DirectBookingTimeoutMilliseconds is
+                    < 500 or > 2_200)
+                    errors.Add(
+                        "Shippop:DirectBookingTimeoutMilliseconds must be from 500 through 2200");
+                if (shippop
+                        .DirectBookingMaximumConcurrency is
+                    < 1 or > 256)
+                    errors.Add(
+                        "Shippop:DirectBookingMaximumConcurrency must be from 1 through 256");
+            }
             if (shippop.ServiceCodes.Count == 0 ||
                 shippop.ServiceCodes.Any(
                     code =>
@@ -142,6 +160,12 @@ public static class ProductionConfigurationValidator
                     !profile.OperationLookupEnabled)
                     errors.Add(
                         $"Shippop service {serviceCode} booking requires operation lookup");
+                if (shippop.DirectBookingEnabled &&
+                    (!profile.BookOutboundEnabled ||
+                     !profile.ConfirmEnabled ||
+                     !profile.OperationLookupEnabled))
+                    errors.Add(
+                        $"Shippop service {serviceCode} direct booking requires book, confirm, and operation lookup capabilities");
                 if (profile.OptionalProtectionEnabled &&
                     (!profile.InsuranceEnabled ||
                      profile.IncludedCoverageSatang < 0 ||

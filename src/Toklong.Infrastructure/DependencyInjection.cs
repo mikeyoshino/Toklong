@@ -32,6 +32,8 @@ public static class DependencyInjection
         services.AddScoped<
             IDirectCheckoutBooking,
             BookShipmentForPaymentHandler>();
+        services.AddSingleton<
+            DirectBookingMetrics>();
         services.AddSingleton<ShippingOperationMetrics>();
         services.AddScoped<IRetentionRepository, RetentionRepository>();
         services.AddScoped<IBuyerRepository, BuyerRepository>();
@@ -170,6 +172,9 @@ public static class DependencyInjection
             var shippop = ShippopShippingOptions.From(
                 configuration);
             services.AddSingleton(shippop);
+            services.AddSingleton<
+                IDirectBookingAdmission,
+                DirectBookingAdmission>();
             services.AddHttpClient<ShippopShippingProvider>(
                 client =>
                 {
@@ -183,7 +188,21 @@ public static class DependencyInjection
                         TimeSpan.FromSeconds(20);
                     client.DefaultRequestHeaders.UserAgent.ParseAdd(
                         "ToklongShipping/1.0");
-                });
+                })
+                .ConfigurePrimaryHttpMessageHandler(
+                    () => new SocketsHttpHandler
+                    {
+                        MaxConnectionsPerServer =
+                            Math.Clamp(
+                                shippop
+                                    .DirectBookingMaximumConcurrency,
+                                1,
+                                256),
+                        PooledConnectionLifetime =
+                            TimeSpan.FromMinutes(5),
+                        ConnectTimeout =
+                            TimeSpan.FromMilliseconds(500)
+                    });
             services.AddTransient<IShippingQuoteProvider>(
                 provider => provider.GetRequiredService<
                     ShippopShippingProvider>());

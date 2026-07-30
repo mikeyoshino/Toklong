@@ -24,6 +24,13 @@ public sealed class ShippopShippingOptions
     public string AccountEmail { get; init; } = "";
     public string QuoteSigningSecret { get; init; } = "";
     public int QuoteLifetimeMinutes { get; init; } = 120;
+    public bool DirectBookingEnabled { get; init; }
+    public int DirectBookingTimeoutMilliseconds
+    { get; init; } = 2_200;
+    public int DirectBookingMaximumConcurrency
+    { get; init; } = 32;
+    public string DirectBookingCertificationReference
+    { get; init; } = "";
     public IReadOnlyList<string> ServiceCodes { get; init; } =
         [];
     public IReadOnlyDictionary<string, ShippopServiceProfile>
@@ -73,6 +80,21 @@ public sealed class ShippopShippingOptions
                     120),
                 61,
                 240),
+            DirectBookingEnabled =
+                configuration.GetValue<bool>(
+                    $"{SectionName}:DirectBookingEnabled"),
+            DirectBookingTimeoutMilliseconds =
+                configuration.GetValue(
+                    $"{SectionName}:DirectBookingTimeoutMilliseconds",
+                    2_200),
+            DirectBookingMaximumConcurrency =
+                configuration.GetValue(
+                    $"{SectionName}:DirectBookingMaximumConcurrency",
+                    32),
+            DirectBookingCertificationReference =
+                configuration[
+                    $"{SectionName}:DirectBookingCertificationReference"]
+                    ?.Trim() ?? "",
             ServiceCodes = configuredServices,
             ServiceProfiles = profiles
         };
