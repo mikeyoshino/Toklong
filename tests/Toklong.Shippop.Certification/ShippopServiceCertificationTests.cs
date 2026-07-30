@@ -157,7 +157,7 @@ public sealed class ShippopServiceCertificationTests
     }
 
     [Fact]
-    public async Task Capability_harness_accepts_selected_coverage_below_the_certified_maximum()
+    public async Task Capability_harness_rejects_evidence_maximum_that_differs_from_selected_maximum()
     {
         var provider = new DeterministicCertifiedProvider(
             selectedCoverageLimitSatang: 100_000);
@@ -172,7 +172,54 @@ public sealed class ShippopServiceCertificationTests
             mutationsEnabled: true,
             CancellationToken.None);
 
-        Assert.True(result.Passed);
+        Assert.False(result.Passed);
+        Assert.Contains("coverage_limit_mismatch", result.Failures);
+    }
+
+    [Theory]
+    [InlineData(99_999)]
+    [InlineData(100_000)]
+    public async Task Capability_harness_rejects_maximum_not_above_positive_included_coverage(
+        long maximumCoverageLimitSatang)
+    {
+        var provider = new DeterministicCertifiedProvider(
+            includedCoverageLimitSatang: 100_000,
+            selectedCoverageLimitSatang: maximumCoverageLimitSatang);
+        var harness = new ParcelProtectionCertificationHarness(
+            provider,
+            provider,
+            new ParcelProtectionPricingPolicy());
+
+        var result = await harness.RunAsync(
+            CertificationRequest(),
+            CertificationEvidence(
+                maximumCoverageLimitSatang: maximumCoverageLimitSatang),
+            mutationsEnabled: true,
+            CancellationToken.None);
+
+        Assert.False(result.Passed);
+        Assert.Contains("coverage_limit_mismatch", result.Failures);
+    }
+
+    [Fact]
+    public async Task Capability_harness_rejects_selected_coverage_below_included_coverage()
+    {
+        var provider = new DeterministicCertifiedProvider(
+            includedCoverageLimitSatang: 100_000,
+            selectedCoverageLimitSatang: 50_000);
+        var harness = new ParcelProtectionCertificationHarness(
+            provider,
+            provider,
+            new ParcelProtectionPricingPolicy());
+
+        var result = await harness.RunAsync(
+            CertificationRequest(),
+            CertificationEvidence(),
+            mutationsEnabled: true,
+            CancellationToken.None);
+
+        Assert.False(result.Passed);
+        Assert.Contains("coverage_limit_mismatch", result.Failures);
     }
 
     [Fact]
@@ -214,7 +261,7 @@ public sealed class ShippopServiceCertificationTests
             CancellationToken.None);
 
         Assert.False(result.Passed);
-        Assert.Contains("option_validation_mismatch", result.Failures);
+        Assert.Contains("coverage_limit_mismatch", result.Failures);
     }
 
     [Theory]
@@ -641,19 +688,21 @@ public sealed class ShippopServiceCertificationTests
                 !HasValidEvidenceIdentifiers(evidence))
                 return ParcelProtectionCertificationResult.Failed(
                     "option_identifier_invalid");
-            if (evidence.MaximumCoverageLimitSatang <= 0)
-                return ParcelProtectionCertificationResult.Failed(
-                    "coverage_limit_mismatch");
-
             var validated = await protectionProvider.ValidateOptionAsync(
                 request,
                 option.OptionReference,
                 cancellationToken);
-            if (!OptionMatches(option, validated) ||
-                !OptionMatchesEvidence(
+            if (!OptionMatches(option, validated))
+                return ParcelProtectionCertificationResult.Failed(
+                    "option_validation_mismatch");
+            if (!CoverageMatchesEvidence(
                     availability.IncludedCoverageLimitSatang,
                     option,
+                    validated,
                     evidence))
+                return ParcelProtectionCertificationResult.Failed(
+                    "coverage_limit_mismatch");
+            if (!OptionMetadataMatchesEvidence(option, evidence))
                 return ParcelProtectionCertificationResult.Failed(
                     "option_validation_mismatch");
             if (pricingPolicy.Price(option.ProviderCostSatang)
@@ -743,17 +792,35 @@ public sealed class ShippopServiceCertificationTests
             left.TermsVersion == right.TermsVersion &&
             left.InsuranceCode == right.InsuranceCode;
 
-        private static bool OptionMatchesEvidence(
+        private static bool CoverageMatchesEvidence(
             long availabilityIncludedCoverageLimitSatang,
             ProviderParcelProtectionOption option,
+            ProviderParcelProtectionOption validated,
             ParcelProtectionCertificationEvidence evidence) =>
+            evidence.IncludedCoverageLimitSatang >= 0 &&
+            evidence.MaximumCoverageLimitSatang > 0 &&
             availabilityIncludedCoverageLimitSatang ==
             evidence.IncludedCoverageLimitSatang &&
             option.IncludedCoverageLimitSatang ==
             evidence.IncludedCoverageLimitSatang &&
+            validated.IncludedCoverageLimitSatang ==
+            evidence.IncludedCoverageLimitSatang &&
             option.SelectedCoverageLimitSatang > 0 &&
+            option.SelectedCoverageLimitSatang >=
+            evidence.IncludedCoverageLimitSatang &&
             option.SelectedCoverageLimitSatang <=
             evidence.MaximumCoverageLimitSatang &&
+            option.SelectedCoverageLimitSatang ==
+            evidence.MaximumCoverageLimitSatang &&
+            validated.SelectedCoverageLimitSatang ==
+            evidence.MaximumCoverageLimitSatang &&
+            (evidence.IncludedCoverageLimitSatang == 0 ||
+             evidence.MaximumCoverageLimitSatang >
+             evidence.IncludedCoverageLimitSatang);
+
+        private static bool OptionMetadataMatchesEvidence(
+            ProviderParcelProtectionOption option,
+            ParcelProtectionCertificationEvidence evidence) =>
             option.ProviderCostSatang == evidence.ProviderCostSatang &&
             option.TermsVersion == evidence.TermsVersion &&
             option.InsuranceCode == evidence.InsuranceCode &&

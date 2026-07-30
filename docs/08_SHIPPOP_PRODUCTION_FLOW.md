@@ -29,8 +29,10 @@
 - certification ต้องคืนชื่อ field และ unit ของ provider สำหรับ weight, width,
   length, height ที่ผ่าน allow-list ที่ sanitize แล้ว; รายงานต้องมาจาก contract
   ที่คืนจริง ไม่ใช่ fixture. `IncludedCoverageSatang = 0` ใช้ได้สำหรับ add-on
-  ที่ได้รับการรับรอง แต่ selected coverage ต้องมากกว่า 0 และไม่เกิน maximum
-  ที่เปิดเผย (ไม่บังคับให้เท่าราคาสินค้า)
+  ที่ได้รับการรับรอง แต่ selected coverage ต้องมากกว่า 0, ไม่น้อยกว่า included
+  และไม่เกิน maximum ที่เปิดเผย; contract ปัจจุบันใช้ selected เป็น maximum
+  จึงต้องตรงกับ evidence maximum ทุกครั้ง หาก included มากกว่า 0 maximum ต้อง
+  มากกว่า included (ไม่บังคับให้เท่าราคาสินค้า)
 - หาก SHIPPOP ไม่ให้ optional-protection payload ที่แยกได้หลัง Buyer election
   ห้ามสร้างหรือเดาชื่อ field; บันทึกเป็น provider blocker และใช้
   included-only checkout ต่อไป

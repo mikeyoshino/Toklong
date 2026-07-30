@@ -101,9 +101,12 @@ values fail before a booking. The sanitized report derives these entries from
 the returned certification contract rather than from a fixed test fixture.
 
 `IncludedCoverageSatang` may be zero for a certified add-on-only service. The
-selected add-on coverage must still be positive and no greater than the
-documented certified maximum; certification does not require coverage equal to
-the item price.
+selected add-on coverage must still be positive, at least the included limit,
+and no greater than the documented certified maximum. Under the current
+provider option contract, `SelectedCoverageLimitSatang` is that maximum and
+must equal the evidence maximum exactly. When included coverage is positive,
+the maximum must be strictly greater than it; certification does not require
+coverage equal to the item price.
 
 Terms version, insurance code, option reference, provider booking reference,
 and lookup reference must each be 1–80 ASCII characters from
