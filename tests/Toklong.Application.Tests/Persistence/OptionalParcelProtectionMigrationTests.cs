@@ -22,9 +22,52 @@ public sealed class OptionalParcelProtectionMigrationTests
             backfill.Sql,
             StringComparison.Ordinal);
         Assert.Contains(
+            "\"ParcelProtectionServiceFeeSatang\" = 0",
+            backfill.Sql,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "\"ParcelProtectionTermsVersion\" = 'legacy-full-value-v1'",
+            backfill.Sql,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "\"ParcelProtectionBuyerElectedAt\" = \"BuyerAcceptedAt\"",
+            backfill.Sql,
+            StringComparison.Ordinal);
+        Assert.Contains(
             "WHERE \"ParcelInsuranceFeeSatang\" > 0",
             backfill.Sql,
             StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "ParcelProtectionIncludedCoverageSatang",
+            backfill.Sql,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "ParcelProtectionSelectedCoverageSatang",
+            backfill.Sql,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Up_leaves_zero_fee_legacy_rows_pending_without_coverage_limits()
+    {
+        var operations = MigrationProbe.CreateUpOperations();
+
+        var election = Assert.Single(
+            operations.OfType<AddColumnOperation>(), operation =>
+                operation.Table == "transactions" &&
+                operation.Name == "ParcelProtectionElection");
+        var includedCoverage = Assert.Single(
+            operations.OfType<AddColumnOperation>(), operation =>
+                operation.Table == "transactions" &&
+                operation.Name == "ParcelProtectionIncludedCoverageSatang");
+        var selectedCoverage = Assert.Single(
+            operations.OfType<AddColumnOperation>(), operation =>
+                operation.Table == "transactions" &&
+                operation.Name == "ParcelProtectionSelectedCoverageSatang");
+
+        Assert.Equal("Pending", election.DefaultValue);
+        Assert.Equal(0L, includedCoverage.DefaultValue);
+        Assert.Equal(0L, selectedCoverage.DefaultValue);
     }
 
     [Fact]
