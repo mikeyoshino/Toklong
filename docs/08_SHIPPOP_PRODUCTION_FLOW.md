@@ -35,7 +35,8 @@
   มากกว่า included (ไม่บังคับให้เท่าราคาสินค้า)
 - หาก SHIPPOP ไม่ให้ optional-protection payload ที่แยกได้หลัง Buyer election
   ห้ามสร้างหรือเดาชื่อ field; บันทึกเป็น provider blocker และใช้
-  included-only checkout ต่อไป
+  verified included-coverage outcome เท่านั้น (อาจเป็นศูนย์) โดยห้ามอ้างว่า
+  มีความคุ้มครองเกินจำนวนที่ยืนยันได้
 
 ## Outbound flow
 
@@ -43,7 +44,8 @@
    ต้นทาง น้ำหนัก ขนาด และบริการขนส่ง การยืนยันของผู้ขายไม่สร้าง booking
    และไม่เลือกความคุ้มครองแทนผู้ซื้อ
 2. หลังผู้ขายยอมรับ ระบบตรวจ availability แล้วข้ามคำถามเมื่ออยู่ในวงเงิน
-   ที่รวมอยู่ หรือถามผู้ซื้อครั้งเดียวให้เพิ่มหรือไม่เพิ่ม optional add-on
+   included ที่ยืนยันได้ พร้อม auto-submit `AddProtection=false` และ persist
+   `Declined`; หรือถามผู้ซื้อครั้งเดียวให้เพิ่มหรือไม่เพิ่ม optional add-on
 3. API บันทึก Buyer election และ immutable shipment intent กับ `BookOutbound`
    ใน transaction เดียวกัน แล้วตอบ `202 Accepted`
 4. ผู้ซื้อยังชำระไม่ได้ระหว่าง booking ค้างอยู่
@@ -105,9 +107,10 @@
 ## Consumer disclosure
 
 - ผู้ซื้อเห็นราคาสินค้า ค่าจัดส่ง ค่าคุ้มครองผู้ซื้อ และยอดรวมก่อนจ่าย
-  เมื่อมี optional parcel protection ให้แสดง maximum กับราคา combined เพียง
-  ในหน้าที่เลือกเท่านั้น; summary แสดงได้เฉพาะค่ารวมสุดท้าย ห้ามแสดงชื่อ
-  SHIPPOP, provider cost หรือ TOKLONG fee split
+  เมื่อรับ optional parcel protection ให้แสดงราคา combined ต่อใน payment
+  summary ด้วย แต่ maximum แสดงเฉพาะหน้าที่เลือกหรือรายละเอียด; ห้ามแสดงชื่อ
+  SHIPPOP, provider cost หรือ TOKLONG fee split. กรณี declined, unavailable,
+  included-within-limit หรือไม่มี paid add-on ห้ามแสดงแถวค่าคุ้มครองพัสดุ
 - ผู้ขายเห็นราคาสินค้า ค่าจัดส่ง และยอดรับสุทธิเท่านั้น ห้ามเห็น Buyer
   Protection, parcel-protection election, price, limit, provider option หรือ
   ยอดรวมฝั่งผู้ซื้อ

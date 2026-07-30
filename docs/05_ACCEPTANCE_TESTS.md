@@ -633,8 +633,11 @@ ends
 included coverage limit
 **When** the buyer starts payment preparation
 **Then** no choice is shown and no parcel-protection charge is added
-**And** the system records the included-only outcome, creates the matching
-durable booking, and does not create a PaymentIntent until that booking is ready.
+**And** the runtime auto-submits `AddProtection=false` and persists `Declined`,
+not a distinct included-only election
+**And** verified included coverage may appear in status/details
+**And** the system creates the matching durable booking and does not prepare a
+PaymentIntent until that booking is ready.
 
 **Given** an accepted physical offer above the included limit with a certified
 available add-on
@@ -647,16 +650,21 @@ nor option reference is exposed to the buyer UI or any seller projection.
 
 **When** the buyer accepts
 **Then** the final buyer total includes exactly the disclosed combined price
+**And** that combined price remains visible in the buyer payment breakdown
+**And** the maximum is shown only in the choice/details surface
 **And** the verified Stripe amount must equal that final integer-satang total.
 
 **When** the buyer declines
 **Then** the final buyer total contains no optional-protection charge
+**And** the buyer payment breakdown omits the parcel-protection row
 **And** the result remains buyer-only and does not alter seller net.
 
 **Given** an over-limit offer whose add-on is unavailable or uncertified
 **When** the buyer continues
 **Then** no charge or coverage claim is created
-**And** the buyer can proceed only with the disclosed available outcome.
+**And** the buyer can proceed only with the verified included-coverage outcome,
+which may be zero
+**And** the buyer payment breakdown omits the parcel-protection row.
 
 **Given** the buyer closes a required choice without deciding
 **When** the buyer tries payment again
@@ -673,6 +681,12 @@ terms changes before booking
 deadline
 **When** the buyer prepares payment
 **Then** PaymentIntent creation is allowed without extending that deadline.
+
+**When** the application prepares that PaymentIntent
+**Then** it may create or reuse its idempotent provider reference before
+`BeginCheckout` persists buyer acceptance and the v11 annex evidence
+**And** a verified payment cannot progress unless the persisted v11 annex hash
+and canonical payload pass integrity validation.
 
 **Given** booking fails, times out, is unknown, or returns a mismatch
 **When** payment preparation is requested

@@ -218,16 +218,21 @@ private full delivery address. Before accepting, the seller supplies a
 saved-or-new full origin, transaction-specific package weight/dimensions, and
 one provider-validated shipping quote. Seller acceptance freezes those delivery
 facts only; it does not book a shipment or select parcel protection. After
-acceptance, the buyer records an included-only, unavailable, declined, or
-accepted optional-protection outcome. The Worker revalidates an accepted option
-and reserves the exact booking before PaymentIntent creation, without extending
+acceptance, a within-limit outcome auto-submits `AddProtection=false` and
+persists `Declined`; an over-limit outcome is unavailable, explicitly declined,
+or accepted by the buyer. The Worker revalidates an accepted option and reserves
+the exact booking before PaymentIntent provider preparation, without extending
 the existing payment deadline. The shared core contains delivery facts but not
-the buyer-only election. A v11 append-only buyer checkout-annex acceptance
-binds the final buyer total and protection commercial terms with a canonical
-hash; schema v10 remains readable without invented annex evidence. Checkout
-does not accept address changes. Provider-confirmed payment seals the snapshot
-and unlocks the full destination for seller fulfillment. OTP values and
-reusable credentials are never stored.
+the buyer-only election. Provider preparation may create or reuse its
+idempotent reference before `BeginCheckout` persists the v11 buyer
+checkout-annex acceptance that binds the final buyer total and protection
+commercial terms with a canonical hash. Verified payment cannot progress unless
+that persisted annex passes integrity validation; schema v10 remains readable
+without invented annex evidence. Checkout does not accept address changes.
+Provider-confirmed payment seals the snapshot and unlocks the full destination
+for seller fulfillment. An accepted paid add-on's combined price stays visible
+in the buyer payment breakdown, while its maximum remains on the choice/details
+surface. OTP values and reusable credentials are never stored.
 
 `ShippingQuotes:Provider=Development` enables only the deterministic in-memory
 local managed-shipping adapter. It is never selected by default for production
@@ -339,12 +344,14 @@ Money inputs remain strings in the form and are parsed to integer satang at the 
   remain transaction-specific and required pending certified provider evidence.
   Seller acceptance freezes delivery only. Buyer checkout separately records
   the optional-protection outcome, then a matching durable booking must succeed
-  before Stripe may create a PaymentIntent. The booking does not change the
-  buyer-payment deadline. The snapshot separates item price, shipping charge,
-  final buyer-only protection charge, buyer total, and seller net; Stripe
-  payment/refund validation uses that final buyer total. A certified provider
-  is confirmed only after verified payment and records provider-issued tracking
-  through the transition service.
+  before Stripe may prepare a PaymentIntent. Provider preparation may create or
+  reuse its idempotent reference before `BeginCheckout` persists the v11 annex;
+  verified payment progression then requires that persisted annex to pass its
+  integrity check. The booking does not change the buyer-payment deadline. The
+  snapshot separates item price, shipping charge, final buyer-only protection
+  charge, buyer total, and seller net; Stripe payment/refund validation uses
+  that final buyer total. A certified provider is confirmed only after verified
+  payment and records provider-issued tracking through the transition service.
 - Seller detail uses one single-line `รายละเอียดสินค้า` accordion. The mobile
   transaction response includes condition and known defects so the expanded
   content shows the actual item facts, hides the deterministic description

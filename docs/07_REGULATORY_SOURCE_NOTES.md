@@ -48,10 +48,11 @@ Product implication:
 - Supporting transferable digital accounts, items, or rights may introduce additional platform-contract, consumer-protection, cybersecurity, and fraud obligations; each launch category requires legal and provider review.
 - Terms, fees, complaint channels, dispute timing, and prohibited-goods actions should be explicit before launch.
 - Before payment, the buyer must see any optional-protection combined price,
-  maximum, and a route to its exclusions/terms at the point of choice. Retain
-  the accepted terms version and buyer annex evidence for the transaction;
-  seller-facing views must not disclose that buyer-only price or internal
-  accounting split.
+  maximum, and a route to its exclusions/terms at the point of choice. When a
+  paid add-on is accepted, restate the combined price in the buyer payment
+  summary; keep the maximum at choice/details. Retain the accepted terms
+  version and buyer annex evidence for the transaction; seller-facing views
+  must not disclose that buyer-only price or internal accounting split.
 - Determine notification/reporting obligations based on the actual company, revenue, users, contractual relationships, and service design.
 
 Official source:

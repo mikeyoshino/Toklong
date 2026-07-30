@@ -217,16 +217,21 @@ Show:
   deadline.
 - Show the complete locked delivery address once in the agreement details.
 - Before payment preparation, obtain the buyer-only parcel-protection outcome.
-  When an add-on is available, show exactly one accessible choice card titled
+  When an add-on is available and the item exceeds the verified included limit,
+  show exactly one accessible choice card titled
   `เพิ่มความคุ้มครองพัสดุไหม`: disclose its maximum and one combined price,
   then offer `เพิ่มความคุ้มครอง` and `ไม่เพิ่มความคุ้มครอง`. Do not show a
   provider name, internal cost split, package label, or coverage gap. Included
-  coverage skips this card and adds no charge; unavailable add-on status offers
-  the included-only continuation without claiming coverage where none is known.
+  coverage skips this card and adds no charge; unavailable add-on status lets
+  the buyer continue only with the verified included-coverage outcome, which
+  may be zero, without claiming coverage beyond that verified amount.
 - Show the exact item price, Buyer Protection fee, shipping charge, final
-  `ค่าความคุ้มครองพัสดุ` when elected, and total in one buyer-only breakdown.
-  The maximum is not repeated in that summary. Place the required confirmation
-  and exact-total payment button directly below it.
+  `ค่าความคุ้มครองพัสดุ` and total in one buyer-only breakdown only when the
+  buyer accepted a paid add-on. Omit that row for declined, unavailable,
+  included-within-limit, and no-add-on outcomes. The accepted combined price
+  remains visible in this summary; the maximum is not repeated outside the
+  choice or details surface. Place the required confirmation and exact-total
+  payment button directly below it.
 - Plain-language payout condition.
 - Primary action `ชำระ <ยอดทั้งหมด>`.
 
@@ -239,7 +244,8 @@ Show:
   `ผู้ซื้อจ่ายแล้ว เปิดใบปะหน้าและส่งกับขนส่งที่เลือกไว้`; never infer
   payment from a slip or client redirect.
 - Exact ship-by date and time.
-- Read-only selected carrier and the tracking number issued through SHIPPOP.
+- Read-only selected carrier and the tracking number issued through the
+  selected certified delivery service/provider.
 - Primary action `เปิดใบปะหน้า`.
 - The transaction detail shows one compact 4×6 label preview. Tapping either
   the preview or `แตะเพื่อดูใบปะหน้าเต็มจอ` opens a dedicated seller-only
@@ -511,10 +517,12 @@ Must show before payment:
 
 - For a physical agreement, show the complete locked address exactly once for
   review. The payment action must not repeat it.
-- Show separate rows for `ราคาสินค้า`, `ค่าคุ้มครองผู้ซื้อ`, `ค่าจัดส่ง`,
-  `ค่าความคุ้มครองพัสดุ`, and `ยอดชำระทั้งหมด`, plus the selected carrier
-  service. The protection row is the buyer's final combined price only; the
-  payment intent amount equals the displayed total.
+- Show separate rows for `ราคาสินค้า`, `ค่าคุ้มครองผู้ซื้อ`, `ค่าจัดส่ง`, and
+  `ยอดชำระทั้งหมด`, plus the selected carrier service. Insert
+  `ค่าความคุ้มครองพัสดุ` only for an accepted paid add-on; it is the buyer's
+  final combined price. Omit that row for declined, unavailable,
+  included-within-limit, and no-add-on outcomes. The payment intent amount
+  equals the displayed total.
 - Do not show an address editor, saved-address selector, or
   `จำที่อยู่นี้ไว้` control in checkout.
 - The seller may see the complete address only after provider-confirmed payment
@@ -582,13 +590,13 @@ milestones:
    no carrier scan exists.
 2. `ขนส่งรับพัสดุแล้ว` — the first trusted matching carrier scan exists.
 3. `กำลังจัดส่ง` — trusted in-transit events exist.
-4. `ส่งถึงแล้ว` — SHIPPOP reports completion with a trusted carrier delivery
-   timestamp.
+4. `ส่งถึงแล้ว` — the selected certified delivery service/provider reports
+   completion with a trusted carrier delivery timestamp.
 
 The card includes carrier and appropriate tracking presentation plus a
 collapsible `รายละเอียดการเดินทาง` list. Each list item uses a normalized
 consumer description, location when supplied, and exact local date/time. Do
-not show raw SHIPPOP status values, provider identifiers, reconciliation
+not show raw provider status values, provider identifiers, reconciliation
 terminology, or poll timestamps as if they were carrier event times.
 
 When completion lacks a trusted delivery timestamp or any provider
@@ -598,8 +606,8 @@ one primary action `ดูรายละเอียด`. Never show `สำเ
 was delivered; the transaction still has inspection, dispute, and payout
 stages.
 
-Before payment, show a buyer-only `ค่าความคุ้มครองพัสดุ` row only after the
-buyer has made an election. Never show its maximum, internal split, provider
+Before payment, show a buyer-only `ค่าความคุ้มครองพัสดุ` row only when the
+buyer accepted a paid add-on. Never show its maximum, internal split, provider
 identity, or option reference in the payment summary, and never expose any of
 these values to the seller.
 

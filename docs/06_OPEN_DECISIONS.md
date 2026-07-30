@@ -131,14 +131,17 @@ Items below require explicit product, operations, legal, payment-provider, logis
   validation is server-side and the paid tracking carrier cannot silently
   change.
 - Implemented: after seller acceptance, the buyer alone prepares, accepts, or
-  declines optional parcel protection. The durable buyer annex records the
-  election and internal split; buyer presentation exposes only the combined
-  price and maximum at choice, while seller projections expose none of it. The
-  Worker revalidates a selected option and creates the matching unconfirmed
-  booking before PaymentIntent creation. That booking does not alter the
-  one-hour payment deadline. Verified payment queues `ConfirmOutbound`, which
-  allocates tracking and enables a 4×6 label. Provider-managed transactions
-  have no manual tracking entry.
+  declines optional parcel protection. A within-limit verified included outcome
+  is auto-submitted as `AddProtection=false` and persisted as `Declined`, not
+  as a separate included-only election. The durable buyer annex records the
+  election and internal split; buyer presentation exposes the combined price at
+  choice and in the payment summary when a paid add-on is accepted, while the
+  maximum remains at choice/details and seller projections expose none of it.
+  The Worker revalidates a selected option and creates the matching unconfirmed
+  booking before PaymentIntent provider preparation. That booking does not alter
+  the one-hour payment deadline. Verified payment queues `ConfirmOutbound`,
+  which allocates tracking and enables a 4×6 label. Provider-managed
+  transactions have no manual tracking entry.
 - Implemented security decision: do not consume SHIPPOP callbacks because the
   documented webhook payload has no verifiable signature. Use server-side
   polling until SHIPPOP supplies and contractually documents an authenticated,

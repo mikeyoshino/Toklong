@@ -81,9 +81,12 @@ acceptance record tied to the authenticated seller account. Buyer checkout must
 recompute and validate that core. Seller acceptance does not create a provider
 booking. The buyer must first make or resume the buyer-only protection election;
 the system then revalidates it and records an exact durable booking. Only a
-matching booking permits buyer acceptance and PaymentIntent creation. Actor
-identity, verified-phone authentication method, terms hash/version, and server
-acceptance time are retained; OTP values are not.
+matching booking permits idempotent PaymentIntent provider preparation. The
+provider reference may be created or reused before `BeginCheckout` persists
+buyer acceptance and the v11 annex; a verified payment cannot progress unless
+that persisted annex passes integrity validation. Actor identity, verified-phone
+authentication method, terms hash/version, and server acceptance time are
+retained; OTP values are not.
 
 For a physical item, destination province and postal code are part of the
 agreement core seen by the seller. The buyer supplies the full delivery address
@@ -121,8 +124,10 @@ The text and normalized snapshot must preserve what the buyer specified and the 
    at seller acceptance, but no shipment is booked there. Any delivery-quote
    change requires a new seller acceptance.
 4. After seller acceptance, checkout obtains the buyer-only protection
-   availability. Included coverage skips the prompt and charge; an over-limit
-   available add-on is accepted or explicitly declined once by the buyer.
+   availability. Within a verified included limit, it skips the prompt and
+   auto-submits `AddProtection=false`, persisting `Declined` with no charge;
+   that is not a distinct included-only election. An over-limit available
+   add-on is accepted or explicitly declined once by the buyer.
    The election and durable booking intent are idempotent. Before provider
    mutation, the Worker revalidates elected price, included/selected limits,
    option, terms, and expiry. A changed or expired option requires buyer
@@ -202,10 +207,11 @@ The text and normalized snapshot must preserve what the buyer specified and the 
     weight/dimension fields and units. All SHIPPOP service flags remain off
     until that evidence is recorded.
 20. No service is assumed to provide full-value coverage. Where an optional
-    buyer add-on is certified and elected, only its combined buyer price and
-    disclosed maximum are shown at choice; provider cost and TOKLONG fee split
-    remain internal. Included coverage may be zero, and unavailable capability
-    creates no charge or coverage claim.
+    buyer add-on is certified and elected, disclose its combined buyer price and
+    maximum at choice, then retain the combined price in the buyer payment
+    summary while keeping the maximum at choice/details. Provider cost and
+    TOKLONG fee split remain internal. Included coverage may be zero, and
+    unavailable capability creates no charge or coverage claim.
 21. A post-payment carrier surcharge is recorded as an append-only TOKLONG
     operational cost and CRM case. It never changes the paid snapshot, requests
     more money automatically, or reduces seller net.

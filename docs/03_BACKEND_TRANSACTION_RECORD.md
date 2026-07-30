@@ -275,10 +275,14 @@ buyer_elected_at
 ```
 
 `provider_cost_satang` and `toklong_service_fee_satang` are internal accounting
-fields. The buyer sees only the combined `customer_price_satang`, and only at
-the choice surface, together with the disclosed maximum. The seller sees none
-of these annex values. A declined, unavailable, or included-only outcome has a
-zero customer price and no provider option reference. Unavailable never means
+fields. The buyer sees only the combined `customer_price_satang`: first at the
+choice surface with the disclosed maximum, then in the payment summary when a
+paid add-on was accepted. The maximum is otherwise confined to the choice or
+details surface. The seller sees none of these annex values. A declined or
+unavailable outcome has a zero customer price and no provider option reference.
+For a within-limit outcome, the runtime auto-submits `AddProtection=false` and
+persists `Declined`; it is not a distinct included-only election. Verified
+included coverage may be displayed in status/details. Unavailable never means
 or implies zero included coverage.
 
 The election is immutable once checkout begins. Before that point, a buyer
@@ -314,11 +318,14 @@ Only resolved province/postal values, parcel measurements, carrier/service,
 quote metadata, and shipping charge enter the shared core; street-level origin
 and destination remain private fulfillment data. After the buyer has elected
 or recorded the applicable protection outcome, a Worker creates and validates
-the matching unconfirmed booking. The buyer then accepts the validated core and
-the final buyer-only annex before the payment intent is established. The product
-snapshot references the shared core hash, both already-locked address records,
-and the buyer acceptance time. The full destination is not disclosed to the
-seller before provider-confirmed payment.
+the matching unconfirmed booking. That booking is the gate before PaymentIntent
+provider preparation. The application may then create or reuse the idempotent
+provider reference before `BeginCheckout` persists buyer acceptance, the paid
+snapshot, and the v11 buyer checkout-annex acceptance. Verified payment cannot
+progress the transaction unless the persisted v11 annex integrity check passes.
+The product snapshot references the shared core hash, both already-locked
+address records, and the buyer acceptance time. The full destination is not
+disclosed to the seller before provider-confirmed payment.
 Once payment is confirmed, the snapshot is sealed and material fields are
 immutable.
 

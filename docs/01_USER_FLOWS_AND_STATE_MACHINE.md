@@ -123,15 +123,17 @@ dispute rule. Seller acceptance must not mutate the buyer-authored item fields
 and freezes delivery facts only.
 
 For a physical offer, checkout first obtains the buyer-only parcel-protection
-availability. If the item is within the included limit, it records the
-included-only outcome without prompting or charging. If an available add-on is
-needed, it asks the buyer once to accept or explicitly decline; only that card
-shows the disclosed maximum and one combined price. The buyer may change an
-election before a PaymentIntent exists. A change after an unconfirmed booking
-is reserved must durably cancel that attempt before creating a replacement;
-unknown or review-needed provider outcomes block a change and payment. An
-unavailable add-on records no charge and never claims that zero coverage is
-included.
+availability. If the item is within a verified included limit, it skips the
+prompt, auto-submits `AddProtection=false`, and persists `Declined` without a
+charge; the verified included coverage may still be shown in applicable status
+or details. If an available add-on is needed, it asks the buyer once to accept
+or explicitly decline; only that card shows the disclosed maximum and one
+combined price. The buyer may change an election before a PaymentIntent exists.
+A change after an unconfirmed booking is reserved must durably cancel that
+attempt before creating a replacement; unknown or review-needed provider
+outcomes block a change and payment. An unavailable add-on records no charge
+and permits continuation only with the verified included-coverage outcome,
+which may be zero; it never claims coverage beyond that amount.
 
 Seller acceptance creates a fixed one-hour payment deadline. The seller sees
 that the item is reserved only until that exact time and must not fulfill before

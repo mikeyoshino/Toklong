@@ -85,12 +85,13 @@ approval.
    supplies the shipping origin and parcel measurements and selects a quoted
    service. Seller acceptance freezes those delivery facts only; it neither
    selects nor books buyer parcel protection. At checkout, the system skips the
-   protection question when included coverage applies, otherwise asks the buyer
-   once to accept or decline the optional add-on. It durably records that
-   election, completes a matching unconfirmed shipment booking, and only then
-   creates a PaymentIntent. Before paying, the buyer sees the same item, locked
-   address, item price, shipping charge, any final buyer-only protection charge,
-   Buyer Protection fee, buyer total, payout trigger, and dispute deadline.
+   protection question when verified included coverage applies, auto-submits
+   `AddProtection=false` as `Declined`, otherwise asks the buyer once to accept
+   or decline the optional add-on. It durably records that election, completes
+   a matching unconfirmed shipment booking, and only then prepares a
+   PaymentIntent. Before paying, the buyer sees the same item, locked address,
+   item price, shipping charge, any accepted buyer-only protection charge, Buyer
+   Protection fee, buyer total, payout trigger, and dispute deadline.
 3. A seller never receives a “ship now” signal from an unverified payment state.
    After payment confirmation, the system confirms the reserved shipment and
    gives the seller its carrier tracking number and printable label.
