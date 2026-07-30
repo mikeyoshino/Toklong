@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using MediatR;
 using Toklong.Application.Abstractions;
 using Toklong.Application.Common;
@@ -33,9 +32,8 @@ public sealed partial class ChooseParcelProtectionHandler(
     public async Task<ChooseParcelProtectionResult> Handle(
         ChooseParcelProtectionCommand request, CancellationToken cancellationToken)
     {
-        var idempotencyKey = request.IdempotencyKey ?? "";
-        if (!IdempotencyKeyPattern().IsMatch(idempotencyKey))
-            throw new DomainException("รหัสป้องกันการทำซ้ำไม่ถูกต้อง");
+        var idempotencyKey = ParcelProtectionCheckout.RequireSafeIdempotencyKey(
+            request.IdempotencyKey);
         var transaction = await repository.GetByIdAsync(
             request.TransactionId, cancellationToken)
             ?? throw new NotFoundException("ไม่พบรายการ");
@@ -154,9 +152,6 @@ public sealed partial class ChooseParcelProtectionHandler(
             selection.TermsVersion, selection.ProviderOptionReference, selection.Election,
             selection.ProviderCostSatang, selection.IncludedCoverageLimitSatang,
             selection.SelectedCoverageLimitSatang);
-
-    [GeneratedRegex("^[A-Za-z0-9:_-]{16,80}$", RegexOptions.CultureInvariant)]
-    private static partial Regex IdempotencyKeyPattern();
 
     private sealed record ResolvedSelection(
         ParcelProtectionSelection Selection,

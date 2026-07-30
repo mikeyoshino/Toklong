@@ -26,6 +26,9 @@ public sealed class ParcelProtectionCheckoutTests
                 "prepare-included-coverage"), default);
 
         Assert.False(view.RequiresChoice);
+        Assert.DoesNotContain(fixture.Transaction.AuditEvents, audit =>
+            audit.Name is "parcel_protection.offered" or
+                "parcel_protection.unavailable");
         var result = await fixture.ChooseHandler.Handle(fixture.Choose(false), default);
 
         Assert.Equal("preparing_shipping", result.BookingStatus);
@@ -80,6 +83,23 @@ public sealed class ParcelProtectionCheckoutTests
             a.IdempotencyKey == "prepare-once-for-resume" &&
             a.Name == "parcel_protection.offered");
         Assert.Empty(fixture.Transaction.ManagedShipments);
+    }
+
+    [Theory]
+    [InlineData("buyer@example.com")]
+    [InlineData("prepare-ผู้ซื้อ-12345")]
+    public async Task Prepare_rejects_unsafe_idempotency_key_before_provider_or_audit_mutation(
+        string idempotencyKey)
+    {
+        await using var fixture = await Fixture.CreateAsync(450_000);
+
+        await Assert.ThrowsAsync<DomainException>(() => fixture.Prepare.Handle(
+            fixture.PrepareCommand(idempotencyKey), default));
+
+        Assert.Equal(0, fixture.Provider.AvailabilityCalls);
+        Assert.DoesNotContain(fixture.Transaction.AuditEvents, audit =>
+            audit.Name is "parcel_protection.offered" or
+                "parcel_protection.unavailable");
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using MediatR;
 using Toklong.Application.Abstractions;
 using Toklong.Application.Common;
@@ -37,7 +38,7 @@ public sealed class GetParcelProtectionHandler(
     }
 }
 
-internal static class ParcelProtectionCheckout
+internal static partial class ParcelProtectionCheckout
 {
     internal const string IncludedTermsVersion = "parcel-protection-included-v1";
 
@@ -45,6 +46,14 @@ internal static class ParcelProtectionCheckout
     {
         if (transaction.BuyerId != buyerId)
             throw new DomainException("บัญชีผู้ซื้อนี้ไม่มีสิทธิ์เลือกความคุ้มครองพัสดุ");
+    }
+
+    internal static string RequireSafeIdempotencyKey(string? idempotencyKey)
+    {
+        var value = idempotencyKey ?? "";
+        if (!SafeIdempotencyKeyPattern().IsMatch(value))
+            throw new DomainException("รหัสป้องกันการทำซ้ำไม่ถูกต้อง");
+        return value;
     }
 
     internal static BuyerParcelProtectionView FromStored(SaleTransaction transaction)
@@ -131,4 +140,7 @@ internal static class ParcelProtectionCheckout
             transaction.ShippingServiceCode ?? throw new DomainException("ไม่พบบริการขนส่งที่เลือก"),
             transaction.ShippingQuoteReference ?? throw new DomainException("ไม่พบราคาอ้างอิงการจัดส่ง"),
             transaction.PriceSatang);
+
+    [GeneratedRegex("^[A-Za-z0-9:_-]{16,80}$", RegexOptions.CultureInvariant)]
+    private static partial Regex SafeIdempotencyKeyPattern();
 }

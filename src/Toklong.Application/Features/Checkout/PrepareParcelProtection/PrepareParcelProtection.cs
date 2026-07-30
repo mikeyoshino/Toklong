@@ -23,6 +23,8 @@ public sealed class PrepareParcelProtectionHandler(
     public async Task<BuyerParcelProtectionView> Handle(
         PrepareParcelProtectionCommand request, CancellationToken cancellationToken)
     {
+        var idempotencyKey = ParcelProtectionCheckout.RequireSafeIdempotencyKey(
+            request.IdempotencyKey);
         var transaction = await repository.GetByIdAsync(
             request.TransactionId, cancellationToken)
             ?? throw new NotFoundException("ไม่พบรายการ");
@@ -45,13 +47,16 @@ public sealed class PrepareParcelProtectionHandler(
             customerPrice = pricing.Price(availability.AddOn.ProviderCostSatang)
                 .CustomerPriceSatang;
 
-        transaction.RecordParcelProtectionAvailabilityPresented(
-            request.BuyerId,
-            requiresChoice || transaction.PriceSatang <=
-                availability.IncludedCoverageLimitSatang,
-            request.IdempotencyKey,
-            clock.UtcNow);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        if (requiresChoice || transaction.PriceSatang >
+            availability.IncludedCoverageLimitSatang)
+        {
+            transaction.RecordParcelProtectionAvailabilityPresented(
+                request.BuyerId,
+                requiresChoice,
+                idempotencyKey,
+                clock.UtcNow);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
 
         return new BuyerParcelProtectionView(
             requiresChoice,
