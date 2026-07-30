@@ -1,6 +1,7 @@
 using MediatR;
 using Toklong.Application.Abstractions;
 using Toklong.Application.Common;
+using Toklong.Application.Features.Checkout.BookShipmentForPayment;
 using Toklong.Application.Pricing;
 using Toklong.Application.Transactions;
 using Toklong.Domain.Common;
@@ -11,7 +12,22 @@ namespace Toklong.Application.Features.Checkout.PreparePaymentSheet;
 public sealed record PreparePaymentSheetCommand(
     Guid TransactionId,
     Guid BuyerId,
-    bool AcceptedTerms) : IRequest<PreparedPaymentSheet>;
+    bool AcceptedTerms,
+    string IdempotencyKey = "legacy-payment-sheet")
+    : IRequest<PreparedPaymentSheet>;
+
+public sealed class CheckoutBookingException(
+    DirectBookingState state,
+    string? safeCode)
+    : Exception(
+        safeCode ??
+        "shipping-preparation-failed")
+{
+    public DirectBookingState State { get; } = state;
+    public string SafeCode { get; } =
+        safeCode ??
+        "shipping-preparation-failed";
+}
 
 public sealed record PreparedPaymentSheet(
     TransactionView Transaction,
@@ -26,7 +42,8 @@ public sealed class PreparePaymentSheetHandler(
     IPaymentFeePolicy feePolicy,
     IUnitOfWork unitOfWork,
     IClock clock,
-    TransactionTransitionService transitions)
+    TransactionTransitionService transitions,
+    IDirectCheckoutBooking? directBooking = null)
     : IRequestHandler<PreparePaymentSheetCommand, PreparedPaymentSheet>
 {
     public async Task<PreparedPaymentSheet> Handle(
@@ -63,11 +80,26 @@ public sealed class PreparePaymentSheetHandler(
         if (transaction.FulfillmentType ==
                 FulfillmentType.PhysicalShipment &&
             !transaction.ParcelProtectionBookingReady)
-            throw new DomainException(
-                transaction.ParcelProtectionElection ==
-                    ParcelProtectionElectionStatus.ReconfirmationRequired
-                    ? "ข้อมูลความคุ้มครองเปลี่ยน กรุณาตรวจและเลือกใหม่ก่อนชำระ"
-                    : "กำลังเตรียมรายการจัดส่ง กรุณารอสักครู่แล้วลองอีกครั้ง");
+        {
+            if (directBooking is null)
+                throw new DomainException(
+                    "กำลังเตรียมรายการจัดส่ง กรุณาลองอีกครั้ง");
+            var booking = await directBooking.BookAsync(
+                transaction,
+                request.BuyerId,
+                request.IdempotencyKey,
+                cancellationToken);
+            if (booking.State !=
+                DirectBookingState.Ready)
+                throw new CheckoutBookingException(
+                    booking.State,
+                    booking.SafeCode);
+            if (!transaction
+                .ParcelProtectionBookingReady)
+                throw new CheckoutBookingException(
+                    DirectBookingState.Failed,
+                    "shipping-booking-not-committed");
+        }
 
         var buyer = await buyers.GetByIdAsync(
             request.BuyerId,

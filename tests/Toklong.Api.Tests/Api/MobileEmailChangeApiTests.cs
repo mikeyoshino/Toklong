@@ -676,9 +676,18 @@ public sealed class MobileEmailChangeApiTests
         var transactionId =
             await SeedAcceptedDigitalTransactionAsync(buyer);
 
-        using var paymentSheet = await buyer.Client.PostAsJsonAsync(
-            $"/api/mobile/transactions/{transactionId}/payment-sheet",
-            new { AcceptedTerms = true });
+        using var paymentRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"/api/mobile/transactions/{transactionId}/payment-sheet")
+        {
+            Content = JsonContent.Create(
+                new { AcceptedTerms = true })
+        };
+        paymentRequest.Headers.Add(
+            "Idempotency-Key",
+            "email-change-checkout-001");
+        using var paymentSheet =
+            await buyer.Client.SendAsync(paymentRequest);
         paymentSheet.EnsureSuccessStatusCode();
         var payment = await paymentSheet.Content
             .ReadFromJsonAsync<PaymentSheetResponse>();

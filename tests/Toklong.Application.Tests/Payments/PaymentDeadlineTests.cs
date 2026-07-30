@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Toklong.Application.Abstractions;
+using Toklong.Application.Features.Checkout.BookShipmentForPayment;
 using Toklong.Application.Features.Checkout.PreparePaymentSheet;
 using Toklong.Application.Features.Shipping;
 using Toklong.Domain.Buyers;
@@ -17,7 +18,7 @@ public sealed class PaymentDeadlineTests
         new(2026, 7, 25, 2, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public async Task Pending_physical_booking_is_rejected_before_payment_provider_call()
+    public async Task Failed_direct_physical_booking_is_rejected_before_payment_provider_call()
     {
         var options = new DbContextOptionsBuilder<ToklongDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
@@ -64,6 +65,8 @@ public sealed class PaymentDeadlineTests
         await repository.AddAsync(transaction, default);
         await db.SaveChangesAsync();
         var payments = new RecordingPaymentIntentProvider();
+        var booking = new StubDirectBooking(
+            DirectBookingState.Failed);
         var handler = new PreparePaymentSheetHandler(
             repository,
             buyers,
@@ -76,20 +79,29 @@ public sealed class PaymentDeadlineTests
                 }),
             db,
             new FixedClock(Start.AddMinutes(2)),
-            transitions);
+            transitions,
+            booking);
 
-        await Assert.ThrowsAsync<DomainException>(() =>
+        var exception =
+            await Assert.ThrowsAsync<
+                CheckoutBookingException>(() =>
             handler.Handle(
                 new PreparePaymentSheetCommand(
                     transaction.Id,
                     buyer.Id,
-                    true),
+                    true,
+                    "checkout-payment-001"),
                 default));
 
+        Assert.Equal(
+            DirectBookingState.Failed,
+            exception.State);
+        Assert.Equal(1, booking.CallCount);
         Assert.Equal(0, payments.CallCount);
         Assert.Equal(TransactionState.SellerAcceptedAwaitingPayment,
             transaction.State);
     }
+
 
     [Theory]
     [InlineData(ParcelProtectionElectionStatus.Accepted, 479_000)]
@@ -326,6 +338,27 @@ public sealed class PaymentDeadlineTests
                     "pi_should_not_exist",
                     "secret",
                     "pk_test"));
+        }
+    }
+
+    private sealed class StubDirectBooking(
+        DirectBookingState state)
+        : IDirectCheckoutBooking
+    {
+        public int CallCount { get; private set; }
+
+        public Task<DirectBookingResult> BookAsync(
+            SaleTransaction transaction,
+            Guid buyerId,
+            string idempotencyKey,
+            CancellationToken cancellationToken)
+        {
+            CallCount++;
+            return Task.FromResult(
+                new DirectBookingResult(
+                    state,
+                    Guid.NewGuid(),
+                    "shipping-test-state"));
         }
     }
 

@@ -280,9 +280,18 @@ public sealed class MobileSellerOfferApiTests
                 new AuthenticationHeaderValue(
                     "Bearer",
                     buyerAccessToken);
-            using var checkoutResponse = await client.PostAsJsonAsync(
-                $"/api/mobile/transactions/{created.Id}/payment-sheet",
-                new { AcceptedTerms = true });
+            using var checkoutRequest = new HttpRequestMessage(
+                HttpMethod.Post,
+                $"/api/mobile/transactions/{created.Id}/payment-sheet")
+            {
+                Content = JsonContent.Create(
+                    new { AcceptedTerms = true })
+            };
+            checkoutRequest.Headers.Add(
+                "Idempotency-Key",
+                "seller-offer-checkout-001");
+            using var checkoutResponse =
+                await client.SendAsync(checkoutRequest);
             Assert.True(
                 checkoutResponse.IsSuccessStatusCode,
                 await checkoutResponse.Content.ReadAsStringAsync());

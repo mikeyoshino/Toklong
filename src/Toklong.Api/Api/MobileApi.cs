@@ -16,6 +16,7 @@ using Toklong.Application.Features.Checkout.ChooseParcelProtection;
 using Toklong.Application.Features.Checkout.GetParcelProtection;
 using Toklong.Application.Features.Checkout.PrepareParcelProtection;
 using Toklong.Application.Features.Checkout.PreparePaymentSheet;
+using Toklong.Application.Features.Checkout.BookShipmentForPayment;
 using Toklong.Application.Features.Offers.CreateBuyerOffer;
 using Toklong.Application.Features.Offers.ExtractAgreementDraft;
 using Toklong.Application.Features.Offers.RespondToBuyerOffer;
@@ -792,6 +793,7 @@ public static class MobileApi
     private static async Task<IResult> PreparePaymentSheetAsync(
         Guid transactionId,
         MobilePaymentSheetRequest request,
+        HttpRequest httpRequest,
         ClaimsPrincipal principal,
         ISender sender,
         CancellationToken cancellationToken)
@@ -799,12 +801,56 @@ public static class MobileApi
         var buyerId = PartyIds.From(principal).BuyerId
             ?? throw new DomainException(
                 "บัญชีนี้ไม่มีสิทธิ์ชำระข้อเสนอ");
-        var result = await sender.Send(
-            new PreparePaymentSheetCommand(
-                transactionId,
-                buyerId,
-                request.AcceptedTerms),
-            cancellationToken);
+        var idempotencyKey =
+            httpRequest.Headers[
+                "Idempotency-Key"].ToString();
+        if (string.IsNullOrWhiteSpace(
+                idempotencyKey))
+            return Results.Json(
+                new
+                {
+                    code =
+                        "idempotency-key-required"
+                },
+                statusCode:
+                    StatusCodes
+                        .Status400BadRequest);
+        PreparedPaymentSheet result;
+        try
+        {
+            result = await sender.Send(
+                new PreparePaymentSheetCommand(
+                    transactionId,
+                    buyerId,
+                    request.AcceptedTerms,
+                    idempotencyKey),
+                cancellationToken);
+        }
+        catch (CheckoutBookingException exception)
+        {
+            var status = exception.State switch
+            {
+                DirectBookingState
+                    .ReconfirmationRequired =>
+                    StatusCodes.Status409Conflict,
+                DirectBookingState
+                    .RetryLimitReached =>
+                    StatusCodes
+                        .Status429TooManyRequests,
+                _ => StatusCodes
+                    .Status503ServiceUnavailable
+            };
+            return Results.Json(
+                new
+                {
+                    code =
+                        exception.SafeCode,
+                    bookingState =
+                        exception.State.ToString()
+                            .ToLowerInvariant()
+                },
+                statusCode: status);
+        }
         return Results.Ok(new MobilePaymentSheetResponse(
             result.ClientSecret,
             result.PublishableKey,
