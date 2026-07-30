@@ -1589,6 +1589,38 @@ public sealed class SaleTransaction
         Version++;
     }
 
+    public void RecordParcelProtectionBookingIntent(
+        ManagedShipment shipment,
+        Guid buyerId,
+        string idempotencyKey,
+        DateTimeOffset now)
+    {
+        if (BuyerId != buyerId || shipment.TransactionId != Id ||
+            shipment.Direction != ShipmentDirection.Outbound)
+            throw new DomainException("ข้อมูลการจองความคุ้มครองพัสดุไม่ถูกต้อง");
+        var cleanKey = CleanOptional(idempotencyKey, 80, "รหัสป้องกันการทำซ้ำ")
+            ?? throw new DomainException("กรุณาระบุรหัสป้องกันการทำซ้ำ");
+        var auditKey = $"parcel-protection-booking:{Id:N}:{cleanKey}";
+        if (_auditEvents.Any(audit => audit.IdempotencyKey == auditKey))
+            return;
+        _auditEvents.Add(new AuditEvent(
+            Id, ActorRole.Buyer, buyerId.ToString("N"),
+            "parcel_protection.booking_intent_created", State, State, now,
+            shipment.Id.ToString("N"), auditKey,
+            JsonSerializer.Serialize(new
+            {
+                ShipmentId = shipment.Id,
+                Selection = ParcelProtectionElection.ToString(),
+                TermsVersion = ParcelProtectionTermsVersion,
+                ParcelInsuranceFeeSatang,
+                ParcelProtectionProviderCostSatang,
+                ParcelProtectionServiceFeeSatang,
+                ParcelProtectionIncludedCoverageSatang,
+                ParcelProtectionSelectedCoverageSatang
+            })));
+        Version++;
+    }
+
     public void InvalidateParcelProtectionElection(
         string reasonCode,
         DateTimeOffset now)

@@ -119,6 +119,7 @@ public sealed record TransactionView(
         get;
         init;
     }
+    public bool ParcelProtectionBookingReady { get; init; }
 
     public bool IsProviderManagedShipment =>
         FulfillmentType ==
@@ -272,7 +273,8 @@ public sealed record TransactionView(
                     ManagedShipmentStatus.InTransit or
                     ManagedShipmentStatus.TrackingUnverified or
                     ManagedShipmentStatus.CarrierException or
-                    ManagedShipmentStatus.Delivered)
+                    ManagedShipmentStatus.Delivered),
+        ParcelProtectionBookingReady = transaction.ParcelProtectionBookingReady
     };
 
     private static string ThaiStateLabel(
