@@ -127,6 +127,8 @@ public sealed class MobileParcelProtectionApiTests
         using var response = await fixture.Client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains("\"bookingStatus\":\"reconfirmation_required\"",
+            await response.Content.ReadAsStringAsync());
     }
 
     [Fact]
@@ -143,6 +145,8 @@ public sealed class MobileParcelProtectionApiTests
         using var response = await fixture.Client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains("\"bookingStatus\":\"reconfirmation_required\"",
+            await response.Content.ReadAsStringAsync());
     }
 
     [Fact]

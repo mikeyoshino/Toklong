@@ -21,3 +21,13 @@ public sealed record ParcelProtectionSelection(
     string? ProviderOptionReference,
     DateTimeOffset QuotedAt,
     DateTimeOffset ExpiresAt);
+
+public sealed record ParcelProtectionPreparedOffer(
+    bool RequiresChoice,
+    bool AddOnAvailable,
+    long IncludedCoverageLimitSatang,
+    long? MaximumCoverageLimitSatang,
+    long? CustomerPriceSatang,
+    string? OptionReference,
+    string TermsVersion,
+    DateTimeOffset? ExpiresAt);

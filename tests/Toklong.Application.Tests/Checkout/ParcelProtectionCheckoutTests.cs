@@ -212,7 +212,7 @@ public sealed class ParcelProtectionCheckoutTests
         Assert.Single(fixture.Transaction.ManagedShipments);
 
         await Assert.ThrowsAsync<DomainException>(() => fixture.ChooseHandler.Handle(
-            fixture.Choose(false, null, null, "choose-different-choice"), default));
+            fixture.Choose(false, null, null, "choose-protection-once"), default));
     }
 
     [Fact]

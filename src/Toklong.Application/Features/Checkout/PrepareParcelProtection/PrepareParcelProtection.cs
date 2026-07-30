@@ -52,7 +52,16 @@ public sealed class PrepareParcelProtectionHandler(
         {
             transaction.RecordParcelProtectionAvailabilityPresented(
                 request.BuyerId,
-                requiresChoice,
+                new ParcelProtectionPreparedOffer(
+                    requiresChoice,
+                    addOnAvailable,
+                    availability.IncludedCoverageLimitSatang,
+                    availability.AddOn?.SelectedCoverageLimitSatang,
+                    customerPrice,
+                    availability.AddOn?.OptionReference,
+                    availability.AddOn?.TermsVersion ??
+                        ParcelProtectionCheckout.IncludedTermsVersion,
+                    availability.AddOn?.ExpiresAt),
                 idempotencyKey,
                 clock.UtcNow);
             await unitOfWork.SaveChangesAsync(cancellationToken);

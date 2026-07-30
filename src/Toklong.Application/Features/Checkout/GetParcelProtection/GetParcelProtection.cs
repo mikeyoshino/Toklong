@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Text.Json;
 using MediatR;
 using Toklong.Application.Abstractions;
 using Toklong.Application.Common;
@@ -24,7 +25,8 @@ public sealed record BuyerParcelProtectionView(
     bool ReconfirmationRequired);
 
 public sealed class GetParcelProtectionHandler(
-    ITransactionRepository repository)
+    ITransactionRepository repository,
+    IClock clock)
     : IRequestHandler<GetParcelProtectionQuery, BuyerParcelProtectionView>
 {
     public async Task<BuyerParcelProtectionView> Handle(
@@ -34,7 +36,7 @@ public sealed class GetParcelProtectionHandler(
             request.TransactionId, cancellationToken)
             ?? throw new NotFoundException("ไม่พบรายการ");
         ParcelProtectionCheckout.RequireBuyer(transaction, request.BuyerId);
-        return ParcelProtectionCheckout.FromStored(transaction);
+        return ParcelProtectionCheckout.FromStored(transaction, clock.UtcNow);
     }
 }
 
@@ -57,8 +59,24 @@ internal static partial class ParcelProtectionCheckout
         return value;
     }
 
-    internal static BuyerParcelProtectionView FromStored(SaleTransaction transaction)
+    internal static BuyerParcelProtectionView FromStored(
+        SaleTransaction transaction, DateTimeOffset? now = null)
     {
+        var prepared = transaction.AuditEvents
+            .Where(audit => audit.Name is "parcel_protection.offered" or
+                "parcel_protection.unavailable")
+            .OrderByDescending(audit => audit.CreatedAt)
+            .Select(audit => TryReadPreparedOffer(audit.MetadataJson))
+            .FirstOrDefault(offer => offer is not null &&
+                (!offer.ExpiresAt.HasValue || offer.ExpiresAt > now)) ;
+        if (transaction.ParcelProtectionElection == ParcelProtectionElectionStatus.Pending &&
+            prepared is not null)
+            return new BuyerParcelProtectionView(prepared.RequiresChoice,
+                prepared.AddOnAvailable, prepared.IncludedCoverageLimitSatang,
+                prepared.MaximumCoverageLimitSatang, prepared.CustomerPriceSatang,
+                prepared.OptionReference, prepared.TermsVersion, prepared.ExpiresAt,
+                transaction.ParcelProtectionElection.ToString(),
+                transaction.ParcelProtectionBookingReady, false);
         var notApplicable = transaction.FulfillmentType ==
             FulfillmentType.DigitalHandoff;
         var isPending = transaction.ParcelProtectionElection ==
@@ -83,6 +101,12 @@ internal static partial class ParcelProtectionCheckout
                 : transaction.ParcelProtectionElection.ToString(),
             transaction.ParcelProtectionBookingReady,
             reconfirmationRequired);
+    }
+
+    private static ParcelProtectionPreparedOffer? TryReadPreparedOffer(string value)
+    {
+        try { return JsonSerializer.Deserialize<ParcelProtectionPreparedOffer>(value); }
+        catch (JsonException) { return null; }
     }
 
     internal static ShippingQuoteRequest BuildShipmentRequest(

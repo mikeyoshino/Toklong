@@ -146,6 +146,17 @@ public sealed class DevelopmentShippingQuoteProvider(
                     null,
                     ProviderCapabilityCertified: true));
 
+        var existing = protectionOptions.Values
+            .Where(stored => stored.Request == request)
+            .Select(stored => stored.Option)
+            .FirstOrDefault(option => option.ExpiresAt > clock.UtcNow);
+        if (existing is not null)
+            return Task.FromResult(
+                new ParcelProtectionAvailability(
+                    IncludedCoverageLimitSatang,
+                    existing,
+                    ProviderCapabilityCertified: true));
+
         var quotedAt = clock.UtcNow;
         var option = new ProviderParcelProtectionOption(
             ProviderName,

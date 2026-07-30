@@ -46,6 +46,20 @@ public sealed partial class ChooseParcelProtectionHandler(
         if (transaction.State != TransactionState.SellerAcceptedAwaitingPayment)
             throw new DomainException("รายการนี้ยังเลือกความคุ้มครองพัสดุไม่ได้");
 
+        var bookingKey = $"book-outbound:{transaction.Id:N}:{idempotencyKey}";
+        var priorBooking = transaction.ShippingOperations.SingleOrDefault(
+            operation => string.Equals(operation.IdempotencyKey, bookingKey,
+                StringComparison.Ordinal));
+        if (priorBooking is not null)
+        {
+            if (!MatchesPriorElection(transaction, request))
+                throw new DomainException("รหัสป้องกันการทำซ้ำถูกใช้กับตัวเลือกอื่นแล้ว");
+            return new ChooseParcelProtectionResult(TransactionView.From(transaction),
+                transaction.ParcelProtectionBookingReady
+                    ? "booking_ready"
+                    : "preparing_shipping");
+        }
+
         if (transaction.ShippingQuoteExpiresAt <= clock.UtcNow)
             throw new DomainException("ราคาค่าจัดส่งหมดอายุ กรุณาดูราคาใหม่");
         var quoteRequest = ParcelProtectionCheckout.BuildProtectionRequest(transaction);
@@ -160,6 +174,19 @@ public sealed partial class ChooseParcelProtectionHandler(
         return new ChooseParcelProtectionResult(TransactionView.From(transaction),
             "preparing_shipping");
     }
+
+    private static bool MatchesPriorElection(
+        SaleTransaction transaction,
+        ChooseParcelProtectionCommand request) => request.AddProtection
+        ? transaction.ParcelProtectionElection == ParcelProtectionElectionStatus.Accepted &&
+          request.DisclosedCustomerPriceSatang == transaction.ParcelInsuranceFeeSatang &&
+          string.Equals(request.OptionReference, transaction.ParcelProtectionOptionReference,
+              StringComparison.Ordinal)
+        : (transaction.ParcelProtectionElection is
+            ParcelProtectionElectionStatus.Declined or
+            ParcelProtectionElectionStatus.Unavailable) &&
+          request.OptionReference is null &&
+          request.DisclosedCustomerPriceSatang is null;
 
     private async Task<ResolvedSelection> ResolveSelectionAsync(
         SaleTransaction transaction, ChooseParcelProtectionCommand request,

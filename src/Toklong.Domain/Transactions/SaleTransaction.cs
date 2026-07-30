@@ -1805,10 +1805,11 @@ public sealed class SaleTransaction
 
     public void RecordParcelProtectionAvailabilityPresented(
         Guid buyerId,
-        bool addOnAvailable,
+        ParcelProtectionPreparedOffer offer,
         string idempotencyKey,
         DateTimeOffset now)
     {
+        ArgumentNullException.ThrowIfNull(offer);
         if (BuyerId != buyerId)
             throw new DomainException(
                 "บัญชีผู้ซื้อนี้ไม่มีสิทธิ์ดูความคุ้มครองพัสดุ");
@@ -1833,7 +1834,7 @@ public sealed class SaleTransaction
             Id,
             ActorRole.Buyer,
             buyerId.ToString("N"),
-            addOnAvailable
+            offer.AddOnAvailable
                 ? "parcel_protection.offered"
                 : "parcel_protection.unavailable",
             State,
@@ -1841,7 +1842,7 @@ public sealed class SaleTransaction
             now,
             Id.ToString("N"),
             cleanKey,
-            JsonSerializer.Serialize(new { AddOnAvailable = addOnAvailable })));
+            JsonSerializer.Serialize(offer)));
         Version++;
     }
 

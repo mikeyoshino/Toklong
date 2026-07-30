@@ -118,6 +118,20 @@ public sealed class ShippopShippingProviderTests
     }
 
     [Fact]
+    public async Task Development_provider_reuses_prepared_add_on_for_the_same_request()
+    {
+        var provider = new DevelopmentShippingQuoteProvider(new FixedClock());
+        var request = await ProtectionRequest(provider, 450_000);
+
+        var first = (await provider.GetAvailabilityAsync(request, default)).AddOn!;
+        var resumed = (await provider.GetAvailabilityAsync(request, default)).AddOn!;
+
+        Assert.Equal(first.OptionReference, resumed.OptionReference);
+        Assert.Equal(first.QuotedAt, resumed.QuotedAt);
+        Assert.Equal(first.ExpiresAt, resumed.ExpiresAt);
+    }
+
+    [Fact]
     public async Task Development_protection_option_binds_complete_request()
     {
         var provider = new DevelopmentShippingQuoteProvider(
