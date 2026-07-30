@@ -156,7 +156,9 @@ the seller's accepted core.
 
 ```text
 SELLER_ACCEPTED_AWAITING_PAYMENT
-  → buyer chooses or records included/unavailable parcel protection
+  → choice exists: buyer explicitly accepts or declines
+  → within verified included limit: auto-submit AddProtection=false → Declined
+  → over limit with no certified add-on → Unavailable
   → durable matching booking is ready
   → CHECKOUT_STARTED → PAYMENT_PENDING
 ```
