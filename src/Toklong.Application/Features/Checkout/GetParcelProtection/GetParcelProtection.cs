@@ -45,7 +45,8 @@ internal static partial class ParcelProtectionCheckout
     internal static void RequireBuyer(SaleTransaction transaction, Guid buyerId)
     {
         if (transaction.BuyerId != buyerId)
-            throw new DomainException("บัญชีผู้ซื้อนี้ไม่มีสิทธิ์เลือกความคุ้มครองพัสดุ");
+            throw new ForbiddenException(
+                "บัญชีผู้ซื้อนี้ไม่มีสิทธิ์เลือกความคุ้มครองพัสดุ");
     }
 
     internal static string RequireSafeIdempotencyKey(string? idempotencyKey)

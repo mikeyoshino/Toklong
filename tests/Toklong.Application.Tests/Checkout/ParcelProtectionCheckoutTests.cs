@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Toklong.Application.Abstractions;
+using Toklong.Application.Common;
 using Toklong.Application.Features.Checkout.ChooseParcelProtection;
 using Toklong.Application.Features.Checkout.GetParcelProtection;
 using Toklong.Application.Features.Checkout.PrepareParcelProtection;
@@ -63,7 +64,7 @@ public sealed class ParcelProtectionCheckoutTests
         await using var fixture = await Fixture.CreateAsync(450_000);
         var prepared = await fixture.Prepare.Handle(fixture.PrepareCommand(), default);
 
-        await Assert.ThrowsAsync<DomainException>(() => fixture.ChooseHandler.Handle(
+        await Assert.ThrowsAsync<ParcelProtectionOptionChangedException>(() => fixture.ChooseHandler.Handle(
             fixture.Choose(true, prepared.OptionReference, 5_900), default));
 
         Assert.Empty(fixture.Transaction.ManagedShipments);
@@ -141,7 +142,7 @@ public sealed class ParcelProtectionCheckoutTests
     {
         await using var fixture = await Fixture.CreateAsync(450_000);
 
-        await Assert.ThrowsAsync<DomainException>(() => fixture.Prepare.Handle(
+        await Assert.ThrowsAsync<ForbiddenException>(() => fixture.Prepare.Handle(
             new PrepareParcelProtectionCommand(
                 fixture.Transaction.Id, Guid.NewGuid(), "prepare-wrong-buyer"), default));
 
@@ -162,7 +163,7 @@ public sealed class ParcelProtectionCheckoutTests
             Provider = "other-provider"
         };
 
-        await Assert.ThrowsAsync<DomainException>(() => fixture.ChooseHandler.Handle(
+        await Assert.ThrowsAsync<ParcelProtectionOptionChangedException>(() => fixture.ChooseHandler.Handle(
             fixture.Choose(true, prepared.OptionReference, 6_000), default));
         Assert.Empty(fixture.Transaction.ManagedShipments);
     }
@@ -178,7 +179,7 @@ public sealed class ParcelProtectionCheckoutTests
             SelectedCoverageLimitSatang = 449_999
         };
 
-        await Assert.ThrowsAsync<DomainException>(() => fixture.ChooseHandler.Handle(
+        await Assert.ThrowsAsync<ParcelProtectionOptionChangedException>(() => fixture.ChooseHandler.Handle(
             fixture.Choose(true, prepared.OptionReference, 6_000), default));
 
         Assert.Empty(fixture.Transaction.ManagedShipments);

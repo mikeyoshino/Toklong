@@ -201,7 +201,8 @@ public sealed partial class ChooseParcelProtectionHandler(
             option.SelectedCoverageLimitSatang < transaction.PriceSatang ||
             !string.Equals(option.Provider, transaction.ShippingQuoteProvider,
                 StringComparison.Ordinal))
-            throw new DomainException("ราคาหรือเงื่อนไขความคุ้มครองพัสดุเปลี่ยน กรุณาตรวจสอบใหม่");
+            throw new ParcelProtectionOptionChangedException(
+                "parcel-protection-option-changed");
         return new ResolvedSelection(new ParcelProtectionSelection(ParcelProtectionElectionStatus.Accepted,
             price.CustomerPriceSatang, option.ProviderCostSatang,
             price.ToklongServiceFeeSatang, option.IncludedCoverageLimitSatang,

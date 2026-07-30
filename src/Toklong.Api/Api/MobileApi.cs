@@ -12,6 +12,9 @@ using Toklong.Application.Abstractions;
 using Toklong.Application.Common;
 using Toklong.Application.Features.Authentication;
 using Toklong.Application.Features.Buyers;
+using Toklong.Application.Features.Checkout.ChooseParcelProtection;
+using Toklong.Application.Features.Checkout.GetParcelProtection;
+using Toklong.Application.Features.Checkout.PrepareParcelProtection;
 using Toklong.Application.Features.Checkout.PreparePaymentSheet;
 using Toklong.Application.Features.Offers.CreateBuyerOffer;
 using Toklong.Application.Features.Offers.ExtractAgreementDraft;
@@ -172,6 +175,15 @@ public static class MobileApi
         authenticated.MapGet(
             "/transactions/{transactionId:guid}",
             GetTransactionAsync);
+        authenticated.MapGet(
+            "/transactions/{transactionId:guid}/parcel-protection",
+            GetParcelProtectionAsync);
+        authenticated.MapPost(
+            "/transactions/{transactionId:guid}/parcel-protection/prepare",
+            PrepareParcelProtectionAsync);
+        authenticated.MapPost(
+            "/transactions/{transactionId:guid}/parcel-protection-election",
+            ChooseParcelProtectionAsync);
         authenticated.MapGet(
             "/transactions/{transactionId:guid}/agreement-evidence",
             DownloadAgreementEvidenceAsync);
@@ -798,6 +810,93 @@ public static class MobileApi
             result.PublishableKey,
             result.ReceiptEmail));
     }
+
+    private static async Task<IResult> GetParcelProtectionAsync(
+        Guid transactionId,
+        ClaimsPrincipal principal,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(
+            new GetParcelProtectionQuery(
+                transactionId,
+                RequiredBuyerId(principal)),
+            cancellationToken);
+        return Results.Ok(ToMobileParcelProtection(result));
+    }
+
+    private static async Task<IResult> PrepareParcelProtectionAsync(
+        Guid transactionId,
+        HttpRequest request,
+        ClaimsPrincipal principal,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(
+            new PrepareParcelProtectionCommand(
+                transactionId,
+                RequiredBuyerId(principal),
+                RequiredParcelProtectionIdempotencyKey(request)),
+            cancellationToken);
+        return Results.Ok(ToMobileParcelProtection(result));
+    }
+
+    private static async Task<IResult> ChooseParcelProtectionAsync(
+        Guid transactionId,
+        MobileParcelProtectionElectionRequest request,
+        HttpRequest httpRequest,
+        ClaimsPrincipal principal,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await sender.Send(
+                new ChooseParcelProtectionCommand(
+                    transactionId,
+                    RequiredBuyerId(principal),
+                    request.AddProtection,
+                    request.OptionReference,
+                    request.DisclosedCustomerPriceSatang,
+                    RequiredParcelProtectionIdempotencyKey(httpRequest)),
+                cancellationToken);
+            return Results.Ok(new MobileParcelProtectionElectionResponse(
+                result.BookingStatus));
+        }
+        catch (ParcelProtectionOptionChangedException)
+        {
+            return Results.Conflict(new MobileParcelProtectionElectionResponse(
+                "reconfirmation_required"));
+        }
+    }
+
+    private static Guid RequiredBuyerId(ClaimsPrincipal principal) =>
+        PartyIds.From(principal).BuyerId
+        ?? throw new ForbiddenException(
+            "บัญชีนี้ไม่มีสิทธิ์เลือกความคุ้มครองพัสดุ");
+
+    private static string RequiredParcelProtectionIdempotencyKey(
+        HttpRequest request)
+    {
+        var value = request.Headers["Idempotency-Key"].ToString();
+        if (string.IsNullOrWhiteSpace(value))
+            throw new DomainException("ต้องส่ง Idempotency-Key");
+        return value;
+    }
+
+    private static MobileParcelProtectionResponse ToMobileParcelProtection(
+        BuyerParcelProtectionView view) => new(
+            view.RequiresChoice,
+            view.AddOnAvailable,
+            view.IncludedCoverageLimitSatang,
+            view.MaximumCoverageLimitSatang,
+            view.CustomerPriceSatang,
+            view.OptionReference,
+            view.TermsVersion,
+            view.ExpiresAt,
+            view.Election,
+            view.BookingReady,
+            view.ReconfirmationRequired);
 
     private static async Task<IResult> GetSellerOfferAsync(
         string publicToken,
@@ -1895,6 +1994,27 @@ public sealed record MobilePaymentSheetResponse(
     string ClientSecret,
     string PublishableKey,
     string ReceiptEmail);
+
+public sealed record MobileParcelProtectionResponse(
+    bool RequiresChoice,
+    bool AddOnAvailable,
+    long IncludedCoverageLimitSatang,
+    long? MaximumCoverageLimitSatang,
+    long? CustomerPriceSatang,
+    string? OptionReference,
+    string TermsVersion,
+    DateTimeOffset? ExpiresAt,
+    string Election,
+    bool BookingReady,
+    bool ReconfirmationRequired);
+
+public sealed record MobileParcelProtectionElectionRequest(
+    bool AddProtection,
+    string? OptionReference,
+    long? DisclosedCustomerPriceSatang);
+
+public sealed record MobileParcelProtectionElectionResponse(
+    string BookingStatus);
 
 public sealed record MobileTrackingRequest(
     string CarrierCode,
