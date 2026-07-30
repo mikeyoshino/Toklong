@@ -18,6 +18,10 @@
 - endpoint ของ Production ต้องเป็น HTTPS เสมอ ส่วน HTTP ของ SHIPPOP Dev
   เปิดได้เฉพาะ Development/certification ด้วย explicit opt-in และค่าเริ่มต้น
   ต้องปิด
+- certification harness รับเฉพาะ exact Dev origin
+  `http://mkpservice.shippop.dev` พร้อม insecure opt-in ก่อนอ่าน credential
+  หรือ synthetic address; ห้ามใช้ HTTPS/Production/host, port, path หรือ query
+  อื่นเพื่อ certification
 - optional parcel protection ปิดอยู่จนกว่า account/service เดียวกันจะพิสูจน์
   included limit, maximum, premium conversion เป็น integer satang, terms/code,
   Buyer-elected booking result, safe timeout lookup/replay, cancellationก่อน
@@ -123,6 +127,9 @@
 
 - optional-protection availability/revalidation/booking payload field names,
   units, limits, premium rounding, terms/code และ exact Buyer-election result
+- certification operations boundary สำหรับ required parcel fields, same-key
+  booking replay, lookup หลัง timeout และ cancel ก่อน first scan; adapter
+  ปัจจุบันยังไม่ implement จึงได้ผล `blocked` แบบมีชื่อ capability
 - lookup รายการ booking เดิมด้วย TOKLONG reference หลัง timeout และ repeated
   booking/confirm/cancel semantics ที่ทำให้ replay ปลอดภัย
 - cancellation ก่อน first scan, trusted POD timestamp, surcharge schema,

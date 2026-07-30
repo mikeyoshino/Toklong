@@ -25,8 +25,15 @@ dotnet test tests/Toklong.Shippop.Certification/Toklong.Shippop.Certification.cs
 local Development/provider certification เท่านั้น เพราะ API key และข้อมูล
 ที่อยู่จะเดินทางโดยไม่มี TLS ห้ามใช้กับ Production
 
-เมื่อไม่มี `SHIPPOP_CERTIFY=1` test ทุกตัวต้องรายงาน `Skipped` ไม่ใช่ผ่านแบบ
-no-op:
+ก่อน test อ่าน synthetic address, API key หรือ account email จะยอมรับเฉพาะ
+string `http://mkpservice.shippop.dev` ตามคำสั่งข้างบนเท่านั้น ต้องมี
+`SHIPPOP_ALLOW_INSECURE_HTTP=1` ด้วย URL ที่เป็น HTTPS, host อื่น, port,
+trailing slash, path หรือ query—even a production host—ถูกปฏิเสธโดยไม่แสดง URL
+หรืออ่าน credential
+
+เมื่อไม่มี `SHIPPOP_CERTIFY=1` เฉพาะ live `[CertificationFact]` ต้องรายงาน
+`Skipped`; endpoint guard และ deterministic harness แบบ offline ยังต้องทำงาน
+เพื่อคง policy guard ไว้:
 
 ```bash
 dotnet test tests/Toklong.Shippop.Certification/Toklong.Shippop.Certification.csproj \
@@ -42,12 +49,18 @@ dotnet test tests/Toklong.Shippop.Certification/Toklong.Shippop.Certification.cs
 คาดเดาการปัดเศษ ห้ามใส่วงเงินหรือ premium ที่ยังไม่ได้รับจาก response/document
 ของ account ลงใน fixture เพื่อทำให้ test ผ่าน
 
+เมื่อ provider เริ่มคืน optional add-on แล้ว fixture จึงเพิ่ม optional object
+`certificationEvidence` ได้ โดยมี exact `includedCoverageLimitSatang`,
+`maximumCoverageLimitSatang`, `providerCostSatang`, `customerPriceSatang`,
+`termsVersion`, `insuranceCode` และ `optionReference` จาก account evidence
+จริงเท่านั้น หาก add-on มีแต่ไม่มี object นี้ ผลคือ `blocked` ไม่ใช่ค่าเดา
+
 test ไม่พิมพ์ API key, request body, contact, address, option reference,
 tracking, terms text หรือ raw provider response. การรันที่ถึง live assertion
 เขียนผลสรุปที่ sanitize แล้วใต้
 `TestResults/shippop-certification/`; directory นี้ถูก ignore โดย Git. รายงานมี
 เฉพาะ service code, เวลา UTC, unit `satang`, ชื่อ field parcel ที่ส่งพร้อม unit,
-และผล `passed`/`blocked` ของ assertion เท่านั้น
+และผล `passed`/`blocked`/`failed` ของ assertion เท่านั้น
 
 ## Required evidence
 
@@ -71,11 +84,19 @@ certification reference. บันทึกเฉพาะชื่อ field จ
 | height | required request field name and unit | `height`, centimeters (adapter input only) |
 
 The opt-in suite calls `IParcelProtectionQuoteProvider` through the same
-disabled-by-default SHIPPOP boundary used by the application. It records every
-missing optional-protection assertion as `blocked`; it rejects a missing weight
-or any individual missing dimension before a quote request can leave TOKLONG.
-It never enables a test profile or performs booking, confirmation, replay, or
-cancellation by guessing a SHIPPOP endpoint or field.
+disabled-by-default SHIPPOP boundary used by the application. Its executable
+harness revalidates exact option coverage/cost/terms/code/reference, validates
+the integer-satang customer price, and only then asks the separately defined
+certification operations boundary for weight/dimension requirements, same-key
+booking replay, lookup, and pre-scan cancellation. A missing capability,
+evidence object, or lookup result produces a named `blocked` result; a changed
+option, booking, replay, lookup, price, or parcel requirement produces `failed`.
+It never enables a test profile or guesses a SHIPPOP endpoint or field.
+
+Booking/replay/lookup/cancel are provider mutations. Even after an adapter
+implements the certification operations boundary, they remain `blocked` unless
+the operator additionally sets `SHIPPOP_CERTIFY_MUTATIONS=1` for a disposable
+Dev-only synthetic shipment. Do not set that variable against Production.
 
 ## Current provider blocker — 30 July 2026
 
