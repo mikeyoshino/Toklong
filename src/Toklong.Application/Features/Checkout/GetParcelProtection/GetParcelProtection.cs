@@ -75,7 +75,7 @@ internal static partial class ParcelProtectionCheckout
                 prepared.AddOnAvailable, prepared.IncludedCoverageLimitSatang,
                 prepared.MaximumCoverageLimitSatang, prepared.CustomerPriceSatang,
                 prepared.OptionReference, prepared.TermsVersion, prepared.ExpiresAt,
-                transaction.ParcelProtectionElection.ToString(),
+                prepared.Election.ToString(),
                 transaction.ParcelProtectionBookingReady, false);
         var notApplicable = transaction.FulfillmentType ==
             FulfillmentType.DigitalHandoff;

@@ -30,4 +30,6 @@ public sealed record ParcelProtectionPreparedOffer(
     long? CustomerPriceSatang,
     string? OptionReference,
     string TermsVersion,
-    DateTimeOffset? ExpiresAt);
+    DateTimeOffset? ExpiresAt,
+    ParcelProtectionElectionStatus Election =
+        ParcelProtectionElectionStatus.Pending);

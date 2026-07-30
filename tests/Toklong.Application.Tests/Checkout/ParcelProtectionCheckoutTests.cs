@@ -134,6 +134,100 @@ public sealed class ParcelProtectionCheckoutTests
             StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task Unavailable_preparation_resumes_exact_buyer_safe_view_after_fresh_relational_reload()
+    {
+        await using var database = await RelationalDatabase.CreateAsync();
+        var clock = new MutableClock(Now.AddMinutes(1));
+        var provider = new TestProtectionProvider
+        {
+            Availability = new ParcelProtectionAvailability(
+                100_000, null, ProviderCapabilityCertified: false)
+        };
+        Guid transactionId;
+        Guid buyerId;
+        BuyerParcelProtectionView prepared;
+
+        await using (var write = database.CreateContext())
+        {
+            var transaction = CreateAcceptedTransaction(450_000);
+            transactionId = transaction.Id;
+            buyerId = transaction.BuyerId!.Value;
+            write.Transactions.Add(transaction);
+            await write.SaveChangesAsync();
+            prepared = await new PrepareParcelProtectionHandler(
+                new TransactionRepository(write), provider,
+                new ParcelProtectionPricingPolicy(), write, clock).Handle(
+                new PrepareParcelProtectionCommand(transactionId, buyerId,
+                    "prepare-relational-unavailable"), default);
+        }
+
+        await using var read = database.CreateContext();
+        var resumed = await new GetParcelProtectionHandler(
+            new TransactionRepository(read), clock).Handle(
+            new GetParcelProtectionQuery(transactionId, buyerId), default);
+        var json = JsonSerializer.Serialize(resumed);
+
+        Assert.Equal(prepared, resumed);
+        Assert.Equal("Unavailable", resumed.Election);
+        Assert.False(resumed.RequiresChoice);
+        Assert.False(resumed.AddOnAvailable);
+        Assert.Equal(100_000, resumed.IncludedCoverageLimitSatang);
+        Assert.Null(resumed.MaximumCoverageLimitSatang);
+        Assert.Null(resumed.CustomerPriceSatang);
+        Assert.DoesNotContain("providerCost", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("serviceFee", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("development-shipping", json,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Included_only_preparation_resumes_exact_buyer_safe_view_after_fresh_relational_reload()
+    {
+        await using var database = await RelationalDatabase.CreateAsync();
+        var clock = new MutableClock(Now.AddMinutes(1));
+        var provider = new TestProtectionProvider
+        {
+            Availability = new ParcelProtectionAvailability(
+                100_000, null, ProviderCapabilityCertified: true)
+        };
+        Guid transactionId;
+        Guid buyerId;
+        BuyerParcelProtectionView prepared;
+
+        await using (var write = database.CreateContext())
+        {
+            var transaction = CreateAcceptedTransaction(100_000);
+            transactionId = transaction.Id;
+            buyerId = transaction.BuyerId!.Value;
+            write.Transactions.Add(transaction);
+            await write.SaveChangesAsync();
+            prepared = await new PrepareParcelProtectionHandler(
+                new TransactionRepository(write), provider,
+                new ParcelProtectionPricingPolicy(), write, clock).Handle(
+                new PrepareParcelProtectionCommand(transactionId, buyerId,
+                    "prepare-relational-included-only"), default);
+        }
+
+        await using var read = database.CreateContext();
+        var resumed = await new GetParcelProtectionHandler(
+            new TransactionRepository(read), clock).Handle(
+            new GetParcelProtectionQuery(transactionId, buyerId), default);
+        var json = JsonSerializer.Serialize(resumed);
+
+        Assert.Equal(prepared, resumed);
+        Assert.Equal("Pending", resumed.Election);
+        Assert.False(resumed.RequiresChoice);
+        Assert.False(resumed.AddOnAvailable);
+        Assert.Equal(100_000, resumed.IncludedCoverageLimitSatang);
+        Assert.Null(resumed.MaximumCoverageLimitSatang);
+        Assert.Null(resumed.CustomerPriceSatang);
+        Assert.DoesNotContain("providerCost", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("serviceFee", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("development-shipping", json,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
     [Theory]
     [InlineData("buyer@example.com")]
     [InlineData("prepare-ผู้ซื้อ-12345")]

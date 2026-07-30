@@ -46,6 +46,10 @@ public sealed class PrepareParcelProtectionHandler(
         if (availability.AddOn is not null)
             customerPrice = pricing.Price(availability.AddOn.ProviderCostSatang)
                 .CustomerPriceSatang;
+        var presentationElection = transaction.PriceSatang >
+            availability.IncludedCoverageLimitSatang && !addOnAvailable
+                ? ParcelProtectionElectionStatus.Unavailable
+                : transaction.ParcelProtectionElection;
 
         transaction.RecordParcelProtectionAvailabilityPresented(
             request.BuyerId,
@@ -58,7 +62,8 @@ public sealed class PrepareParcelProtectionHandler(
                 availability.AddOn?.OptionReference,
                 availability.AddOn?.TermsVersion ??
                     ParcelProtectionCheckout.IncludedTermsVersion,
-                availability.AddOn?.ExpiresAt),
+                availability.AddOn?.ExpiresAt,
+                presentationElection),
             idempotencyKey,
             clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -72,10 +77,7 @@ public sealed class PrepareParcelProtectionHandler(
             availability.AddOn?.OptionReference,
             availability.AddOn?.TermsVersion ?? ParcelProtectionCheckout.IncludedTermsVersion,
             availability.AddOn?.ExpiresAt,
-            transaction.PriceSatang > availability.IncludedCoverageLimitSatang &&
-            !addOnAvailable
-                ? ParcelProtectionElectionStatus.Unavailable.ToString()
-                : transaction.ParcelProtectionElection.ToString(),
+            presentationElection.ToString(),
             transaction.ParcelProtectionBookingReady,
             transaction.ParcelProtectionElection ==
                 ParcelProtectionElectionStatus.ReconfirmationRequired);
