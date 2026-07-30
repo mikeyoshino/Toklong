@@ -225,7 +225,8 @@ Therefore:
 - tell the buyer that delivery preparation could not be completed and provide
   an explicit retry action;
 - create a new attempt number and provider reference for an authorized retry;
-- limit retries to three within a short checkout window; and
+- limit provider booking attempts to three for the transaction's one-hour
+  payment window; and
 - correlate any later provider evidence with the exact attempt reference.
 
 Only the latest matching `Succeeded` attempt may be attached to a new

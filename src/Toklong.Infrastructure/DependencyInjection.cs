@@ -25,6 +25,9 @@ public static class DependencyInjection
         services.AddScoped<
             IShippingOperationRepository,
             ShippingOperationRepository>();
+        services.AddScoped<
+            IBookingAttemptRepository,
+            BookingAttemptRepository>();
         services.AddSingleton<ShippingOperationMetrics>();
         services.AddScoped<IRetentionRepository, RetentionRepository>();
         services.AddScoped<IBuyerRepository, BuyerRepository>();

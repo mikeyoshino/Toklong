@@ -38,8 +38,8 @@
   concurrency and short provider-failure circuit.
 - `src/Toklong.Application/Features/Checkout/BookShipmentForPayment/DirectBookingMetrics.cs` —
   low-cardinality booking measurements.
-- `src/Toklong.Infrastructure/Persistence/Migrations/20260730220000_SynchronousCheckoutBooking.cs` — booking-attempt table and indexes.
-- `src/Toklong.Infrastructure/Persistence/Migrations/20260730220000_SynchronousCheckoutBooking.Designer.cs` — generated EF model metadata.
+- `src/Toklong.Infrastructure/Persistence/Migrations/20260730152106_SynchronousCheckoutBooking.cs` — booking-attempt table and indexes.
+- `src/Toklong.Infrastructure/Persistence/Migrations/20260730152106_SynchronousCheckoutBooking.Designer.cs` — generated EF model metadata.
 - `tests/Toklong.Domain.Tests/Transactions/BookingAttemptTests.cs` — lifecycle and validation tests.
 - `tests/Toklong.Application.Tests/Checkout/DirectCheckoutBookingTests.cs` — direct booking, timeout, mismatch, crash-boundary, and idempotency tests.
 - `tests/Toklong.Application.Tests/Persistence/BookingAttemptPersistenceTests.cs` — relational uniqueness and concurrent claim tests.
@@ -245,8 +245,8 @@ git commit -m "feat: add checkout booking attempt lifecycle"
 - Create: `src/Toklong.Infrastructure/Persistence/BookingAttemptRepository.cs`
 - Modify: `src/Toklong.Infrastructure/Persistence/ToklongDbContext.cs`
 - Modify: `src/Toklong.Infrastructure/DependencyInjection.cs`
-- Create: `src/Toklong.Infrastructure/Persistence/Migrations/20260730220000_SynchronousCheckoutBooking.cs`
-- Create: `src/Toklong.Infrastructure/Persistence/Migrations/20260730220000_SynchronousCheckoutBooking.Designer.cs`
+- Create: `src/Toklong.Infrastructure/Persistence/Migrations/20260730152106_SynchronousCheckoutBooking.cs`
+- Create: `src/Toklong.Infrastructure/Persistence/Migrations/20260730152106_SynchronousCheckoutBooking.Designer.cs`
 - Modify: `src/Toklong.Infrastructure/Persistence/Migrations/ToklongDbContextModelSnapshot.cs`
 - Create: `tests/Toklong.Application.Tests/Persistence/BookingAttemptPersistenceTests.cs`
 
@@ -389,7 +389,7 @@ Only a later explicit buyer action with a new idempotency key may create a new
 attempt.
 
 For a new idempotency key, calculate `AttemptNumber` from provider-calling
-attempts for the same transaction created within the previous ten minutes.
+attempts for the same transaction during its one-hour payment window.
 Reject number four as `RetryLimitReached`. The unique
 `(TransactionId, AttemptNumber)` index and partial unique active-attempt index
 arbitrate different keys arriving on different API instances. If the partial
@@ -406,11 +406,9 @@ dotnet ef migrations add SynchronousCheckoutBooking \
   --startup-project src/Toklong.Api/Toklong.Api.csproj
 ```
 
-Expected: one migration creates `booking_attempts`, its foreign key, five
-indexes, and updates the model snapshot. Normalize the generated migration ID
-to `20260730220000_SynchronousCheckoutBooking` in both filenames and the
-designer's `[Migration]` attribute; keep the generated class name
-`SynchronousCheckoutBooking`.
+Expected: migration `20260730152106_SynchronousCheckoutBooking` creates
+`booking_attempts`, its foreign key, six indexes, and updates the model
+snapshot.
 
 - [ ] **Step 6: Register and run persistence tests**
 
@@ -875,8 +873,8 @@ Map:
 - `ReconfirmationRequired` → HTTP 409, code
   `shipping_reconfirmation_required`;
 - local bulkhead or provider `429` → HTTP 429 with bounded `Retry-After`;
-- `RetryLimitReached` → HTTP 429, code `shipping_retry_limit`, with
-  `Retry-After` equal to the bounded remainder of the ten-minute window;
+- `RetryLimitReached` → HTTP 429, code `shipping_retry_limit`; the buyer must
+  create a new offer after the current payment window closes;
 - `TimedOut` or provider unavailable → HTTP 503, code
   `shipping_retry_required`.
 

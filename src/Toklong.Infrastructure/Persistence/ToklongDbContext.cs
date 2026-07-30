@@ -52,6 +52,8 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         Set<ManagedShipment>();
     public DbSet<ShippingOperation> ShippingOperations =>
         Set<ShippingOperation>();
+    public DbSet<BookingAttempt> BookingAttempts =>
+        Set<BookingAttempt>();
     public DbSet<ParcelProtectionChangeRequest>
         ParcelProtectionChangeRequests =>
         Set<ParcelProtectionChangeRequest>();
@@ -735,6 +737,69 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
             .WithMany()
             .HasForeignKey(x => x.ManagedShipmentId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        var bookingAttempt =
+            modelBuilder.Entity<BookingAttempt>();
+        bookingAttempt.ToTable("booking_attempts");
+        bookingAttempt.HasKey(x => x.Id);
+        bookingAttempt.Property(x => x.Id)
+            .ValueGeneratedNever();
+        bookingAttempt.HasIndex(x => new
+            {
+                x.TransactionId,
+                x.IdempotencyKey
+            })
+            .IsUnique();
+        bookingAttempt.HasIndex(
+                x => x.ProviderReference)
+            .IsUnique();
+        bookingAttempt.HasIndex(x => new
+            {
+                x.TransactionId,
+                x.AttemptNumber
+            })
+            .IsUnique();
+        bookingAttempt.HasIndex(
+                x => x.TransactionId)
+            .IsUnique()
+            .HasFilter(
+                "\"Status\" IN ('Created', 'CallingProvider')");
+        bookingAttempt.HasIndex(x => new
+        {
+            x.TransactionId,
+            x.Status,
+            x.CreatedAt
+        });
+        bookingAttempt.Property(x => x.Status)
+            .HasConversion<string>()
+            .HasMaxLength(24);
+        bookingAttempt.Property(x => x.IdempotencyKey)
+            .HasMaxLength(160);
+        bookingAttempt.Property(x => x.RequestFingerprint)
+            .HasMaxLength(64);
+        bookingAttempt.Property(x => x.ProviderReference)
+            .HasMaxLength(80);
+        bookingAttempt.Property(x => x.ProviderPurchaseId)
+            .HasMaxLength(160);
+        bookingAttempt.Property(x => x.ProviderTrackingCode)
+            .HasMaxLength(120);
+        bookingAttempt.Property(x => x.CourierTrackingCode)
+            .HasMaxLength(120);
+        bookingAttempt.Property(x => x.Currency)
+            .HasMaxLength(3);
+        bookingAttempt.Property(
+                x => x.ProviderResponseFingerprint)
+            .HasMaxLength(64);
+        bookingAttempt.Property(x => x.FailureCategory)
+            .HasMaxLength(40);
+        bookingAttempt.Property(x => x.SafeFailureCode)
+            .HasMaxLength(100);
+        bookingAttempt.Property(x => x.Version)
+            .IsConcurrencyToken();
+        bookingAttempt.HasOne<ManagedShipment>()
+            .WithMany()
+            .HasForeignKey(x => x.ManagedShipmentId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         var change = modelBuilder.Entity<ParcelProtectionChangeRequest>();
         change.ToTable("parcel_protection_change_requests");

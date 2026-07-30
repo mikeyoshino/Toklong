@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Toklong.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using Toklong.Infrastructure.Persistence;
 namespace Toklong.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ToklongDbContext))]
-    partial class ToklongDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260730152106_SynchronousCheckoutBooking")]
+    partial class SynchronousCheckoutBooking
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
