@@ -510,6 +510,7 @@ public sealed class MobileApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<IOtpVerificationProvider>();
             services.RemoveAll<IShippingQuoteProvider>();
             services.RemoveAll<IShipmentProvider>();
+            services.RemoveAll<IParcelProtectionQuoteProvider>();
             services.RemoveAll<IPaymentIntentProvider>();
             services.RemoveAll<IPaymentFeePolicy>();
             services.RemoveAll<BuyerProtectionFeeOptions>();
@@ -533,6 +534,9 @@ public sealed class MobileApiFactory : WebApplicationFactory<Program>
                 provider => provider.GetRequiredService<
                     DevelopmentShippingQuoteProvider>());
             services.AddSingleton<IShipmentProvider>(
+                provider => provider.GetRequiredService<
+                    DevelopmentShippingQuoteProvider>());
+            services.AddSingleton<IParcelProtectionQuoteProvider>(
                 provider => provider.GetRequiredService<
                     DevelopmentShippingQuoteProvider>());
             services.AddSingleton<IPaymentIntentProvider>(

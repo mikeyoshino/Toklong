@@ -60,6 +60,14 @@ public sealed class PreparePaymentSheetHandler(
                 StringComparison.Ordinal))
             throw new DomainException(
                 "รายการนี้เริ่มชำระด้วยช่องทางอื่นแล้ว");
+        if (transaction.FulfillmentType ==
+                FulfillmentType.PhysicalShipment &&
+            !transaction.ParcelProtectionBookingReady)
+            throw new DomainException(
+                transaction.ParcelProtectionElection ==
+                    ParcelProtectionElectionStatus.ReconfirmationRequired
+                    ? "ข้อมูลความคุ้มครองเปลี่ยน กรุณาตรวจและเลือกใหม่ก่อนชำระ"
+                    : "กำลังเตรียมรายการจัดส่ง กรุณารอสักครู่แล้วลองอีกครั้ง");
 
         var buyer = await buyers.GetByIdAsync(
             request.BuyerId,

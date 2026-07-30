@@ -2,6 +2,7 @@ using MediatR;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Toklong.Application.Abstractions;
+using Toklong.Application.Features.Checkout.GetParcelProtection;
 using Toklong.Domain.Common;
 using Toklong.Domain.Transactions;
 
@@ -26,6 +27,7 @@ public sealed class ProcessNextShippingOperationHandler(
     IShippingOperationRepository operations,
     ITransactionRepository transactions,
     IShipmentProvider provider,
+    IParcelProtectionQuoteProvider parcelProtectionQuotes,
     IUnitOfWork unitOfWork,
     IClock clock,
     TransactionTransitionService transitions,
@@ -159,6 +161,13 @@ public sealed class ProcessNextShippingOperationHandler(
                     shipment.ServiceCode,
                     "maximum-attempts-reached");
             }
+            RecordParcelProtectionBookingOutcome(
+                transaction,
+                shipment,
+                operation,
+                operation.Status.ToString(),
+                exception.SanitizedCode,
+                clock.UtcNow);
             await unitOfWork.SaveChangesAsync(cancellationToken);
             return true;
         }
@@ -171,6 +180,13 @@ public sealed class ProcessNextShippingOperationHandler(
             metrics?.RecordOutcomeUnknown(
                 shipment.ServiceCode,
                 "provider-network-outcome-unknown");
+            RecordParcelProtectionBookingOutcome(
+                transaction,
+                shipment,
+                operation,
+                operation.Status.ToString(),
+                "provider-network-outcome-unknown",
+                clock.UtcNow);
             await unitOfWork.SaveChangesAsync(cancellationToken);
             return true;
         }
@@ -183,6 +199,13 @@ public sealed class ProcessNextShippingOperationHandler(
             metrics?.RecordReview(
                 shipment.ServiceCode,
                 "provider-result-mismatch");
+            RecordParcelProtectionBookingOutcome(
+                transaction,
+                shipment,
+                operation,
+                operation.Status.ToString(),
+                "provider-result-mismatch",
+                clock.UtcNow);
             await unitOfWork.SaveChangesAsync(cancellationToken);
             return true;
         }
@@ -198,6 +221,13 @@ public sealed class ProcessNextShippingOperationHandler(
             metrics?.RecordReview(
                 shipment.ServiceCode,
                 "unexpected-provider-failure");
+            RecordParcelProtectionBookingOutcome(
+                transaction,
+                shipment,
+                operation,
+                operation.Status.ToString(),
+                "unexpected-provider-failure",
+                clock.UtcNow);
             await unitOfWork.SaveChangesAsync(cancellationToken);
             return true;
         }
@@ -213,6 +243,14 @@ public sealed class ProcessNextShippingOperationHandler(
         if (shipment.QuoteExpiresAt <= clock.UtcNow)
             throw new DomainException(
                 "shipping-quote-expired");
+        if (shipment.Direction == ShipmentDirection.Outbound &&
+            !await RevalidateOutboundParcelProtectionAsync(
+                transaction,
+                shipment,
+                operation,
+                workerId,
+                cancellationToken))
+            return;
         var quoteRequest = BuildQuoteRequest(
             transaction,
             shipment);
@@ -261,7 +299,7 @@ public sealed class ProcessNextShippingOperationHandler(
         }
         else
         {
-            transaction.CompleteManagedSellerAcceptance(
+            transaction.CompleteBuyerCheckoutShipmentBooking(
                 shipment.Id,
                 reservation.Provider,
                 reservation.PurchaseReference,
@@ -274,14 +312,154 @@ public sealed class ProcessNextShippingOperationHandler(
                 reservation.DeclaredValueSatang,
                 reservation.InsuranceCode,
                 reservation.ReservedAt,
-                clock.UtcNow,
-                transitions);
+                clock.UtcNow);
         }
         operation.Succeed(
             workerId,
             reservation.PurchaseReference,
             reservation.ProviderTrackingCode,
             clock.UtcNow);
+    }
+
+    private async Task<bool> RevalidateOutboundParcelProtectionAsync(
+        SaleTransaction transaction,
+        ManagedShipment shipment,
+        ShippingOperation operation,
+        string workerId,
+        CancellationToken cancellationToken)
+    {
+        if (transaction.ParcelProtectionElection ==
+            ParcelProtectionElectionStatus.Accepted)
+        {
+            ProviderParcelProtectionOption validated;
+            try
+            {
+                validated = await parcelProtectionQuotes.ValidateOptionAsync(
+                    ParcelProtectionCheckout.BuildProtectionRequest(transaction),
+                    transaction.ParcelProtectionOptionReference ??
+                    throw new DomainException(
+                        "parcel-protection-option-reference-missing"),
+                    cancellationToken);
+            }
+            catch (ParcelProtectionOptionChangedException)
+            {
+                SupersedeChangedProtectionOption(
+                    transaction,
+                    shipment,
+                    operation,
+                    workerId);
+                return false;
+            }
+
+            if (!MatchesStoredSelection(transaction, shipment, validated))
+            {
+                SupersedeChangedProtectionOption(
+                    transaction,
+                    shipment,
+                    operation,
+                    workerId);
+                return false;
+            }
+            return true;
+        }
+
+        if (transaction.ParcelProtectionElection is
+                ParcelProtectionElectionStatus.Declined or
+                ParcelProtectionElectionStatus.Unavailable or
+                ParcelProtectionElectionStatus.NotApplicable &&
+            shipment.ParcelProtectionElection ==
+                transaction.ParcelProtectionElection &&
+            transaction.ParcelProtectionProviderCostSatang == 0 &&
+            transaction.ParcelInsuranceFeeSatang == 0 &&
+            shipment.ParcelProtectionProviderCostSatang == 0 &&
+            shipment.InsuranceFeeSatang == 0 &&
+            shipment.DeclaredValueSatang == 0 &&
+            string.IsNullOrWhiteSpace(shipment.InsuranceCode))
+            return true;
+
+        throw new DomainException("parcel-protection-selection-mismatch");
+    }
+
+    private void SupersedeChangedProtectionOption(
+        SaleTransaction transaction,
+        ManagedShipment shipment,
+        ShippingOperation operation,
+        string workerId)
+    {
+        transaction.InvalidateParcelProtectionElection(
+            "parcel-protection-quote-changed",
+            clock.UtcNow);
+        operation.Supersede(
+            workerId,
+            "parcel-protection-quote-changed",
+            clock.UtcNow);
+        RecordParcelProtectionBookingOutcome(
+            transaction,
+            shipment,
+            operation,
+            "Superseded",
+            "parcel-protection-quote-changed",
+            clock.UtcNow);
+    }
+
+    private bool MatchesStoredSelection(
+        SaleTransaction transaction,
+        ManagedShipment shipment,
+        ProviderParcelProtectionOption validated) =>
+        string.Equals(validated.Provider, shipment.Provider,
+            StringComparison.Ordinal) &&
+        string.Equals(validated.Provider, transaction.ShippingQuoteProvider,
+            StringComparison.Ordinal) &&
+        string.Equals(validated.OptionReference,
+            transaction.ParcelProtectionOptionReference,
+            StringComparison.Ordinal) &&
+        string.Equals(validated.OptionReference,
+            shipment.ParcelProtectionOptionReference,
+            StringComparison.Ordinal) &&
+        string.Equals(validated.TermsVersion,
+            transaction.ParcelProtectionTermsVersion,
+            StringComparison.Ordinal) &&
+        string.Equals(validated.TermsVersion,
+            shipment.ParcelProtectionTermsVersion,
+            StringComparison.Ordinal) &&
+        validated.ProviderCostSatang ==
+            transaction.ParcelProtectionProviderCostSatang &&
+        validated.ProviderCostSatang ==
+            shipment.ParcelProtectionProviderCostSatang &&
+        transaction.ParcelProtectionServiceFeeSatang ==
+            SaleTransaction.ParcelProtectionServiceFeeAmountSatang &&
+        transaction.ParcelInsuranceFeeSatang == checked(
+            transaction.ParcelProtectionProviderCostSatang +
+            transaction.ParcelProtectionServiceFeeSatang) &&
+        validated.IncludedCoverageLimitSatang ==
+            transaction.ParcelProtectionIncludedCoverageSatang &&
+        validated.IncludedCoverageLimitSatang ==
+            shipment.ParcelProtectionIncludedCoverageSatang &&
+        validated.SelectedCoverageLimitSatang ==
+            transaction.ParcelProtectionSelectedCoverageSatang &&
+        validated.SelectedCoverageLimitSatang ==
+            shipment.ParcelProtectionSelectedCoverageSatang &&
+        string.Equals(validated.InsuranceCode, shipment.InsuranceCode,
+            StringComparison.Ordinal) &&
+        validated.QuotedAt == transaction.ParcelProtectionQuotedAt &&
+        validated.ExpiresAt == transaction.ParcelProtectionExpiresAt &&
+        validated.ExpiresAt > clock.UtcNow;
+
+    private static void RecordParcelProtectionBookingOutcome(
+        SaleTransaction transaction,
+        ManagedShipment shipment,
+        ShippingOperation operation,
+        string outcome,
+        string reasonCode,
+        DateTimeOffset now)
+    {
+        if (operation.OperationType == ShippingOperationType.BookOutbound)
+            transaction.RecordParcelProtectionBookingOutcome(
+                shipment.Id,
+                operation.Id,
+                outcome,
+                reasonCode,
+                now);
     }
 
     private async Task ConfirmAsync(

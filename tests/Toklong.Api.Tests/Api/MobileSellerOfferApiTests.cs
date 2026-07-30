@@ -1,11 +1,13 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using MediatR;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Toklong.Api.Security;
 using Toklong.Application.Abstractions;
 using Toklong.Application.Features.Authentication;
+using Toklong.Application.Features.Checkout.ChooseParcelProtection;
 using Toklong.Domain.Buyers;
 using Toklong.Domain.Sellers;
 using Toklong.Domain.Transactions;
@@ -230,6 +232,49 @@ public sealed class MobileSellerOfferApiTests
             Assert.Equal(
                 example.ItemPriceSatang,
                 accepted.Transaction.AmountSatang);
+
+            await using (var bookingScope =
+                         localFactory.Services.CreateAsyncScope())
+            {
+                var repository = bookingScope.ServiceProvider
+                    .GetRequiredService<ITransactionRepository>();
+                var transaction = await repository.GetByIdAsync(
+                    created.Id,
+                    CancellationToken.None);
+                Assert.NotNull(transaction);
+                var mediator = bookingScope.ServiceProvider
+                    .GetRequiredService<IMediator>();
+                await mediator.Send(
+                    new ChooseParcelProtectionCommand(
+                        created.Id,
+                        transaction.BuyerId!.Value,
+                        AddProtection: false,
+                        OptionReference: null,
+                        DisclosedCustomerPriceSatang: null,
+                        IdempotencyKey:
+                            $"pricing-booking-{index:D2}-declined"),
+                    CancellationToken.None);
+                var shipment = Assert.Single(
+                    transaction.ManagedShipments);
+                var reservedAt = DateTimeOffset.UtcNow;
+                transaction.CompleteBuyerCheckoutShipmentBooking(
+                    shipment.Id,
+                    shipment.Provider,
+                    $"pricing-purchase-{index:D2}",
+                    $"pricing-provider-track-{index:D2}",
+                    null,
+                    shipment.CarrierCode,
+                    shipment.ServiceCode,
+                    shipment.BaseShippingFeeSatang,
+                    shipment.InsuranceFeeSatang,
+                    shipment.DeclaredValueSatang,
+                    shipment.InsuranceCode,
+                    reservedAt,
+                    reservedAt);
+                await bookingScope.ServiceProvider
+                    .GetRequiredService<ToklongDbContext>()
+                    .SaveChangesAsync();
+            }
 
             client.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue(

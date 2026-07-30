@@ -99,13 +99,96 @@ public sealed class DurableShippingOperationProcessingTests
     }
 
     [Fact]
-    public async Task Successful_booking_completes_acceptance_once()
+    public async Task Changed_protection_option_is_superseded_before_provider_reservation()
     {
         await using var database = CreateDatabase();
-        var (transaction, operation) = PendingAcceptance();
+        var (transaction, operation) = PendingBuyerCheckoutBooking();
+        database.Transactions.Add(transaction);
+        await database.SaveChangesAsync();
+        var provider = new BookingProvider
+        {
+            ProtectionOption = BookingProvider.DefaultProtectionOption with
+            {
+                TermsVersion = "parcel-protection-2026-08-01"
+            }
+        };
+
+        Assert.True(await Handler(
+                database,
+                operation,
+                provider,
+                new FixedClock(Now.AddMinutes(1)))
+            .Handle(
+                new ProcessNextShippingOperationCommand("worker-a"),
+                default));
+
+        Assert.Equal(0, provider.ReserveCalls);
+        Assert.Equal(
+            ParcelProtectionElectionStatus.ReconfirmationRequired,
+            transaction.ParcelProtectionElection);
+        Assert.Equal(ShippingOperationStatus.Superseded, operation.Status);
+        Assert.Contains(transaction.AuditEvents, audit =>
+            audit.Name == "parcel_protection.booking_outcome");
+    }
+
+    [Theory]
+    [InlineData("provider-cost")]
+    [InlineData("included-limit")]
+    [InlineData("selected-limit")]
+    [InlineData("expiry")]
+    public async Task Changed_protection_selection_field_is_superseded_before_provider_reservation(
+        string changedField)
+    {
+        await using var database = CreateDatabase();
+        var (transaction, operation) = PendingBuyerCheckoutBooking();
+        database.Transactions.Add(transaction);
+        await database.SaveChangesAsync();
+        var option = changedField switch
+        {
+            "provider-cost" => BookingProvider.DefaultProtectionOption with
+            {
+                ProviderCostSatang = 4_501
+            },
+            "included-limit" => BookingProvider.DefaultProtectionOption with
+            {
+                IncludedCoverageLimitSatang = 100_001
+            },
+            "selected-limit" => BookingProvider.DefaultProtectionOption with
+            {
+                SelectedCoverageLimitSatang = 450_001
+            },
+            "expiry" => BookingProvider.DefaultProtectionOption with
+            {
+                ExpiresAt = Now.AddMinutes(29)
+            },
+            _ => throw new ArgumentOutOfRangeException(nameof(changedField))
+        };
+        var provider = new BookingProvider { ProtectionOption = option };
+
+        await Handler(
+                database,
+                operation,
+                provider,
+                new FixedClock(Now.AddMinutes(1)))
+            .Handle(
+                new ProcessNextShippingOperationCommand("worker-a"),
+                default);
+
+        Assert.Equal(0, provider.ReserveCalls);
+        Assert.Equal(ShippingOperationStatus.Superseded, operation.Status);
+        Assert.Equal(ParcelProtectionElectionStatus.ReconfirmationRequired,
+            transaction.ParcelProtectionElection);
+    }
+
+    [Fact]
+    public async Task Successful_buyer_checkout_booking_preserves_seller_acceptance_deadline()
+    {
+        await using var database = CreateDatabase();
+        var (transaction, operation) = PendingBuyerCheckoutBooking();
         database.Transactions.Add(transaction);
         await database.SaveChangesAsync();
         var clock = new FixedClock(Now.AddMinutes(1));
+        var deadline = transaction.BuyerPaymentDeadlineAt;
         var handler = Handler(
             database,
             operation,
@@ -123,8 +206,9 @@ public sealed class DurableShippingOperationProcessingTests
             TransactionState.SellerAcceptedAwaitingPayment,
             transaction.State);
         Assert.Equal(
-            Now.AddMinutes(1).AddHours(1),
+            deadline,
             transaction.BuyerPaymentDeadlineAt);
+        Assert.True(transaction.ParcelProtectionBookingReady);
         Assert.Single(
             transaction.AgreementAcceptances,
             acceptance =>
@@ -136,8 +220,8 @@ public sealed class DurableShippingOperationProcessingTests
     public async Task Included_only_shippop_acceptance_books_without_insurance()
     {
         await using var database = CreateDatabase();
-        var (transaction, operation) = PendingAcceptance(
-            includedOnly: true);
+        var (transaction, operation) = PendingBuyerCheckoutBooking(
+            addProtection: false);
         database.Transactions.Add(transaction);
         await database.SaveChangesAsync();
         var provider = new BookingProvider();
@@ -165,7 +249,7 @@ public sealed class DurableShippingOperationProcessingTests
     public async Task Unknown_booking_outcome_is_not_replayed()
     {
         await using var database = CreateDatabase();
-        var (transaction, operation) = PendingAcceptance();
+        var (transaction, operation) = PendingBuyerCheckoutBooking();
         database.Transactions.Add(transaction);
         await database.SaveChangesAsync();
         var provider = new BookingProvider
@@ -187,8 +271,11 @@ public sealed class DurableShippingOperationProcessingTests
             ShippingOperationStatus.OutcomeUnknown,
             operation.Status);
         Assert.Equal(
-            TransactionState.AwaitingSellerAcceptance,
+            TransactionState.SellerAcceptedAwaitingPayment,
             transaction.State);
+        Assert.False(transaction.ParcelProtectionBookingReady);
+        Assert.Contains(transaction.AuditEvents, audit =>
+            audit.Name == "parcel_protection.booking_outcome");
 
         var second = await handler.Handle(
             new ProcessNextShippingOperationCommand("worker-b"),
@@ -201,7 +288,7 @@ public sealed class DurableShippingOperationProcessingTests
     public async Task Unexpected_provider_failure_is_sent_to_review_not_left_processing()
     {
         await using var database = CreateDatabase();
-        var (transaction, operation) = PendingAcceptance();
+        var (transaction, operation) = PendingBuyerCheckoutBooking();
         database.Transactions.Add(transaction);
         await database.SaveChangesAsync();
         var provider = new BookingProvider
@@ -232,7 +319,7 @@ public sealed class DurableShippingOperationProcessingTests
     public async Task Changed_shipping_intent_is_rejected_before_provider_call()
     {
         await using var database = CreateDatabase();
-        var (transaction, _) = PendingAcceptance();
+        var (transaction, _) = PendingBuyerCheckoutBooking();
         var shipment = Assert.Single(
             transaction.ManagedShipments);
         var mismatchedOperation = ShippingOperation.Queue(
@@ -271,7 +358,7 @@ public sealed class DurableShippingOperationProcessingTests
     {
         await using var database = CreateDatabase();
         var (transaction, outboundOperation) =
-            PendingAcceptance();
+            PendingBuyerCheckoutBooking();
         database.Transactions.Add(transaction);
         await database.SaveChangesAsync();
         var provider = new BookingProvider();
@@ -363,11 +450,12 @@ public sealed class DurableShippingOperationProcessingTests
     private static ProcessNextShippingOperationHandler Handler(
         ToklongDbContext database,
         ShippingOperation operation,
-        IShipmentProvider provider,
+        BookingProvider provider,
         IClock clock) =>
         new(
             new SingleOperationRepository(operation),
             new TransactionRepository(database),
+            provider,
             provider,
             database,
             clock,
@@ -460,6 +548,129 @@ public sealed class DurableShippingOperationProcessingTests
         return (transaction, operation);
     }
 
+    private static (SaleTransaction, ShippingOperation)
+        PendingBuyerCheckoutBooking(bool addProtection = true)
+    {
+        var transaction = TestTransactionFactory.CreateBuyerOffer(
+            Guid.NewGuid(),
+            "ผู้ซื้อ ทดสอบ",
+            "0800000000",
+            FulfillmentType.PhysicalShipment,
+            "กล้อง",
+            "กล้องพร้อมเลนส์",
+            ConditionCode.UsedGood,
+            "",
+            null,
+            450_000,
+            "terms-v1",
+            Now,
+            new TransactionTransitionService());
+        var quote = new AcceptedShippingQuote(
+            TestTransactionFactory.ShippingOriginAddress,
+            TestTransactionFactory.DeliveryProvinceName,
+            TestTransactionFactory.DeliveryPostalCode,
+            1_200,
+            20,
+            30,
+            15,
+            "shippop",
+            "quote-001",
+            "THAIPOST",
+            "EMST",
+            "ไปรษณีย์ไทย EMS",
+            5_200,
+            0,
+            0,
+            null,
+            Now.AddHours(2),
+            TestTransactionFactory.DeliveryDistrictName,
+            TestTransactionFactory.DeliverySubdistrictName,
+            OriginAddressLine: TestTransactionFactory.ShippingOriginAddress);
+        transaction.AcceptBuyerOffer(
+            Guid.NewGuid(),
+            "ผู้ขาย ทดสอบ",
+            "0811111111",
+            "KBANK",
+            "ผู้ขาย ทดสอบ",
+            "1234567890",
+            true,
+            Now,
+            new TransactionTransitionService(),
+            5_900,
+            0,
+            450_000,
+            "fee-v1",
+            quote);
+        var selection = addProtection
+            ? new ParcelProtectionSelection(
+                ParcelProtectionElectionStatus.Accepted,
+                6_000,
+                4_500,
+                SaleTransaction.ParcelProtectionServiceFeeAmountSatang,
+                100_000,
+                450_000,
+                "parcel-protection-v1",
+                "protected-option",
+                Now,
+                Now.AddMinutes(30))
+            : new ParcelProtectionSelection(
+                ParcelProtectionElectionStatus.Declined,
+                0,
+                0,
+                0,
+                100_000,
+                100_000,
+                "parcel-protection-included-v1",
+                null,
+                Now,
+                Now.AddMinutes(30));
+        transaction.RecordParcelProtectionElection(
+            transaction.BuyerId!.Value,
+            selection,
+            Now.AddSeconds(1));
+        var shipment = ManagedShipment.CreateOutbound(
+            transaction.Id,
+            new ManagedShipmentDraft(
+                "shippop",
+                "origin-ref",
+                "destination-ref",
+                transaction.ProductName,
+                1_200,
+                20,
+                30,
+                15,
+                "THAIPOST",
+                "EMST",
+                "ไปรษณีย์ไทย EMS",
+                5_200,
+                addProtection ? 4_500 : 0,
+                addProtection ? 450_000 : 0,
+                addProtection ? "FULL_VALUE" : null,
+                "quote-001",
+                Now.AddHours(2),
+                selection.TermsVersion,
+                selection.ProviderOptionReference,
+                selection.Election,
+                selection.ProviderCostSatang,
+                100_000,
+                selection.SelectedCoverageLimitSatang),
+            Now.AddSeconds(1));
+        var operation = ShippingOperation.Queue(
+            transaction.Id,
+            shipment.Id,
+            ShippingOperationType.BookOutbound,
+            $"book-outbound:{transaction.Id:N}:buyer-choice",
+            ManagedShippingOperationQueue.BookingFingerprint(shipment),
+            Now.AddSeconds(1));
+        transaction.QueueManagedShipment(
+            shipment,
+            operation,
+            ActorRole.System,
+            "test",
+            Now.AddSeconds(1));
+        return (transaction, operation);
+    }
+
     private static ManagedShipmentDraft DraftWithProtection(
         string termsVersion,
         string optionReference) =>
@@ -525,11 +736,27 @@ public sealed class DurableShippingOperationProcessingTests
                     : null);
     }
 
-    private sealed class BookingProvider : IShipmentProvider
+    private sealed class BookingProvider : IShipmentProvider,
+        IParcelProtectionQuoteProvider
     {
+        public static readonly ProviderParcelProtectionOption
+            DefaultProtectionOption = new(
+                "shippop",
+                "protected-option",
+                100_000,
+                450_000,
+                4_500,
+                "parcel-protection-v1",
+                "FULL_VALUE",
+                Now,
+                Now.AddMinutes(30));
+
         public string ProviderName => "shippop";
         public Exception? Failure { get; init; }
         public int ReserveCalls { get; private set; }
+        public int ValidateProtectionCalls { get; private set; }
+        public ProviderParcelProtectionOption ProtectionOption { get; init; } =
+            DefaultProtectionOption;
         public ShipmentReservationRequest? LastReservationRequest
         { get; private set; }
 
@@ -581,6 +808,20 @@ public sealed class DurableShippingOperationProcessingTests
             string courierTrackingCode,
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
+
+        public Task<ParcelProtectionAvailability> GetAvailabilityAsync(
+            ParcelProtectionQuoteRequest request,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<ProviderParcelProtectionOption> ValidateOptionAsync(
+            ParcelProtectionQuoteRequest request,
+            string optionReference,
+            CancellationToken cancellationToken)
+        {
+            ValidateProtectionCalls++;
+            return Task.FromResult(ProtectionOption);
+        }
     }
 
     private sealed class FixedClock(DateTimeOffset now) : IClock

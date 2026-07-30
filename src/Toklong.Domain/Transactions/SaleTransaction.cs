@@ -196,7 +196,12 @@ public sealed class SaleTransaction
         !string.IsNullOrWhiteSpace(ShippingProviderTrackingCode);
     public bool ParcelProtectionBookingReady =>
         FulfillmentType == FulfillmentType.DigitalHandoff ||
-        ShippingReservedAt.HasValue;
+        ShippingReservedAt.HasValue &&
+        ParcelProtectionElection is
+            ParcelProtectionElectionStatus.Accepted or
+            ParcelProtectionElectionStatus.Declined or
+            ParcelProtectionElectionStatus.Unavailable or
+            ParcelProtectionElectionStatus.NotApplicable;
     public bool RequiresShippingCancellationBeforeRefund =>
         State == TransactionState.RefundPending &&
         IsProviderManagedShipment &&
@@ -1260,6 +1265,78 @@ public sealed class SaleTransaction
                 AgreementAcceptanceRole.Seller));
     }
 
+    public void CompleteBuyerCheckoutShipmentBooking(
+        Guid managedShipmentId,
+        string provider,
+        string purchaseReference,
+        string providerTrackingCode,
+        string? courierTrackingCode,
+        string carrierCode,
+        string serviceCode,
+        long feeSatang,
+        long insuranceFeeSatang,
+        long declaredValueSatang,
+        string? insuranceCode,
+        DateTimeOffset reservedAt,
+        DateTimeOffset completedAt)
+    {
+        if (State != TransactionState.SellerAcceptedAwaitingPayment)
+            throw new DomainException(
+                "ข้อเสนอนี้ไม่อยู่ในสถานะที่ยืนยันการจองจัดส่งได้");
+        EnsureBuyerPaymentWindowOpen(completedAt);
+        var shipment = _managedShipments.SingleOrDefault(
+            item => item.Id == managedShipmentId &&
+                    item.Direction == ShipmentDirection.Outbound)
+            ?? throw new DomainException("ไม่พบรายการจัดส่งขาออก");
+        if (ShippingReservedAt.HasValue)
+        {
+            if (string.Equals(ShippingPurchaseReference, purchaseReference,
+                    StringComparison.Ordinal) &&
+                string.Equals(ShippingProviderTrackingCode, providerTrackingCode,
+                    StringComparison.Ordinal))
+                return;
+            throw new DomainException("รายการจัดส่งนี้ถูกจองแล้ว");
+        }
+        if (!MatchesParcelProtectionElection(shipment) ||
+            !string.Equals(provider, shipment.Provider,
+                StringComparison.Ordinal) ||
+            !string.Equals(carrierCode, shipment.CarrierCode,
+                StringComparison.Ordinal) ||
+            !string.Equals(serviceCode, shipment.ServiceCode,
+                StringComparison.Ordinal) ||
+            feeSatang != shipment.BaseShippingFeeSatang ||
+            insuranceFeeSatang != shipment.InsuranceFeeSatang ||
+            declaredValueSatang != shipment.DeclaredValueSatang ||
+            !string.Equals(insuranceCode, shipment.InsuranceCode,
+                StringComparison.Ordinal))
+            throw new DomainException(
+                "ผลสร้างรายการจัดส่งไม่ตรงกับตัวเลือกที่ผู้ซื้อยืนยัน");
+
+        shipment.RecordReservation(
+            purchaseReference,
+            providerTrackingCode,
+            courierTrackingCode,
+            reservedAt);
+        ShippingPurchaseReference = purchaseReference;
+        ShippingProviderTrackingCode = providerTrackingCode;
+        ShippingCourierTrackingCode = courierTrackingCode;
+        ShippingReservedAt = reservedAt;
+        ShippingLastProviderStatus = "wait";
+        ShippingLastReconciledAt = reservedAt;
+        _auditEvents.Add(new AuditEvent(
+            Id,
+            ActorRole.System,
+            "shipping-worker",
+            "parcel_protection.booking_succeeded",
+            State,
+            State,
+            completedAt,
+            shipment.Id.ToString("N"),
+            $"parcel-protection-booking-succeeded:{shipment.Id:N}",
+            ParcelProtectionAuditMetadata()));
+        Version++;
+    }
+
     public void AcceptBuyerOffer(
         Guid sellerId,
         string sellerDisplayName,
@@ -1664,6 +1741,84 @@ public sealed class SaleTransaction
             $"parcel-protection-reconfirmation:{Id:N}:{now.ToUnixTimeSeconds()}",
             JsonSerializer.Serialize(new { ReasonCode = cleanReason })));
         Version++;
+    }
+
+    public void RecordParcelProtectionBookingOutcome(
+        Guid managedShipmentId,
+        Guid operationId,
+        string outcome,
+        string sanitizedReasonCode,
+        DateTimeOffset now)
+    {
+        var shipment = _managedShipments.SingleOrDefault(
+            item => item.Id == managedShipmentId &&
+                    item.Direction == ShipmentDirection.Outbound)
+            ?? throw new DomainException("ไม่พบรายการจัดส่งขาออก");
+        var cleanOutcome = CleanOptional(outcome, 80, "ผลการจอง")
+            ?? throw new DomainException("กรุณาระบุผลการจอง");
+        var cleanReason = CleanOptional(
+            sanitizedReasonCode,
+            100,
+            "เหตุผลการจอง") ??
+            throw new DomainException("กรุณาระบุเหตุผลการจอง");
+        var auditKey =
+            $"parcel-protection-booking-outcome:{operationId:N}";
+        if (_auditEvents.Any(audit => audit.IdempotencyKey == auditKey))
+            return;
+        _auditEvents.Add(new AuditEvent(
+            Id,
+            ActorRole.System,
+            "shipping-worker",
+            "parcel_protection.booking_outcome",
+            State,
+            State,
+            now,
+            shipment.Id.ToString("N"),
+            auditKey,
+            JsonSerializer.Serialize(new
+            {
+                Outcome = cleanOutcome,
+                ReasonCode = cleanReason
+            })));
+        Version++;
+    }
+
+    private bool MatchesParcelProtectionElection(
+        ManagedShipment shipment)
+    {
+        if (shipment.ParcelProtectionElection !=
+            ParcelProtectionElection)
+            return false;
+        if (ParcelProtectionElection ==
+            ParcelProtectionElectionStatus.Accepted)
+            return shipment.ParcelProtectionProviderCostSatang ==
+                    ParcelProtectionProviderCostSatang &&
+                shipment.ParcelProtectionIncludedCoverageSatang ==
+                    ParcelProtectionIncludedCoverageSatang &&
+                shipment.ParcelProtectionSelectedCoverageSatang ==
+                    ParcelProtectionSelectedCoverageSatang &&
+                string.Equals(shipment.ParcelProtectionTermsVersion,
+                    ParcelProtectionTermsVersion,
+                    StringComparison.Ordinal) &&
+                string.Equals(shipment.ParcelProtectionOptionReference,
+                    ParcelProtectionOptionReference,
+                    StringComparison.Ordinal) &&
+                shipment.InsuranceFeeSatang ==
+                    ParcelProtectionProviderCostSatang &&
+                shipment.DeclaredValueSatang ==
+                    ParcelProtectionSelectedCoverageSatang &&
+                !string.IsNullOrWhiteSpace(shipment.InsuranceCode);
+
+        return ParcelProtectionElection is
+                ParcelProtectionElectionStatus.Declined or
+                ParcelProtectionElectionStatus.Unavailable or
+                ParcelProtectionElectionStatus.NotApplicable &&
+            ParcelProtectionProviderCostSatang == 0 &&
+            ParcelInsuranceFeeSatang == 0 &&
+            shipment.ParcelProtectionProviderCostSatang == 0 &&
+            shipment.InsuranceFeeSatang == 0 &&
+            shipment.DeclaredValueSatang == 0 &&
+            string.IsNullOrWhiteSpace(shipment.InsuranceCode);
     }
 
     private void ValidateParcelProtectionSelection(
@@ -4038,7 +4193,16 @@ public sealed class SaleTransaction
         var currentSnapshot =
             JsonNode.Parse(currentJson)!.AsObject();
         if (schemaVersion >= 10)
+        {
             currentSnapshot.Remove(nameof(BuyerTotalSatang));
+            if (currentSnapshot["Shipping"] is JsonObject shipping)
+            {
+                shipping.Remove(nameof(ShippingPurchaseReference));
+                shipping.Remove(nameof(ShippingProviderTrackingCode));
+                shipping.Remove(nameof(ShippingCourierTrackingCode));
+                shipping.Remove(nameof(ShippingReservedAt));
+            }
+        }
         currentSnapshot[nameof(BuyerProtectionFeeSatang)] =
             BuyerProtectionFeeSatang;
         if (schemaVersion == 9)
