@@ -92,7 +92,9 @@ public sealed record ShippopServiceProfile(
     bool OperationLookupEnabled,
     string HandoffMode,
     long MaximumCoverageSatang,
-    string CertificationReference)
+    string CertificationReference,
+    long IncludedCoverageSatang = 0,
+    bool OptionalProtectionEnabled = false)
 {
     internal static ShippopServiceProfile From(
         string serviceCode,
@@ -107,13 +109,17 @@ public sealed record ShippopServiceProfile(
             section.GetValue<bool>("OperationLookupEnabled"),
             section["HandoffMode"]?.Trim() ?? "",
             section.GetValue<long>("MaximumCoverageSatang"),
-            section["CertificationReference"]?.Trim() ?? "");
+            section["CertificationReference"]?.Trim() ?? "",
+            section.GetValue<long>("IncludedCoverageSatang"),
+            section.GetValue<bool>("OptionalProtectionEnabled"));
 }
 
 public sealed class ShippopShippingProvider(
     HttpClient httpClient,
     ShippopShippingOptions options,
-    IClock clock) : IShippingQuoteProvider, IShipmentProvider
+    IClock clock) : IShippingQuoteProvider,
+    IParcelProtectionQuoteProvider,
+    IShipmentProvider
 {
     private const string Provider = "shippop";
     private const int MaximumProviderResponseBytes =
@@ -122,6 +128,49 @@ public sealed class ShippopShippingProvider(
         new(JsonSerializerDefaults.Web);
 
     public string ProviderName => Provider;
+
+    public Task<ParcelProtectionAvailability> GetAvailabilityAsync(
+        ParcelProtectionQuoteRequest request,
+        CancellationToken cancellationToken)
+    {
+        EnsureConfigured();
+        ValidateRequest(request.Shipment);
+        if (request.ItemPriceSatang <= 0 ||
+            string.IsNullOrWhiteSpace(request.DeliveryQuoteReference) ||
+            TryMapService(request.ServiceCode) is not { } service ||
+            !string.Equals(
+                service.CarrierCode,
+                request.CarrierCode,
+                StringComparison.Ordinal))
+            throw new DomainException("ข้อมูลความคุ้มครองพัสดุไม่ถูกต้อง");
+
+        var profile = options.Profile(request.ServiceCode);
+        var certified = profile is
+        {
+            OptionalProtectionEnabled: true,
+            InsuranceEnabled: true,
+            CertificationReference.Length: > 0
+        };
+        var includedCoverage = profile?.IncludedCoverageSatang ?? 0;
+        if (!certified)
+            return Task.FromResult(
+                new ParcelProtectionAvailability(
+                    includedCoverage,
+                    null,
+                    ProviderCapabilityCertified: false));
+
+        throw new InvalidOperationException(
+            "SHIPPOP optional parcel protection is not certified for this service profile.");
+    }
+
+    public Task<ProviderParcelProtectionOption> ValidateOptionAsync(
+        ParcelProtectionQuoteRequest request,
+        string optionReference,
+        CancellationToken cancellationToken)
+    {
+        _ = GetAvailabilityAsync(request, cancellationToken);
+        throw new DomainException("ตัวเลือกความคุ้มครองพัสดุไม่ถูกต้อง");
+    }
 
     public async Task<IReadOnlyList<ShippingQuoteOption>> GetQuotesAsync(
         ShippingQuoteRequest request,
@@ -325,10 +374,12 @@ public sealed class ShippopShippingProvider(
             request.IsReturn
                 ? "return booking"
                 : "outbound booking");
-        EnsureCapability(
-            request.Quote.ServiceCode,
-            profile => profile.InsuranceEnabled,
-            "full-value insurance");
+        if (request.Quote.InsuranceFeeSatang > 0 ||
+            !string.IsNullOrWhiteSpace(request.Quote.InsuranceCode))
+            EnsureCapability(
+                request.Quote.ServiceCode,
+                profile => profile.InsuranceEnabled,
+                "parcel protection");
         EnsureCapability(
             request.Quote.ServiceCode,
             profile => profile.OperationLookupEnabled,

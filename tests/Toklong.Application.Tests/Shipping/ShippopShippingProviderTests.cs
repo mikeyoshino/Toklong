@@ -48,6 +48,117 @@ public sealed class ShippopShippingProviderTests
     }
 
     [Fact]
+    public async Task Development_provider_returns_no_add_on_within_included_limit()
+    {
+        var provider = new DevelopmentShippingQuoteProvider(
+            new FixedClock());
+
+        var availability = await provider.GetAvailabilityAsync(
+            ProtectionRequest(90_000),
+            default);
+
+        Assert.Equal(100_000, availability.IncludedCoverageLimitSatang);
+        Assert.Null(availability.AddOn);
+    }
+
+    [Fact]
+    public async Task Development_provider_returns_signed_add_on_above_limit()
+    {
+        var provider = new DevelopmentShippingQuoteProvider(
+            new FixedClock());
+
+        var availability = await provider.GetAvailabilityAsync(
+            ProtectionRequest(450_000),
+            default);
+
+        Assert.Equal(450_000, availability.AddOn!.SelectedCoverageLimitSatang);
+        Assert.Equal(4_500, availability.AddOn.ProviderCostSatang);
+    }
+
+    [Fact]
+    public async Task Development_protection_option_binds_complete_request()
+    {
+        var provider = new DevelopmentShippingQuoteProvider(
+            new FixedClock());
+        var request = ProtectionRequest(450_000);
+        var option = (await provider.GetAvailabilityAsync(
+            request,
+            default)).AddOn!;
+
+        var validated = await provider.ValidateOptionAsync(
+            request,
+            option.OptionReference,
+            default);
+
+        Assert.Equal(option.ProviderCostSatang, validated.ProviderCostSatang);
+        Assert.Equal(option.IncludedCoverageLimitSatang, validated.IncludedCoverageLimitSatang);
+        Assert.Equal(option.SelectedCoverageLimitSatang, validated.SelectedCoverageLimitSatang);
+        Assert.Equal(option.TermsVersion, validated.TermsVersion);
+        Assert.Equal(option.InsuranceCode, validated.InsuranceCode);
+        await Assert.ThrowsAsync<DomainException>(() =>
+            provider.ValidateOptionAsync(
+                request with { ItemPriceSatang = 450_001 },
+                option.OptionReference,
+                default));
+        await Assert.ThrowsAsync<DomainException>(() =>
+            provider.ValidateOptionAsync(
+                request with { ServiceCode = "OTHER" },
+                option.OptionReference,
+                default));
+        await Assert.ThrowsAsync<DomainException>(() =>
+            provider.ValidateOptionAsync(
+                request with { DeliveryQuoteReference = "other-delivery-quote" },
+                option.OptionReference,
+                default));
+        await Assert.ThrowsAsync<DomainException>(() =>
+            provider.ValidateOptionAsync(
+                request with { Shipment = request.Shipment with { WeightGrams = 1_201 } },
+                option.OptionReference,
+                default));
+        await Assert.ThrowsAsync<DomainException>(() =>
+            provider.ValidateOptionAsync(
+                request,
+                $"forged-{option.OptionReference}",
+                default));
+    }
+
+    [Fact]
+    public async Task Expired_development_protection_option_requests_a_price_refresh()
+    {
+        var clock = new MutableClock(Now);
+        var provider = new DevelopmentShippingQuoteProvider(clock);
+        var request = ProtectionRequest(450_000);
+        var option = (await provider.GetAvailabilityAsync(
+            request,
+            default)).AddOn!;
+        clock.UtcNow = option.ExpiresAt;
+
+        var exception = await Assert.ThrowsAsync<
+            ParcelProtectionOptionChangedException>(() =>
+            provider.ValidateOptionAsync(
+                request,
+                option.OptionReference,
+                default));
+
+        Assert.Equal(
+            "parcel-protection-option-changed",
+            exception.Message);
+    }
+
+    [Fact]
+    public async Task Shippop_uncertified_protection_fails_closed_without_blocking_delivery()
+    {
+        var shippop = Provider(_ => Task.FromResult(Json("""{"status":true}""")));
+
+        var availability = await shippop.GetAvailabilityAsync(
+            ProtectionRequest(450_000),
+            default);
+
+        Assert.False(availability.ProviderCapabilityCertified);
+        Assert.Null(availability.AddOn);
+    }
+
+    [Fact]
     public async Task Http_base_url_is_rejected_without_explicit_opt_in()
     {
         var requestWasSent = false;
@@ -259,7 +370,7 @@ public sealed class ShippopShippingProviderTests
     }
 
     [Fact]
-    public async Task Booking_is_blocked_without_insurance_and_safe_lookup()
+    public async Task Booking_is_blocked_without_safe_lookup()
     {
         var providerCalls = 0;
         var profile = new ShippopServiceProfile(
@@ -281,31 +392,6 @@ public sealed class ShippopShippingProviderTests
             },
             profile);
 
-        var insuranceException =
-            await Assert.ThrowsAsync<InvalidOperationException>(
-                () => provider.ReserveAsync(
-                    new ShipmentReservationRequest(
-                        Guid.NewGuid(),
-                        Request(),
-                        Quote()),
-                    default));
-
-        Assert.Contains(
-            "full-value insurance",
-            insuranceException.Message);
-        Assert.Equal(0, providerCalls);
-
-        provider = Provider(
-            _ =>
-            {
-                providerCalls++;
-                return Task.FromResult(Json("""{"status":true}"""));
-            },
-            profile with
-            {
-                InsuranceEnabled = true
-            });
-
         var lookupException =
             await Assert.ThrowsAsync<InvalidOperationException>(
                 () => provider.ReserveAsync(
@@ -319,6 +405,53 @@ public sealed class ShippopShippingProviderTests
             "operation lookup",
             lookupException.Message);
         Assert.Equal(0, providerCalls);
+    }
+
+    [Fact]
+    public async Task Booking_without_add_on_does_not_require_insurance_capability()
+    {
+        var profile = new ShippopServiceProfile(
+            "EMST",
+            QuoteEnabled: true,
+            BookOutboundEnabled: true,
+            ConfirmEnabled: true,
+            ReturnEnabled: true,
+            InsuranceEnabled: false,
+            OperationLookupEnabled: true,
+            "DropOff",
+            300_000,
+            "CERT-TEST");
+        var provider = Provider(
+            _ => Task.FromResult(
+                Json(
+                    """
+                    {
+                      "status": true,
+                      "purchase_id": 452002,
+                      "data": {
+                        "0": {
+                          "status": true,
+                          "tracking_code": "SP452045855",
+                          "courier_code": "EMST",
+                          "price": 52
+                        }
+                      }
+                    }
+                    """)),
+            profile);
+
+        var reservation = await provider.ReserveAsync(
+            new ShipmentReservationRequest(
+                Guid.NewGuid(),
+                Request(),
+                Quote() with
+                {
+                    InsuranceFeeSatang = 0,
+                    InsuranceCode = null
+                }),
+            default);
+
+        Assert.Equal(0, reservation.InsuranceFeeSatang);
     }
 
     [Fact]
@@ -669,6 +802,15 @@ public sealed class ShippopShippingProviderTests
                 "10500"),
             "กล้องมือสอง");
 
+    private static ParcelProtectionQuoteRequest ProtectionRequest(
+        long itemPriceSatang) =>
+        new(
+            Request() with { DeclaredValueSatang = itemPriceSatang },
+            "THAIPOST",
+            "EMST",
+            "delivery-quote-reference",
+            itemPriceSatang);
+
     private static ShippingQuoteOption Quote() =>
         new(
             "shippop",
@@ -705,5 +847,10 @@ public sealed class ShippopShippingProviderTests
     private sealed class FixedClock : IClock
     {
         public DateTimeOffset UtcNow => Now;
+    }
+
+    private sealed class MutableClock(DateTimeOffset utcNow) : IClock
+    {
+        public DateTimeOffset UtcNow { get; set; } = utcNow;
     }
 }

@@ -204,7 +204,7 @@ public sealed class ProductionConfigurationValidatorTests
     }
 
     [Fact]
-    public void Production_rejects_booking_without_safe_lookup_and_insurance()
+    public void Production_rejects_booking_without_safe_lookup()
     {
         var values = SafeProductionValues();
         values["Shippop:Services:EMST:BookOutboundEnabled"] =
@@ -228,8 +228,32 @@ public sealed class ProductionConfigurationValidatorTests
         Assert.Contains(
             "booking requires operation lookup",
             exception.Message);
+    }
+
+    [Fact]
+    public void Production_rejects_incomplete_optional_protection()
+    {
+        var values = SafeProductionValues();
+        values["Shippop:Services:EMST:OptionalProtectionEnabled"] =
+            "true";
+        values["Shippop:Services:EMST:InsuranceEnabled"] = "true";
+        values["Shippop:Services:EMST:CertificationReference"] =
+            "CERT-2026-001";
+        values["Shippop:Services:EMST:IncludedCoverageSatang"] = "0";
+        values["Shippop:Services:EMST:MaximumCoverageSatang"] = "100000";
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(values)
+            .Build();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(
+                configuration,
+                new TestEnvironment("Production"),
+                requireMobileLinks: false,
+                requirePersistentStorage: true));
+
         Assert.Contains(
-            "booking requires full-value insurance",
+            "optional protection configuration is incomplete",
             exception.Message);
     }
 

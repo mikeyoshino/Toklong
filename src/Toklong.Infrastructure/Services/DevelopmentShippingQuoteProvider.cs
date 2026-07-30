@@ -8,11 +8,20 @@ using Toklong.Domain.Common;
 namespace Toklong.Infrastructure.Services;
 
 public sealed class DevelopmentShippingQuoteProvider(
-    IClock clock) : IShippingQuoteProvider, IShipmentProvider
+    IClock clock) : IShippingQuoteProvider,
+    IParcelProtectionQuoteProvider,
+    IShipmentProvider
 {
     private readonly ConcurrentDictionary<
         string,
         StoredQuote> quotes = new();
+    private readonly ConcurrentDictionary<
+        string,
+        StoredProtectionOption> protectionOptions = new();
+
+    private const long IncludedCoverageLimitSatang = 100_000;
+    private const string ProtectionTermsVersion =
+        "development-parcel-protection-v1";
 
     public Task<IReadOnlyList<ShippingQuoteOption>> GetQuotesAsync(
         ShippingQuoteRequest request,
@@ -88,12 +97,6 @@ public sealed class DevelopmentShippingQuoteProvider(
         var feeSatang = checked(
             baseFeeSatang +
             additionalKilograms * 1_000L);
-        var insuranceFeeSatang =
-            request.DeclaredValueSatang > 0
-                ? Math.Max(
-                    100,
-                    request.DeclaredValueSatang / 100)
-                : 0;
         var reference =
             $"dev-ship-{Guid.NewGuid():N}";
         var option = new ShippingQuoteOption(
@@ -103,11 +106,9 @@ public sealed class DevelopmentShippingQuoteProvider(
             serviceCode,
             serviceName,
             feeSatang,
-            insuranceFeeSatang,
-            request.DeclaredValueSatang,
-            request.DeclaredValueSatang > 0
-                ? "DEV_FULL_VALUE"
-                : null,
+            0,
+            0,
+            null,
             expiresAt);
         quotes[reference] = new StoredQuote(
             request,
@@ -131,6 +132,73 @@ public sealed class DevelopmentShippingQuoteProvider(
     private sealed record StoredQuote(
         ShippingQuoteRequest Request,
         ShippingQuoteOption Option);
+
+    public Task<ParcelProtectionAvailability> GetAvailabilityAsync(
+        ParcelProtectionQuoteRequest request,
+        CancellationToken cancellationToken)
+    {
+        ValidateProtectionRequest(request);
+        if (request.ItemPriceSatang <= IncludedCoverageLimitSatang)
+            return Task.FromResult(
+                new ParcelProtectionAvailability(
+                    IncludedCoverageLimitSatang,
+                    null,
+                    ProviderCapabilityCertified: true));
+
+        var quotedAt = clock.UtcNow;
+        var option = new ProviderParcelProtectionOption(
+            ProviderName,
+            $"dev-protection-{Guid.NewGuid():N}",
+            IncludedCoverageLimitSatang,
+            request.ItemPriceSatang,
+            Math.Max(100, request.ItemPriceSatang / 100),
+            ProtectionTermsVersion,
+            "DEV_PARCEL_PROTECTION",
+            quotedAt,
+            quotedAt.AddHours(2));
+        protectionOptions[option.OptionReference] = new(
+            request,
+            option);
+        return Task.FromResult(
+            new ParcelProtectionAvailability(
+                IncludedCoverageLimitSatang,
+                option,
+                ProviderCapabilityCertified: true));
+    }
+
+    public Task<ProviderParcelProtectionOption> ValidateOptionAsync(
+        ParcelProtectionQuoteRequest request,
+        string optionReference,
+        CancellationToken cancellationToken)
+    {
+        ValidateProtectionRequest(request);
+        if (!protectionOptions.TryGetValue(
+                optionReference?.Trim() ?? "",
+                out var stored) ||
+            stored.Request != request)
+            throw new DomainException(
+                "ตัวเลือกความคุ้มครองไม่ถูกต้อง");
+        if (stored.Option.ExpiresAt <= clock.UtcNow)
+            throw new ParcelProtectionOptionChangedException(
+                "parcel-protection-option-changed");
+        return Task.FromResult(stored.Option);
+    }
+
+    private static void ValidateProtectionRequest(
+        ParcelProtectionQuoteRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ValidatePackage(request.Shipment);
+        if (request.ItemPriceSatang <= 0 ||
+            string.IsNullOrWhiteSpace(request.DeliveryQuoteReference) ||
+            string.IsNullOrWhiteSpace(request.CarrierCode) ||
+            string.IsNullOrWhiteSpace(request.ServiceCode))
+            throw new DomainException("ข้อมูลความคุ้มครองพัสดุไม่ถูกต้อง");
+    }
+
+    private sealed record StoredProtectionOption(
+        ParcelProtectionQuoteRequest Request,
+        ProviderParcelProtectionOption Option);
 
     public string ProviderName => "development-shipping";
 
@@ -443,7 +511,9 @@ public sealed class DevelopmentShippingQuoteProvider(
 }
 
 public sealed class UnavailableShippingQuoteProvider
-    : IShippingQuoteProvider, IShipmentProvider
+    : IShippingQuoteProvider,
+    IParcelProtectionQuoteProvider,
+    IShipmentProvider
 {
     private const string Message =
         "ยังไม่ได้เชื่อมและอนุมัติผู้ให้บริการขนส่งสำหรับ production";
@@ -459,6 +529,17 @@ public sealed class UnavailableShippingQuoteProvider
         ShippingQuoteRequest request,
         string quoteReference,
         long disclosedFeeSatang,
+        CancellationToken cancellationToken) =>
+        throw new InvalidOperationException(Message);
+
+    public Task<ParcelProtectionAvailability> GetAvailabilityAsync(
+        ParcelProtectionQuoteRequest request,
+        CancellationToken cancellationToken) =>
+        throw new InvalidOperationException(Message);
+
+    public Task<ProviderParcelProtectionOption> ValidateOptionAsync(
+        ParcelProtectionQuoteRequest request,
+        string optionReference,
         CancellationToken cancellationToken) =>
         throw new InvalidOperationException(Message);
 

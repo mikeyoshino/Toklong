@@ -133,6 +133,9 @@ public static class DependencyInjection
                 DevelopmentOtpVerificationProvider>();
         }
         services.AddSingleton<IClock, SystemClock>();
+        services.AddSingleton<
+            IParcelProtectionPricingPolicy,
+            ParcelProtectionPricingPolicy>();
         var shippingProvider =
             configuration["ShippingQuotes:Provider"];
         if (string.Equals(
@@ -143,6 +146,9 @@ public static class DependencyInjection
             services.AddSingleton<
                 DevelopmentShippingQuoteProvider>();
             services.AddSingleton<IShippingQuoteProvider>(
+                provider => provider.GetRequiredService<
+                    DevelopmentShippingQuoteProvider>());
+            services.AddSingleton<IParcelProtectionQuoteProvider>(
                 provider => provider.GetRequiredService<
                     DevelopmentShippingQuoteProvider>());
             services.AddSingleton<IShipmentProvider>(
@@ -174,6 +180,9 @@ public static class DependencyInjection
             services.AddTransient<IShippingQuoteProvider>(
                 provider => provider.GetRequiredService<
                     ShippopShippingProvider>());
+            services.AddTransient<IParcelProtectionQuoteProvider>(
+                provider => provider.GetRequiredService<
+                    ShippopShippingProvider>());
             services.AddTransient<IShipmentProvider>(
                 provider => provider.GetRequiredService<
                     ShippopShippingProvider>());
@@ -183,6 +192,9 @@ public static class DependencyInjection
             services.AddSingleton<
                 UnavailableShippingQuoteProvider>();
             services.AddSingleton<IShippingQuoteProvider>(
+                provider => provider.GetRequiredService<
+                    UnavailableShippingQuoteProvider>());
+            services.AddSingleton<IParcelProtectionQuoteProvider>(
                 provider => provider.GetRequiredService<
                     UnavailableShippingQuoteProvider>());
             services.AddSingleton<IShipmentProvider>(

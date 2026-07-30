@@ -125,7 +125,8 @@ public static class ProductionConfigurationValidator
                     profile.BookOutboundEnabled ||
                     profile.ConfirmEnabled ||
                     profile.ReturnEnabled ||
-                    profile.InsuranceEnabled;
+                    profile.InsuranceEnabled ||
+                    profile.OptionalProtectionEnabled;
                 if (anyCapability &&
                     string.IsNullOrWhiteSpace(
                         profile.CertificationReference))
@@ -137,20 +138,17 @@ public static class ProductionConfigurationValidator
                         StringComparison.Ordinal))
                     errors.Add(
                         $"Shippop service {serviceCode} must use DropOff handoff");
-                if (anyCapability &&
-                    profile.MaximumCoverageSatang <
-                    SaleTransaction
-                        .MaximumProtectedItemPriceSatang)
-                    errors.Add(
-                        $"Shippop service {serviceCode} coverage is below the supported maximum");
                 if (profile.BookOutboundEnabled &&
                     !profile.OperationLookupEnabled)
                     errors.Add(
                         $"Shippop service {serviceCode} booking requires operation lookup");
-                if (profile.BookOutboundEnabled &&
-                    !profile.InsuranceEnabled)
+                if (profile.OptionalProtectionEnabled &&
+                    (!profile.InsuranceEnabled ||
+                     profile.IncludedCoverageSatang <= 0 ||
+                     profile.MaximumCoverageSatang <=
+                         profile.IncludedCoverageSatang))
                     errors.Add(
-                        $"Shippop service {serviceCode} booking requires full-value insurance");
+                        $"Shippop service {serviceCode} optional protection configuration is incomplete");
             }
         }
 
