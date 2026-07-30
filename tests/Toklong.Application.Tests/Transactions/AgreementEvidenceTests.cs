@@ -189,7 +189,6 @@ public sealed class AgreementEvidenceTests
         transaction.BeginCheckout(
             "ผู้ซื้อ ทดสอบ",
             "+66811111111",
-            "123 ถนนสุขุมวิท กรุงเทพมหานคร 10110",
             Now.AddMinutes(2),
             transitions,
             platformFeeSatang: 10_000,
