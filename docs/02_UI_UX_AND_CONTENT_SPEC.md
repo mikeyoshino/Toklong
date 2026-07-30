@@ -534,9 +534,12 @@ Must show before payment:
 - No hidden fee added after the final review screen.
 - For buyer-created offers, checkout is unavailable until the seller has accepted the final terms.
 - For physical offers, PaymentIntent creation is also unavailable until the
-  buyer election is recorded and the exact durable booking is ready. The
-  booking-wait state says `กำลังเตรียมรายการจัดส่ง กรุณารอสักครู่`; retrying
-  does not write a second election. A changed price, limit, expiry, or terms
+  buyer election is recorded and the payment action has synchronously committed
+  the exact unconfirmed booking. While that request is active, show
+  `กำลังเตรียมการจัดส่ง…`; do not poll a background booking worker. A retryable
+  failure says `เตรียมการจัดส่งไม่สำเร็จ` and
+  `ยังไม่มีการชำระเงิน กรุณาลองอีกครั้ง`. Retrying does not write a second
+  election. A changed price, limit, expiry, or terms
   requires fresh buyer confirmation, while the original payment deadline stays
   unchanged.
 - The final buyer action is `ยอมรับข้อตกลงและไปชำระเงิน`. It records electronic

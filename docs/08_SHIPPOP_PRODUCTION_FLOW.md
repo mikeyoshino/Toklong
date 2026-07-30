@@ -46,13 +46,15 @@
 2. หลังผู้ขายยอมรับ ระบบตรวจ availability แล้วข้ามคำถามเมื่ออยู่ในวงเงิน
    included ที่ยืนยันได้ พร้อม auto-submit `AddProtection=false` และ persist
    `Declined`; หรือถามผู้ซื้อครั้งเดียวให้เพิ่มหรือไม่เพิ่ม optional add-on
-3. API บันทึก Buyer election และ immutable shipment intent กับ `BookOutbound`
-   ใน transaction เดียวกัน แล้วตอบ `202 Accepted`
-4. ผู้ซื้อยังชำระไม่ได้ระหว่าง booking ค้างอยู่
-5. Worker claim งานด้วย lease และ idempotency key, revalidate ราคา/วงเงิน/
-   terms/expiry ที่ผู้ซื้อเลือก แล้วจึงเรียก SHIPPOP
-6. เมื่อผล provider ตรงกับ carrier, service, ค่าจัดส่ง และ selection ที่
-   บันทึกไว้ ระบบจึงบันทึก reservation โดยไม่เปลี่ยน deadline ชำระเงิน
+3. API บันทึก Buyer election และ immutable shipment intent โดยยังไม่สร้าง
+   `BookOutbound`
+4. เมื่อผู้ซื้อกดชำระ API สร้าง `BookingAttempt` แบบ idempotent แล้วเรียก
+   SHIPPOP `booking` ด้วย `force_confirm=0` ภายในเวลาไม่เกิน 2.2 วินาที
+5. เมื่อผล provider ตรงกับ carrier, service, ค่าจัดส่ง ความคุ้มครอง และ
+   selection ที่บันทึกไว้ ระบบ commit attempt กับ reservation พร้อมกัน
+   แล้วจึงเปิด Stripe PaymentSheet
+6. timeout เป็นผลไม่แน่ชัด ห้าม replay key เดิมอัตโนมัติ ผู้ซื้อกดลองใหม่
+   ด้วย attempt/reference ใหม่ได้ไม่เกินสามครั้งใน payment window
 7. payment-provider webhook ที่ตรวจลายเซ็นแล้วเท่านั้นที่ queue
    `ConfirmOutbound`
 8. label พร้อมแต่ยังไม่มี trusted scan แสดง “เตรียมจัดส่ง”
@@ -63,7 +65,8 @@
 
 ## Timeout and retry
 
-- ทุก mutation commit operation ก่อนเรียก provider
+- direct booking ก่อนชำระ commit `BookingAttempt` ก่อนเรียก provider;
+  mutation หลังชำระยัง commit durable operation ก่อนเรียก provider
 - definite failure ที่ยังไม่ได้ส่งคำขอ retry ด้วย exponential backoff และ
   jitter ได้ไม่เกินจำนวนครั้งที่กำหนด
 - timeout หลังอาจส่งคำขอแล้วเป็น `OutcomeUnknown` และห้ามยิง mutation ซ้ำ

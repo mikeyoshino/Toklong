@@ -142,11 +142,16 @@ Items below require explicit product, operations, legal, payment-provider, logis
   election and internal split; buyer presentation exposes the combined price at
   choice and in the payment summary when a paid add-on is accepted, while the
   maximum remains at choice/details and seller projections expose none of it.
-  The Worker revalidates a selected option and creates the matching unconfirmed
-  booking before PaymentIntent provider preparation. That booking does not alter
+  The payment request creates and validates the matching unconfirmed booking
+  synchronously before PaymentIntent provider preparation. That booking does not alter
   the one-hour payment deadline. Verified payment queues `ConfirmOutbound`,
   which allocates tracking and enables a 4×6 label. Provider-managed
   transactions have no manual tracking entry.
+- Production direct booking remains disabled until SHIPPOP supplies evidence
+  for unconfirmed-booking expiry/cost, TOKLONG-reference lookup or idempotency,
+  account rate limits, and latency under the approved concurrency. The
+  production configuration requires a non-empty certification reference before
+  this feature can be enabled.
 - Implemented security decision: do not consume SHIPPOP callbacks because the
   documented webhook payload has no verifiable signature. Use server-side
   polling until SHIPPOP supplies and contractually documents an authenticated,

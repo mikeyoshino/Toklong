@@ -448,3 +448,12 @@ completion result is required for `PAID_OUT`.
 - Use authorized commands with required reason and audit trail.
 - High-value or high-risk categories may require delayed payout or manual review.
 - Prohibited goods trigger transaction prevention, evidence retention as legally appropriate, and account review.
+
+## Direct booking order
+
+For physical checkout the required order is: save buyer election and shipment
+intent; acquire one booking attempt; call SHIPPOP with `force_confirm=0`;
+validate and commit the unconfirmed reservation; then create or reuse the
+Stripe PaymentIntent. Only a verified Stripe webhook may queue
+`ConfirmOutbound`. Timeout, mismatch, admission rejection, or retry exhaustion
+must produce no PaymentIntent.

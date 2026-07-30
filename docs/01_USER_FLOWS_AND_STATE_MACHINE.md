@@ -159,7 +159,7 @@ SELLER_ACCEPTED_AWAITING_PAYMENT
   → choice exists: buyer explicitly accepts or declines
   → within verified included limit: auto-submit AddProtection=false → Declined
   → over limit with no certified add-on → Unavailable
-  → durable matching booking is ready
+  → buyer taps pay → synchronous unconfirmed booking is validated and committed
   → CHECKOUT_STARTED → PAYMENT_PENDING
 ```
 

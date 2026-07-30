@@ -1014,3 +1014,13 @@ A user-facing summary may include:
 - Payout or refund confirmation.
 
 It must not be described as legal advice or a lawyer-reviewed contract unless that service is actually provided.
+
+## Direct checkout booking record
+
+For a physical checkout, `BookingAttempt` is the durable pre-provider record.
+It stores the transaction, shipment, buyer, safe idempotency key, request
+fingerprint, attempt number (maximum three), opaque provider reference, result,
+normalized integer-satang amounts, and response fingerprint. `Succeeded` and
+the matching managed-shipment reservation are committed together before Stripe
+is called. `TimedOut` is terminal for that key and is never replayed
+automatically.

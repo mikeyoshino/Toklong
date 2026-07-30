@@ -1304,3 +1304,21 @@ and the TOKLONG wordmark enters in exactly 1.2 seconds
 **Then** the app opens the unauthenticated welcome route
 **And** no credential, session content, payment state, or success claim is
 displayed.
+
+### Direct SHIPPOP checkout ordering
+
+**Given** a physical offer has a recorded buyer election and shipment intent
+**When** the buyer requests payment with a new idempotency key
+**Then** one unconfirmed SHIPPOP booking is validated and committed before
+Stripe is called
+**And** replaying the key does not call SHIPPOP twice.
+
+**Given** direct booking times out, mismatches, is rejected by admission
+control, or exceeds three attempts
+**When** checkout returns
+**Then** no PaymentIntent is created and the response contains only a stable,
+consumer-safe retry or reconfirmation code.
+
+**Given** Stripe later sends a valid signed success webhook
+**Then** exactly one `ConfirmOutbound` operation is committed
+**And** replaying the webhook does not add another confirmation.
