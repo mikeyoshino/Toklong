@@ -144,7 +144,7 @@ public static class ProductionConfigurationValidator
                         $"Shippop service {serviceCode} booking requires operation lookup");
                 if (profile.OptionalProtectionEnabled &&
                     (!profile.InsuranceEnabled ||
-                     profile.IncludedCoverageSatang <= 0 ||
+                     profile.IncludedCoverageSatang < 0 ||
                      profile.MaximumCoverageSatang <=
                          profile.IncludedCoverageSatang))
                     errors.Add(

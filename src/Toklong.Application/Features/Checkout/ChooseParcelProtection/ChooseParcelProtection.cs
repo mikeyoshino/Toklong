@@ -255,7 +255,6 @@ public sealed partial class ChooseParcelProtectionHandler(
                 StringComparison.Ordinal) ||
             option.IncludedCoverageLimitSatang != availability.AddOn.IncludedCoverageLimitSatang ||
             option.SelectedCoverageLimitSatang != availability.AddOn.SelectedCoverageLimitSatang ||
-            option.SelectedCoverageLimitSatang < transaction.PriceSatang ||
             !string.Equals(option.Provider, transaction.ShippingQuoteProvider,
                 StringComparison.Ordinal))
             throw new ParcelProtectionOptionChangedException(

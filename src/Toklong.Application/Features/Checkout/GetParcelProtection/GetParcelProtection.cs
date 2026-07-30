@@ -128,7 +128,7 @@ internal static partial class ParcelProtectionCheckout
             !HasBoolean(root, "RequiresChoice") ||
             !HasBoolean(root, "AddOnAvailable") ||
             !HasInt(root, "IncludedCoverageLimitSatang", out var includedCoverage) ||
-            includedCoverage <= 0 ||
+            includedCoverage < 0 ||
             !HasNullableInt(root, "MaximumCoverageLimitSatang", out var maximumCoverage) ||
             !HasNullableInt(root, "CustomerPriceSatang", out var customerPrice) ||
             !HasNullableString(root, "OptionReference") ||
@@ -150,7 +150,7 @@ internal static partial class ParcelProtectionCheckout
     {
         if (offer.Election is not (ParcelProtectionElectionStatus.Pending or
             ParcelProtectionElectionStatus.Unavailable) ||
-            offer.IncludedCoverageLimitSatang <= 0 ||
+            offer.IncludedCoverageLimitSatang < 0 ||
             offer.RequiresChoice != (transaction.PriceSatang >
                 offer.IncludedCoverageLimitSatang && offer.AddOnAvailable))
             return false;
@@ -168,7 +168,7 @@ internal static partial class ParcelProtectionCheckout
         }
 
         return offer.Election == ParcelProtectionElectionStatus.Pending &&
-            offer.MaximumCoverageLimitSatang >= transaction.PriceSatang &&
+            offer.MaximumCoverageLimitSatang > 0 &&
             offer.CustomerPriceSatang > 0 &&
             !string.IsNullOrWhiteSpace(offer.OptionReference) &&
             offer.ExpiresAt.HasValue;

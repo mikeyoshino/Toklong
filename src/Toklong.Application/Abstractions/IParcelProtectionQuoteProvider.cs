@@ -54,11 +54,15 @@ public sealed record ParcelProtectionCertificationCancellation(
     bool Cancelled,
     bool FirstCarrierScanDetected);
 
+public sealed record ParcelProtectionCertificationParcelField(
+    string FieldName,
+    string Unit);
+
 public sealed record ParcelProtectionCertificationParcelRequirements(
-    bool WeightRequired,
-    bool WidthRequired,
-    bool LengthRequired,
-    bool HeightRequired);
+    ParcelProtectionCertificationParcelField Weight,
+    ParcelProtectionCertificationParcelField Width,
+    ParcelProtectionCertificationParcelField Length,
+    ParcelProtectionCertificationParcelField Height);
 
 public interface IParcelProtectionCertificationOperations
 {

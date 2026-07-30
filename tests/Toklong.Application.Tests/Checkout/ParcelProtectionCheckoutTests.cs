@@ -64,6 +64,61 @@ public sealed class ParcelProtectionCheckoutTests
     }
 
     [Fact]
+    public async Task Certified_add_on_with_zero_included_coverage_can_book_below_item_price()
+    {
+        await using var fixture = await Fixture.CreateAsync(450_000);
+        fixture.Provider.Option = fixture.Provider.Option with
+        {
+            IncludedCoverageLimitSatang = 0,
+            SelectedCoverageLimitSatang = 100_000,
+            InsuranceCode = "CERTIFIED_PARTIAL"
+        };
+        fixture.Provider.Availability = new ParcelProtectionAvailability(
+            0,
+            fixture.Provider.Option,
+            ProviderCapabilityCertified: true);
+        var prepared = await fixture.Prepare.Handle(
+            fixture.PrepareCommand(),
+            default);
+
+        var result = await fixture.ChooseHandler.Handle(
+            fixture.Choose(true, prepared.OptionReference, 6_000),
+            default);
+
+        var shipment = fixture.Transaction.ManagedShipments.Single();
+        Assert.Equal(0, fixture.Transaction.ParcelProtectionIncludedCoverageSatang);
+        Assert.Equal(100_000, shipment.DeclaredValueSatang);
+        Assert.Equal("CERTIFIED_PARTIAL", shipment.InsuranceCode);
+        Assert.Equal("preparing_shipping", result.BookingStatus);
+    }
+
+    [Fact]
+    public async Task Certified_add_on_with_zero_included_coverage_can_be_declined()
+    {
+        await using var fixture = await Fixture.CreateAsync(450_000);
+        fixture.Provider.Option = fixture.Provider.Option with
+        {
+            IncludedCoverageLimitSatang = 0,
+            SelectedCoverageLimitSatang = 100_000
+        };
+        fixture.Provider.Availability = new ParcelProtectionAvailability(
+            0,
+            fixture.Provider.Option,
+            ProviderCapabilityCertified: true);
+
+        await fixture.Prepare.Handle(fixture.PrepareCommand(), default);
+        var result = await fixture.ChooseHandler.Handle(
+            fixture.Choose(false),
+            default);
+
+        Assert.Equal(ParcelProtectionElectionStatus.Declined,
+            fixture.Transaction.ParcelProtectionElection);
+        Assert.Equal(0, fixture.Transaction.ParcelProtectionIncludedCoverageSatang);
+        Assert.Equal(0, fixture.Transaction.ManagedShipments.Single().DeclaredValueSatang);
+        Assert.Equal("preparing_shipping", result.BookingStatus);
+    }
+
+    [Fact]
     public async Task Changed_price_does_not_queue_booking()
     {
         await using var fixture = await Fixture.CreateAsync(450_000);
@@ -132,6 +187,53 @@ public sealed class ParcelProtectionCheckoutTests
         Assert.DoesNotContain("serviceFee", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("development-shipping", json,
             StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Certified_partial_add_on_resumes_after_fresh_relational_reload()
+    {
+        await using var database = await RelationalDatabase.CreateAsync();
+        var clock = new MutableClock(Now.AddMinutes(1));
+        Guid transactionId;
+        Guid buyerId;
+        BuyerParcelProtectionView prepared;
+
+        await using (var write = database.CreateContext())
+        {
+            var transaction = CreateAcceptedTransaction(450_000);
+            transactionId = transaction.Id;
+            buyerId = transaction.BuyerId!.Value;
+            write.Transactions.Add(transaction);
+            await write.SaveChangesAsync();
+            var provider = new TestProtectionProvider();
+            provider.Option = provider.Option with
+            {
+                IncludedCoverageLimitSatang = 0,
+                SelectedCoverageLimitSatang = 100_000,
+                InsuranceCode = "CERTIFIED_PARTIAL"
+            };
+            provider.Availability = new ParcelProtectionAvailability(
+                0,
+                provider.Option,
+                ProviderCapabilityCertified: true);
+            prepared = await new PrepareParcelProtectionHandler(
+                new TransactionRepository(write), provider,
+                new ParcelProtectionPricingPolicy(), write, clock).Handle(
+                new PrepareParcelProtectionCommand(transactionId, buyerId,
+                    "prepare-partial-reload"), default);
+        }
+
+        await using var read = database.CreateContext();
+        var resumed = await new GetParcelProtectionHandler(
+            new TransactionRepository(read), clock).Handle(
+            new GetParcelProtectionQuery(transactionId, buyerId), default);
+
+        Assert.Equal(prepared, resumed);
+        Assert.True(resumed.RequiresChoice);
+        Assert.True(resumed.AddOnAvailable);
+        Assert.Equal(0, resumed.IncludedCoverageLimitSatang);
+        Assert.Equal(100_000, resumed.MaximumCoverageLimitSatang);
+        Assert.Equal(6_000, resumed.CustomerPriceSatang);
     }
 
     [Fact]

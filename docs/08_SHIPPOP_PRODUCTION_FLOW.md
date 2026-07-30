@@ -12,7 +12,7 @@
   `CertificationReference`
 - รองรับเฉพาะ `DropOff`
 - outbound booking ต้องมี operation lookup ที่พิสูจน์ผลเดิมได้ และมีประกัน
-  เต็มมูลค่าสินค้าตลอดช่วงราคาที่แอปรองรับ
+  ตาม maximum ที่ provider รับรองสำหรับ account/service นั้น
 - API key, account email และ secret ต้องมาจาก secret storage เท่านั้น
   ห้ามใส่ใน source, migration, log, audit หรือ mobile response
 - endpoint ของ Production ต้องเป็น HTTPS เสมอ ส่วน HTTP ของ SHIPPOP Dev
@@ -26,13 +26,18 @@
   included limit, maximum, premium conversion เป็น integer satang, terms/code,
   Buyer-elected booking result, safe timeout lookup/replay, cancellationก่อน
   first scan และ weight/width/length/height field/unit ครบทั้งหมด
+- certification ต้องคืนชื่อ field และ unit ของ provider สำหรับ weight, width,
+  length, height ที่ผ่าน allow-list ที่ sanitize แล้ว; รายงานต้องมาจาก contract
+  ที่คืนจริง ไม่ใช่ fixture. `IncludedCoverageSatang = 0` ใช้ได้สำหรับ add-on
+  ที่ได้รับการรับรอง แต่ selected coverage ต้องมากกว่า 0 และไม่เกิน maximum
+  ที่เปิดเผย (ไม่บังคับให้เท่าราคาสินค้า)
 - หาก SHIPPOP ไม่ให้ optional-protection payload ที่แยกได้หลัง Buyer election
   ห้ามสร้างหรือเดาชื่อ field; บันทึกเป็น provider blocker และใช้
   included-only checkout ต่อไป
 
 ## Outbound flow
 
-1. ผู้ขายเลือกบริการที่ยังไม่หมดอายุและมีประกันเต็มมูลค่า
+1. ผู้ขายเลือกบริการที่ยังไม่หมดอายุและมีวงเงินคุ้มครองตามที่รับรอง
 2. API บันทึก immutable shipment intent กับ `BookOutbound` ใน transaction
    เดียวกัน แล้วตอบ `202 Accepted`
 3. ผู้ซื้อยังชำระไม่ได้ระหว่าง booking ค้างอยู่

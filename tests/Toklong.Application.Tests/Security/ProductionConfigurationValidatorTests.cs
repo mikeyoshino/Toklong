@@ -231,7 +231,7 @@ public sealed class ProductionConfigurationValidatorTests
     }
 
     [Fact]
-    public void Production_rejects_incomplete_optional_protection()
+    public void Production_accepts_certified_optional_protection_with_zero_included_coverage()
     {
         var values = SafeProductionValues();
         values["Shippop:Services:EMST:OptionalProtectionEnabled"] =
@@ -239,6 +239,26 @@ public sealed class ProductionConfigurationValidatorTests
         values["Shippop:Services:EMST:InsuranceEnabled"] = "true";
         values["Shippop:Services:EMST:CertificationReference"] =
             "CERT-2026-001";
+        values["Shippop:Services:EMST:IncludedCoverageSatang"] = "0";
+        values["Shippop:Services:EMST:MaximumCoverageSatang"] = "100000";
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(values)
+            .Build();
+
+        ProductionConfigurationValidator.Validate(
+            configuration,
+            new TestEnvironment("Production"),
+            requireMobileLinks: false,
+            requirePersistentStorage: true);
+    }
+
+    [Fact]
+    public void Production_rejects_uncertified_optional_protection_with_zero_included_coverage()
+    {
+        var values = SafeProductionValues();
+        values["Shippop:Services:EMST:OptionalProtectionEnabled"] =
+            "true";
+        values["Shippop:Services:EMST:InsuranceEnabled"] = "true";
         values["Shippop:Services:EMST:IncludedCoverageSatang"] = "0";
         values["Shippop:Services:EMST:MaximumCoverageSatang"] = "100000";
         var configuration = new ConfigurationBuilder()
@@ -253,7 +273,7 @@ public sealed class ProductionConfigurationValidatorTests
                 requirePersistentStorage: true));
 
         Assert.Contains(
-            "optional protection configuration is incomplete",
+            "requires a certification reference",
             exception.Message);
     }
 

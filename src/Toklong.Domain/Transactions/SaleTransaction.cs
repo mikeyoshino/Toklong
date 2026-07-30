@@ -2064,7 +2064,7 @@ public sealed class SaleTransaction
                     ParcelProtectionServiceFeeAmountSatang))
                 throw new DomainException(
                     "ราคาความคุ้มครองพัสดุไม่ถูกต้อง");
-            if (selection.IncludedCoverageLimitSatang <= 0 ||
+            if (selection.IncludedCoverageLimitSatang < 0 ||
                 selection.SelectedCoverageLimitSatang <= 0 ||
                 selection.SelectedCoverageLimitSatang <
                     selection.IncludedCoverageLimitSatang)
@@ -2095,7 +2095,7 @@ public sealed class SaleTransaction
             selection.IncludedCoverageLimitSatang == 0 &&
             selection.SelectedCoverageLimitSatang == 0;
         if (!uncertifiedCoverage &&
-            (selection.IncludedCoverageLimitSatang <= 0 ||
+            (selection.IncludedCoverageLimitSatang < 0 ||
              selection.SelectedCoverageLimitSatang !=
                 selection.IncludedCoverageLimitSatang))
             throw new DomainException(

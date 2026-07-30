@@ -93,6 +93,23 @@ evidence object, or lookup result produces a named `blocked` result; a changed
 option, booking, replay, lookup, price, or parcel requirement produces `failed`.
 It never enables a test profile or guesses a SHIPPOP endpoint or field.
 
+The parcel-requirements operation must return the actual provider field name and
+unit for each required dimension. The harness accepts and reports only the
+allow-listed evidence `weight:grams`, `width:centimeters`,
+`length:centimeters`, and `height:centimeters`; blank, renamed, or mismatched
+values fail before a booking. The sanitized report derives these entries from
+the returned certification contract rather than from a fixed test fixture.
+
+`IncludedCoverageSatang` may be zero for a certified add-on-only service. The
+selected add-on coverage must still be positive and no greater than the
+documented certified maximum; certification does not require coverage equal to
+the item price.
+
+Terms version, insurance code, option reference, provider booking reference,
+and lookup reference must each be 1–80 ASCII characters from
+`[A-Za-z0-9._-]`. The live report records only named pass/block/fail outcomes,
+not the identifier values.
+
 Booking/replay/lookup/cancel are provider mutations. Even after an adapter
 implements the certification operations boundary, they remain `blocked` unless
 the operator additionally sets `SHIPPOP_CERTIFY_MUTATIONS=1` for a disposable

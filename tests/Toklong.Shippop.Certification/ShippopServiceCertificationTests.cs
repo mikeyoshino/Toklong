@@ -25,6 +25,10 @@ public sealed class ShippopServiceCertificationTests
 
         Assert.True(result.Passed);
         Assert.Empty(result.Blockers);
+        Assert.Equal(
+            ["weight:grams", "width:centimeters", "length:centimeters",
+             "height:centimeters"],
+            result.ParcelFieldEvidence);
         Assert.Equal(2, provider.BookCalls);
         Assert.Equal(2, provider.LookupCalls);
         Assert.Equal(1, provider.CancelCalls);
@@ -52,10 +56,10 @@ public sealed class ShippopServiceCertificationTests
     }
 
     [Fact]
-    public async Task Capability_harness_fails_when_a_dimension_is_not_required()
+    public async Task Capability_harness_fails_when_a_required_dimension_has_no_unit()
     {
         var provider = new DeterministicCertifiedProvider(
-            hasAllParcelRequirements: false);
+            heightUnit: "");
         var harness = new ParcelProtectionCertificationHarness(
             provider,
             provider,
@@ -70,6 +74,46 @@ public sealed class ShippopServiceCertificationTests
         Assert.False(result.Passed);
         Assert.Contains("parcel_requirements_mismatch", result.Failures);
         Assert.Equal(0, provider.BookCalls);
+    }
+
+    [Fact]
+    public async Task Capability_harness_fails_when_a_provider_field_name_is_not_allow_listed()
+    {
+        var provider = new DeterministicCertifiedProvider(
+            weightFieldName: "weight_kg");
+        var harness = new ParcelProtectionCertificationHarness(
+            provider,
+            provider,
+            new ParcelProtectionPricingPolicy());
+
+        var result = await harness.RunAsync(
+            CertificationRequest(),
+            CertificationEvidence(),
+            mutationsEnabled: true,
+            CancellationToken.None);
+
+        Assert.False(result.Passed);
+        Assert.Contains("parcel_requirements_mismatch", result.Failures);
+    }
+
+    [Fact]
+    public async Task Capability_harness_fails_when_a_provider_field_unit_is_not_allow_listed()
+    {
+        var provider = new DeterministicCertifiedProvider(
+            weightUnit: "kilograms");
+        var harness = new ParcelProtectionCertificationHarness(
+            provider,
+            provider,
+            new ParcelProtectionPricingPolicy());
+
+        var result = await harness.RunAsync(
+            CertificationRequest(),
+            CertificationEvidence(),
+            mutationsEnabled: true,
+            CancellationToken.None);
+
+        Assert.False(result.Passed);
+        Assert.Contains("parcel_requirements_mismatch", result.Failures);
     }
 
     [Fact]
@@ -110,6 +154,211 @@ public sealed class ShippopServiceCertificationTests
             CancellationToken.None);
 
         Assert.True(result.Passed);
+    }
+
+    [Fact]
+    public async Task Capability_harness_accepts_selected_coverage_below_the_certified_maximum()
+    {
+        var provider = new DeterministicCertifiedProvider(
+            selectedCoverageLimitSatang: 100_000);
+        var harness = new ParcelProtectionCertificationHarness(
+            provider,
+            provider,
+            new ParcelProtectionPricingPolicy());
+
+        var result = await harness.RunAsync(
+            CertificationRequest(),
+            CertificationEvidence(),
+            mutationsEnabled: true,
+            CancellationToken.None);
+
+        Assert.True(result.Passed);
+    }
+
+    [Fact]
+    public async Task Capability_harness_rejects_a_nonpositive_certified_maximum()
+    {
+        var provider = new DeterministicCertifiedProvider();
+        var harness = new ParcelProtectionCertificationHarness(
+            provider,
+            provider,
+            new ParcelProtectionPricingPolicy());
+
+        var result = await harness.RunAsync(
+            CertificationRequest(),
+            CertificationEvidence(maximumCoverageLimitSatang: 0),
+            mutationsEnabled: true,
+            CancellationToken.None);
+
+        Assert.False(result.Passed);
+        Assert.Contains("coverage_limit_mismatch", result.Failures);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(450_001)]
+    public async Task Capability_harness_rejects_selected_coverage_outside_the_certified_maximum(
+        long selectedCoverageLimitSatang)
+    {
+        var provider = new DeterministicCertifiedProvider(
+            selectedCoverageLimitSatang: selectedCoverageLimitSatang);
+        var harness = new ParcelProtectionCertificationHarness(
+            provider,
+            provider,
+            new ParcelProtectionPricingPolicy());
+
+        var result = await harness.RunAsync(
+            CertificationRequest(),
+            CertificationEvidence(),
+            mutationsEnabled: true,
+            CancellationToken.None);
+
+        Assert.False(result.Passed);
+        Assert.Contains("option_validation_mismatch", result.Failures);
+    }
+
+    [Theory]
+    [InlineData(" ", "PROTECT", "option-v1")]
+    [InlineData("เงื่อนไข-v1", "PROTECT", "option-v1")]
+    [InlineData("terms-v1", "invalid code!", "option-v1")]
+    [InlineData("terms-v1", "PROTECT", " ")]
+    public async Task Capability_harness_rejects_non_substantive_option_identifiers(
+        string termsVersion,
+        string insuranceCode,
+        string optionReference)
+    {
+        var provider = new DeterministicCertifiedProvider(
+            termsVersion: termsVersion,
+            insuranceCode: insuranceCode,
+            optionReference: optionReference);
+        var harness = new ParcelProtectionCertificationHarness(
+            provider,
+            provider,
+            new ParcelProtectionPricingPolicy());
+
+        var result = await harness.RunAsync(
+            CertificationRequest(),
+            CertificationEvidence(
+                termsVersion: termsVersion,
+                insuranceCode: insuranceCode,
+                optionReference: optionReference),
+            mutationsEnabled: true,
+            CancellationToken.None);
+
+        Assert.False(result.Passed);
+        Assert.Contains("option_identifier_invalid", result.Failures);
+    }
+
+    [Theory]
+    [InlineData("terms-v2", "PROTECT", "option-v1")]
+    [InlineData("terms-v1", "PROTECT-V2", "option-v1")]
+    [InlineData("terms-v1", "PROTECT", "option-v2")]
+    public async Task Capability_harness_rejects_option_identifiers_that_do_not_match_evidence(
+        string termsVersion,
+        string insuranceCode,
+        string optionReference)
+    {
+        var provider = new DeterministicCertifiedProvider();
+        var harness = new ParcelProtectionCertificationHarness(
+            provider,
+            provider,
+            new ParcelProtectionPricingPolicy());
+
+        var result = await harness.RunAsync(
+            CertificationRequest(),
+            CertificationEvidence(
+                termsVersion: termsVersion,
+                insuranceCode: insuranceCode,
+                optionReference: optionReference),
+            mutationsEnabled: true,
+            CancellationToken.None);
+
+        Assert.False(result.Passed);
+        Assert.Contains("option_validation_mismatch", result.Failures);
+    }
+
+    [Fact]
+    public async Task Capability_harness_rejects_blank_provider_booking_reference()
+    {
+        var provider = new DeterministicCertifiedProvider(
+            providerBookingReference: " ");
+        var harness = new ParcelProtectionCertificationHarness(
+            provider,
+            provider,
+            new ParcelProtectionPricingPolicy());
+
+        var result = await harness.RunAsync(
+            CertificationRequest(),
+            CertificationEvidence(),
+            mutationsEnabled: true,
+            CancellationToken.None);
+
+        Assert.False(result.Passed);
+        Assert.Contains("booking_identifier_invalid", result.Failures);
+    }
+
+    [Fact]
+    public async Task Capability_harness_rejects_an_overlong_provider_booking_reference()
+    {
+        var provider = new DeterministicCertifiedProvider(
+            providerBookingReference: new string('a', 81));
+        var harness = new ParcelProtectionCertificationHarness(
+            provider,
+            provider,
+            new ParcelProtectionPricingPolicy());
+
+        var result = await harness.RunAsync(
+            CertificationRequest(),
+            CertificationEvidence(),
+            mutationsEnabled: true,
+            CancellationToken.None);
+
+        Assert.False(result.Passed);
+        Assert.Contains("booking_identifier_invalid", result.Failures);
+    }
+
+    [Theory]
+    [InlineData(" ", "lookup_reference_invalid")]
+    [InlineData("different-operation", "booking_lookup_mismatch")]
+    public async Task Capability_harness_rejects_invalid_or_mismatched_lookup_reference(
+        string lookupOperationReference,
+        string expectedFailure)
+    {
+        var provider = new DeterministicCertifiedProvider(
+            lookupOperationReferenceOverride: lookupOperationReference);
+        var harness = new ParcelProtectionCertificationHarness(
+            provider,
+            provider,
+            new ParcelProtectionPricingPolicy());
+
+        var result = await harness.RunAsync(
+            CertificationRequest(),
+            CertificationEvidence(),
+            mutationsEnabled: true,
+            CancellationToken.None);
+
+        Assert.False(result.Passed);
+        Assert.Contains(expectedFailure, result.Failures);
+    }
+
+    [Fact]
+    public async Task Capability_harness_rejects_non_ascii_lookup_reference()
+    {
+        var provider = new DeterministicCertifiedProvider(
+            lookupOperationReferenceOverride: "รายการ-123");
+        var harness = new ParcelProtectionCertificationHarness(
+            provider,
+            provider,
+            new ParcelProtectionPricingPolicy());
+
+        var result = await harness.RunAsync(
+            CertificationRequest(),
+            CertificationEvidence(),
+            mutationsEnabled: true,
+            CancellationToken.None);
+
+        Assert.False(result.Passed);
+        Assert.Contains("lookup_reference_invalid", result.Failures);
     }
 
     [Theory]
@@ -163,7 +412,10 @@ public sealed class ShippopServiceCertificationTests
             foreach (var failure in result.Failures)
                 evidence.Record(failure, "failed");
             if (result.Passed)
+            {
+                evidence.RecordParcelFields(result.ParcelFieldEvidence);
                 evidence.Record("capability_certification", "passed");
+            }
 
             Assert.True(
                 result.Passed,
@@ -345,18 +597,20 @@ public sealed class ShippopServiceCertificationTests
     private sealed record ParcelProtectionCertificationResult(
         bool Passed,
         IReadOnlyList<string> Blockers,
-        IReadOnlyList<string> Failures)
+        IReadOnlyList<string> Failures,
+        IReadOnlyList<string> ParcelFieldEvidence)
     {
         public static ParcelProtectionCertificationResult Blocked(
             string blocker) =>
-            new(false, [blocker], []);
+            new(false, [blocker], [], []);
 
         public static ParcelProtectionCertificationResult Failed(
             string failure) =>
-            new(false, [], [failure]);
+            new(false, [], [failure], []);
 
-        public static ParcelProtectionCertificationResult PassedResult() =>
-            new(true, [], []);
+        public static ParcelProtectionCertificationResult PassedResult(
+            IReadOnlyList<string> parcelFieldEvidence) =>
+            new(true, [], [], parcelFieldEvidence);
     }
 
     private sealed class ParcelProtectionCertificationHarness(
@@ -383,6 +637,14 @@ public sealed class ShippopServiceCertificationTests
                 return ParcelProtectionCertificationResult.Blocked(
                     "certification_evidence_missing");
 
+            if (!HasValidOptionIdentifiers(option) ||
+                !HasValidEvidenceIdentifiers(evidence))
+                return ParcelProtectionCertificationResult.Failed(
+                    "option_identifier_invalid");
+            if (evidence.MaximumCoverageLimitSatang <= 0)
+                return ParcelProtectionCertificationResult.Failed(
+                    "coverage_limit_mismatch");
+
             var validated = await protectionProvider.ValidateOptionAsync(
                 request,
                 option.OptionReference,
@@ -408,13 +670,9 @@ public sealed class ShippopServiceCertificationTests
             var requirements = await operations.GetParcelRequirementsAsync(
                 request,
                 cancellationToken);
-            if (requirements is not
-                {
-                    WeightRequired: true,
-                    WidthRequired: true,
-                    LengthRequired: true,
-                    HeightRequired: true
-                })
+            if (!TryGetParcelFieldEvidence(
+                    requirements,
+                    out var parcelFieldEvidence))
                 return ParcelProtectionCertificationResult.Failed(
                     "parcel_requirements_mismatch");
 
@@ -426,6 +684,10 @@ public sealed class ShippopServiceCertificationTests
             var booking = await operations.BookAsync(
                 bookingRequest,
                 cancellationToken);
+            if (!IsSafeReference(booking.ProviderBookingReference) ||
+                !IsSafeReference(booking.OperationReference))
+                return ParcelProtectionCertificationResult.Failed(
+                    "booking_identifier_invalid");
             if (!BookingMatches(booking, bookingRequest))
                 return ParcelProtectionCertificationResult.Failed(
                     "booking_result_mismatch");
@@ -444,6 +706,9 @@ public sealed class ShippopServiceCertificationTests
             if (lookup is null)
                 return ParcelProtectionCertificationResult.Blocked(
                     "booking_lookup_not_found");
+            if (!IsSafeReference(lookup.OperationReference))
+                return ParcelProtectionCertificationResult.Failed(
+                    "lookup_reference_invalid");
             if (!BookingMatches(lookup, booking))
                 return ParcelProtectionCertificationResult.Failed(
                     "booking_lookup_mismatch");
@@ -460,7 +725,8 @@ public sealed class ShippopServiceCertificationTests
                 cancellationToken);
             return cancellation is
                 { Cancelled: true, FirstCarrierScanDetected: false }
-                ? ParcelProtectionCertificationResult.PassedResult()
+                ? ParcelProtectionCertificationResult.PassedResult(
+                    parcelFieldEvidence)
                 : ParcelProtectionCertificationResult.Failed(
                     "pre_scan_cancel_failed");
         }
@@ -485,12 +751,76 @@ public sealed class ShippopServiceCertificationTests
             evidence.IncludedCoverageLimitSatang &&
             option.IncludedCoverageLimitSatang ==
             evidence.IncludedCoverageLimitSatang &&
-            option.SelectedCoverageLimitSatang ==
+            option.SelectedCoverageLimitSatang > 0 &&
+            option.SelectedCoverageLimitSatang <=
             evidence.MaximumCoverageLimitSatang &&
             option.ProviderCostSatang == evidence.ProviderCostSatang &&
             option.TermsVersion == evidence.TermsVersion &&
             option.InsuranceCode == evidence.InsuranceCode &&
             option.OptionReference == evidence.OptionReference;
+
+        private static bool HasValidOptionIdentifiers(
+            ProviderParcelProtectionOption option) =>
+            IsSafeReference(option.TermsVersion) &&
+            IsSafeReference(option.InsuranceCode) &&
+            IsSafeReference(option.OptionReference);
+
+        private static bool HasValidEvidenceIdentifiers(
+            ParcelProtectionCertificationEvidence evidence) =>
+            IsSafeReference(evidence.TermsVersion) &&
+            IsSafeReference(evidence.InsuranceCode) &&
+            IsSafeReference(evidence.OptionReference);
+
+        private static bool TryGetParcelFieldEvidence(
+            ParcelProtectionCertificationParcelRequirements requirements,
+            out IReadOnlyList<string> evidence)
+        {
+            if (MatchesParcelField(requirements.Weight, "weight", "grams") &&
+                MatchesParcelField(
+                    requirements.Width,
+                    "width",
+                    "centimeters") &&
+                MatchesParcelField(
+                    requirements.Length,
+                    "length",
+                    "centimeters") &&
+                MatchesParcelField(
+                    requirements.Height,
+                    "height",
+                    "centimeters"))
+            {
+                evidence =
+                [
+                    $"{requirements.Weight.FieldName}:{requirements.Weight.Unit}",
+                    $"{requirements.Width.FieldName}:{requirements.Width.Unit}",
+                    $"{requirements.Length.FieldName}:{requirements.Length.Unit}",
+                    $"{requirements.Height.FieldName}:{requirements.Height.Unit}"
+                ];
+                return true;
+            }
+
+            evidence = [];
+            return false;
+        }
+
+        private static bool MatchesParcelField(
+            ParcelProtectionCertificationParcelField field,
+            string expectedFieldName,
+            string expectedUnit) =>
+            string.Equals(
+                field.FieldName,
+                expectedFieldName,
+                StringComparison.Ordinal) &&
+            string.Equals(
+                field.Unit,
+                expectedUnit,
+                StringComparison.Ordinal);
+
+        private static bool IsSafeReference(string? value) =>
+            value is { Length: > 0 and <= 80 } &&
+            value.All(character =>
+                char.IsAsciiLetterOrDigit(character) ||
+                character is '-' or '_' or '.');
 
         private static bool BookingMatches(
             ParcelProtectionCertificationBooking booking,
@@ -542,15 +872,20 @@ public sealed class ShippopServiceCertificationTests
     }
 
     private static ParcelProtectionCertificationEvidence
-        CertificationEvidence(long includedCoverageLimitSatang = 100_000) =>
+        CertificationEvidence(
+            long includedCoverageLimitSatang = 100_000,
+            long maximumCoverageLimitSatang = 450_000,
+            string termsVersion = "terms-v1",
+            string insuranceCode = "PROTECT",
+            string optionReference = "option-v1") =>
         new(
             includedCoverageLimitSatang,
-            450_000,
+            maximumCoverageLimitSatang,
             4_500,
             6_000,
-            "terms-v1",
-            "PROTECT",
-            "option-v1");
+            termsVersion,
+            insuranceCode,
+            optionReference);
 
     private static ShippingContactAddress SyntheticContact(
         string postalCode) =>
@@ -565,20 +900,28 @@ public sealed class ShippopServiceCertificationTests
 
     private sealed class DeterministicCertifiedProvider(
         bool replayHasDifferentProviderCost = false,
-        bool hasAllParcelRequirements = true,
         bool returnsBookingForDifferentLookup = false,
-        long includedCoverageLimitSatang = 100_000)
+        long includedCoverageLimitSatang = 100_000,
+        long selectedCoverageLimitSatang = 450_000,
+        string termsVersion = "terms-v1",
+        string insuranceCode = "PROTECT",
+        string optionReference = "option-v1",
+        string providerBookingReference = "provider-booking-v1",
+        string weightFieldName = "weight",
+        string weightUnit = "grams",
+        string heightUnit = "centimeters",
+        string? lookupOperationReferenceOverride = null)
         : IParcelProtectionQuoteProvider,
             IParcelProtectionCertificationOperations
     {
         private readonly ProviderParcelProtectionOption option = new(
             "shippop",
-            "option-v1",
+            optionReference,
             includedCoverageLimitSatang,
-            450_000,
+            selectedCoverageLimitSatang,
             4_500,
-            "terms-v1",
-            "PROTECT",
+            termsVersion,
+            insuranceCode,
             DateTimeOffset.UnixEpoch,
             DateTimeOffset.UnixEpoch.AddHours(1));
         private readonly Dictionary<string, ParcelProtectionCertificationBooking>
@@ -609,10 +952,18 @@ public sealed class ShippopServiceCertificationTests
                 CancellationToken cancellationToken) =>
             Task.FromResult(
                 new ParcelProtectionCertificationParcelRequirements(
-                    WeightRequired: true,
-                    WidthRequired: true,
-                    LengthRequired: true,
-                    HeightRequired: hasAllParcelRequirements));
+                    new ParcelProtectionCertificationParcelField(
+                        weightFieldName,
+                        weightUnit),
+                    new ParcelProtectionCertificationParcelField(
+                        "width",
+                        "centimeters"),
+                    new ParcelProtectionCertificationParcelField(
+                        "length",
+                        "centimeters"),
+                    new ParcelProtectionCertificationParcelField(
+                        "height",
+                        heightUnit)));
 
         public Task<ParcelProtectionCertificationBooking> BookAsync(
             ParcelProtectionCertificationBookingRequest request,
@@ -625,7 +976,7 @@ public sealed class ShippopServiceCertificationTests
                 : option.ProviderCostSatang;
             var booking = new ParcelProtectionCertificationBooking(
                 request.OperationReference,
-                "provider-booking-v1",
+                providerBookingReference,
                 option.OptionReference,
                 option.IncludedCoverageLimitSatang,
                 option.SelectedCoverageLimitSatang,
@@ -642,12 +993,19 @@ public sealed class ShippopServiceCertificationTests
             CancellationToken cancellationToken)
         {
             LookupCalls++;
+            if (bookings.TryGetValue(operationReference, out var booking))
+                return Task.FromResult<ParcelProtectionCertificationBooking?>(
+                    lookupOperationReferenceOverride is null
+                        ? booking
+                        : booking with
+                        {
+                            OperationReference =
+                                lookupOperationReferenceOverride
+                        });
             return Task.FromResult(
-                bookings.TryGetValue(operationReference, out var booking)
-                    ? booking
-                    : returnsBookingForDifferentLookup
-                        ? firstBooking
-                        : null);
+                returnsBookingForDifferentLookup
+                    ? firstBooking
+                    : null);
         }
 
         public Task<ParcelProtectionCertificationCancellation>
@@ -673,20 +1031,32 @@ public sealed class ShippopServiceCertificationTests
                     "provider_capability_uncertified",
                     "optional_protection_unavailable",
                     "certification_evidence_missing",
+                    "option_identifier_invalid",
+                    "coverage_limit_mismatch",
                     "option_validation_mismatch",
                     "provider_cost_customer_price_mismatch",
                     "booking_operations_unavailable",
                     "mutation_certification_not_enabled",
                     "parcel_requirements_mismatch",
                     "booking_result_mismatch",
+                    "booking_identifier_invalid",
                     "booking_replay_mismatch",
                     "booking_lookup_not_found",
+                    "lookup_reference_invalid",
                     "booking_lookup_mismatch",
                     "booking_lookup_reference_mismatch",
                     "pre_scan_cancel_failed"
                 ],
                 StringComparer.Ordinal);
+        private static readonly IReadOnlyList<string> AllowedParcelFields =
+        [
+            "weight:grams",
+            "width:centimeters",
+            "length:centimeters",
+            "height:centimeters"
+        ];
         private readonly List<SanitizedEvidenceCheck> checks = [];
+        private IReadOnlyList<string> parcelFields = [];
 
         public bool IsEmpty => checks.Count == 0;
 
@@ -697,6 +1067,17 @@ public sealed class ShippopServiceCertificationTests
                 throw new InvalidOperationException(
                     "Certification report entry is not allow-listed.");
             checks.Add(new SanitizedEvidenceCheck(capability, outcome));
+        }
+
+        public void RecordParcelFields(
+            IReadOnlyList<string> returnedParcelFields)
+        {
+            if (!returnedParcelFields.SequenceEqual(
+                    AllowedParcelFields,
+                    StringComparer.Ordinal))
+                throw new InvalidOperationException(
+                    "Certification parcel fields are not allow-listed.");
+            parcelFields = returnedParcelFields;
         }
 
         public void Write()
@@ -710,7 +1091,7 @@ public sealed class ShippopServiceCertificationTests
                 serviceCode,
                 DateTimeOffset.UtcNow,
                 "satang",
-                ["weight:grams", "width:centimeters", "length:centimeters", "height:centimeters"],
+                parcelFields,
                 checks);
             var path = Path.Combine(
                 directory,
