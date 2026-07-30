@@ -602,7 +602,8 @@ public sealed class MobileApiFactory : WebApplicationFactory<Program>
         {
             requests.Enqueue(new TestPaymentIntentRequest(
                 transactionId,
-                receiptEmail));
+                receiptEmail,
+                amountSatang));
             return Task.FromResult(
                 new PaymentIntentPreparation(
                     existingProviderReference ??
@@ -677,4 +678,5 @@ public sealed class MobileApiFactory : WebApplicationFactory<Program>
 
 public sealed record TestPaymentIntentRequest(
     Guid TransactionId,
-    string ReceiptEmail);
+    string ReceiptEmail,
+    long AmountSatang);

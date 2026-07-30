@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Toklong.Application.Abstractions;
+using Toklong.Application.Features.Checkout.ChooseParcelProtection;
 using Toklong.Application.Features.Shipping;
 using Toklong.Application.Features.Shipping.ProcessShippingOperations;
+using Toklong.Application.Pricing;
 using Toklong.Domain.Transactions;
 using Toklong.Infrastructure.Persistence;
 
@@ -129,6 +131,53 @@ public sealed class DurableShippingOperationProcessingTests
         Assert.Equal(ShippingOperationStatus.Superseded, operation.Status);
         Assert.Contains(transaction.AuditEvents, audit =>
             audit.Name == "parcel_protection.booking_outcome");
+    }
+
+    [Fact]
+    public async Task Reconfirmation_after_superseded_unreserved_booking_queues_one_new_exact_intent()
+    {
+        await using var database = CreateDatabase();
+        var (transaction, supersededOperation) = PendingBuyerCheckoutBooking();
+        database.Transactions.Add(transaction);
+        await database.SaveChangesAsync();
+        var provider = new BookingProvider
+        {
+            ProtectionOption = BookingProvider.DefaultProtectionOption with
+            {
+                TermsVersion = "parcel-protection-2026-08-01"
+            }
+        };
+        await Handler(
+                database,
+                supersededOperation,
+                provider,
+                new FixedClock(Now.AddMinutes(1)))
+            .Handle(
+                new ProcessNextShippingOperationCommand("worker-a"),
+                default);
+
+        var handler = new ChooseParcelProtectionHandler(
+            new TransactionRepository(database),
+            provider,
+            new ParcelProtectionPricingPolicy(),
+            database,
+            new FixedClock(Now.AddMinutes(2)));
+        var result = await handler.Handle(
+            new ChooseParcelProtectionCommand(
+                transaction.Id,
+                transaction.BuyerId!.Value,
+                AddProtection: false,
+                OptionReference: null,
+                DisclosedCustomerPriceSatang: null,
+                IdempotencyKey: "reconfirm-declined-choice"),
+            default);
+
+        Assert.Equal("preparing_shipping", result.BookingStatus);
+        Assert.Equal(2, transaction.ManagedShipments.Count);
+        Assert.Equal(ShippingOperationStatus.Superseded,
+            supersededOperation.Status);
+        Assert.Single(transaction.ShippingOperations,
+            operation => operation.Status == ShippingOperationStatus.Pending);
     }
 
     [Theory]
@@ -812,7 +861,10 @@ public sealed class DurableShippingOperationProcessingTests
         public Task<ParcelProtectionAvailability> GetAvailabilityAsync(
             ParcelProtectionQuoteRequest request,
             CancellationToken cancellationToken) =>
-            throw new NotSupportedException();
+            Task.FromResult(new ParcelProtectionAvailability(
+                100_000,
+                ProtectionOption,
+                ProviderCapabilityCertified: true));
 
         public Task<ProviderParcelProtectionOption> ValidateOptionAsync(
             ParcelProtectionQuoteRequest request,

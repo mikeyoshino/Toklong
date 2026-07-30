@@ -400,6 +400,30 @@ public sealed class ShippingMoneyTests
                 .GetProperty("ParcelProtection")
                 .GetProperty("ParcelProtectionElection")
                 .GetString());
+        var checkoutAnnexAcceptance = Assert.Single(
+            transaction.AuditEvents,
+            audit => audit.Name == "buyer.checkout_annex_accepted");
+        using var checkoutAnnex = JsonDocument.Parse(
+            checkoutAnnexAcceptance.MetadataJson);
+        Assert.Equal(
+            transaction.BuyerTotalSatang,
+            checkoutAnnex.RootElement
+                .GetProperty("BuyerTotalSatang")
+                .GetInt64());
+        Assert.Equal(
+            "Accepted",
+            checkoutAnnex.RootElement
+                .GetProperty("ParcelProtectionElection")
+                .GetString());
+        Assert.Equal(
+            transaction.ProductSnapshotHash,
+            checkoutAnnex.RootElement
+                .GetProperty("ProductSnapshotHash")
+                .GetString());
+        Assert.False(string.IsNullOrWhiteSpace(
+            checkoutAnnex.RootElement
+                .GetProperty("BuyerCheckoutAnnexHash")
+                .GetString()));
 
         Assert.Throws<DomainException>(() =>
             transaction.RecordParcelProtectionElection(
@@ -479,6 +503,13 @@ public sealed class ShippingMoneyTests
             {
                 ReservedAt = Now.AddMinutes(1)
             });
+        reserved.RecordParcelProtectionElection(
+            reserved.BuyerId!.Value,
+            Selection(
+                ParcelProtectionElectionStatus.Declined,
+                includedCoverageLimitSatang: 100_000,
+                selectedCoverageLimitSatang: 100_000),
+            Now.AddMinutes(2));
 
         Assert.True(reserved.ParcelProtectionBookingReady);
     }

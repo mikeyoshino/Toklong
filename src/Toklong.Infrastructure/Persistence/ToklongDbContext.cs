@@ -621,7 +621,7 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         {
             x.TransactionId,
             x.Direction
-        }).IsUnique();
+        });
         shipment.Property(x => x.Direction)
             .HasConversion<string>()
             .HasMaxLength(20);

@@ -1069,8 +1069,7 @@ namespace Toklong.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TransactionId", "Direction")
-                        .IsUnique();
+                    b.HasIndex("TransactionId", "Direction");
 
                     b.ToTable("managed_shipments", (string)null);
                 });

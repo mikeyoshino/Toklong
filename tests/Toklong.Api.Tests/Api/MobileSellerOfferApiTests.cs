@@ -322,6 +322,12 @@ public sealed class MobileSellerOfferApiTests
                 example.FeeSatang,
                 stored.BuyerTotalSatang);
             Assert.Equal(
+                stored.BuyerTotalSatang,
+                Assert.Single(
+                    factory.PaymentIntentRequests,
+                    request => request.TransactionId == created.Id)
+                    .AmountSatang);
+            Assert.Equal(
                 "buyer-protection-v2",
                 stored.FeePolicyVersion);
             Assert.NotNull(stored.ProductSnapshotHash);

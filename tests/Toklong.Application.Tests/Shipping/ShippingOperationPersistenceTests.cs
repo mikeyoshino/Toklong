@@ -38,7 +38,7 @@ public sealed class ShippingOperationPersistenceTests
     }
 
     [Fact]
-    public void Model_has_required_shipping_unique_and_due_indexes()
+    public void Model_keeps_superseded_outbound_history_and_due_indexes()
     {
         using var context = RelationalDatabase.CreateModelContext();
         var shipment = context.Model.FindEntityType(
@@ -52,7 +52,7 @@ public sealed class ShippingOperationPersistenceTests
 
         Assert.Contains(
             shipment.GetIndexes(),
-            index => index.IsUnique &&
+            index => !index.IsUnique &&
                      index.Properties.Select(property => property.Name)
                          .SequenceEqual([
                              nameof(ManagedShipment.TransactionId),

@@ -258,8 +258,19 @@ public sealed class SaleTransaction
             operation.ManagedShipmentId != shipment.Id)
             throw new DomainException(
                 "งานจัดส่งไม่ตรงกับรายการซื้อขาย");
-        if (_managedShipments.Any(item =>
-                item.Direction == shipment.Direction))
+        var existingShipment = _managedShipments.SingleOrDefault(item =>
+            item.Direction == shipment.Direction);
+        var replacesSupersededUnreservedOutbound =
+            shipment.Direction == ShipmentDirection.Outbound &&
+            existingShipment is not null &&
+            string.IsNullOrWhiteSpace(existingShipment.PurchaseReference) &&
+            string.IsNullOrWhiteSpace(existingShipment.ProviderTrackingCode) &&
+            _shippingOperations.Where(item =>
+                    item.ManagedShipmentId == existingShipment.Id)
+                .All(item => item.Status ==
+                    ShippingOperationStatus.Superseded);
+        if (existingShipment is not null &&
+            !replacesSupersededUnreservedOutbound)
             throw new DomainException(
                 shipment.Direction == ShipmentDirection.Outbound
                     ? "รายการนี้มีการจัดส่งขาออกแล้ว"
@@ -1980,6 +1991,7 @@ public sealed class SaleTransaction
                 "ไม่พบบัญชีผู้ซื้อของข้อเสนอนี้"),
             now);
         CreateAgreementSnapshot(now);
+        RecordBuyerCheckoutAnnexAcceptance(now);
 
         transitions.Transition(this, TransactionState.CheckoutStarted, ActorRole.Buyer, BuyerAccessToken,
             "checkout.started", now, Id.ToString("N"), $"checkout:{Id:N}",
@@ -4515,6 +4527,46 @@ public sealed class SaleTransaction
             [nameof(ParcelProtectionBuyerElectedAt)] =
                 ParcelProtectionBuyerElectedAt
         };
+    }
+
+    private void RecordBuyerCheckoutAnnexAcceptance(
+        DateTimeOffset now)
+    {
+        var annexJson = JsonSerializer.Serialize(new
+        {
+            BuyerTotalSatang,
+            ParcelProtectionElection =
+                ParcelProtectionElection.ToString(),
+            ParcelInsuranceFeeSatang,
+            ParcelProtectionProviderCostSatang,
+            ParcelProtectionServiceFeeSatang,
+            ParcelProtectionIncludedCoverageSatang,
+            ParcelProtectionSelectedCoverageSatang,
+            ParcelProtectionTermsVersion,
+            ParcelProtectionOptionReference,
+            ParcelProtectionQuotedAt,
+            ParcelProtectionExpiresAt,
+            ParcelProtectionBuyerElectedAt
+        });
+        _auditEvents.Add(new AuditEvent(
+            Id,
+            ActorRole.Buyer,
+            BuyerId!.Value.ToString("N"),
+            "buyer.checkout_annex_accepted",
+            State,
+            State,
+            now,
+            Id.ToString("N"),
+            $"buyer-checkout-annex:{Id:N}",
+            JsonSerializer.Serialize(new
+            {
+                BuyerTotalSatang,
+                ParcelProtectionElection =
+                    ParcelProtectionElection.ToString(),
+                BuyerCheckoutAnnexHash = Hash(annexJson),
+                ProductSnapshotHash
+            })));
+        Version++;
     }
 
     private string SnapshotAuditMetadata() =>
