@@ -27,9 +27,8 @@ public sealed class ParcelProtectionCheckoutTests
                 "prepare-included-coverage"), default);
 
         Assert.False(view.RequiresChoice);
-        Assert.DoesNotContain(fixture.Transaction.AuditEvents, audit =>
-            audit.Name is "parcel_protection.offered" or
-                "parcel_protection.unavailable");
+        Assert.Contains(fixture.Transaction.AuditEvents, audit =>
+            audit.Name == "parcel_protection.offered");
         var result = await fixture.ChooseHandler.Handle(fixture.Choose(false), default);
 
         Assert.Equal("preparing_shipping", result.BookingStatus);

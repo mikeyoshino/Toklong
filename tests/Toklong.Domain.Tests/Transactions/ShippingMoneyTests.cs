@@ -371,9 +371,13 @@ public sealed class ShippingMoneyTests
         var buyerId = transaction.BuyerId!.Value;
 
         transaction.RecordParcelProtectionAvailabilityPresented(
-            buyerId, true, "parcel-protection-offered", Now.AddMinutes(2));
+            buyerId, new ParcelProtectionPreparedOffer(true, true, 100_000,
+                450_000, 6_000, "protected-option", "terms-v1",
+                Now.AddHours(1)), "parcel-protection-offered", Now.AddMinutes(2));
         transaction.RecordParcelProtectionAvailabilityPresented(
-            buyerId, true, "parcel-protection-offered", Now.AddMinutes(3));
+            buyerId, new ParcelProtectionPreparedOffer(true, true, 100_000,
+                450_000, 6_000, "protected-option", "terms-v1",
+                Now.AddHours(1)), "parcel-protection-offered", Now.AddMinutes(3));
         Assert.Single(transaction.AuditEvents, audit =>
             audit.Name == "parcel_protection.offered");
 

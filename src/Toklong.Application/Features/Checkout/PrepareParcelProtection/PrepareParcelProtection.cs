@@ -47,25 +47,21 @@ public sealed class PrepareParcelProtectionHandler(
             customerPrice = pricing.Price(availability.AddOn.ProviderCostSatang)
                 .CustomerPriceSatang;
 
-        if (requiresChoice || transaction.PriceSatang >
-            availability.IncludedCoverageLimitSatang)
-        {
-            transaction.RecordParcelProtectionAvailabilityPresented(
-                request.BuyerId,
-                new ParcelProtectionPreparedOffer(
-                    requiresChoice,
-                    addOnAvailable,
-                    availability.IncludedCoverageLimitSatang,
-                    availability.AddOn?.SelectedCoverageLimitSatang,
-                    customerPrice,
-                    availability.AddOn?.OptionReference,
-                    availability.AddOn?.TermsVersion ??
-                        ParcelProtectionCheckout.IncludedTermsVersion,
-                    availability.AddOn?.ExpiresAt),
-                idempotencyKey,
-                clock.UtcNow);
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-        }
+        transaction.RecordParcelProtectionAvailabilityPresented(
+            request.BuyerId,
+            new ParcelProtectionPreparedOffer(
+                requiresChoice,
+                addOnAvailable,
+                availability.IncludedCoverageLimitSatang,
+                availability.AddOn?.SelectedCoverageLimitSatang,
+                customerPrice,
+                availability.AddOn?.OptionReference,
+                availability.AddOn?.TermsVersion ??
+                    ParcelProtectionCheckout.IncludedTermsVersion,
+                availability.AddOn?.ExpiresAt),
+            idempotencyKey,
+            clock.UtcNow);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new BuyerParcelProtectionView(
             requiresChoice,
