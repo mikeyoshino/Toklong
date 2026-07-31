@@ -1,5 +1,6 @@
 using System.Threading.RateLimiting;
 using System.Security.Cryptography;
+using System.Security.Claims;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.DataProtection;
@@ -11,6 +12,7 @@ using Toklong.Api.Security;
 using Toklong.Api.Services;
 using Toklong.Application;
 using Toklong.Application.Abstractions;
+using Toklong.Application.Common;
 using Toklong.Infrastructure;
 using Toklong.Infrastructure.Persistence;
 using Toklong.Infrastructure.Services;
@@ -117,6 +119,24 @@ var nameChangeVerifyPermitLimit =
     builder.Configuration.GetValue(
         "RateLimits:NameChangeVerifyPermitLimit",
         10);
+var nameChangeRequestWindowSeconds =
+    builder.Environment.IsEnvironment("Testing")
+        ? Math.Clamp(
+            builder.Configuration.GetValue(
+                "RateLimits:NameChangeRequestWindowSeconds",
+                60),
+            1,
+            60)
+        : 60;
+var nameChangeVerifyWindowSeconds =
+    builder.Environment.IsEnvironment("Testing")
+        ? Math.Clamp(
+            builder.Configuration.GetValue(
+                "RateLimits:NameChangeVerifyWindowSeconds",
+                600),
+            1,
+            600)
+        : 600;
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -126,10 +146,21 @@ builder.Services.AddRateLimiter(options =>
                 "/api/mobile/me/name-change"))
             return;
 
-        var retryAfterSeconds = context.HttpContext.Request.Path.Value
+        var maximumRetryAfterSeconds = context.HttpContext.Request.Path.Value
             ?.EndsWith("/verify", StringComparison.Ordinal) == true
-            ? 600
-            : 60;
+            ? nameChangeVerifyWindowSeconds
+            : nameChangeRequestWindowSeconds;
+        var retryAfterSeconds =
+            context.Lease.TryGetMetadata(
+                MetadataName.RetryAfter,
+                out var leaseRetryAfter) &&
+            leaseRetryAfter > TimeSpan.Zero
+                ? Math.Clamp(
+                    (int)Math.Ceiling(
+                        leaseRetryAfter.TotalSeconds),
+                    1,
+                    maximumRetryAfterSeconds)
+                : maximumRetryAfterSeconds;
         context.HttpContext.Response.Headers["Retry-After"] =
             retryAfterSeconds.ToString(
                 System.Globalization.CultureInfo.InvariantCulture);
@@ -243,7 +274,8 @@ builder.Services.AddRateLimiter(options =>
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = nameChangeRequestPermitLimit,
-                Window = TimeSpan.FromSeconds(60),
+                Window = TimeSpan.FromSeconds(
+                    nameChangeRequestWindowSeconds),
                 QueueLimit = 0,
                 AutoReplenishment = true
             }));
@@ -255,7 +287,8 @@ builder.Services.AddRateLimiter(options =>
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = nameChangeVerifyPermitLimit,
-                Window = TimeSpan.FromMinutes(10),
+                Window = TimeSpan.FromSeconds(
+                    nameChangeVerifyWindowSeconds),
                 QueueLimit = 0,
                 AutoReplenishment = true
             }));
@@ -353,12 +386,18 @@ static string AuthenticatedAccountRateLimitKey(
     HttpContext context,
     byte[] secret)
 {
-    var accountId = context.User.FindFirst(
-        MobileAuthenticationDefaults.BuyerIdClaim)?.Value
-        ?? context.User.FindFirst(
-            MobileAuthenticationDefaults.SellerIdClaim)?.Value
-        ?? "no-account";
-    return $"{accountId}:{RateLimitKey(context, secret)}";
+    var claimedPhone = context.User.FindFirstValue(
+        ClaimTypes.MobilePhone);
+    string accountKey;
+    try
+    {
+        accountKey = ThaiMobilePhone.Normalize(claimedPhone ?? "");
+    }
+    catch (ArgumentException)
+    {
+        accountKey = "no-account";
+    }
+    return $"{accountKey}:{RateLimitKey(context, secret)}";
 }
 
 static async Task ApplyDatabaseMigrationsAsync(WebApplication app)

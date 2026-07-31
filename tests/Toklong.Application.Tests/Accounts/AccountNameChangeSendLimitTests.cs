@@ -4,6 +4,7 @@ using Toklong.Application.Common;
 using Toklong.Application.Features.Accounts.NameChanges;
 using Toklong.Domain.Accounts;
 using Toklong.Domain.Buyers;
+using Toklong.Domain.Sellers;
 using Toklong.Infrastructure.Persistence;
 
 namespace Toklong.Application.Tests.Accounts;
@@ -51,17 +52,52 @@ public sealed class AccountNameChangeSendLimitTests
         Assert.Equal(1, scenario.Provider.RequestCount);
     }
 
+    [Fact]
+    public async Task Buyer_accepted_history_blocks_same_phone_seller_only_subject_in_a_new_scope()
+    {
+        await using var scenario = await Scenario.CreateAsync();
+        var oldest = Now.AddHours(-23);
+        for (var index = 0; index < 5; index++)
+            await scenario.AddAcceptedChallengeAsync(
+                oldest.AddHours(index));
+        var sellerSubject = new AccountNameChangeSubject(
+            null,
+            scenario.Seller.Id,
+            Guid.NewGuid(),
+            scenario.Seller.PhoneNumber);
+
+        var exception = await Assert.ThrowsAsync<RequestCooldownException>(() =>
+            scenario.Handler().Handle(
+                scenario.Command() with { Subject = sellerSubject },
+                default));
+
+        Assert.Equal(oldest.AddHours(24) - Now, exception.RetryAfter);
+        Assert.Equal(0, scenario.Provider.RequestCount);
+        Assert.All(
+            scenario.Database.AccountNameChangeChallenges,
+            challenge =>
+            {
+                Assert.Equal(scenario.Buyer.Id, challenge.BuyerId);
+                Assert.Null(challenge.SellerId);
+                Assert.Equal(
+                    AccountNameChangeStatus.Superseded,
+                    challenge.Status);
+            });
+    }
+
     private sealed class Scenario : IAsyncDisposable
     {
         private Scenario(
             ToklongDbContext database,
             BuyerAccount buyer,
+            SellerAccount seller,
             AccountNameChangeSubject subject,
             MutableClock clock,
             CountingOtpProvider provider)
         {
             Database = database;
             Buyer = buyer;
+            Seller = seller;
             Subject = subject;
             Clock = clock;
             Provider = provider;
@@ -69,6 +105,7 @@ public sealed class AccountNameChangeSendLimitTests
 
         public ToklongDbContext Database { get; }
         public BuyerAccount Buyer { get; }
+        public SellerAccount Seller { get; }
         public AccountNameChangeSubject Subject { get; }
         public MutableClock Clock { get; }
         public CountingOtpProvider Provider { get; }
@@ -84,7 +121,11 @@ public sealed class AccountNameChangeSendLimitTests
                 AccountName.Create("สมชาย", "ใจดี"),
                 "buyer@example.com",
                 Now.AddYears(-1));
-            database.Buyers.Add(buyer);
+            var seller = SellerAccount.Create(
+                buyer.PhoneNumber,
+                Now.AddYears(-1),
+                AccountName.Create("สมชาย", "ใจดี"));
+            database.AddRange(buyer, seller);
             await database.SaveChangesAsync();
             var subject = new AccountNameChangeSubject(
                 buyer.Id,
@@ -95,6 +136,7 @@ public sealed class AccountNameChangeSendLimitTests
             return new(
                 database,
                 buyer,
+                seller,
                 subject,
                 clock,
                 new CountingOtpProvider());
