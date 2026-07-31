@@ -58,7 +58,7 @@ public sealed class VerifyAccountNameChangeHandler(
         var verificationKey =
             NormalizeIdempotencyKey(request.IdempotencyKey);
         if (request.ChallengeId == Guid.Empty)
-            throw new AccountNameChangeIdempotencyException();
+            throw new AccountNameChangeInvalidIdempotencyException();
         var submittedDigest =
             security.Digest(request.ChallengeId, code);
         EnsureProviderCapabilities();
@@ -114,7 +114,9 @@ public sealed class VerifyAccountNameChangeHandler(
                     cancellationToken);
             if (operation is not null)
             {
-                operation.EnsureExactReplay(submittedDigest);
+                try { operation.EnsureExactReplay(submittedDigest); }
+                catch (DomainException)
+                { throw new AccountNameChangeIdempotencyConflictException(); }
                 break;
             }
 
@@ -227,7 +229,9 @@ public sealed class VerifyAccountNameChangeHandler(
                     verificationKey,
                     cancellationToken)
                 ?? throw new AccountNameChangeProviderOutcomeUnknownException();
-            operation.EnsureExactReplay(submittedDigest);
+            try { operation.EnsureExactReplay(submittedDigest); }
+            catch (DomainException)
+            { throw new AccountNameChangeIdempotencyConflictException(); }
             EnsureChallengeCanBeSubmitted(challenge);
             AccountNameChangeEligibilityPolicy.EnsureEligible(
                 subject,
@@ -647,7 +651,7 @@ public sealed class VerifyAccountNameChangeHandler(
         var clean = (value ?? "").Trim();
         if (clean.Length != 32 ||
             !Guid.TryParseExact(clean, "N", out var parsed))
-            throw new AccountNameChangeIdempotencyException();
+            throw new AccountNameChangeInvalidIdempotencyException();
         return parsed.ToString("N");
     }
 }

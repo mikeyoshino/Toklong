@@ -704,7 +704,13 @@ public static class MobileApi
                 "ชื่อนี้เป็นชื่อปัจจุบันของคุณแล้ว",
                 null,
                 null),
-        AccountNameChangeIdempotencyException =>
+        AccountNameChangeInvalidIdempotencyException =>
+            (StatusCodes.Status422UnprocessableEntity,
+                "name_change_idempotency_invalid",
+                "รหัสคำขอไม่ถูกต้อง",
+                null,
+                null),
+        AccountNameChangeIdempotencyConflictException =>
             (StatusCodes.Status409Conflict,
                 "name_change_idempotency_conflict",
                 "คำขอนี้ไม่ตรงกับข้อมูลเดิม กรุณาลองใหม่",
@@ -801,6 +807,12 @@ public static class MobileApi
                 (StatusCodes.Status409Conflict,
                     "name_change_idempotency_conflict",
                     "คำขอนี้ไม่ตรงกับข้อมูลเดิม กรุณาลองใหม่",
+                    null,
+                    null),
+            AccountNameVerificationFailure.MalformedCode =>
+                (StatusCodes.Status422UnprocessableEntity,
+                    "name_change_code_invalid",
+                    "กรอกรหัสยืนยัน 6 หลัก",
                     null,
                     null),
             _ =>

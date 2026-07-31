@@ -145,7 +145,7 @@ public sealed class AccountNameChangeRequestTests
 
         Assert.Equal(first, replay);
         Assert.Equal(1, scenario.Provider.RequestCount);
-        await Assert.ThrowsAsync<AccountNameChangeIdempotencyException>(() =>
+        await Assert.ThrowsAsync<AccountNameChangeIdempotencyConflictException>(() =>
             scenario.RequestHandler().Handle(mismatch, default));
         Assert.Equal(1, scenario.Provider.RequestCount);
     }
@@ -253,7 +253,7 @@ public sealed class AccountNameChangeRequestTests
             "สมปอง",
             "ใจดี",
             command.IdempotencyKey);
-        await Assert.ThrowsAsync<AccountNameChangeIdempotencyException>(() =>
+        await Assert.ThrowsAsync<AccountNameChangeIdempotencyConflictException>(() =>
             scenario.RequestHandler().Handle(
                 mismatchedInitial,
                 default));

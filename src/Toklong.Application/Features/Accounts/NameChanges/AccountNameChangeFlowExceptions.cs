@@ -19,8 +19,11 @@ public sealed class AccountNameChangeInputException(
 public sealed class AccountNameChangeUnchangedNameException()
     : AccountNameChangeFlowException("ชื่อนี้เป็นชื่อปัจจุบันของคุณแล้ว");
 
-public sealed class AccountNameChangeIdempotencyException()
-    : AccountNameChangeFlowException("รหัสคำขอไม่ถูกต้องหรือไม่ตรงกับข้อมูลเดิม");
+public sealed class AccountNameChangeInvalidIdempotencyException()
+    : AccountNameChangeFlowException("รหัสคำขอไม่ถูกต้อง");
+
+public sealed class AccountNameChangeIdempotencyConflictException()
+    : AccountNameChangeFlowException("คำขอนี้ไม่ตรงกับข้อมูลเดิม");
 
 public enum AccountNameVerificationFailure
 {

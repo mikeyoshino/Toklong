@@ -53,6 +53,14 @@ Focused account-name domain:   18 passed
 git diff --check: passed
 ```
 
+## Round 2 in progress
+
+- Separated malformed idempotency input from idempotency conflict and mapped
+  malformed OTP input to a 422 `name_change_code_invalid` contract.
+- Exact outcome-unknown operation replays with a different submitted digest now
+  translate to the typed idempotency-conflict boundary rather than generic
+  invalid input.
+
 The PostgreSQL-gated skips require `TOKLONG_POSTGRES_MIGRATION_TEST_CONNECTION`.
 The domain restore emitted only `NU1900` because the environment could not
 retrieve NuGet vulnerability data.

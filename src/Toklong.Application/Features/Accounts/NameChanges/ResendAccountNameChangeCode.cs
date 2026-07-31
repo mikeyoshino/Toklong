@@ -66,7 +66,7 @@ public sealed class ResendAccountNameChangeCodeHandler(
             }
             catch (DomainException)
             {
-                throw new AccountNameChangeIdempotencyException();
+                throw new AccountNameChangeIdempotencyConflictException();
             }
             return await AccountNameChangeSendOperations
                 .ReplayOrRecoverAsync(

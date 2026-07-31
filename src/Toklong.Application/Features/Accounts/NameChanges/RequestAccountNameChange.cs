@@ -59,7 +59,7 @@ public sealed class RequestAccountNameChangeHandler(
             }
             catch (DomainException)
             {
-                throw new AccountNameChangeIdempotencyException();
+                throw new AccountNameChangeIdempotencyConflictException();
             }
             return await AccountNameChangeSendOperations
                 .ReplayOrRecoverAsync(
@@ -405,11 +405,11 @@ internal static class AccountNameChangeSendOperations
         var clean = (value ?? "").Trim();
         if (clean.Length != 32 ||
             !Guid.TryParseExact(clean, "N", out var parsed))
-            throw new AccountNameChangeIdempotencyException();
+            throw new AccountNameChangeInvalidIdempotencyException();
         return parsed.ToString("N");
     }
 
-    public static AccountNameChangeIdempotencyException NonExactReplay() =>
+    public static AccountNameChangeIdempotencyConflictException NonExactReplay() =>
         new();
 
     private static Exception ReplaySendFailure(
