@@ -66,6 +66,21 @@ public sealed class AccountNameChangeChallengeTests
     }
 
     [Fact]
+    public void Expire_closes_active_challenge_at_exact_boundary()
+    {
+        var challenge = ActiveChallenge();
+        var expiresAt = challenge.ExpiresAt!.Value;
+
+        Assert.Throws<DomainException>(
+            () => challenge.Expire(expiresAt.AddTicks(-1)));
+
+        challenge.Expire(expiresAt);
+
+        Assert.Equal(AccountNameChangeStatus.Expired, challenge.Status);
+        Assert.Equal(2, challenge.Version);
+    }
+
+    [Fact]
     public void Resend_is_rejected_until_sixty_seconds_after_accepted_send()
     {
         var challenge = ActiveChallenge();
@@ -151,16 +166,50 @@ public sealed class AccountNameChangeChallengeTests
         var challenge = NewChallenge();
         var failedAt = Now.AddSeconds(2);
 
-        challenge.MarkSendFailed(failedAt);
+        challenge.MarkSendFailed(
+            failedAt,
+            "otp_provider_cooldown",
+            "กรุณารออีก 37 วินาที",
+            TimeSpan.FromSeconds(37));
 
         Assert.Equal(AccountNameChangeStatus.SendFailed, challenge.Status);
         Assert.Equal(failedAt, challenge.SendFailedAt);
+        Assert.Equal(
+            "otp_provider_cooldown",
+            challenge.SendFailureCode);
+        Assert.Equal(
+            "กรุณารออีก 37 วินาที",
+            challenge.SendFailureMessage);
+        Assert.Equal(
+            TimeSpan.FromSeconds(37).Ticks,
+            challenge.SendFailureRetryAfterTicks);
         Assert.Null(challenge.ProviderChallengeId);
         Assert.Null(challenge.ExpiresAt);
         Assert.Throws<DomainException>(
             () => challenge.MarkSendAccepted(
                 "late-provider-result",
                 failedAt.AddSeconds(1)));
+    }
+
+    [Theory]
+    [InlineData("OTP CODE", "กรุณารอ")]
+    [InlineData("otp_provider_cooldown", "")]
+    public void Send_failure_rejects_unbounded_or_unsafe_evidence(
+        string code,
+        string message)
+    {
+        var challenge = NewChallenge();
+
+        Assert.Throws<DomainException>(() =>
+            challenge.MarkSendFailed(
+                Now,
+                code,
+                message,
+                TimeSpan.FromSeconds(30)));
+
+        Assert.Equal(
+            AccountNameChangeStatus.PendingSend,
+            challenge.Status);
     }
 
     [Fact]

@@ -81,14 +81,29 @@ public sealed class RequestAccountNameChangeHandler(
             cancellationToken);
         if (open is not null)
         {
-            AccountNameChangeSubjectResolver.EnsureChallengeOwnership(
-                open,
-                request.Subject,
-                subject.PhoneNumber);
-            AccountNameChangeSendOperations.EnsureResendAvailable(
-                open,
-                clock.UtcNow);
-            open.Supersede(clock.UtcNow);
+            if (open.Status == AccountNameChangeStatus.Active &&
+                open.ExpiresAt <= clock.UtcNow)
+            {
+                AccountNameChangeSubjectResolver
+                    .EnsureSameAccountOwnership(
+                        open,
+                        request.Subject,
+                        subject.PhoneNumber);
+                open.Expire(clock.UtcNow);
+            }
+            else
+            {
+                AccountNameChangeSubjectResolver
+                    .EnsureChallengeOwnership(
+                        open,
+                        request.Subject,
+                        subject.PhoneNumber);
+                AccountNameChangeSendOperations
+                    .EnsureResendAvailable(
+                        open,
+                        clock.UtcNow);
+                open.Supersede(clock.UtcNow);
+            }
         }
 
         return await AccountNameChangeSendOperations.CreateAndSendAsync(
@@ -167,9 +182,13 @@ internal static class AccountNameChangeSendOperations
                 challenge.ProviderRequestKey,
                 cancellationToken);
         }
-        catch (RequestCooldownException)
+        catch (RequestCooldownException exception)
         {
-            challenge.MarkSendFailed(clock.UtcNow);
+            challenge.MarkSendFailed(
+                clock.UtcNow,
+                exception.Code,
+                exception.Message,
+                exception.RetryAfter);
             await SaveFailureAsync(
                 challenge,
                 unitOfWork,
@@ -188,7 +207,10 @@ internal static class AccountNameChangeSendOperations
 
         if (string.IsNullOrWhiteSpace(acceptance.ChallengeId))
         {
-            challenge.MarkSendFailed(clock.UtcNow);
+            challenge.MarkSendFailed(
+                clock.UtcNow,
+                "otp_provider_invalid_response",
+                SendError);
             await SaveFailureAsync(
                 challenge,
                 unitOfWork,
@@ -232,6 +254,8 @@ internal static class AccountNameChangeSendOperations
     {
         if (challenge.SendAcceptedAt.HasValue)
             return AccountNameChangeViews.ToAcceptedSend(challenge);
+        if (challenge.Status == AccountNameChangeStatus.SendFailed)
+            throw ReplaySendFailure(challenge);
         if (challenge.Status != AccountNameChangeStatus.PendingSend)
             throw new DomainException(SendError);
 
@@ -352,6 +376,24 @@ internal static class AccountNameChangeSendOperations
 
     public static DomainException NonExactReplay() =>
         new("คำขอนี้ไม่ตรงกับข้อมูลเดิม กรุณาลองใหม่");
+
+    private static Exception ReplaySendFailure(
+        AccountNameChangeChallenge challenge)
+    {
+        var message = string.IsNullOrWhiteSpace(
+            challenge.SendFailureMessage)
+            ? SendError
+            : challenge.SendFailureMessage;
+        if (challenge.SendFailureRetryAfterTicks is not { } ticks ||
+            ticks <= 0 ||
+            ticks > TimeSpan.FromHours(24).Ticks)
+            return new DomainException(message);
+
+        return new RequestCooldownException(
+            message,
+            TimeSpan.FromTicks(ticks),
+            challenge.SendFailureCode ?? "request_cooldown");
+    }
 
     private static async Task<PendingAccountNameChange>
         RecoverPersistenceConflictAsync(

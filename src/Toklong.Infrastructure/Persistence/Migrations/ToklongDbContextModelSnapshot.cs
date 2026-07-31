@@ -153,6 +153,17 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("SendFailedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("SendFailureCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("SendFailureMessage")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<long?>("SendFailureRetryAfterTicks")
+                        .HasColumnType("bigint");
+
                     b.Property<Guid>("SessionId")
                         .HasColumnType("uuid");
 

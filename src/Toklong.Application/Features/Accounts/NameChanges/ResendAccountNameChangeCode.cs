@@ -81,15 +81,22 @@ public sealed class ResendAccountNameChangeCodeHandler(
         if (priorResend is not null)
             throw AccountNameChangeSendOperations.NonExactReplay();
 
-        AccountNameChangeSendOperations.EnsureResendAvailable(
-            original,
-            clock.UtcNow);
+        var expired =
+            original.Status == AccountNameChangeStatus.Active &&
+            original.ExpiresAt <= clock.UtcNow;
+        if (expired)
+            original.Expire(clock.UtcNow);
+        else
+            AccountNameChangeSendOperations.EnsureResendAvailable(
+                original,
+                clock.UtcNow);
         await AccountNameChangeSendOperations.EnsureDailyQuotaAsync(
             subject,
             nameChanges,
             clock.UtcNow,
             cancellationToken);
-        original.Supersede(clock.UtcNow);
+        if (!expired)
+            original.Supersede(clock.UtcNow);
 
         return await AccountNameChangeSendOperations.CreateAndSendAsync(
             subject,

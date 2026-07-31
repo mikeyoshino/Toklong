@@ -6,9 +6,13 @@ public sealed class ForbiddenException(string message) : Exception(message);
 
 public sealed class RequestCooldownException(
     string message,
-    TimeSpan retryAfter) : Exception(message)
+    TimeSpan retryAfter,
+    string code = "request_cooldown") : Exception(message)
 {
     public TimeSpan RetryAfter { get; } = retryAfter;
+    public string Code { get; } = string.IsNullOrWhiteSpace(code)
+        ? "request_cooldown"
+        : code.Trim();
 }
 
 public sealed record CommandResult(bool Success, string? Error = null)

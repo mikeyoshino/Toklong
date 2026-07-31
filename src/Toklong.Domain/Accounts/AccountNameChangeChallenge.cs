@@ -34,6 +34,10 @@ public sealed class AccountNameChangeChallenge
 {
     private const int MaximumIncorrectAttempts = 5;
     private const int MaximumProviderChallengeLength = 800;
+    private const int MaximumFailureCodeLength = 64;
+    private const int MaximumFailureMessageLength = 200;
+    private static readonly TimeSpan MaximumFailureRetryAfter =
+        TimeSpan.FromHours(24);
 
     private AccountNameChangeChallenge() { }
 
@@ -57,6 +61,9 @@ public sealed class AccountNameChangeChallenge
     public DateTimeOffset? ResendAvailableAt { get; private set; }
     public DateTimeOffset? SendAcceptedAt { get; private set; }
     public DateTimeOffset? SendFailedAt { get; private set; }
+    public string? SendFailureCode { get; private set; }
+    public string? SendFailureMessage { get; private set; }
+    public long? SendFailureRetryAfterTicks { get; private set; }
     public DateTimeOffset? VerifiedAt { get; private set; }
     public DateTimeOffset? LockedAt { get; private set; }
     public DateTimeOffset? SupersededAt { get; private set; }
@@ -138,11 +145,51 @@ public sealed class AccountNameChangeChallenge
         Version++;
     }
 
-    public void MarkSendFailed(DateTimeOffset failedAt)
+    public void MarkSendFailed(
+        DateTimeOffset failedAt,
+        string failureCode = "otp_send_failed",
+        string failureMessage =
+            "ยังส่งรหัสยืนยันไม่สำเร็จ กรุณาลองอีกครั้ง",
+        TimeSpan? retryAfter = null)
     {
         EnsureStatus(AccountNameChangeStatus.PendingSend);
+        var normalizedCode = Required(
+            failureCode,
+            "รหัสผลการส่ง",
+            MaximumFailureCodeLength);
+        if (normalizedCode.Any(character =>
+                !(char.IsAsciiLetterOrDigit(character) ||
+                  character is '_' or '-' or '.')))
+            throw new DomainException(
+                "รหัสผลการส่งมีอักขระที่ไม่รองรับ");
+        var normalizedMessage = Required(
+            failureMessage,
+            "ข้อความผลการส่ง",
+            MaximumFailureMessageLength);
+        if (normalizedMessage.Any(char.IsControl))
+            throw new DomainException(
+                "ข้อความผลการส่งมีอักขระที่ไม่รองรับ");
+        if (retryAfter is { } delay &&
+            (delay <= TimeSpan.Zero ||
+             delay > MaximumFailureRetryAfter))
+            throw new DomainException(
+                "ระยะเวลารอก่อนส่งใหม่ไม่ถูกต้อง");
+
         SendFailedAt = failedAt;
+        SendFailureCode = normalizedCode;
+        SendFailureMessage = normalizedMessage;
+        SendFailureRetryAfterTicks = retryAfter?.Ticks;
         Status = AccountNameChangeStatus.SendFailed;
+        Version++;
+    }
+
+    public void Expire(DateTimeOffset now)
+    {
+        EnsureStatus(AccountNameChangeStatus.Active);
+        if (!ExpiresAt.HasValue || ExpiresAt > now)
+            throw new DomainException(
+                "รหัสยืนยันยังไม่หมดอายุ");
+        Status = AccountNameChangeStatus.Expired;
         Version++;
     }
 
@@ -214,8 +261,7 @@ public sealed class AccountNameChangeChallenge
         EnsureStatus(AccountNameChangeStatus.Active);
         if (ExpiresAt <= now)
         {
-            Status = AccountNameChangeStatus.Expired;
-            Version++;
+            Expire(now);
             return AccountNameVerificationOutcome.Expired;
         }
 

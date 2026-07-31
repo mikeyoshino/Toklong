@@ -2,6 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
+using Toklong.Application.Abstractions;
+using Toklong.Application.Common;
+using Toklong.Application.Features.Accounts.NameChanges;
 using Toklong.Domain.Accounts;
 using Toklong.Domain.Authentication;
 using Toklong.Domain.Buyers;
@@ -149,6 +152,82 @@ public sealed class AccountNameChangePostgreSqlTests
     }
 
     [RequiresPostgreSqlMigrationFixture]
+    public async Task Concurrent_expired_replacements_send_only_for_the_open_winner()
+    {
+        await using var database =
+            await PostgreSqlDatabase.CreateAsync(
+                Environment.GetEnvironmentVariable(
+                    ConnectionEnvironmentVariable)!);
+        await using var setup = database.CreateContext();
+        await setup.Database.MigrateAsync();
+        var party = await SeedPartyAndActiveChallengeAsync(setup);
+        var subject = new AccountNameChangeSubject(
+            party.BuyerId,
+            party.SellerId,
+            party.SessionId,
+            "+66812345678");
+        var clock = new FixedClock(Now.AddMinutes(10));
+        var provider = new RecordingOtpProvider();
+        await using var losingContext = database.CreateContext();
+        await using var winningContext = database.CreateContext();
+        var blocker = new BlockingFirstSaveUnitOfWork(
+            losingContext);
+        var losingHandler = RequestHandler(
+            losingContext,
+            blocker,
+            provider,
+            clock);
+        var winningHandler = RequestHandler(
+            winningContext,
+            winningContext,
+            provider,
+            clock);
+        var losingTask = losingHandler.Handle(
+            new(
+                subject,
+                "สมศักดิ์",
+                "ใจดี",
+                Guid.NewGuid().ToString("N")),
+            default);
+        await blocker.FirstSaveReached.WaitAsync(
+            TimeSpan.FromSeconds(5));
+        PendingAccountNameChange winner;
+        try
+        {
+            winner = await winningHandler.Handle(
+                new(
+                    subject,
+                    "สมศักดิ์",
+                    "ใจดี",
+                    Guid.NewGuid().ToString("N")),
+                default);
+        }
+        finally
+        {
+            blocker.Release();
+        }
+
+        await Assert.ThrowsAsync<RequestCooldownException>(
+            () => losingTask);
+
+        Assert.Equal(1, provider.RequestCount);
+        await using var assertion = database.CreateContext();
+        var open = await assertion.AccountNameChangeChallenges
+            .Where(value =>
+                value.Status ==
+                    AccountNameChangeStatus.PendingSend ||
+                value.Status == AccountNameChangeStatus.Active)
+            .ToArrayAsync();
+        Assert.Single(open);
+        Assert.Equal(winner.ChallengeId, open[0].Id);
+        Assert.Equal(
+            AccountNameChangeStatus.Expired,
+            (await assertion.AccountNameChangeChallenges
+                .SingleAsync(value =>
+                    value.Id == party.ChallengeId)).Status);
+    }
+
+    [RequiresPostgreSqlMigrationFixture]
     public async Task Migration_up_down_and_up_restores_all_name_change_tables()
     {
         await using var database =
@@ -292,6 +371,88 @@ public sealed class AccountNameChangePostgreSqlTests
         Guid SellerId,
         Guid SessionId,
         Guid ChallengeId);
+
+    private static RequestAccountNameChangeHandler RequestHandler(
+        ToklongDbContext database,
+        IUnitOfWork unitOfWork,
+        IOtpVerificationProvider provider,
+        IClock clock) =>
+        new(
+            new BuyerRepository(database),
+            new SellerRepository(database),
+            new AccountNameChangeRepository(database),
+            provider,
+            unitOfWork,
+            clock);
+
+    private sealed class FixedClock(DateTimeOffset now) : IClock
+    {
+        public DateTimeOffset UtcNow { get; } = now;
+    }
+
+    private sealed class RecordingOtpProvider
+        : IOtpVerificationProvider
+    {
+        private int requestCount;
+
+        public OtpProviderCapabilities Capabilities { get; } =
+            new(true, TimeSpan.FromMinutes(10), true);
+        public int RequestCount => Volatile.Read(ref requestCount);
+
+        public Task<OtpChallenge> RequestAsync(
+            string phoneNumber,
+            OtpPurpose purpose,
+            string providerRequestKey,
+            CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref requestCount);
+            return Task.FromResult(
+                new OtpChallenge(
+                    $"provider-{providerRequestKey}",
+                    "081-•••-5678",
+                    null));
+        }
+
+        public Task<OtpChallengeRecovery?> LookupAsync(
+            string providerRequestKey,
+            string phoneNumber,
+            OtpPurpose purpose,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<OtpChallengeRecovery?>(null);
+
+        public Task<string?> VerifyAsync(
+            string challengeId,
+            string code,
+            OtpPurpose purpose,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<string?>(null);
+    }
+
+    private sealed class BlockingFirstSaveUnitOfWork(
+        IUnitOfWork inner) : IUnitOfWork
+    {
+        private readonly TaskCompletionSource firstSaveReached =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource release =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int saveCount;
+
+        public Task FirstSaveReached => firstSaveReached.Task;
+
+        public async Task<int> SaveChangesAsync(
+            CancellationToken cancellationToken)
+        {
+            if (Interlocked.Increment(ref saveCount) == 1)
+            {
+                firstSaveReached.TrySetResult();
+                await release.Task.WaitAsync(cancellationToken);
+            }
+
+            return await inner.SaveChangesAsync(cancellationToken);
+        }
+
+        public void Release() => release.TrySetResult();
+    }
 
     private sealed class PostgreSqlDatabase : IAsyncDisposable
     {

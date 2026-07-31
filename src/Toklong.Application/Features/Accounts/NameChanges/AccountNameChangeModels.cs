@@ -140,9 +140,34 @@ internal static class AccountNameChangeSubjectResolver
         AccountNameChangeSubject subject,
         string normalizedPhone)
     {
-        if (challenge.BuyerId != subject.BuyerId ||
-            challenge.SellerId != subject.SellerId ||
-            challenge.SessionId != subject.SessionId ||
+        EnsureSameAccountOwnership(
+            challenge,
+            subject,
+            normalizedPhone);
+        if (challenge.SessionId != subject.SessionId)
+            throw new ForbiddenException(
+                "คุณไม่มีสิทธิ์เข้าถึงคำขอเปลี่ยนชื่อนี้");
+    }
+
+    public static void EnsureSameAccountOwnership(
+        AccountNameChangeChallenge challenge,
+        AccountNameChangeSubject subject,
+        string normalizedPhone)
+    {
+        var buyerConflict =
+            challenge.BuyerId.HasValue &&
+            challenge.BuyerId != subject.BuyerId;
+        var sellerConflict =
+            challenge.SellerId.HasValue &&
+            challenge.SellerId != subject.SellerId;
+        var sharesAttachedRole =
+            (challenge.BuyerId.HasValue &&
+             challenge.BuyerId == subject.BuyerId) ||
+            (challenge.SellerId.HasValue &&
+             challenge.SellerId == subject.SellerId);
+        if (buyerConflict ||
+            sellerConflict ||
+            !sharesAttachedRole ||
             !string.Equals(
                 challenge.PhoneNumber,
                 normalizedPhone,

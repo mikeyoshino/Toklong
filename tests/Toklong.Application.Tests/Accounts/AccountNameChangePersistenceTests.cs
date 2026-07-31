@@ -57,6 +57,16 @@ public sealed class AccountNameChangePersistenceTests
                 nameof(AccountNameChangeChallenge.ProviderChallengeId))!
                 .GetMaxLength());
         Assert.Equal(
+            64,
+            challenge.FindProperty(
+                nameof(AccountNameChangeChallenge.SendFailureCode))!
+                .GetMaxLength());
+        Assert.Equal(
+            200,
+            challenge.FindProperty(
+                nameof(AccountNameChangeChallenge.SendFailureMessage))!
+                .GetMaxLength());
+        Assert.Equal(
             32,
             challenge.FindProperty(
                 nameof(AccountNameChangeChallenge.RequestIdempotencyKey))!
@@ -198,6 +208,21 @@ public sealed class AccountNameChangePersistenceTests
                       column.MaxLength == 64 &&
                       !column.IsNullable);
         Assert.Contains(
+            table.Columns,
+            column => column.Name == "SendFailureCode" &&
+                      column.MaxLength == 64 &&
+                      column.IsNullable);
+        Assert.Contains(
+            table.Columns,
+            column => column.Name == "SendFailureMessage" &&
+                      column.MaxLength == 200 &&
+                      column.IsNullable);
+        Assert.Contains(
+            table.Columns,
+            column =>
+                column.Name == "SendFailureRetryAfterTicks" &&
+                column.IsNullable);
+        Assert.Contains(
             operations.OfType<CreateIndexOperation>(),
             index => index.IsUnique &&
                      index.Table ==
@@ -264,6 +289,36 @@ public sealed class AccountNameChangePersistenceTests
         Assert.Equal(
             challenge.OperationFingerprint,
             byId?.OperationFingerprint);
+    }
+
+    [Fact]
+    public async Task Repository_round_trips_bounded_send_rejection_evidence()
+    {
+        await using var database = CreateDatabase();
+        var repository = new AccountNameChangeRepository(database);
+        var challenge = NewChallenge();
+        challenge.MarkSendFailed(
+            Now,
+            "otp_provider_cooldown",
+            "กรุณารออีก 37 วินาที",
+            TimeSpan.FromSeconds(37.25));
+        await repository.AddAsync(challenge, default);
+        await database.SaveChangesAsync();
+        database.ChangeTracker.Clear();
+
+        var stored = await repository.GetByIdAsync(
+            challenge.Id,
+            default);
+
+        Assert.Equal(
+            "otp_provider_cooldown",
+            stored?.SendFailureCode);
+        Assert.Equal(
+            "กรุณารออีก 37 วินาที",
+            stored?.SendFailureMessage);
+        Assert.Equal(
+            TimeSpan.FromSeconds(37.25).Ticks,
+            stored?.SendFailureRetryAfterTicks);
     }
 
     [Fact]

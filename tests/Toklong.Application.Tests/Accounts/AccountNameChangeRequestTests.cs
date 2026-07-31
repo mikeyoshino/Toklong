@@ -202,6 +202,67 @@ public sealed class AccountNameChangeRequestTests
     }
 
     [Fact]
+    public async Task Exact_rejected_request_replays_original_cooldown_evidence()
+    {
+        await using var scenario = await Scenario.CreateAsync();
+        scenario.Provider.Behavior = SendBehavior.Rejected;
+        scenario.Provider.RejectionMessage = "กรุณารออีก 37 วินาที";
+        scenario.Provider.RejectionCode = "otp_provider_cooldown";
+        scenario.Provider.RejectionRetryAfter =
+            TimeSpan.FromSeconds(37.25);
+        var command = scenario.Request("สมศักดิ์", "ใจดี");
+
+        var first = await Assert.ThrowsAsync<RequestCooldownException>(() =>
+            scenario.RequestHandler().Handle(command, default));
+        var replay = await Assert.ThrowsAsync<RequestCooldownException>(() =>
+            scenario.RequestHandler().Handle(command, default));
+
+        Assert.Equal(first.Message, replay.Message);
+        Assert.Equal(first.Code, replay.Code);
+        Assert.Equal(first.RetryAfter, replay.RetryAfter);
+        Assert.Equal(1, scenario.Provider.RequestCount);
+        Assert.Equal(0, scenario.Provider.LookupCount);
+    }
+
+    [Fact]
+    public async Task Exact_rejected_resend_replays_without_provider_call()
+    {
+        await using var scenario = await Scenario.CreateAsync();
+        var original = await scenario.RequestHandler().Handle(
+            scenario.Request("สมศักดิ์", "ใจดี"),
+            default);
+        scenario.Clock.UtcNow = original.ResendAvailableAt;
+        scenario.Provider.Behavior = SendBehavior.Rejected;
+        scenario.Provider.RejectionMessage = "ขอรหัสใหม่เร็วเกินไป";
+        scenario.Provider.RejectionCode = "otp_resend_cooldown";
+        scenario.Provider.RejectionRetryAfter =
+            TimeSpan.FromSeconds(42);
+        var command = scenario.Resend(
+            original.ChallengeId,
+            Guid.NewGuid().ToString("N"));
+
+        var first = await Assert.ThrowsAsync<RequestCooldownException>(() =>
+            scenario.ResendHandler().Handle(command, default));
+        var replay = await Assert.ThrowsAsync<RequestCooldownException>(() =>
+            scenario.ResendHandler().Handle(command, default));
+
+        Assert.Equal(first.Message, replay.Message);
+        Assert.Equal(first.Code, replay.Code);
+        Assert.Equal(first.RetryAfter, replay.RetryAfter);
+        Assert.Equal(2, scenario.Provider.RequestCount);
+
+        var mismatchedInitial = scenario.Request(
+            "สมปอง",
+            "ใจดี",
+            command.IdempotencyKey);
+        await Assert.ThrowsAsync<DomainException>(() =>
+            scenario.RequestHandler().Handle(
+                mismatchedInitial,
+                default));
+        Assert.Equal(2, scenario.Provider.RequestCount);
+    }
+
+    [Fact]
     public async Task Lost_provider_response_remains_pending_until_lookup_recovers_it()
     {
         await using var scenario = await Scenario.CreateAsync();
@@ -278,6 +339,145 @@ public sealed class AccountNameChangeRequestTests
     }
 
     [Fact]
+    public async Task Fresh_request_at_exact_expiry_replaces_the_active_challenge()
+    {
+        await using var scenario = await Scenario.CreateAsync();
+        var original = await scenario.RequestHandler().Handle(
+            scenario.Request("สมศักดิ์", "ใจดี"),
+            default);
+        scenario.Clock.UtcNow = original.ExpiresAt;
+
+        Assert.Null(await scenario.PendingHandler().Handle(
+            new(scenario.Subject),
+            default));
+        var replacement = await scenario.RequestHandler().Handle(
+            scenario.Request("สมศักดิ์", "ใจดี"),
+            default);
+
+        Assert.NotEqual(original.ChallengeId, replacement.ChallengeId);
+        Assert.Equal(2, scenario.Provider.RequestCount);
+        Assert.Equal(
+            AccountNameChangeStatus.Expired,
+            scenario.Database.AccountNameChangeChallenges
+                .Single(value => value.Id == original.ChallengeId).Status);
+        Assert.Single(
+            scenario.Database.AccountNameChangeChallenges,
+            value => value.Status is
+                AccountNameChangeStatus.PendingSend or
+                AccountNameChangeStatus.Active);
+    }
+
+    [Fact]
+    public async Task New_session_can_replace_an_expired_challenge()
+    {
+        await using var scenario = await Scenario.CreateAsync();
+        var original = await scenario.RequestHandler().Handle(
+            scenario.Request("สมศักดิ์", "ใจดี"),
+            default);
+        scenario.Clock.UtcNow = original.ExpiresAt;
+        var newSubject = scenario.Subject with
+        {
+            SessionId = Guid.NewGuid()
+        };
+        var command = scenario.Request(
+            "สมศักดิ์",
+            "ใจดี") with
+        {
+            Subject = newSubject
+        };
+
+        var replacement = await scenario.RequestHandler().Handle(
+            command,
+            default);
+
+        Assert.Equal(newSubject.SessionId, scenario.Database
+            .AccountNameChangeChallenges
+            .Single(value => value.Id == replacement.ChallengeId)
+            .SessionId);
+        Assert.Equal(2, scenario.Provider.RequestCount);
+    }
+
+    [Fact]
+    public async Task Expired_challenge_does_not_strand_a_new_session_with_an_attached_role()
+    {
+        await using var scenario = await Scenario.CreateAsync();
+        var original = await scenario.RequestHandler().Handle(
+            scenario.Request("สมศักดิ์", "ใจดี"),
+            default);
+        scenario.Clock.UtcNow = original.ExpiresAt;
+        var seller = SellerAccount.Create(
+            scenario.Subject.PhoneNumber,
+            scenario.Clock.UtcNow,
+            AccountName.Create("สมชาย", "ใจดี"));
+        scenario.Database.Sellers.Add(seller);
+        await scenario.Database.SaveChangesAsync();
+        var newSubject = scenario.Subject with
+        {
+            SellerId = seller.Id,
+            SessionId = Guid.NewGuid()
+        };
+
+        var replacement = await scenario.RequestHandler().Handle(
+            scenario.Request("สมศักดิ์", "ใจดี") with
+            {
+                Subject = newSubject
+            },
+            default);
+
+        Assert.Equal(seller.Id, scenario.Database
+            .AccountNameChangeChallenges
+            .Single(value => value.Id == replacement.ChallengeId)
+            .SellerId);
+        Assert.Equal(2, scenario.Provider.RequestCount);
+    }
+
+    [Fact]
+    public async Task Resend_at_exact_expiry_creates_one_replacement()
+    {
+        await using var scenario = await Scenario.CreateAsync();
+        var original = await scenario.RequestHandler().Handle(
+            scenario.Request("สมศักดิ์", "ใจดี"),
+            default);
+        scenario.Clock.UtcNow = original.ExpiresAt;
+
+        var replacement = await scenario.ResendHandler().Handle(
+            scenario.Resend(original.ChallengeId),
+            default);
+
+        Assert.NotEqual(original.ChallengeId, replacement.ChallengeId);
+        Assert.Equal(2, scenario.Provider.RequestCount);
+        Assert.Equal(
+            AccountNameChangeStatus.Expired,
+            scenario.Database.AccountNameChangeChallenges
+                .Single(value => value.Id == original.ChallengeId).Status);
+    }
+
+    [Fact]
+    public async Task Unresolved_pending_send_remains_blocked_after_ten_minutes()
+    {
+        await using var scenario = await Scenario.CreateAsync();
+        scenario.Provider.Behavior =
+            SendBehavior.AcceptedThenResponseLost;
+
+        await Assert.ThrowsAsync<DomainException>(() =>
+            scenario.RequestHandler().Handle(
+                scenario.Request("สมศักดิ์", "ใจดี"),
+                default));
+        scenario.Clock.UtcNow = scenario.Clock.UtcNow.AddHours(1);
+        scenario.Provider.Behavior = SendBehavior.Accepted;
+
+        await Assert.ThrowsAsync<DomainException>(() =>
+            scenario.RequestHandler().Handle(
+                scenario.Request("สมศักดิ์", "ใจดี"),
+                default));
+
+        Assert.Equal(1, scenario.Provider.RequestCount);
+        Assert.Equal(
+            AccountNameChangeStatus.PendingSend,
+            scenario.Database.AccountNameChangeChallenges.Single().Status);
+    }
+
+    [Fact]
     public async Task Resend_is_blocked_for_sixty_seconds_then_supersedes_the_code()
     {
         await using var scenario = await Scenario.CreateAsync();
@@ -327,6 +527,12 @@ public sealed class AccountNameChangeRequestTests
         public OtpProviderCapabilities Capabilities { get; } =
             new(true, TimeSpan.FromMinutes(10), true);
         public SendBehavior Behavior { get; set; } = SendBehavior.Accepted;
+        public string RejectionMessage { get; set; } =
+            "ผู้ให้บริการปฏิเสธคำขอ";
+        public string RejectionCode { get; set; } =
+            "otp_provider_cooldown";
+        public TimeSpan RejectionRetryAfter { get; set; } =
+            TimeSpan.FromSeconds(30);
         public int RequestCount { get; private set; }
         public int LookupCount { get; private set; }
 
@@ -339,8 +545,9 @@ public sealed class AccountNameChangeRequestTests
             RequestCount++;
             if (Behavior == SendBehavior.Rejected)
                 throw new RequestCooldownException(
-                    "ผู้ให้บริการปฏิเสธคำขอ",
-                    TimeSpan.FromSeconds(30));
+                    RejectionMessage,
+                    RejectionRetryAfter,
+                    RejectionCode);
 
             var challenge = new OtpChallenge(
                 $"provider-{providerRequestKey}",

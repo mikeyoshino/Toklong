@@ -743,6 +743,10 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
             .HasMaxLength(60);
         challenge.Property(x => x.ProviderChallengeId)
             .HasMaxLength(800);
+        challenge.Property(x => x.SendFailureCode)
+            .HasMaxLength(64);
+        challenge.Property(x => x.SendFailureMessage)
+            .HasMaxLength(200);
         challenge.Property(x => x.RequestIdempotencyKey)
             .HasMaxLength(32);
         challenge.Property(x => x.ProviderRequestKey)
