@@ -61,7 +61,10 @@ public enum AccountNameChangeBlockReason
 
 public enum AccountNameChangeFailureReason
 {
+    Cooldown,
+    Unchanged,
     Invalid,
+    SendLimit,
     Expired,
     Locked,
     Network,
@@ -70,6 +73,8 @@ public enum AccountNameChangeFailureReason
 
 public static class AccountNameChangeAnalytics
 {
+    public static MobileAnalyticsEvent Opened() => Event("account_name_change_opened");
+
     public static MobileAnalyticsEvent Started() => Event("account_name_change_started");
 
     public static MobileAnalyticsEvent CodeResent() => Event("account_name_change_code_resent");
@@ -87,6 +92,9 @@ public static class AccountNameChangeAnalytics
         Event("account_name_change_failed", ("reason", reason switch
         {
             AccountNameChangeFailureReason.Invalid => "invalid",
+            AccountNameChangeFailureReason.Cooldown => "cooldown",
+            AccountNameChangeFailureReason.Unchanged => "unchanged",
+            AccountNameChangeFailureReason.SendLimit => "send_limit",
             AccountNameChangeFailureReason.Expired => "expired",
             AccountNameChangeFailureReason.Locked => "locked",
             AccountNameChangeFailureReason.Network => "network",

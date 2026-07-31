@@ -109,6 +109,7 @@ public static class MauiProgram
             LoggingMobileAnalytics>();
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSingleton<AuthenticatedSessionBoundary>();
+        builder.Services.AddSingleton<AccountNameChangeOperationState>();
         builder.Services.AddSingleton<
             AccountEmailChangeCompletionState>();
         builder.Services.AddSingleton<IStartupMotionPreference, StartupMotionPreference>();

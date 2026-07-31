@@ -207,7 +207,9 @@ public sealed class MobileAuthenticationServiceEmailChangeTests
             new InMemoryMobileSessionStore(),
             new PendingRegistrationStoreStub(),
             new InstallationIdStub(),
-            new PushRegistrationStub());
+            new PushRegistrationStub(),
+            new AccountNameChangeOperationState(
+                new AuthenticatedSessionBoundary()));
     }
 
     private static HttpResponseMessage PendingResponse(Guid challengeId) =>

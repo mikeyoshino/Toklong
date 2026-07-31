@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 
 namespace Toklong.Mobile.Core;
 
@@ -28,6 +29,7 @@ public enum AccountNameChangeErrorTarget
 {
     FirstNameInput,
     LastNameInput,
+    RequestAction,
     CodeInput,
     VerificationAction,
     ResendAction,
@@ -40,6 +42,9 @@ public enum AccountNameChangeErrorKind
 {
     Invalid,
     Cooldown,
+    SendLimit,
+    RateLimited,
+    Unchanged,
     Expired,
     Locked,
     Unavailable,
@@ -65,7 +70,7 @@ public static class AccountNameChangeErrorPresentation
             : null;
 
     public static AccountNameChangeErrorNotice ForRequest(Exception exception) =>
-        Present(exception, AccountNameChangeErrorTarget.VerificationAction);
+        Present(exception, AccountNameChangeErrorTarget.RequestAction);
 
     public static AccountNameChangeErrorNotice ForResend(Exception exception) =>
         Present(exception, AccountNameChangeErrorTarget.ResendAction);
@@ -90,14 +95,13 @@ public static class AccountNameChangeErrorPresentation
                 defaultTarget,
                 "เปลี่ยนชื่อไม่สำเร็จ กรุณาลองอีกครั้ง");
 
-        return api.Code switch
+        var notice = api.Code switch
         {
-            "name_change_cooldown" when api.NextAllowedAt is { } nextAllowedAt =>
+            "name_change_cooldown" =>
                 Notice(
                     AccountNameChangeErrorKind.Cooldown,
                     AccountNameChangeErrorTarget.BlockedAction,
-                    "ยังเปลี่ยนชื่อไม่ได้ กรุณาลองใหม่เมื่อถึงเวลาที่แจ้ง",
-                    nextAllowedAt: nextAllowedAt),
+                    "ยังเปลี่ยนชื่อไม่ได้ กรุณาลองใหม่เมื่อถึงเวลาที่แจ้ง"),
             "name_change_first_name_invalid" =>
                 Notice(
                     AccountNameChangeErrorKind.Invalid,
@@ -110,8 +114,8 @@ public static class AccountNameChangeErrorPresentation
                     "กรุณาตรวจสอบนามสกุล"),
             "name_change_unchanged" =>
                 Notice(
-                    AccountNameChangeErrorKind.Invalid,
-                    AccountNameChangeErrorTarget.VerificationAction,
+                    AccountNameChangeErrorKind.Unchanged,
+                    defaultTarget,
                     "ชื่อนี้เป็นชื่อปัจจุบันของคุณแล้ว"),
             "name_change_code_incorrect" =>
                 Notice(
@@ -152,14 +156,21 @@ public static class AccountNameChangeErrorPresentation
                     "กำลังตรวจสอบผลการยืนยัน กรุณาลองอีกครั้งด้วยคำขอเดิม",
                     api.RetryAfter,
                     retryWithSameIdempotencyKey: true),
-            "name_change_provider_throttled" or
-            "name_change_send_limit" or
-            "name_change_resend_cooldown" when api.RetryAfter is { } retryAfter =>
+            "name_change_provider_throttled" or "name_change_resend_cooldown" =>
                 Notice(
                     AccountNameChangeErrorKind.Cooldown,
                     defaultTarget,
-                    $"กรุณารอก่อนลองอีกครั้ง {Math.Max(1, (int)Math.Ceiling(retryAfter.TotalSeconds))} วินาที",
-                    retryAfter),
+                    "กรุณารอก่อนขอรหัสยืนยันอีกครั้ง"),
+            "name_change_send_limit" =>
+                Notice(
+                    AccountNameChangeErrorKind.SendLimit,
+                    defaultTarget,
+                    "ขอรหัสยืนยันครบจำนวนแล้ว กรุณาลองใหม่ภายหลัง"),
+            "name_change_rate_limited" =>
+                Notice(
+                    AccountNameChangeErrorKind.RateLimited,
+                    defaultTarget,
+                    "มีการทำรายการบ่อยเกินไป กรุณารอสักครู่ก่อนลองอีกครั้ง"),
             "name_change_idempotency_invalid" =>
                 Notice(
                     AccountNameChangeErrorKind.Invalid,
@@ -170,6 +181,11 @@ public static class AccountNameChangeErrorPresentation
                     AccountNameChangeErrorKind.Invalid,
                     defaultTarget,
                     "คำขอนี้ไม่ตรงกับข้อมูลเดิม กรุณาลองใหม่"),
+            "name_change_invalid_request" =>
+                Notice(
+                    AccountNameChangeErrorKind.Invalid,
+                    defaultTarget,
+                    "ไม่สามารถทำรายการเปลี่ยนชื่อได้ กรุณาตรวจสอบข้อมูลแล้วลองใหม่"),
             _ when api.StatusCode == HttpStatusCode.TooManyRequests =>
                 Notice(
                     AccountNameChangeErrorKind.Cooldown,
@@ -180,6 +196,13 @@ public static class AccountNameChangeErrorPresentation
                 AccountNameChangeErrorKind.Invalid,
                 defaultTarget,
                 "เปลี่ยนชื่อไม่สำเร็จ กรุณาลองอีกครั้ง")
+        };
+
+        return notice with
+        {
+            RetryAfter = notice.RetryAfter ?? api.RetryAfter,
+            RemainingAttempts = notice.RemainingAttempts ?? api.RemainingAttempts,
+            NextAllowedAt = notice.NextAllowedAt ?? api.NextAllowedAt
         };
     }
 
@@ -199,6 +222,146 @@ public static class AccountNameChangeErrorPresentation
             remainingAttempts,
             nextAllowedAt,
             retryWithSameIdempotencyKey);
+}
+
+public sealed class AccountNameChangeOperationState
+{
+    private readonly object sync = new();
+    private readonly HashSet<string> issuedKeys = new(StringComparer.Ordinal);
+    private OperationKey<RequestAssociation>? request;
+    private OperationKey<ResendAssociation>? resend;
+    private OperationKey<VerificationAssociation>? verification;
+
+    public AccountNameChangeOperationState(AuthenticatedSessionBoundary session)
+    {
+        session.ResetRequested += (_, _) => Reset();
+    }
+
+    public string GetRequestKey(string firstName, string lastName)
+    {
+        lock (sync)
+        {
+            var association = new RequestAssociation(
+                Normalize(firstName),
+                Normalize(lastName));
+            return GetOrCreate(ref request, association);
+        }
+    }
+
+    public string GetResendKey(Guid challengeId)
+    {
+        lock (sync)
+        {
+            return GetOrCreate(
+                ref resend,
+                new ResendAssociation(challengeId));
+        }
+    }
+
+    public string GetVerificationKey(Guid challengeId, string code)
+    {
+        lock (sync)
+        {
+            return GetOrCreate(
+                ref verification,
+                new VerificationAssociation(
+                    challengeId,
+                    Normalize(code)));
+        }
+    }
+
+    public void RecordRequestSuccess() => Clear(ref request);
+
+    public void RecordRequestFailure(Exception exception) =>
+        ClearIfAuthoritative(ref request, exception);
+
+    public void RecordResendSuccess() => Clear(ref resend);
+
+    public void RecordResendFailure(Exception exception) =>
+        ClearIfAuthoritative(ref resend, exception);
+
+    public void RecordVerificationSuccess() => Clear(ref verification);
+
+    public void RecordVerificationFailure(Exception exception) =>
+        ClearIfAuthoritative(ref verification, exception);
+
+    public void Reset()
+    {
+        lock (sync)
+        {
+            request = null;
+            resend = null;
+            verification = null;
+            issuedKeys.Clear();
+        }
+    }
+
+    private string GetOrCreate<TAssociation>(
+        ref OperationKey<TAssociation>? operation,
+        TAssociation association)
+        where TAssociation : notnull
+    {
+        if (operation is { } current &&
+            EqualityComparer<TAssociation>.Default.Equals(
+                current.Association,
+                association))
+            return current.IdempotencyKey;
+
+        var key = NewIdempotencyKey();
+        operation = new OperationKey<TAssociation>(association, key);
+        return key;
+    }
+
+    private void Clear<TAssociation>(ref OperationKey<TAssociation>? operation)
+        where TAssociation : notnull
+    {
+        lock (sync)
+        {
+            operation = null;
+        }
+    }
+
+    private void ClearIfAuthoritative<TAssociation>(
+        ref OperationKey<TAssociation>? operation,
+        Exception exception)
+        where TAssociation : notnull
+    {
+        if (MayRetryWithSameKey(exception))
+            return;
+
+        Clear(ref operation);
+    }
+
+    private string NewIdempotencyKey()
+    {
+        string key;
+        do
+        {
+            key = Guid.NewGuid().ToString("N");
+        }
+        while (!issuedKeys.Add(key));
+        return key;
+    }
+
+    private static bool MayRetryWithSameKey(Exception exception) =>
+        exception is HttpRequestException or TimeoutException or TaskCanceledException ||
+        exception is not MobileApiRequestException { Code: { } code } ||
+        string.Equals(
+            code,
+            "name_change_provider_outcome_unknown",
+            StringComparison.Ordinal);
+
+    private static string Normalize(string value) =>
+        value.Trim().Normalize(NormalizationForm.FormC);
+
+    private sealed record OperationKey<TAssociation>(
+        TAssociation Association,
+        string IdempotencyKey)
+        where TAssociation : notnull;
+
+    private sealed record RequestAssociation(string FirstName, string LastName);
+    private sealed record ResendAssociation(Guid ChallengeId);
+    private sealed record VerificationAssociation(Guid ChallengeId, string Code);
 }
 
 public sealed class AccountNameChangeCompletionState

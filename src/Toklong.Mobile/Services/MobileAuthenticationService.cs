@@ -8,7 +8,8 @@ public sealed class MobileAuthenticationService(
     IMobileSessionStore sessionStore,
     IPendingRegistrationStore pendingRegistrations,
     IInstallationIdProvider installationIds,
-    IPushRegistrationService pushRegistration)
+    IPushRegistrationService pushRegistration,
+    AccountNameChangeOperationState nameChangeOperations)
     : IAuthenticationService
 {
     public async Task<bool> HasSessionAsync() =>
@@ -182,53 +183,87 @@ public sealed class MobileAuthenticationService(
                    "ไม่พบข้อมูลการเปลี่ยนชื่อ");
     }
 
-    public Task<PendingAccountNameChange> RequestAccountNameChangeAsync(
+    public async Task<PendingAccountNameChange> RequestAccountNameChangeAsync(
         string firstName,
         string lastName,
-        string idempotencyKey,
-        CancellationToken cancellationToken = default) =>
-        SendAccountNameChangeAsync(
-            "api/mobile/me/name-change",
-            new
-            {
-                FirstName = firstName.Trim(),
-                LastName = lastName.Trim(),
-                IdempotencyKey = idempotencyKey
-            },
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        var key = nameChangeOperations.GetRequestKey(firstName, lastName);
+        try
+        {
+            var pending = await SendAccountNameChangeAsync(
+                "api/mobile/me/name-change",
+                new
+                {
+                    FirstName = firstName.Trim(),
+                    LastName = lastName.Trim(),
+                    IdempotencyKey = key
+                },
+                cancellationToken);
+            nameChangeOperations.RecordRequestSuccess();
+            return pending;
+        }
+        catch (Exception exception)
+        {
+            nameChangeOperations.RecordRequestFailure(exception);
+            throw;
+        }
+    }
 
-    public Task<PendingAccountNameChange> ResendAccountNameChangeAsync(
+    public async Task<PendingAccountNameChange> ResendAccountNameChangeAsync(
         Guid challengeId,
-        string idempotencyKey,
-        CancellationToken cancellationToken = default) =>
-        SendAccountNameChangeAsync(
-            $"api/mobile/me/name-change/{challengeId}/resend",
-            new { IdempotencyKey = idempotencyKey },
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        var key = nameChangeOperations.GetResendKey(challengeId);
+        try
+        {
+            var pending = await SendAccountNameChangeAsync(
+                $"api/mobile/me/name-change/{challengeId}/resend",
+                new { IdempotencyKey = key },
+                cancellationToken);
+            nameChangeOperations.RecordResendSuccess();
+            return pending;
+        }
+        catch (Exception exception)
+        {
+            nameChangeOperations.RecordResendFailure(exception);
+            throw;
+        }
+    }
 
     public async Task<VerifiedAccountNameChange> VerifyAccountNameChangeAsync(
         Guid challengeId,
         string code,
-        string idempotencyKey,
         CancellationToken cancellationToken = default)
     {
-        using var response = await api.SendAuthenticatedAsync(
-            () => new HttpRequestMessage(
-                HttpMethod.Post,
-                $"api/mobile/me/name-change/{challengeId}/verify")
-            {
-                Content = JsonContent.Create(new
+        var key = nameChangeOperations.GetVerificationKey(challengeId, code);
+        try
+        {
+            using var response = await api.SendAuthenticatedAsync(
+                () => new HttpRequestMessage(
+                    HttpMethod.Post,
+                    $"api/mobile/me/name-change/{challengeId}/verify")
                 {
-                    Code = code.Trim(),
-                    IdempotencyKey = idempotencyKey
-                })
-            },
-            cancellationToken);
-        await MobileApiClient.EnsureSuccessAsync(response, cancellationToken);
-        return await response.Content.ReadFromJsonAsync<VerifiedAccountNameChange>(
-                   cancellationToken: cancellationToken)
-               ?? throw new InvalidOperationException(
-                   "ไม่พบข้อมูลชื่อที่ยืนยันแล้ว");
+                    Content = JsonContent.Create(new
+                    {
+                        Code = code.Trim(),
+                        IdempotencyKey = key
+                    })
+                },
+                cancellationToken);
+            await MobileApiClient.EnsureSuccessAsync(response, cancellationToken);
+            var verified = await response.Content.ReadFromJsonAsync<VerifiedAccountNameChange>(
+                               cancellationToken: cancellationToken)
+                           ?? throw new InvalidOperationException(
+                               "ไม่พบข้อมูลชื่อที่ยืนยันแล้ว");
+            nameChangeOperations.RecordVerificationSuccess();
+            return verified;
+        }
+        catch (Exception exception)
+        {
+            nameChangeOperations.RecordVerificationFailure(exception);
+            throw;
+        }
     }
 
     public async Task<PendingEmailChange?> GetPendingEmailChangeAsync(

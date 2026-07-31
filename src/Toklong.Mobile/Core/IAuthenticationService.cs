@@ -77,20 +77,17 @@ public interface IAuthenticationService
     Task<PendingAccountNameChange> RequestAccountNameChangeAsync(
         string firstName,
         string lastName,
-        string idempotencyKey,
         CancellationToken cancellationToken = default) =>
         throw new NotSupportedException();
 
     Task<PendingAccountNameChange> ResendAccountNameChangeAsync(
         Guid challengeId,
-        string idempotencyKey,
         CancellationToken cancellationToken = default) =>
         throw new NotSupportedException();
 
     Task<VerifiedAccountNameChange> VerifyAccountNameChangeAsync(
         Guid challengeId,
         string code,
-        string idempotencyKey,
         CancellationToken cancellationToken = default) =>
         throw new NotSupportedException();
 
