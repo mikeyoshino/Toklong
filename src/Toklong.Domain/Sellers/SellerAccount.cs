@@ -45,9 +45,7 @@ public sealed class SellerAccount
         };
         if (name is null)
         {
-            seller.SetAccountName(AccountName.MaterializeLegacy(
-                "ผู้ขาย",
-                phoneNumber[^4..]));
+            seller.SetLegacyDisplayName($"ผู้ขาย {phoneNumber[^4..]}");
         }
         else
         {
@@ -59,17 +57,28 @@ public sealed class SellerAccount
     public static SellerAccount Create(
         string phoneNumber,
         DateTimeOffset verifiedAt,
-        string displayName) =>
-        Create(
-            phoneNumber,
-            verifiedAt,
-            AccountName.CreateFromDisplayName(displayName));
+        string? displayName)
+    {
+        var seller = Create(phoneNumber, verifiedAt, (AccountName?)null);
+        if (!string.IsNullOrWhiteSpace(displayName))
+            seller.UpdateDisplayName(displayName);
+        return seller;
+    }
 
     public void MarkPhoneVerified(DateTimeOffset verifiedAt) =>
         PhoneVerifiedAt = verifiedAt;
 
-    public void UpdateDisplayName(string displayName) =>
-        SetAccountName(AccountName.CreateFromDisplayName(displayName));
+    public void UpdateDisplayName(string displayName)
+    {
+        var normalized = AccountName.NormalizeLegacyDisplayName(displayName);
+        if (!normalized.Contains(' '))
+        {
+            SetLegacyDisplayName(normalized);
+            return;
+        }
+
+        SetAccountName(AccountName.MaterializeLegacyDisplayName(normalized));
+    }
 
     public void ApplyAccountName(AccountName name, DateTimeOffset changedAt)
     {
@@ -147,6 +156,13 @@ public sealed class SellerAccount
         FirstName = name.FirstName;
         LastName = name.LastName;
         DisplayName = name.DisplayName;
+    }
+
+    private void SetLegacyDisplayName(string displayName)
+    {
+        FirstName = "";
+        LastName = "";
+        DisplayName = AccountName.NormalizeLegacyDisplayName(displayName);
     }
 }
 

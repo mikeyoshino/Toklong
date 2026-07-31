@@ -61,6 +61,17 @@ public sealed record AccountName
             normalized[(separator + 1)..]);
     }
 
+    internal static string NormalizeLegacyDisplayName(string displayName)
+    {
+        var normalized = CollapseWhitespace(displayName);
+        if (string.IsNullOrWhiteSpace(normalized))
+            throw new DomainException("กรุณากรอกชื่อและนามสกุล");
+        if (normalized.Length > MaximumDisplayNameLength)
+            throw new DomainException(
+                $"ชื่อและนามสกุลยาวเกิน {MaximumDisplayNameLength} ตัวอักษร");
+        return normalized;
+    }
+
     private static string NormalizePart(string value, string label)
     {
         var normalized = CollapseWhitespace(value);

@@ -75,12 +75,36 @@ public sealed class AccountNameTests
     }
 
     [Fact]
-    public void Seller_without_a_registered_name_keeps_its_synthetic_display_name()
+    public void Seller_without_a_registered_name_keeps_its_synthetic_display_name_outside_structured_fields()
     {
-        var seller = SellerAccount.Create("+66812345678", ChangedAt);
+        var seller = SellerAccount.Create(
+            "+66812345678",
+            ChangedAt,
+            (string?)null);
 
         Assert.Equal("ผู้ขาย 5678", seller.DisplayName);
-        Assert.Equal("ผู้ขาย", seller.FirstName);
-        Assert.Equal("5678", seller.LastName);
+        Assert.Equal("", seller.FirstName);
+        Assert.Equal("", seller.LastName);
+
+        seller.ApplyAccountName(
+            AccountName.Create("สมชาย", "ใจดี"),
+            ChangedAt.AddMinutes(1));
+
+        Assert.Equal("สมชาย", seller.FirstName);
+        Assert.Equal("ใจดี", seller.LastName);
+        Assert.Equal("สมชาย ใจดี", seller.DisplayName);
+    }
+
+    [Fact]
+    public void Legacy_unsplittable_seller_display_name_remains_display_only()
+    {
+        var seller = SellerAccount.Create(
+            "+66812345678",
+            ChangedAt,
+            "ผู้ขายคุ้มครอง");
+
+        Assert.Equal("ผู้ขายคุ้มครอง", seller.DisplayName);
+        Assert.Equal("", seller.FirstName);
+        Assert.Equal("", seller.LastName);
     }
 }
