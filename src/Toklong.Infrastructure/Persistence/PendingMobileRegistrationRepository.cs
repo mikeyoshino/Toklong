@@ -8,6 +8,15 @@ public sealed class PendingMobileRegistrationRepository(
     ToklongDbContext dbContext)
     : IPendingMobileRegistrationRepository
 {
+    public Task<string?> GetPhoneByTicketHashAsync(
+        string ticketHash,
+        CancellationToken cancellationToken) =>
+        dbContext.PendingMobileRegistrations
+            .AsNoTracking()
+            .Where(item => item.TicketHash == ticketHash)
+            .Select(item => item.PhoneNumber)
+            .SingleOrDefaultAsync(cancellationToken);
+
     public Task<PendingMobileRegistration?> GetByTicketHashAsync(
         string ticketHash,
         CancellationToken cancellationToken) =>

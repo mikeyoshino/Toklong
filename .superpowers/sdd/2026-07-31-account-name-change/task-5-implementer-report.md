@@ -132,3 +132,97 @@ Expose the hardened workflow through the account-name endpoints, map cooldown,
 OTP, and unknown-outcome errors to the approved modal copy, then connect the
 two-field account form and reusable OTP component without exposing the next
 eligible change date on the normal account screen.
+
+---
+
+# Task 5 Implementer Report — Round 2 Registration Composition Fix
+
+## 1. What changed
+
+- Replaced the raw EF transaction in mobile registration with one outer
+  `IAccountPhoneTransactionManager` lease selected by a no-tracking
+  ticket-to-phone preflight.
+- Made `CompleteMobileRegistrationHandler` acquire its own same-phone lease,
+  re-read and revalidate the pending registration under that lease, and re-read
+  the authoritative same-phone seller before creating a buyer.
+- A new buyer now inherits an existing seller's structured first and last name.
+  A legacy seller without both structured fields falls back to the validated
+  submitted registration name.
+- Made the production manager scoped and same-phone reentrant. Npgsql retains
+  its transaction-scoped advisory lock; SQLite runs the same ownership state
+  machine with a real relational transaction for deterministic composition
+  tests.
+- Added explicit lease ownership rules: same-phone-only nesting, LIFO close,
+  one physical outer commit, double-commit rejection, poison-on-uncommitted
+  participant, rollback on uncommitted outer disposal, and safe cleanup after
+  cancellation or disposal errors.
+- Updated the in-memory API host's lock replacement to be scoped and reentrant,
+  while adding separate tests against the real production manager so the test
+  replacement cannot hide nested EF transaction misuse.
+
+## 2. Requirements and transitions implemented
+
+- Registration preflight selects only the normalized-phone lock key; it does
+  not track, authorize, consume, or mutate a pending registration.
+- After the outer lease is acquired, the handler authoritatively revalidates
+  ticket existence, normalized phone, installation, idempotency key, expiry,
+  terms version, and buyer absence under the serialized boundary.
+- Handler and session service commits are nested participation acknowledgments.
+  Only the endpoint-owned outer lease commits the database transaction.
+- Buyer creation, terms acceptance, pending-ticket consumption, and first
+  mobile-session creation now commit or roll back as one operation.
+- Exact registration replay also participates in the same-phone boundary and
+  cannot bypass current transaction ownership rules.
+
+## 3. Tests added or updated
+
+- Six real-manager SQLite tests cover normalized same-phone reentry, one live
+  EF transaction, poisoned rollback, different-phone rejection, LIFO and
+  double-commit misuse, canceled nested begin safety, and rejection of an
+  externally owned raw EF transaction without adopting or corrupting it.
+- Two real-manager registration composition tests prove seller-name
+  inheritance, identical first-session display name, successful outer commit,
+  and full rollback when the outer commit is omitted.
+- A repository regression test proves ticket-to-phone preflight leaves no
+  tracked entity and does not consume the ticket.
+- Existing registration handler and HTTP authentication coverage was updated
+  for the serialized participant model.
+
+Fresh verification:
+
+```text
+Application tests: 451 passed, 0 failed, 8 skipped
+API tests:          78 passed, 0 failed, 0 skipped
+Domain tests:      193 passed, 0 failed, 0 skipped
+EF pending model changes: none
+git diff --check: passed
+Focused real-manager tests after final cleanup: 8 passed
+```
+
+The eight Application skips require
+`TOKLONG_POSTGRES_MIGRATION_TEST_CONNECTION`; they include the existing real
+PostgreSQL advisory-lock and migration gates. The Domain command emitted only
+`NU1900` because the sandbox could not reach NuGet's vulnerability feed.
+
+## 4. Assumptions
+
+- One verified normalized phone identifies one current account name across its
+  buyer and seller roles.
+- Mobile registration still requires valid submitted first and last names even
+  when a same-phone structured seller name is authoritative and inherited.
+- Production persistence remains PostgreSQL/Npgsql. SQLite support in the
+  manager exists to exercise identical scoped ownership semantics in relational
+  tests, without attempting PostgreSQL advisory SQL.
+
+## 5. Open decisions or provider capabilities
+
+- No new provider capability is required by this fix.
+- Connected CI still needs
+  `TOKLONG_POSTGRES_MIGRATION_TEST_CONNECTION` to execute the environment-gated
+  PostgreSQL migration and advisory-lock tests.
+
+## 6. Next smallest vertical slice
+
+Connect the approved two-field account form to the hardened account-name
+endpoints, reuse the existing six-digit OTP component, and show cooldown timing
+only in the blocked-action error modal.

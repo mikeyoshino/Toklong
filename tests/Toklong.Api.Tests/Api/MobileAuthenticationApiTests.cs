@@ -581,7 +581,7 @@ public sealed class MobileApiFactory : WebApplicationFactory<Program>
             services.AddSingleton<
                 IStartupFilter,
                 TestRemoteAddressStartupFilter>();
-            services.AddSingleton<
+            services.AddScoped<
                 IAccountPhoneTransactionManager,
                 TestAccountPhoneTransactionManager>();
             var databaseName = Guid.NewGuid().ToString("N");

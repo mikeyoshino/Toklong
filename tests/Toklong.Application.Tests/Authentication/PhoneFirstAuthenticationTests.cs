@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Toklong.Application.Abstractions;
 using Toklong.Application.Features.Authentication;
+using Toklong.Application.Tests.TestSupport;
 using Toklong.Domain.Authentication;
 using Toklong.Domain.Buyers;
 using Toklong.Domain.Common;
@@ -247,8 +248,10 @@ public sealed class PhoneFirstAuthenticationTests
             new RegistrationTicketService(),
             new PendingMobileRegistrationRepository(database),
             new BuyerRepository(database),
+            new SellerRepository(database),
             database,
-            new FixedClock(now));
+            new FixedClock(now),
+            new ImmediateAccountPhoneTransactionManager());
 
     private static CompleteMobileRegistrationCommand ValidCompletion(
         string rawTicket) =>

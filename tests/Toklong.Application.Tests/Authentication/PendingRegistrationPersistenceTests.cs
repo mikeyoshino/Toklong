@@ -89,6 +89,29 @@ public sealed class PendingRegistrationPersistenceTests
                 .ToListAsync());
     }
 
+    [Fact]
+    public async Task Phone_preflight_does_not_track_or_mutate_the_registration()
+    {
+        await using var database = CreateDatabase();
+        var pending = NewPending(
+            new string('c', 64),
+            Now,
+            Now.AddMinutes(15));
+        database.PendingMobileRegistrations.Add(pending);
+        await database.SaveChangesAsync();
+        database.ChangeTracker.Clear();
+        var repository =
+            new PendingMobileRegistrationRepository(database);
+
+        var phone = await repository.GetPhoneByTicketHashAsync(
+            pending.TicketHash,
+            default);
+
+        Assert.Equal("+66812345678", phone);
+        Assert.Empty(database.ChangeTracker.Entries());
+        Assert.Null(pending.ConsumedAt);
+    }
+
     private static MobileAccountTermsAcceptance NewAcceptance() =>
         MobileAccountTermsAcceptance.Create(
             Guid.NewGuid(),

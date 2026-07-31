@@ -6,8 +6,6 @@ using MediatR;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using Toklong.Application.Abstractions;
 using Toklong.Application.Common;
 using Toklong.Application.Features.Authentication;
@@ -35,7 +33,6 @@ using Toklong.Application.Transactions;
 using Toklong.Domain.Common;
 using Toklong.Domain.Transactions;
 using Toklong.Api.Security;
-using Toklong.Infrastructure.Persistence;
 
 namespace Toklong.Api.Api;
 
@@ -393,16 +390,23 @@ public static class MobileApi
         HttpRequest httpRequest,
         ISender sender,
         MobileSessionTokenService tokens,
-        ToklongDbContext database,
+        IRegistrationTicketService tickets,
+        IPendingMobileRegistrationRepository pendingRegistrations,
+        IAccountPhoneTransactionManager phoneTransactions,
         CancellationToken cancellationToken)
     {
         var idempotencyKey =
             RequiredNormalizedIdempotencyKey(httpRequest);
-        await using IDbContextTransaction? transaction =
-            database.Database.IsRelational()
-                ? await database.Database.BeginTransactionAsync(
-                    cancellationToken)
-                : null;
+        var ticketHash = tickets.Hash(request.RegistrationTicket);
+        var phone = await pendingRegistrations.GetPhoneByTicketHashAsync(
+                ticketHash,
+                cancellationToken)
+            ?? throw new ArgumentException(
+                "การยืนยันเบอร์หมดอายุ กรุณายืนยันเบอร์ใหม่");
+        await using var transaction =
+            await phoneTransactions.BeginAsync(
+                phone,
+                cancellationToken);
 
         var profile = await sender.Send(
             new CompleteMobileRegistrationCommand(
@@ -417,8 +421,7 @@ public static class MobileApi
         var issued = await tokens.CreateAsync(
             profile,
             cancellationToken);
-        if (transaction is not null)
-            await transaction.CommitAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return Results.Ok(ToResponse(issued));
     }
 

@@ -1,5 +1,6 @@
 using MediatR;
 using Toklong.Application.Abstractions;
+using Toklong.Application.Common;
 using Toklong.Domain.Accounts;
 using Toklong.Domain.Authentication;
 using Toklong.Domain.Buyers;
@@ -19,8 +20,10 @@ public sealed class CompleteMobileRegistrationHandler(
     IRegistrationTicketService tickets,
     IPendingMobileRegistrationRepository pendingRegistrations,
     IBuyerRepository buyers,
+    ISellerRepository sellers,
     IUnitOfWork unitOfWork,
-    IClock clock)
+    IClock clock,
+    IAccountPhoneTransactionManager phoneTransactions)
     : IRequestHandler<
         CompleteMobileRegistrationCommand,
         MobileSessionProfile>
@@ -32,12 +35,29 @@ public sealed class CompleteMobileRegistrationHandler(
         CancellationToken cancellationToken)
     {
         var ticketHash = tickets.Hash(request.RegistrationTicket);
+        var preflightPhone =
+            await pendingRegistrations.GetPhoneByTicketHashAsync(
+                ticketHash,
+                cancellationToken)
+            ?? throw new ArgumentException(
+                "การยืนยันเบอร์หมดอายุ กรุณายืนยันเบอร์ใหม่");
+        var normalizedPhone = ThaiMobilePhone.Normalize(preflightPhone);
+        await using var phoneTransaction =
+            await phoneTransactions.BeginAsync(
+                normalizedPhone,
+                cancellationToken);
         var pending =
             await pendingRegistrations.GetByTicketHashAsync(
                 ticketHash,
                 cancellationToken)
             ?? throw new ArgumentException(
                 "การยืนยันเบอร์หมดอายุ กรุณายืนยันเบอร์ใหม่");
+        if (!string.Equals(
+                normalizedPhone,
+                ThaiMobilePhone.Normalize(pending.PhoneNumber),
+                StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                "หมายเลขโทรศัพท์ของคำขอสมัครสมาชิกเปลี่ยนแปลงระหว่างดำเนินการ");
 
         var status = pending.ValidateCompletion(
             request.InstallationId,
@@ -51,6 +71,7 @@ public sealed class CompleteMobileRegistrationHandler(
             if (replayBuyer is null)
                 throw new InvalidOperationException(
                     "ไม่พบบัญชีจากคำขอสมัครสมาชิกเดิม");
+            await phoneTransaction.CommitAsync(cancellationToken);
             return ProfileFor(replayBuyer);
         }
 
@@ -67,9 +88,19 @@ public sealed class CompleteMobileRegistrationHandler(
             throw new ArgumentException(
                 "เบอร์นี้มีบัญชีแล้ว กรุณาเข้าสู่ระบบ");
 
+        var requestedName =
+            AccountName.Create(request.FirstName, request.LastName);
+        var seller = await sellers.GetByPhoneAsync(
+            normalizedPhone,
+            cancellationToken);
+        var accountName = seller is not null &&
+                          !string.IsNullOrWhiteSpace(seller.FirstName) &&
+                          !string.IsNullOrWhiteSpace(seller.LastName)
+            ? AccountName.Create(seller.FirstName, seller.LastName)
+            : requestedName;
         var buyer = BuyerAccount.Create(
-            pending.PhoneNumber,
-            AccountName.Create(request.FirstName, request.LastName),
+            normalizedPhone,
+            accountName,
             request.Email,
             clock.UtcNow);
         var acceptance = MobileAccountTermsAcceptance.Create(
@@ -88,6 +119,7 @@ public sealed class CompleteMobileRegistrationHandler(
             acceptance,
             cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        await phoneTransaction.CommitAsync(cancellationToken);
 
         return ProfileFor(buyer);
     }
