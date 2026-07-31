@@ -66,6 +66,14 @@ public sealed class AccountNameChangePresentationTests
 
         Assert.Equal(challengeId, pending!.ChallengeId);
         Assert.Equal("08x-xxx-1234", pending.MaskedPhoneNumber);
+        Assert.Equal("ชื่อ", pending.FirstName);
+        Assert.Equal("นามสกุล", pending.LastName);
+        Assert.Equal(
+            DateTimeOffset.Parse("2026-07-31T13:00:00+07:00"),
+            pending.ExpiresAt);
+        Assert.Equal(
+            DateTimeOffset.Parse("2026-07-31T12:01:00+07:00"),
+            pending.ResendAvailableAt);
         Assert.Equal(5, pending.RemainingAttempts);
         Assert.Equal(HttpMethod.Get, handler.Requests[0].Method);
         Assert.Equal("/api/mobile/me/name-change", handler.Requests[0].Path);
@@ -228,30 +236,31 @@ public sealed class AccountNameChangePresentationTests
 
     public static IEnumerable<object[]> StableProblemCases()
     {
-        yield return ["name_change_cooldown", AccountNameChangeErrorKind.Cooldown, AccountNameChangeErrorTarget.BlockedAction, "ยังเปลี่ยนชื่อไม่ได้ กรุณาลองใหม่เมื่อถึงเวลาที่แจ้ง", false];
-        yield return ["name_change_first_name_invalid", AccountNameChangeErrorKind.Invalid, AccountNameChangeErrorTarget.FirstNameInput, "กรุณาตรวจสอบชื่อ", false];
-        yield return ["name_change_last_name_invalid", AccountNameChangeErrorKind.Invalid, AccountNameChangeErrorTarget.LastNameInput, "กรุณาตรวจสอบนามสกุล", false];
-        yield return ["name_change_unchanged", AccountNameChangeErrorKind.Unchanged, AccountNameChangeErrorTarget.VerificationAction, "ชื่อนี้เป็นชื่อปัจจุบันของคุณแล้ว", false];
-        yield return ["name_change_idempotency_invalid", AccountNameChangeErrorKind.Invalid, AccountNameChangeErrorTarget.VerificationAction, "คำขอไม่ถูกต้อง กรุณาลองใหม่", false];
-        yield return ["name_change_idempotency_conflict", AccountNameChangeErrorKind.Invalid, AccountNameChangeErrorTarget.VerificationAction, "คำขอนี้ไม่ตรงกับข้อมูลเดิม กรุณาลองใหม่", false];
-        yield return ["name_change_provider_unavailable", AccountNameChangeErrorKind.Unavailable, AccountNameChangeErrorTarget.VerificationAction, "บริการยืนยันชื่อยังไม่พร้อมใช้งาน กรุณาลองใหม่ภายหลัง", false];
-        yield return ["name_change_provider_outcome_unknown", AccountNameChangeErrorKind.Unavailable, AccountNameChangeErrorTarget.VerificationAction, "กำลังตรวจสอบผลการยืนยัน กรุณาลองอีกครั้งด้วยคำขอเดิม", true];
-        yield return ["name_change_provider_throttled", AccountNameChangeErrorKind.Cooldown, AccountNameChangeErrorTarget.VerificationAction, "กรุณารอก่อนขอรหัสยืนยันอีกครั้ง", false];
-        yield return ["name_change_send_limit", AccountNameChangeErrorKind.SendLimit, AccountNameChangeErrorTarget.VerificationAction, "ขอรหัสยืนยันครบจำนวนแล้ว กรุณาลองใหม่ภายหลัง", false];
-        yield return ["name_change_resend_cooldown", AccountNameChangeErrorKind.Cooldown, AccountNameChangeErrorTarget.VerificationAction, "กรุณารอก่อนขอรหัสยืนยันอีกครั้ง", false];
-        yield return ["name_change_rate_limited", AccountNameChangeErrorKind.RateLimited, AccountNameChangeErrorTarget.VerificationAction, "มีการทำรายการบ่อยเกินไป กรุณารอสักครู่ก่อนลองอีกครั้ง", false];
-        yield return ["name_change_invalid_request", AccountNameChangeErrorKind.Invalid, AccountNameChangeErrorTarget.VerificationAction, "ไม่สามารถทำรายการเปลี่ยนชื่อได้ กรุณาตรวจสอบข้อมูลแล้วลองใหม่", false];
-        yield return ["name_change_code_incorrect", AccountNameChangeErrorKind.Invalid, AccountNameChangeErrorTarget.CodeInput, "รหัสยืนยันไม่ถูกต้อง ลองตรวจสอบแล้วกรอกอีกครั้ง", false];
-        yield return ["name_change_code_invalid", AccountNameChangeErrorKind.Invalid, AccountNameChangeErrorTarget.CodeInput, "กรอกรหัสยืนยัน 6 หลัก", false];
-        yield return ["name_change_locked", AccountNameChangeErrorKind.Locked, AccountNameChangeErrorTarget.NewRequestAction, "กรอกรหัสไม่ถูกต้องครบจำนวนแล้ว กรุณาขอรหัสใหม่", false];
-        yield return ["name_change_expired", AccountNameChangeErrorKind.Expired, AccountNameChangeErrorTarget.NewRequestAction, "รหัสยืนยันหมดอายุแล้ว กรุณาขอรหัสใหม่", false];
-        yield return ["name_change_challenge_unavailable", AccountNameChangeErrorKind.Missing, AccountNameChangeErrorTarget.AccountReturnAction, "คำขอเปลี่ยนชื่อนี้ใช้ไม่ได้แล้ว กรุณากลับไปหน้าบัญชี", false];
-        yield return ["name_change_challenge_inactive", AccountNameChangeErrorKind.Missing, AccountNameChangeErrorTarget.AccountReturnAction, "คำขอเปลี่ยนชื่อนี้ใช้ไม่ได้แล้ว กรุณากลับไปหน้าบัญชี", false];
+        yield return ["request", "name_change_cooldown", AccountNameChangeErrorKind.Cooldown, AccountNameChangeErrorTarget.BlockedAction, "ยังเปลี่ยนชื่อไม่ได้ กรุณาลองใหม่เมื่อถึงเวลาที่แจ้ง", false];
+        yield return ["request", "name_change_first_name_invalid", AccountNameChangeErrorKind.Invalid, AccountNameChangeErrorTarget.FirstNameInput, "กรุณาตรวจสอบชื่อ", false];
+        yield return ["request", "name_change_last_name_invalid", AccountNameChangeErrorKind.Invalid, AccountNameChangeErrorTarget.LastNameInput, "กรุณาตรวจสอบนามสกุล", false];
+        yield return ["request", "name_change_unchanged", AccountNameChangeErrorKind.Unchanged, AccountNameChangeErrorTarget.RequestAction, "ชื่อนี้เป็นชื่อปัจจุบันของคุณแล้ว", false];
+        yield return ["request", "name_change_idempotency_invalid", AccountNameChangeErrorKind.Invalid, AccountNameChangeErrorTarget.RequestAction, "คำขอไม่ถูกต้อง กรุณาลองใหม่", false];
+        yield return ["request", "name_change_idempotency_conflict", AccountNameChangeErrorKind.Invalid, AccountNameChangeErrorTarget.RequestAction, "คำขอนี้ไม่ตรงกับข้อมูลเดิม กรุณาลองใหม่", false];
+        yield return ["request", "name_change_provider_unavailable", AccountNameChangeErrorKind.Unavailable, AccountNameChangeErrorTarget.RequestAction, "บริการยืนยันชื่อยังไม่พร้อมใช้งาน กรุณาลองใหม่ภายหลัง", false];
+        yield return ["request", "name_change_provider_outcome_unknown", AccountNameChangeErrorKind.Unavailable, AccountNameChangeErrorTarget.RequestAction, "กำลังตรวจสอบผลการยืนยัน กรุณาลองอีกครั้งด้วยคำขอเดิม", true];
+        yield return ["resend", "name_change_provider_throttled", AccountNameChangeErrorKind.Cooldown, AccountNameChangeErrorTarget.ResendAction, "กรุณารอก่อนขอรหัสยืนยันอีกครั้ง", false];
+        yield return ["request", "name_change_send_limit", AccountNameChangeErrorKind.SendLimit, AccountNameChangeErrorTarget.RequestAction, "ขอรหัสยืนยันครบจำนวนแล้ว กรุณาลองใหม่ภายหลัง", false];
+        yield return ["resend", "name_change_resend_cooldown", AccountNameChangeErrorKind.Cooldown, AccountNameChangeErrorTarget.ResendAction, "กรุณารอก่อนขอรหัสยืนยันอีกครั้ง", false];
+        yield return ["resend", "name_change_rate_limited", AccountNameChangeErrorKind.RateLimited, AccountNameChangeErrorTarget.ResendAction, "มีการทำรายการบ่อยเกินไป กรุณารอสักครู่ก่อนลองอีกครั้ง", false];
+        yield return ["request", "name_change_invalid_request", AccountNameChangeErrorKind.Invalid, AccountNameChangeErrorTarget.RequestAction, "ไม่สามารถทำรายการเปลี่ยนชื่อได้ กรุณาตรวจสอบข้อมูลแล้วลองใหม่", false];
+        yield return ["verification", "name_change_code_incorrect", AccountNameChangeErrorKind.Invalid, AccountNameChangeErrorTarget.CodeInput, "รหัสยืนยันไม่ถูกต้อง ลองตรวจสอบแล้วกรอกอีกครั้ง", false];
+        yield return ["verification", "name_change_code_invalid", AccountNameChangeErrorKind.Invalid, AccountNameChangeErrorTarget.CodeInput, "กรอกรหัสยืนยัน 6 หลัก", false];
+        yield return ["verification", "name_change_locked", AccountNameChangeErrorKind.Locked, AccountNameChangeErrorTarget.NewRequestAction, "กรอกรหัสไม่ถูกต้องครบจำนวนแล้ว กรุณาขอรหัสใหม่", false];
+        yield return ["verification", "name_change_expired", AccountNameChangeErrorKind.Expired, AccountNameChangeErrorTarget.NewRequestAction, "รหัสยืนยันหมดอายุแล้ว กรุณาขอรหัสใหม่", false];
+        yield return ["resend", "name_change_challenge_unavailable", AccountNameChangeErrorKind.Missing, AccountNameChangeErrorTarget.AccountReturnAction, "คำขอเปลี่ยนชื่อนี้ใช้ไม่ได้แล้ว กรุณากลับไปหน้าบัญชี", false];
+        yield return ["verification", "name_change_challenge_inactive", AccountNameChangeErrorKind.Missing, AccountNameChangeErrorTarget.AccountReturnAction, "คำขอเปลี่ยนชื่อนี้ใช้ไม่ได้แล้ว กรุณากลับไปหน้าบัญชี", false];
     }
 
     [Theory]
     [MemberData(nameof(StableProblemCases))]
     public void Every_stable_problem_code_has_consumer_owned_presentation(
+        string source,
         string code,
         AccountNameChangeErrorKind expectedKind,
         AccountNameChangeErrorTarget expectedTarget,
@@ -266,13 +275,22 @@ public sealed class AccountNameChangePresentationTests
             remainingAttempts: 3,
             nextAllowedAt: DateTimeOffset.Parse("2026-09-30T09:45:00+07:00"));
 
-        var notice = AccountNameChangeErrorPresentation.ForVerification(exception);
+        var notice = source switch
+        {
+            "request" => AccountNameChangeErrorPresentation.ForRequest(exception),
+            "resend" => AccountNameChangeErrorPresentation.ForResend(exception),
+            "verification" => AccountNameChangeErrorPresentation.ForVerification(exception),
+            _ => throw new ArgumentOutOfRangeException(nameof(source))
+        };
 
         Assert.Equal(expectedKind, notice.Kind);
         Assert.Equal(expectedTarget, notice.Target);
         Assert.Equal(expectedMessage, notice.Message);
         Assert.Equal(TimeSpan.FromSeconds(9), notice.RetryAfter);
         Assert.Equal(3, notice.RemainingAttempts);
+        Assert.Equal(
+            DateTimeOffset.Parse("2026-09-30T09:45:00+07:00"),
+            notice.NextAllowedAt);
         Assert.Equal(expectedSameKeyRetry, notice.RetryWithSameIdempotencyKey);
         Assert.DoesNotContain("untrusted", notice.Message, StringComparison.OrdinalIgnoreCase);
     }

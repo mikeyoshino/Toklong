@@ -1,4 +1,5 @@
 using System.Net;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace Toklong.Mobile.Core;
@@ -224,66 +225,104 @@ public static class AccountNameChangeErrorPresentation
             retryWithSameIdempotencyKey);
 }
 
+public enum AccountNameChangeOperationKind
+{
+    Request,
+    Resend,
+    Verification
+}
+
+public sealed class AccountNameChangeOperationLease
+{
+    internal AccountNameChangeOperationLease(
+        AccountNameChangeOperationKind kind,
+        string fingerprint,
+        string idempotencyKey,
+        long slotGeneration,
+        long sessionGeneration)
+    {
+        Kind = kind;
+        Fingerprint = fingerprint;
+        IdempotencyKey = idempotencyKey;
+        SlotGeneration = slotGeneration;
+        SessionGeneration = sessionGeneration;
+    }
+
+    internal AccountNameChangeOperationKind Kind { get; }
+    internal string Fingerprint { get; }
+    internal string IdempotencyKey { get; }
+    internal long SlotGeneration { get; }
+    internal long SessionGeneration { get; }
+}
+
 public sealed class AccountNameChangeOperationState
 {
+    private readonly AuthenticatedSessionBoundary session;
     private readonly object sync = new();
     private readonly HashSet<string> issuedKeys = new(StringComparer.Ordinal);
-    private OperationKey<RequestAssociation>? request;
-    private OperationKey<ResendAssociation>? resend;
-    private OperationKey<VerificationAssociation>? verification;
+    private OperationSlot? request;
+    private OperationSlot? resend;
+    private OperationSlot? verification;
+    private long requestGeneration;
+    private long resendGeneration;
+    private long verificationGeneration;
 
     public AccountNameChangeOperationState(AuthenticatedSessionBoundary session)
     {
+        this.session = session;
         session.ResetRequested += (_, _) => Reset();
     }
 
-    public string GetRequestKey(string firstName, string lastName)
-    {
-        lock (sync)
-        {
-            var association = new RequestAssociation(
+    public AccountNameChangeOperationLease BeginRequest(
+        string firstName,
+        string lastName) =>
+        Begin(
+            AccountNameChangeOperationKind.Request,
+            Fingerprint(
+                AccountNameChangeOperationKind.Request,
                 Normalize(firstName),
-                Normalize(lastName));
-            return GetOrCreate(ref request, association);
-        }
-    }
+                Normalize(lastName)));
 
-    public string GetResendKey(Guid challengeId)
-    {
-        lock (sync)
-        {
-            return GetOrCreate(
-                ref resend,
-                new ResendAssociation(challengeId));
-        }
-    }
+    public AccountNameChangeOperationLease BeginResend(Guid challengeId) =>
+        Begin(
+            AccountNameChangeOperationKind.Resend,
+            Fingerprint(
+                AccountNameChangeOperationKind.Resend,
+                challengeId.ToString("N")));
 
-    public string GetVerificationKey(Guid challengeId, string code)
-    {
-        lock (sync)
-        {
-            return GetOrCreate(
-                ref verification,
-                new VerificationAssociation(
-                    challengeId,
-                    Normalize(code)));
-        }
-    }
+    public AccountNameChangeOperationLease BeginVerification(
+        Guid challengeId,
+        string code) =>
+        Begin(
+            AccountNameChangeOperationKind.Verification,
+            Fingerprint(
+                AccountNameChangeOperationKind.Verification,
+                challengeId.ToString("N"),
+                Normalize(code)));
 
-    public void RecordRequestSuccess() => Clear(ref request);
+    public void RecordRequestSuccess(AccountNameChangeOperationLease lease) =>
+        Complete(lease, success: true);
 
-    public void RecordRequestFailure(Exception exception) =>
-        ClearIfAuthoritative(ref request, exception);
+    public void RecordRequestFailure(
+        AccountNameChangeOperationLease lease,
+        Exception exception) =>
+        Complete(lease, success: false, exception);
 
-    public void RecordResendSuccess() => Clear(ref resend);
+    public void RecordResendSuccess(AccountNameChangeOperationLease lease) =>
+        Complete(lease, success: true);
 
-    public void RecordResendFailure(Exception exception) =>
-        ClearIfAuthoritative(ref resend, exception);
+    public void RecordResendFailure(
+        AccountNameChangeOperationLease lease,
+        Exception exception) =>
+        Complete(lease, success: false, exception);
 
-    public void RecordVerificationSuccess() => Clear(ref verification);
+    public void RecordVerificationSuccess(AccountNameChangeOperationLease lease) =>
+        Complete(lease, success: true);
 
-    public void RecordVerificationFailure(Exception exception) =>
-        ClearIfAuthoritative(ref verification, exception);
+    public void RecordVerificationFailure(
+        AccountNameChangeOperationLease lease,
+        Exception exception) =>
+        Complete(lease, success: false, exception);
 
     public void Reset()
     {
@@ -292,44 +331,107 @@ public sealed class AccountNameChangeOperationState
             request = null;
             resend = null;
             verification = null;
+            requestGeneration++;
+            resendGeneration++;
+            verificationGeneration++;
             issuedKeys.Clear();
         }
     }
 
-    private string GetOrCreate<TAssociation>(
-        ref OperationKey<TAssociation>? operation,
-        TAssociation association)
-        where TAssociation : notnull
-    {
-        if (operation is { } current &&
-            EqualityComparer<TAssociation>.Default.Equals(
-                current.Association,
-                association))
-            return current.IdempotencyKey;
-
-        var key = NewIdempotencyKey();
-        operation = new OperationKey<TAssociation>(association, key);
-        return key;
-    }
-
-    private void Clear<TAssociation>(ref OperationKey<TAssociation>? operation)
-        where TAssociation : notnull
+    private AccountNameChangeOperationLease Begin(
+        AccountNameChangeOperationKind kind,
+        string fingerprint)
     {
         lock (sync)
         {
-            operation = null;
+            ref var slot = ref Slot(kind);
+            ref var generation = ref Generation(kind);
+            if (slot is null ||
+                !string.Equals(
+                    slot.Fingerprint,
+                    fingerprint,
+                    StringComparison.Ordinal))
+            {
+                slot = new OperationSlot(
+                    fingerprint,
+                    NewIdempotencyKey(),
+                    ++generation);
+            }
+
+            return new AccountNameChangeOperationLease(
+                kind,
+                slot.Fingerprint,
+                slot.IdempotencyKey,
+                slot.Generation,
+                session.Capture());
         }
     }
 
-    private void ClearIfAuthoritative<TAssociation>(
-        ref OperationKey<TAssociation>? operation,
-        Exception exception)
-        where TAssociation : notnull
+    private void Complete(
+        AccountNameChangeOperationLease lease,
+        bool success,
+        Exception? exception = null)
     {
-        if (MayRetryWithSameKey(exception))
-            return;
+        lock (sync)
+        {
+            if (!IsCurrent(lease))
+                return;
 
-        Clear(ref operation);
+            if (!success && exception is not null && MayRetryWithSameKey(exception))
+                return;
+
+            ref var slot = ref Slot(lease.Kind);
+            slot = null;
+            Generation(lease.Kind)++;
+        }
+    }
+
+    private bool IsCurrent(AccountNameChangeOperationLease lease)
+    {
+        if (!session.IsCurrent(lease.SessionGeneration))
+            return false;
+
+        var slot = Slot(lease.Kind);
+        return slot is not null &&
+               slot.Generation == lease.SlotGeneration &&
+               string.Equals(
+                   slot.Fingerprint,
+                   lease.Fingerprint,
+                   StringComparison.Ordinal) &&
+               string.Equals(
+                   slot.IdempotencyKey,
+                   lease.IdempotencyKey,
+                   StringComparison.Ordinal);
+    }
+
+    private ref OperationSlot? Slot(AccountNameChangeOperationKind kind)
+    {
+        switch (kind)
+        {
+            case AccountNameChangeOperationKind.Request:
+                return ref request;
+            case AccountNameChangeOperationKind.Resend:
+                return ref resend;
+            case AccountNameChangeOperationKind.Verification:
+                return ref verification;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(kind));
+        }
+    }
+
+    private ref long Generation(AccountNameChangeOperationKind kind)
+    {
+        switch (kind)
+        {
+            case AccountNameChangeOperationKind.Request:
+                return ref requestGeneration;
+            case AccountNameChangeOperationKind.Resend:
+                return ref resendGeneration;
+            case AccountNameChangeOperationKind.Verification:
+                return ref verificationGeneration;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(kind));
+        }
     }
 
     private string NewIdempotencyKey()
@@ -344,24 +446,26 @@ public sealed class AccountNameChangeOperationState
     }
 
     private static bool MayRetryWithSameKey(Exception exception) =>
-        exception is HttpRequestException or TimeoutException or TaskCanceledException ||
-        exception is not MobileApiRequestException { Code: { } code } ||
-        string.Equals(
-            code,
-            "name_change_provider_outcome_unknown",
-            StringComparison.Ordinal);
+        exception is HttpRequestException or TimeoutException or OperationCanceledException ||
+        exception is MobileApiRequestException
+        {
+            Code: "name_change_provider_outcome_unknown"
+        };
+
+    private static string Fingerprint(
+        AccountNameChangeOperationKind kind,
+        params string[] values) =>
+        Convert.ToHexString(SHA256.HashData(
+            Encoding.UTF8.GetBytes(
+                $"{kind}\u001f{string.Join("\u001f", values)}")));
 
     private static string Normalize(string value) =>
         value.Trim().Normalize(NormalizationForm.FormC);
 
-    private sealed record OperationKey<TAssociation>(
-        TAssociation Association,
-        string IdempotencyKey)
-        where TAssociation : notnull;
-
-    private sealed record RequestAssociation(string FirstName, string LastName);
-    private sealed record ResendAssociation(Guid ChallengeId);
-    private sealed record VerificationAssociation(Guid ChallengeId, string Code);
+    private sealed record OperationSlot(
+        string Fingerprint,
+        string IdempotencyKey,
+        long Generation);
 }
 
 public sealed class AccountNameChangeCompletionState

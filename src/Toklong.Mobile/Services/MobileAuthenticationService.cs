@@ -188,7 +188,7 @@ public sealed class MobileAuthenticationService(
         string lastName,
         CancellationToken cancellationToken = default)
     {
-        var key = nameChangeOperations.GetRequestKey(firstName, lastName);
+        var lease = nameChangeOperations.BeginRequest(firstName, lastName);
         try
         {
             var pending = await SendAccountNameChangeAsync(
@@ -197,15 +197,15 @@ public sealed class MobileAuthenticationService(
                 {
                     FirstName = firstName.Trim(),
                     LastName = lastName.Trim(),
-                    IdempotencyKey = key
+                    IdempotencyKey = lease.IdempotencyKey
                 },
                 cancellationToken);
-            nameChangeOperations.RecordRequestSuccess();
+            nameChangeOperations.RecordRequestSuccess(lease);
             return pending;
         }
         catch (Exception exception)
         {
-            nameChangeOperations.RecordRequestFailure(exception);
+            nameChangeOperations.RecordRequestFailure(lease, exception);
             throw;
         }
     }
@@ -214,19 +214,19 @@ public sealed class MobileAuthenticationService(
         Guid challengeId,
         CancellationToken cancellationToken = default)
     {
-        var key = nameChangeOperations.GetResendKey(challengeId);
+        var lease = nameChangeOperations.BeginResend(challengeId);
         try
         {
             var pending = await SendAccountNameChangeAsync(
                 $"api/mobile/me/name-change/{challengeId}/resend",
-                new { IdempotencyKey = key },
+                new { IdempotencyKey = lease.IdempotencyKey },
                 cancellationToken);
-            nameChangeOperations.RecordResendSuccess();
+            nameChangeOperations.RecordResendSuccess(lease);
             return pending;
         }
         catch (Exception exception)
         {
-            nameChangeOperations.RecordResendFailure(exception);
+            nameChangeOperations.RecordResendFailure(lease, exception);
             throw;
         }
     }
@@ -236,7 +236,7 @@ public sealed class MobileAuthenticationService(
         string code,
         CancellationToken cancellationToken = default)
     {
-        var key = nameChangeOperations.GetVerificationKey(challengeId, code);
+        var lease = nameChangeOperations.BeginVerification(challengeId, code);
         try
         {
             using var response = await api.SendAuthenticatedAsync(
@@ -247,7 +247,7 @@ public sealed class MobileAuthenticationService(
                     Content = JsonContent.Create(new
                     {
                         Code = code.Trim(),
-                        IdempotencyKey = key
+                        IdempotencyKey = lease.IdempotencyKey
                     })
                 },
                 cancellationToken);
@@ -256,12 +256,12 @@ public sealed class MobileAuthenticationService(
                                cancellationToken: cancellationToken)
                            ?? throw new InvalidOperationException(
                                "ไม่พบข้อมูลชื่อที่ยืนยันแล้ว");
-            nameChangeOperations.RecordVerificationSuccess();
+            nameChangeOperations.RecordVerificationSuccess(lease);
             return verified;
         }
         catch (Exception exception)
         {
-            nameChangeOperations.RecordVerificationFailure(exception);
+            nameChangeOperations.RecordVerificationFailure(lease, exception);
             throw;
         }
     }

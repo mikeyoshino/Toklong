@@ -7,84 +7,123 @@ namespace Toklong.Mobile.Core.Tests;
 public sealed class AccountNameChangeOperationStateTests
 {
     [Fact]
-    public void Request_key_is_valid_stable_for_normalized_fields_and_rotates_after_authoritative_outcomes()
-    {
-        var state = new AccountNameChangeOperationState(
-            new AuthenticatedSessionBoundary());
-
-        var first = state.GetRequestKey("  ชื่อ  ", "นามสกุล");
-        var normalized = state.GetRequestKey("ชื่อ", "นามสกุล");
-        state.RecordRequestFailure(new HttpRequestException());
-        var afterNetwork = state.GetRequestKey("ชื่อ", "นามสกุล");
-        state.RecordRequestFailure(OutcomeUnknown());
-        var afterUnknown = state.GetRequestKey("ชื่อ", "นามสกุล");
-        state.RecordRequestFailure(new InvalidOperationException("response was incomplete"));
-        var afterIncompleteResponse = state.GetRequestKey("ชื่อ", "นามสกุล");
-        state.RecordRequestFailure(AuthoritativeFailure());
-        var afterAuthoritativeFailure = state.GetRequestKey("ชื่อ", "นามสกุล");
-        state.RecordRequestSuccess();
-        var afterSuccess = state.GetRequestKey("ชื่อ", "นามสกุล");
-        var afterFieldChange = state.GetRequestKey("ชื่อใหม่", "นามสกุล");
-
-        AssertValidKey(first);
-        Assert.Equal(first, normalized);
-        Assert.Equal(first, afterNetwork);
-        Assert.Equal(first, afterUnknown);
-        Assert.Equal(first, afterIncompleteResponse);
-        Assert.NotEqual(first, afterAuthoritativeFailure);
-        Assert.NotEqual(afterAuthoritativeFailure, afterSuccess);
-        Assert.NotEqual(afterSuccess, afterFieldChange);
-    }
-
-    [Fact]
-    public void Resend_and_verification_keys_are_isolated_and_rotate_for_their_own_associated_input()
-    {
-        var state = new AccountNameChangeOperationState(
-            new AuthenticatedSessionBoundary());
-        var firstChallenge = Guid.Parse("b1f9f3e3-1817-4677-82dd-86687f4e20a4");
-        var replacementChallenge = Guid.Parse("e4299eb1-fd1a-44a9-95b9-d5996fa7cf10");
-
-        var request = state.GetRequestKey("ชื่อ", "นามสกุล");
-        var resend = state.GetResendKey(firstChallenge);
-        var verify = state.GetVerificationKey(firstChallenge, " 123456 ");
-        state.RecordResendFailure(new HttpRequestException());
-        var resendAfterNetwork = state.GetResendKey(firstChallenge);
-        state.RecordVerificationFailure(OutcomeUnknown());
-        var verifyAfterUnknown = state.GetVerificationKey(firstChallenge, "123456");
-        var resendAfterChallengeChange = state.GetResendKey(replacementChallenge);
-        var verifyAfterCodeChange = state.GetVerificationKey(firstChallenge, "654321");
-        var verifyAfterChallengeChange = state.GetVerificationKey(replacementChallenge, "654321");
-        state.RecordVerificationSuccess();
-        var verifyAfterSuccess = state.GetVerificationKey(replacementChallenge, "654321");
-
-        AssertValidKey(resend);
-        AssertValidKey(verify);
-        Assert.NotEqual(request, resend);
-        Assert.NotEqual(request, verify);
-        Assert.NotEqual(resend, verify);
-        Assert.Equal(resend, resendAfterNetwork);
-        Assert.Equal(verify, verifyAfterUnknown);
-        Assert.NotEqual(resend, resendAfterChallengeChange);
-        Assert.NotEqual(verify, verifyAfterCodeChange);
-        Assert.NotEqual(verifyAfterCodeChange, verifyAfterChallengeChange);
-        Assert.NotEqual(verifyAfterChallengeChange, verifyAfterSuccess);
-    }
-
-    [Fact]
-    public void Session_reset_discards_all_in_flight_operation_keys()
+    public void Old_request_completion_cannot_clear_replacement_after_field_change()
     {
         var session = new AuthenticatedSessionBoundary();
         var state = new AccountNameChangeOperationState(session);
-        var challenge = Guid.NewGuid();
-        var request = state.GetRequestKey("ชื่อ", "นามสกุล");
-        var resend = state.GetResendKey(challenge);
-        var verify = state.GetVerificationKey(challenge, "123456");
+        var oldLease = state.BeginRequest("ชื่อเดิม", "นามสกุล");
+        var replacement = state.BeginRequest("ชื่อใหม่", "นามสกุล");
+
+        state.RecordRequestSuccess(oldLease);
+
+        var retry = state.BeginRequest("ชื่อใหม่", "นามสกุล");
+        AssertValidKey(oldLease.IdempotencyKey);
+        Assert.NotEqual(oldLease.IdempotencyKey, replacement.IdempotencyKey);
+        Assert.Equal(replacement.IdempotencyKey, retry.IdempotencyKey);
+    }
+
+    [Fact]
+    public void Old_session_failure_cannot_clear_replacement_after_reset()
+    {
+        var session = new AuthenticatedSessionBoundary();
+        var state = new AccountNameChangeOperationState(session);
+        var oldLease = state.BeginVerification(Guid.NewGuid(), "123456");
 
         session.Reset();
+        var replacementChallenge = Guid.NewGuid();
+        var replacement = state.BeginVerification(replacementChallenge, "123456");
+        state.RecordVerificationFailure(oldLease, AuthoritativeFailure());
 
-        Assert.NotEqual(request, state.GetRequestKey("ชื่อ", "นามสกุล"));
-        Assert.NotEqual(resend, state.GetResendKey(challenge));
-        Assert.NotEqual(verify, state.GetVerificationKey(challenge, "123456"));
+        var retry = state.BeginVerification(
+            replacementChallenge,
+            "123456");
+        Assert.NotEqual(oldLease.IdempotencyKey, replacement.IdempotencyKey);
+        Assert.Equal(replacement.IdempotencyKey, retry.IdempotencyKey);
+    }
+
+    [Fact]
+    public void Old_resend_completion_cannot_clear_replacement_after_source_change()
+    {
+        var state = new AccountNameChangeOperationState(
+            new AuthenticatedSessionBoundary());
+        var oldLease = state.BeginResend(Guid.NewGuid());
+        var replacementChallenge = Guid.NewGuid();
+        var replacement = state.BeginResend(replacementChallenge);
+
+        state.RecordResendSuccess(oldLease);
+
+        Assert.Equal(
+            replacement.IdempotencyKey,
+            state.BeginResend(replacementChallenge).IdempotencyKey);
+    }
+
+    [Fact]
+    public void Old_verification_failure_cannot_clear_replacement_after_code_change()
+    {
+        var state = new AccountNameChangeOperationState(
+            new AuthenticatedSessionBoundary());
+        var challenge = Guid.NewGuid();
+        var oldLease = state.BeginVerification(challenge, "123456");
+        var replacement = state.BeginVerification(challenge, "654321");
+
+        state.RecordVerificationFailure(oldLease, AuthoritativeFailure());
+
+        Assert.Equal(
+            replacement.IdempotencyKey,
+            state.BeginVerification(challenge, "654321").IdempotencyKey);
+    }
+
+    [Theory]
+    [MemberData(nameof(FailureCases))]
+    public void Only_explicit_ambiguous_failures_retain_the_same_key(
+        Exception failure,
+        bool shouldReuse)
+    {
+        var state = new AccountNameChangeOperationState(
+            new AuthenticatedSessionBoundary());
+        var lease = state.BeginRequest("ชื่อ", "นามสกุล");
+
+        state.RecordRequestFailure(lease, failure);
+
+        var retry = state.BeginRequest("ชื่อ", "นามสกุล");
+        Assert.Equal(shouldReuse, lease.IdempotencyKey == retry.IdempotencyKey);
+    }
+
+    [Fact]
+    public void Operation_types_and_association_changes_have_isolated_leases()
+    {
+        var state = new AccountNameChangeOperationState(
+            new AuthenticatedSessionBoundary());
+        var firstChallenge = Guid.NewGuid();
+        var replacementChallenge = Guid.NewGuid();
+        var request = state.BeginRequest("  ชื่อ  ", "นามสกุล");
+        var requestRetry = state.BeginRequest("ชื่อ", "นามสกุล");
+        var resend = state.BeginResend(firstChallenge);
+        var verification = state.BeginVerification(firstChallenge, " 123456 ");
+        var resendReplacement = state.BeginResend(replacementChallenge);
+        var verificationCodeChange = state.BeginVerification(firstChallenge, "654321");
+
+        AssertValidKey(request.IdempotencyKey);
+        Assert.Equal(request.IdempotencyKey, requestRetry.IdempotencyKey);
+        Assert.NotEqual(request.IdempotencyKey, resend.IdempotencyKey);
+        Assert.NotEqual(request.IdempotencyKey, verification.IdempotencyKey);
+        Assert.NotEqual(resend.IdempotencyKey, verification.IdempotencyKey);
+        Assert.NotEqual(resend.IdempotencyKey, resendReplacement.IdempotencyKey);
+        Assert.NotEqual(verification.IdempotencyKey, verificationCodeChange.IdempotencyKey);
+    }
+
+    public static IEnumerable<object[]> FailureCases()
+    {
+        yield return [new HttpRequestException(), true];
+        yield return [new TimeoutException(), true];
+        yield return [new OperationCanceledException(), true];
+        yield return [new TaskCanceledException(), true];
+        yield return [OutcomeUnknown(), true];
+        yield return [new InvalidOperationException(), false];
+        yield return [new UnauthorizedAccessException(), false];
+        yield return [new MobileApiRequestException(HttpStatusCode.BadRequest, "detail", null), false];
+        yield return [new MobileApiRequestException(HttpStatusCode.BadRequest, "detail", null, "name_change_future_code"), false];
+        yield return [AuthoritativeFailure(), false];
     }
 
     private static MobileApiRequestException OutcomeUnknown() =>
