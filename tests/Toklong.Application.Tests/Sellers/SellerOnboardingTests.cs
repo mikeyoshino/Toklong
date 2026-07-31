@@ -46,6 +46,7 @@ public sealed class SellerOnboardingTests
         var challenge = await provider.RequestAsync(
             phone,
             OtpPurpose.MobileAuthentication,
+            Guid.NewGuid().ToString("N"),
             CancellationToken.None);
         var wrongCode = challenge.DevelopmentCode == "000000"
             ? "999999"
@@ -81,6 +82,7 @@ public sealed class SellerOnboardingTests
             provider.RequestAsync(
                 "0812345678",
                 OtpPurpose.MobileAuthentication,
+                Guid.NewGuid().ToString("N"),
                 CancellationToken.None));
     }
 
@@ -94,11 +96,13 @@ public sealed class SellerOnboardingTests
         await provider.RequestAsync(
             phone,
             OtpPurpose.MobileAuthentication,
+            Guid.NewGuid().ToString("N"),
             CancellationToken.None);
         var exception = await Assert.ThrowsAsync<RequestCooldownException>(() =>
             provider.RequestAsync(
                 phone,
                 OtpPurpose.MobileAuthentication,
+                Guid.NewGuid().ToString("N"),
                 CancellationToken.None));
 
         Assert.InRange(
@@ -106,6 +110,33 @@ public sealed class SellerOnboardingTests
             TimeSpan.FromMilliseconds(1),
             TimeSpan.FromSeconds(60));
         Assert.Contains("ก่อนขอรหัสใหม่", exception.Message);
+    }
+
+    [Fact]
+    public async Task Development_otp_replays_and_looks_up_the_same_provider_request()
+    {
+        var provider = new DevelopmentOtpVerificationProvider(
+            new TestEnvironment(Environments.Development));
+        var phone = $"087{Random.Shared.Next(10_000_000):D7}";
+        var requestKey = Guid.NewGuid().ToString("N");
+
+        var first = await provider.RequestAsync(
+            phone,
+            OtpPurpose.AccountNameChange,
+            requestKey,
+            CancellationToken.None);
+        var replay = await provider.RequestAsync(
+            phone,
+            OtpPurpose.AccountNameChange,
+            requestKey,
+            CancellationToken.None);
+        var lookup = await provider.LookupAsync(
+            requestKey,
+            OtpPurpose.AccountNameChange,
+            CancellationToken.None);
+
+        Assert.Equal(first, replay);
+        Assert.Equal(first, lookup);
     }
 
     [Fact]
@@ -117,6 +148,7 @@ public sealed class SellerOnboardingTests
         var challenge = await provider.RequestAsync(
             phone,
             OtpPurpose.AccountNameChange,
+            Guid.NewGuid().ToString("N"),
             CancellationToken.None);
 
         Assert.Null(await provider.VerifyAsync(
@@ -144,10 +176,12 @@ public sealed class SellerOnboardingTests
         var authentication = await provider.RequestAsync(
             $"084{Random.Shared.Next(10_000_000):D7}",
             OtpPurpose.MobileAuthentication,
+            Guid.NewGuid().ToString("N"),
             CancellationToken.None);
         var nameChange = await provider.RequestAsync(
             $"083{Random.Shared.Next(10_000_000):D7}",
             OtpPurpose.AccountNameChange,
+            Guid.NewGuid().ToString("N"),
             CancellationToken.None);
 
         clock.UtcNow = clock.UtcNow.AddMinutes(5);
@@ -172,6 +206,7 @@ public sealed class SellerOnboardingTests
         var challenge = await provider.RequestAsync(
             $"082{Random.Shared.Next(10_000_000):D7}",
             OtpPurpose.AccountNameChange,
+            Guid.NewGuid().ToString("N"),
             CancellationToken.None);
         using var ready = new CountdownEvent(4);
         using var start = new ManualResetEventSlim();

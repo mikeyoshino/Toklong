@@ -23,12 +23,31 @@ public enum OtpPurpose
     AccountNameChange
 }
 
+public sealed record OtpProviderCapabilities(
+    bool SupportsAccountNameChange,
+    TimeSpan? AccountNameChangeCodeLifetime,
+    bool SupportsRequestLookup)
+{
+    public static OtpProviderCapabilities MobileAuthenticationOnly { get; } =
+        new(false, null, false);
+}
+
 public interface IOtpVerificationProvider
 {
+    OtpProviderCapabilities Capabilities =>
+        OtpProviderCapabilities.MobileAuthenticationOnly;
+
     Task<OtpChallenge> RequestAsync(
         string phoneNumber,
         OtpPurpose purpose,
+        string providerRequestKey,
         CancellationToken cancellationToken);
+
+    Task<OtpChallenge?> LookupAsync(
+        string providerRequestKey,
+        OtpPurpose purpose,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<OtpChallenge?>(null);
 
     Task<string?> VerifyAsync(
         string challengeId,

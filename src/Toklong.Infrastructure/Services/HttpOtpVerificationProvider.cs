@@ -16,6 +16,9 @@ public sealed class OtpProviderOptions
     public string BaseUrl { get; init; } = "";
     public string ApiKey { get; init; } = "";
     public string ApiSecret { get; init; } = "";
+    public bool AccountNameChangeEnabled { get; init; }
+    public string AccountNameChangeCertificationReference { get; init; } = "";
+    public int AccountNameChangeCodeLifetimeSeconds { get; init; }
 
     public static OtpProviderOptions From(IConfiguration configuration)
     {
@@ -25,7 +28,14 @@ public sealed class OtpProviderOptions
             Provider = section["Provider"] ?? "Development",
             BaseUrl = section["BaseUrl"] ?? "",
             ApiKey = section["ApiKey"] ?? "",
-            ApiSecret = section["ApiSecret"] ?? ""
+            ApiSecret = section["ApiSecret"] ?? "",
+            AccountNameChangeEnabled =
+                section.GetValue<bool>("AccountNameChangeEnabled"),
+            AccountNameChangeCertificationReference =
+                section["AccountNameChangeCertificationReference"] ?? "",
+            AccountNameChangeCodeLifetimeSeconds =
+                section.GetValue<int>(
+                    "AccountNameChangeCodeLifetimeSeconds")
         };
     }
 
@@ -44,12 +54,21 @@ public sealed class ThaiBulkSmsOtpVerificationProvider(
     HttpClient httpClient,
     OtpProviderOptions options) : IOtpVerificationProvider
 {
+    public OtpProviderCapabilities Capabilities =>
+        OtpProviderCapabilities.MobileAuthenticationOnly;
+
     public async Task<OtpChallenge> RequestAsync(
         string phoneNumber,
         OtpPurpose purpose,
+        string providerRequestKey,
         CancellationToken cancellationToken)
     {
+        if (purpose == OtpPurpose.AccountNameChange)
+            throw new InvalidOperationException(
+                "ThaibulkSMS ยังไม่ได้รับรอง template และอายุรหัส 10 นาทีสำหรับการเปลี่ยนชื่อ");
         EnsureConfigured();
+        providerRequestKey = ValidProviderRequestKey(
+            providerRequestKey);
         var normalized = ThaiMobilePhone.Normalize(phoneNumber);
         using var request = new HttpRequestMessage(
             HttpMethod.Post,
@@ -62,6 +81,9 @@ public sealed class ThaiBulkSmsOtpVerificationProvider(
                 new("msisdn", normalized)
             ])
         };
+        request.Headers.Add(
+            "Idempotency-Key",
+            providerRequestKey);
         using var response = await httpClient.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,
@@ -95,6 +117,12 @@ public sealed class ThaiBulkSmsOtpVerificationProvider(
             Mask(normalized),
             null);
     }
+
+    public Task<OtpChallenge?> LookupAsync(
+        string providerRequestKey,
+        OtpPurpose purpose,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<OtpChallenge?>(null);
 
     public async Task<string?> VerifyAsync(
         string challengeId,
@@ -242,6 +270,17 @@ public sealed class ThaiBulkSmsOtpVerificationProvider(
     private static string Mask(string normalizedPhone) =>
         $"0{normalizedPhone[3..5]}-***-{normalizedPhone[^4..]}";
 
+    private static string ValidProviderRequestKey(string value)
+    {
+        var clean = (value ?? "").Trim();
+        if (clean.Length != 32 ||
+            !Guid.TryParseExact(clean, "N", out var parsed))
+            throw new ArgumentException(
+                "Provider request key must be a 32-character UUID.",
+                nameof(value));
+        return parsed.ToString("N");
+    }
+
     private static TimeSpan ReadRetryAfter(
         HttpResponseMessage response)
     {
@@ -268,16 +307,35 @@ public sealed class HttpOtpVerificationProvider(
     HttpClient httpClient,
     OtpProviderOptions options) : IOtpVerificationProvider
 {
+    public OtpProviderCapabilities Capabilities =>
+        new(
+            IsCertifiedForAccountNameChange(),
+            IsCertifiedForAccountNameChange()
+                ? TimeSpan.FromMinutes(10)
+                : null,
+            true);
+
     public async Task<OtpChallenge> RequestAsync(
         string phoneNumber,
         OtpPurpose purpose,
+        string providerRequestKey,
         CancellationToken cancellationToken)
     {
+        EnsurePurposeSupported(purpose);
         var normalized = ThaiMobilePhone.Normalize(phoneNumber);
+        providerRequestKey = ValidProviderRequestKey(
+            providerRequestKey);
         using var request = CreateRequest(
             HttpMethod.Post,
             "v1/otp/challenges",
-            new OtpRequest(normalized, purpose.ToString()));
+            new OtpRequest(
+                normalized,
+                purpose.ToString(),
+                providerRequestKey,
+                purpose == OtpPurpose.AccountNameChange
+                    ? 600
+                    : null),
+            providerRequestKey);
         using var response = await httpClient.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,
@@ -298,7 +356,56 @@ public sealed class HttpOtpVerificationProvider(
             throw new InvalidOperationException(
                 "ผู้ให้บริการรหัสยืนยันส่งข้อมูลไม่ครบ");
         return new OtpChallenge(
-            result.ChallengeId,
+            ProtectChallenge(
+                normalized,
+                result.ChallengeId,
+                purpose,
+                providerRequestKey),
+            result.MaskedPhoneNumber.Trim(),
+            null);
+    }
+
+    public async Task<OtpChallenge?> LookupAsync(
+        string providerRequestKey,
+        OtpPurpose purpose,
+        CancellationToken cancellationToken)
+    {
+        EnsurePurposeSupported(purpose);
+        providerRequestKey = ValidProviderRequestKey(
+            providerRequestKey);
+        using var request = CreateRequest(
+            HttpMethod.Get,
+            $"v1/otp/challenges/by-request/{providerRequestKey}" +
+            $"?purpose={Uri.EscapeDataString(purpose.ToString())}",
+            body: (object?)null,
+            providerRequestKey: null);
+        using var response = await httpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+        if (response.StatusCode ==
+            System.Net.HttpStatusCode.NotFound)
+            return null;
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException(
+                "ผู้ให้บริการรหัสยืนยันไม่พร้อมใช้งาน");
+        var result = await response.Content
+            .ReadFromJsonAsync<OtpLookupResult>(
+                cancellationToken: cancellationToken);
+        if (result is null ||
+            !ValidOpaqueId(result.ChallengeId) ||
+            string.IsNullOrWhiteSpace(result.PhoneNumber) ||
+            string.IsNullOrWhiteSpace(result.MaskedPhoneNumber))
+            throw new InvalidOperationException(
+                "ผู้ให้บริการรหัสยืนยันส่งข้อมูลไม่ครบ");
+        var normalized = ThaiMobilePhone.Normalize(
+            result.PhoneNumber);
+        return new OtpChallenge(
+            ProtectChallenge(
+                normalized,
+                result.ChallengeId,
+                purpose,
+                providerRequestKey),
             result.MaskedPhoneNumber.Trim(),
             null);
     }
@@ -309,17 +416,24 @@ public sealed class HttpOtpVerificationProvider(
         OtpPurpose purpose,
         CancellationToken cancellationToken)
     {
-        if (!ValidOpaqueId(challengeId) ||
-            code.Length != 6 ||
+        if (code.Length != 6 ||
             code.Any(character => !char.IsAsciiDigit(character)))
+            return null;
+        if (!TryUnprotectChallenge(
+                challengeId,
+                purpose,
+                out var phoneNumber,
+                out var providerChallengeId,
+                out _))
             return null;
         using var request = CreateRequest(
             HttpMethod.Post,
             "v1/otp/verifications",
             new OtpVerification(
-                challengeId,
+                providerChallengeId,
                 code,
-                purpose.ToString()));
+                purpose.ToString()),
+            providerRequestKey: null);
         using var response = await httpClient.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,
@@ -339,30 +453,145 @@ public sealed class HttpOtpVerificationProvider(
         if (result?.Verified != true ||
             string.IsNullOrWhiteSpace(result.PhoneNumber))
             return null;
-        return ThaiMobilePhone.Normalize(result.PhoneNumber);
+        var verifiedPhone = ThaiMobilePhone.Normalize(
+            result.PhoneNumber);
+        return string.Equals(
+                phoneNumber,
+                verifiedPhone,
+                StringComparison.Ordinal)
+            ? verifiedPhone
+            : null;
     }
 
     private HttpRequestMessage CreateRequest<T>(
         HttpMethod method,
         string relativePath,
-        T body)
+        T body,
+        string? providerRequestKey)
     {
         if (string.IsNullOrWhiteSpace(options.ApiKey))
             throw new InvalidOperationException(
                 "ยังไม่ได้ตั้งค่าคีย์ผู้ให้บริการรหัสยืนยัน");
         var request = new HttpRequestMessage(
             method,
-            new Uri(options.GetValidatedBaseUri(), relativePath))
-        {
-            Content = JsonContent.Create(body)
-        };
+            new Uri(options.GetValidatedBaseUri(), relativePath));
+        if (body is not null)
+            request.Content = JsonContent.Create(body);
         request.Headers.Add("X-Api-Key", options.ApiKey);
-        request.Headers.Add(
-            "Idempotency-Key",
-            Convert.ToHexString(
-                    RandomNumberGenerator.GetBytes(16))
-                .ToLowerInvariant());
+        if (providerRequestKey is not null)
+            request.Headers.Add(
+                "Idempotency-Key",
+                providerRequestKey);
         return request;
+    }
+
+    private void EnsurePurposeSupported(OtpPurpose purpose)
+    {
+        if (purpose == OtpPurpose.AccountNameChange &&
+            !Capabilities.SupportsAccountNameChange)
+            throw new InvalidOperationException(
+                "ผู้ให้บริการรหัสยืนยันยังไม่ได้รับรองรหัสเปลี่ยนชื่อที่มีอายุ 10 นาที");
+    }
+
+    private bool IsCertifiedForAccountNameChange() =>
+        options.AccountNameChangeEnabled &&
+        options.AccountNameChangeCodeLifetimeSeconds == 600 &&
+        !string.IsNullOrWhiteSpace(
+            options.AccountNameChangeCertificationReference);
+
+    private string ProtectChallenge(
+        string normalizedPhone,
+        string providerChallengeId,
+        OtpPurpose purpose,
+        string providerRequestKey)
+    {
+        var payload = Convert.ToBase64String(
+                Encoding.UTF8.GetBytes(
+                    $"{purpose}\n{normalizedPhone}\n" +
+                    $"{providerRequestKey}\n{providerChallengeId}"))
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+        var signature = Convert.ToHexString(
+                HMACSHA256.HashData(
+                    Encoding.UTF8.GetBytes(options.ApiKey),
+                    Encoding.UTF8.GetBytes(payload)))
+            .ToLowerInvariant();
+        return $"{payload}.{signature}";
+    }
+
+    private bool TryUnprotectChallenge(
+        string challengeId,
+        OtpPurpose expectedPurpose,
+        out string phoneNumber,
+        out string providerChallengeId,
+        out string providerRequestKey)
+    {
+        phoneNumber = "";
+        providerChallengeId = "";
+        providerRequestKey = "";
+        if (string.IsNullOrWhiteSpace(challengeId) ||
+            challengeId.Length > 800)
+            return false;
+        var separator = challengeId.LastIndexOf('.');
+        if (separator <= 0 ||
+            separator == challengeId.Length - 1)
+            return false;
+        var payload = challengeId[..separator];
+        var suppliedSignature = challengeId[(separator + 1)..];
+        var expectedSignature = Convert.ToHexString(
+                HMACSHA256.HashData(
+                    Encoding.UTF8.GetBytes(options.ApiKey),
+                    Encoding.UTF8.GetBytes(payload)))
+            .ToLowerInvariant();
+        if (suppliedSignature.Length != expectedSignature.Length ||
+            !CryptographicOperations.FixedTimeEquals(
+                Encoding.ASCII.GetBytes(suppliedSignature),
+                Encoding.ASCII.GetBytes(expectedSignature)))
+            return false;
+        try
+        {
+            var base64 = payload
+                .Replace('-', '+')
+                .Replace('_', '/');
+            base64 = base64.PadRight(
+                base64.Length + ((4 - base64.Length % 4) % 4),
+                '=');
+            var parts = Encoding.UTF8.GetString(
+                    Convert.FromBase64String(base64))
+                .Split('\n');
+            if (parts.Length != 4 ||
+                !Enum.TryParse<OtpPurpose>(
+                    parts[0],
+                    ignoreCase: false,
+                    out var purpose) ||
+                purpose != expectedPurpose)
+                return false;
+            phoneNumber = ThaiMobilePhone.Normalize(parts[1]);
+            providerRequestKey =
+                ValidProviderRequestKey(parts[2]);
+            providerChallengeId = parts[3];
+            return ValidOpaqueId(providerChallengeId);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+    }
+
+    private static string ValidProviderRequestKey(string value)
+    {
+        var clean = (value ?? "").Trim();
+        if (clean.Length != 32 ||
+            !Guid.TryParseExact(clean, "N", out var parsed))
+            throw new ArgumentException(
+                "Provider request key must be a 32-character UUID.",
+                nameof(value));
+        return parsed.ToString("N");
     }
 
     private static bool ValidOpaqueId(string value) =>
@@ -384,7 +613,9 @@ public sealed class HttpOtpVerificationProvider(
 
     private sealed record OtpRequest(
         string PhoneNumber,
-        string Purpose);
+        string Purpose,
+        string ProviderRequestKey,
+        int? CodeLifetimeSeconds);
     private sealed record OtpRequestResult(
         string ChallengeId,
         string MaskedPhoneNumber);
@@ -395,4 +626,8 @@ public sealed class HttpOtpVerificationProvider(
     private sealed record OtpVerificationResult(
         bool Verified,
         string? PhoneNumber);
+    private sealed record OtpLookupResult(
+        string ChallengeId,
+        string MaskedPhoneNumber,
+        string PhoneNumber);
 }

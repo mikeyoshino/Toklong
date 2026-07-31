@@ -711,6 +711,13 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
             x.PhoneNumber,
             x.RequestIdempotencyKey
         }).IsUnique();
+        challenge.HasIndex(x => x.ProviderRequestKey)
+            .IsUnique();
+        challenge.HasIndex(x => new
+        {
+            x.SourceChallengeId,
+            x.RequestIdempotencyKey
+        }).IsUnique();
         challenge.HasIndex(x => new
         {
             x.BuyerId,
@@ -740,6 +747,13 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
             .HasMaxLength(800);
         challenge.Property(x => x.RequestIdempotencyKey)
             .HasMaxLength(32);
+        challenge.Property(x => x.ProviderRequestKey)
+            .HasMaxLength(32);
+        challenge.Property(x => x.OperationKind)
+            .HasConversion<string>()
+            .HasMaxLength(16);
+        challenge.Property(x => x.OperationFingerprint)
+            .HasMaxLength(64);
         challenge.Property(x => x.VerificationIdempotencyKey)
             .HasMaxLength(32);
         challenge.Property(x => x.Version)
@@ -755,6 +769,10 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         challenge.HasOne<MobileSession>()
             .WithMany()
             .HasForeignKey(x => x.SessionId)
+            .OnDelete(DeleteBehavior.Restrict);
+        challenge.HasOne<AccountNameChangeChallenge>()
+            .WithMany()
+            .HasForeignKey(x => x.SourceChallengeId)
             .OnDelete(DeleteBehavior.Restrict);
 
         var attempt =

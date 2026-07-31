@@ -163,6 +163,62 @@ public sealed class AccountNameChangeChallengeTests
                 failedAt.AddSeconds(1)));
     }
 
+    [Fact]
+    public void Resend_persists_source_kind_and_content_fingerprint()
+    {
+        var source = ActiveChallenge();
+        var replacement = AccountNameChangeChallenge.Create(
+            Guid.NewGuid(),
+            source.BuyerId,
+            source.SellerId,
+            source.SessionId,
+            source.PhoneNumber,
+            source.MaskedPhoneNumber,
+            AccountName.Create(
+                source.PendingFirstName,
+                source.PendingLastName),
+            Key(),
+            Now.AddMinutes(2),
+            source.Id);
+        var anotherSource = AccountNameChangeChallenge.Create(
+            Guid.NewGuid(),
+            source.BuyerId,
+            source.SellerId,
+            source.SessionId,
+            source.PhoneNumber,
+            source.MaskedPhoneNumber,
+            AccountName.Create(
+                source.PendingFirstName,
+                source.PendingLastName),
+            replacement.RequestIdempotencyKey,
+            Now.AddMinutes(2),
+            Guid.NewGuid());
+
+        Assert.Equal(
+            AccountNameChangeOperationKind.Resend,
+            replacement.OperationKind);
+        Assert.Equal(source.Id, replacement.SourceChallengeId);
+        Assert.Equal(64, replacement.OperationFingerprint.Length);
+        Assert.NotEqual(
+            replacement.OperationFingerprint,
+            anotherSource.OperationFingerprint);
+        Assert.Equal(
+            replacement.RequestIdempotencyKey,
+            replacement.ProviderRequestKey);
+    }
+
+    [Fact]
+    public void Initial_request_has_distinct_persisted_operation_provenance()
+    {
+        var challenge = NewChallenge();
+
+        Assert.Equal(
+            AccountNameChangeOperationKind.InitialRequest,
+            challenge.OperationKind);
+        Assert.Null(challenge.SourceChallengeId);
+        Assert.Equal(64, challenge.OperationFingerprint.Length);
+    }
+
     private static AccountNameChangeChallenge ActiveChallenge()
     {
         var challenge = NewChallenge();

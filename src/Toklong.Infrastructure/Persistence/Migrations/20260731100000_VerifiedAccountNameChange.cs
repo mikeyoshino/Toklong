@@ -24,6 +24,10 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                     PendingFirstName = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: false),
                     PendingLastName = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: false),
                     RequestIdempotencyKey = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
+                    ProviderRequestKey = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
+                    OperationKind = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: false),
+                    SourceChallengeId = table.Column<Guid>(type: "uuid", nullable: true),
+                    OperationFingerprint = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
                     ProviderChallengeId = table.Column<string>(type: "character varying(800)", maxLength: 800, nullable: true),
                     VerificationIdempotencyKey = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
                     CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
@@ -41,6 +45,12 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_account_name_change_challenges", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_account_name_change_challenges_account_name_change_challeng~",
+                        column: x => x.SourceChallengeId,
+                        principalTable: "account_name_change_challenges",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_account_name_change_challenges_buyers_BuyerId",
                         column: x => x.BuyerId,
@@ -194,6 +204,12 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                 columns: new[] { "PhoneNumber", "SendAcceptedAt" });
 
             migrationBuilder.CreateIndex(
+                name: "IX_account_name_change_challenges_ProviderRequestKey",
+                table: "account_name_change_challenges",
+                column: "ProviderRequestKey",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_account_name_change_challenges_SellerId_SendAcceptedAt",
                 table: "account_name_change_challenges",
                 columns: new[] { "SellerId", "SendAcceptedAt" });
@@ -202,6 +218,12 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                 name: "IX_account_name_change_challenges_SessionId",
                 table: "account_name_change_challenges",
                 column: "SessionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_account_name_change_challenges_SourceChallengeId_RequestIde~",
+                table: "account_name_change_challenges",
+                columns: new[] { "SourceChallengeId", "RequestIdempotencyKey" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_account_name_verification_attempts_BuyerId",

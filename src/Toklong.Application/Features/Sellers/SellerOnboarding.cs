@@ -17,6 +17,7 @@ public sealed class RequestSellerOtpHandler(IOtpVerificationProvider provider)
         provider.RequestAsync(
             ThaiMobilePhone.Normalize(request.PhoneNumber),
             OtpPurpose.MobileAuthentication,
+            Guid.NewGuid().ToString("N"),
             cancellationToken);
 }
 

@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Toklong.Application.Abstractions;
 using Toklong.Domain.Accounts;
 using Toklong.Domain.Authentication;
@@ -9,6 +11,7 @@ using Toklong.Domain.Buyers;
 using Toklong.Domain.Sellers;
 using Toklong.Infrastructure.Email;
 using Toklong.Infrastructure.Persistence;
+using Toklong.Infrastructure.Persistence.Migrations;
 using Toklong.Infrastructure.Security;
 
 namespace Toklong.Application.Tests.Accounts;
@@ -57,6 +60,16 @@ public sealed class AccountNameChangePersistenceTests
             challenge.FindProperty(
                 nameof(AccountNameChangeChallenge.RequestIdempotencyKey))!
                 .GetMaxLength());
+        Assert.Equal(
+            32,
+            challenge.FindProperty(
+                nameof(AccountNameChangeChallenge.ProviderRequestKey))!
+                .GetMaxLength());
+        Assert.Equal(
+            64,
+            challenge.FindProperty(
+                nameof(AccountNameChangeChallenge.OperationFingerprint))!
+                .GetMaxLength());
         Assert.True(
             challenge.FindProperty(
                 nameof(AccountNameChangeChallenge.Version))!
@@ -67,6 +80,21 @@ public sealed class AccountNameChangePersistenceTests
                      index.Properties.Select(property => property.Name)
                          .SequenceEqual([
                              nameof(AccountNameChangeChallenge.PhoneNumber),
+                             nameof(AccountNameChangeChallenge.RequestIdempotencyKey)
+                         ]));
+        Assert.Contains(
+            challenge.GetIndexes(),
+            index => index.IsUnique &&
+                     index.Properties.Select(property => property.Name)
+                         .SequenceEqual([
+                             nameof(AccountNameChangeChallenge.ProviderRequestKey)
+                         ]));
+        Assert.Contains(
+            challenge.GetIndexes(),
+            index => index.IsUnique &&
+                     index.Properties.Select(property => property.Name)
+                         .SequenceEqual([
+                             nameof(AccountNameChangeChallenge.SourceChallengeId),
                              nameof(AccountNameChangeChallenge.RequestIdempotencyKey)
                          ]));
         Assert.Contains(
@@ -140,6 +168,70 @@ public sealed class AccountNameChangePersistenceTests
     }
 
     [Fact]
+    public void Migration_contains_provider_and_resend_provenance_constraints()
+    {
+        var operations = MigrationProbe.CreateUpOperations();
+        var table = Assert.Single(
+            operations.OfType<CreateTableOperation>(),
+            operation =>
+                operation.Name == "account_name_change_challenges");
+
+        Assert.Contains(
+            table.Columns,
+            column => column.Name == "ProviderRequestKey" &&
+                      column.MaxLength == 32 &&
+                      !column.IsNullable);
+        Assert.Contains(
+            table.Columns,
+            column => column.Name == "OperationKind" &&
+                      column.MaxLength == 16 &&
+                      !column.IsNullable);
+        Assert.Contains(
+            table.Columns,
+            column => column.Name == "SourceChallengeId" &&
+                      column.IsNullable);
+        Assert.Contains(
+            table.Columns,
+            column => column.Name == "OperationFingerprint" &&
+                      column.MaxLength == 64 &&
+                      !column.IsNullable);
+        Assert.Contains(
+            operations.OfType<CreateIndexOperation>(),
+            index => index.IsUnique &&
+                     index.Table ==
+                         "account_name_change_challenges" &&
+                     index.Columns.SequenceEqual([
+                         "ProviderRequestKey"
+                     ]));
+        Assert.Contains(
+            operations.OfType<CreateIndexOperation>(),
+            index => index.IsUnique &&
+                     index.Table ==
+                         "account_name_change_challenges" &&
+                     index.Columns.SequenceEqual([
+                         "SourceChallengeId",
+                         "RequestIdempotencyKey"
+                     ]));
+        Assert.Contains(
+            table.ForeignKeys,
+            foreignKey =>
+                foreignKey.Columns.SequenceEqual([
+                    "SourceChallengeId"
+                ]) &&
+                foreignKey.PrincipalTable ==
+                    "account_name_change_challenges" &&
+                foreignKey.OnDelete ==
+                    ReferentialAction.Restrict);
+
+        Assert.Contains(
+            MigrationProbe.CreateDownOperations()
+                .OfType<DropTableOperation>(),
+            operation =>
+                operation.Name ==
+                    "account_name_change_challenges");
+    }
+
+    [Fact]
     public async Task Repository_round_trips_supported_challenge_lookups()
     {
         await using var database = CreateDatabase();
@@ -163,6 +255,68 @@ public sealed class AccountNameChangePersistenceTests
         Assert.Equal(challenge.Id, open?.Id);
         Assert.Equal(challenge.Id, byRequest?.Id);
         Assert.Equal("provider-reference", byId?.ProviderChallengeId);
+        Assert.Equal(
+            challenge.ProviderRequestKey,
+            byId?.ProviderRequestKey);
+        Assert.Equal(
+            challenge.OperationFingerprint,
+            byId?.OperationFingerprint);
+    }
+
+    [Fact]
+    public async Task Repository_distinguishes_exact_resend_replay_from_source_conflict()
+    {
+        await using var database = CreateDatabase();
+        var repository = new AccountNameChangeRepository(database);
+        var source = NewChallenge();
+        source.MarkSendAccepted("provider-source", Now);
+        source.Supersede(Now.AddMinutes(2));
+        var key = Guid.NewGuid().ToString("N");
+        var resend = AccountNameChangeChallenge.Create(
+            Guid.NewGuid(),
+            source.BuyerId,
+            source.SellerId,
+            source.SessionId,
+            source.PhoneNumber,
+            source.MaskedPhoneNumber,
+            AccountName.Create(
+                source.PendingFirstName,
+                source.PendingLastName),
+            key,
+            Now.AddMinutes(2),
+            source.Id);
+        await repository.AddAsync(source, default);
+        await repository.AddAsync(resend, default);
+        await database.SaveChangesAsync();
+        database.ChangeTracker.Clear();
+
+        var replay = await repository.GetByRequestKeyAsync(
+            resend.PhoneNumber,
+            key,
+            default);
+
+        Assert.Equal(source.Id, replay?.SourceChallengeId);
+        Assert.Equal(
+            resend.OperationFingerprint,
+            replay?.OperationFingerprint);
+        var differentSourceFingerprint =
+            AccountNameChangeChallenge.Create(
+                Guid.NewGuid(),
+                resend.BuyerId,
+                resend.SellerId,
+                resend.SessionId,
+                resend.PhoneNumber,
+                resend.MaskedPhoneNumber,
+                AccountName.Create(
+                    resend.PendingFirstName,
+                    resend.PendingLastName),
+                key,
+                Now.AddMinutes(3),
+                Guid.NewGuid())
+            .OperationFingerprint;
+        Assert.NotEqual(
+            replay?.OperationFingerprint,
+            differentSourceFingerprint);
     }
 
     [Fact]
@@ -345,5 +499,26 @@ public sealed class AccountNameChangePersistenceTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
         return new ToklongDbContext(options);
+    }
+
+    private sealed class MigrationProbe : VerifiedAccountNameChange
+    {
+        public static IReadOnlyList<MigrationOperation>
+            CreateUpOperations()
+        {
+            var builder = new MigrationBuilder(
+                "Npgsql.EntityFrameworkCore.PostgreSQL");
+            new MigrationProbe().Up(builder);
+            return builder.Operations;
+        }
+
+        public static IReadOnlyList<MigrationOperation>
+            CreateDownOperations()
+        {
+            var builder = new MigrationBuilder(
+                "Npgsql.EntityFrameworkCore.PostgreSQL");
+            new MigrationProbe().Down(builder);
+            return builder.Operations;
+        }
     }
 }

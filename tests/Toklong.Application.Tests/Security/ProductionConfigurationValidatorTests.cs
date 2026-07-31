@@ -140,6 +140,56 @@ public sealed class ProductionConfigurationValidatorTests
     }
 
     [Fact]
+    public void Production_rejects_account_name_change_with_ThaiBulkSms()
+    {
+        var values = SafeProductionValues();
+        values["Otp:Provider"] = "ThaiBulkSms";
+        values["Otp:ApiSecret"] =
+            "thai-bulk-sms-secret-at-least-16";
+        values["Otp:AccountNameChangeEnabled"] = "true";
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(
+                new ConfigurationBuilder()
+                    .AddInMemoryCollection(values)
+                    .Build(),
+                new TestEnvironment("Production"),
+                requireMobileLinks: false,
+                requirePersistentStorage: true));
+
+        Assert.Contains(
+            "ThaiBulkSms cannot enable account-name change",
+            exception.Message);
+    }
+
+    [Fact]
+    public void Production_requires_certified_ten_minute_Http_name_codes()
+    {
+        var values = SafeProductionValues();
+        values["Otp:AccountNameChangeEnabled"] = "true";
+        values["Otp:AccountNameChangeCodeLifetimeSeconds"] =
+            "300";
+        values["Otp:AccountNameChangeCertificationReference"] =
+            "";
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(
+                new ConfigurationBuilder()
+                    .AddInMemoryCollection(values)
+                    .Build(),
+                new TestEnvironment("Production"),
+                requireMobileLinks: false,
+                requirePersistentStorage: true));
+
+        Assert.Contains(
+            "AccountNameChangeCodeLifetimeSeconds must be 600",
+            exception.Message);
+        Assert.Contains(
+            "AccountNameChangeCertificationReference",
+            exception.Message);
+    }
+
+    [Fact]
     public void Production_requires_email_digest_key_from_secret_storage()
     {
         var values = SafeProductionValues();

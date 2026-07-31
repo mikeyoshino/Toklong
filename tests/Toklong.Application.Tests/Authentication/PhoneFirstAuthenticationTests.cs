@@ -291,6 +291,7 @@ public sealed class PhoneFirstAuthenticationTests
         public Task<OtpChallenge> RequestAsync(
             string phoneNumber,
             OtpPurpose purpose,
+            string providerRequestKey,
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 

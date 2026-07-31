@@ -105,6 +105,16 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
+                    b.Property<string>("OperationFingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("OperationKind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
                     b.Property<string>("PendingFirstName")
                         .IsRequired()
                         .HasMaxLength(60)
@@ -124,6 +134,11 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                         .HasMaxLength(800)
                         .HasColumnType("character varying(800)");
 
+                    b.Property<string>("ProviderRequestKey")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<string>("RequestIdempotencyKey")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -142,6 +157,9 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("SourceChallengeId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Status")
@@ -169,6 +187,9 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasFilter("\"Status\" IN ('PendingSend', 'Active')");
 
+                    b.HasIndex("ProviderRequestKey")
+                        .IsUnique();
+
                     b.HasIndex("SessionId");
 
                     b.HasIndex("BuyerId", "SendAcceptedAt");
@@ -179,6 +200,9 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                     b.HasIndex("PhoneNumber", "SendAcceptedAt");
 
                     b.HasIndex("SellerId", "SendAcceptedAt");
+
+                    b.HasIndex("SourceChallengeId", "RequestIdempotencyKey")
+                        .IsUnique();
 
                     b.ToTable("account_name_change_challenges", (string)null);
                 });
@@ -2365,6 +2389,11 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                         .HasForeignKey("SessionId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("Toklong.Domain.Accounts.AccountNameChangeChallenge", null)
+                        .WithMany()
+                        .HasForeignKey("SourceChallengeId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Toklong.Domain.Accounts.AccountNameVerificationAttempt", b =>

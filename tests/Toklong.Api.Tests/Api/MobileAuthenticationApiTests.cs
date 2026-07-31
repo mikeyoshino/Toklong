@@ -629,6 +629,7 @@ public sealed class MobileApiFactory : WebApplicationFactory<Program>
         public Task<OtpChallenge> RequestAsync(
             string phoneNumber,
             OtpPurpose purpose,
+            string providerRequestKey,
             CancellationToken cancellationToken) =>
             Task.FromResult(
                 new OtpChallenge(

@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Toklong.Domain.Common;
 
 namespace Toklong.Domain.Accounts;
@@ -22,6 +24,12 @@ public enum AccountNameVerificationOutcome
     Expired
 }
 
+public enum AccountNameChangeOperationKind
+{
+    InitialRequest,
+    Resend
+}
+
 public sealed class AccountNameChangeChallenge
 {
     private const int MaximumIncorrectAttempts = 5;
@@ -38,6 +46,10 @@ public sealed class AccountNameChangeChallenge
     public string PendingFirstName { get; private set; } = "";
     public string PendingLastName { get; private set; } = "";
     public string RequestIdempotencyKey { get; private set; } = "";
+    public string ProviderRequestKey { get; private set; } = "";
+    public AccountNameChangeOperationKind OperationKind { get; private set; }
+    public Guid? SourceChallengeId { get; private set; }
+    public string OperationFingerprint { get; private set; } = "";
     public string? ProviderChallengeId { get; private set; }
     public string? VerificationIdempotencyKey { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
@@ -63,7 +75,8 @@ public sealed class AccountNameChangeChallenge
         string maskedPhoneNumber,
         AccountName pendingName,
         string requestIdempotencyKey,
-        DateTimeOffset createdAt)
+        DateTimeOffset createdAt,
+        Guid? sourceChallengeId = null)
     {
         if (id == Guid.Empty)
             throw new DomainException("รหัสคำขอเปลี่ยนชื่อไม่ถูกต้อง");
@@ -73,7 +86,17 @@ public sealed class AccountNameChangeChallenge
             throw new DomainException("บัญชีผู้ใช้ไม่ถูกต้อง");
         if (sessionId == Guid.Empty)
             throw new DomainException("เซสชันไม่ถูกต้อง");
+        if (sourceChallengeId == Guid.Empty ||
+            sourceChallengeId == id)
+            throw new DomainException(
+                "รหัสคำขอเปลี่ยนชื่อต้นทางไม่ถูกต้อง");
         ArgumentNullException.ThrowIfNull(pendingName);
+        var normalizedPhone = NormalizePhone(phoneNumber);
+        var normalizedRequestKey =
+            NormalizeIdempotencyKey(requestIdempotencyKey);
+        var operationKind = sourceChallengeId.HasValue
+            ? AccountNameChangeOperationKind.Resend
+            : AccountNameChangeOperationKind.InitialRequest;
 
         return new AccountNameChangeChallenge
         {
@@ -81,12 +104,19 @@ public sealed class AccountNameChangeChallenge
             BuyerId = buyerId,
             SellerId = sellerId,
             SessionId = sessionId,
-            PhoneNumber = NormalizePhone(phoneNumber),
+            PhoneNumber = normalizedPhone,
             MaskedPhoneNumber = NormalizeMaskedPhone(maskedPhoneNumber),
             PendingFirstName = pendingName.FirstName,
             PendingLastName = pendingName.LastName,
-            RequestIdempotencyKey =
-                NormalizeIdempotencyKey(requestIdempotencyKey),
+            RequestIdempotencyKey = normalizedRequestKey,
+            ProviderRequestKey = normalizedRequestKey,
+            OperationKind = operationKind,
+            SourceChallengeId = sourceChallengeId,
+            OperationFingerprint = Fingerprint(
+                operationKind,
+                sourceChallengeId,
+                normalizedPhone,
+                pendingName),
             CreatedAt = createdAt,
             Status = AccountNameChangeStatus.PendingSend
         };
@@ -221,5 +251,17 @@ public sealed class AccountNameChangeChallenge
             throw new DomainException($"{label}ไม่ถูกต้อง");
         return clean;
     }
+
+    private static string Fingerprint(
+        AccountNameChangeOperationKind operationKind,
+        Guid? sourceChallengeId,
+        string phoneNumber,
+        AccountName pendingName) =>
+        Convert.ToHexString(
+                SHA256.HashData(
+                    Encoding.UTF8.GetBytes(
+                        $"{operationKind}|{sourceChallengeId?.ToString("N") ?? "-"}|" +
+                        $"{phoneNumber}|{pendingName.FirstName}|{pendingName.LastName}")))
+            .ToLowerInvariant();
 
 }

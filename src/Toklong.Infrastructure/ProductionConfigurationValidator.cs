@@ -54,6 +54,25 @@ public static class ProductionConfigurationValidator
             otp.ApiSecret.Length < 16)
             errors.Add(
                 "Otp:ApiSecret must be supplied from secret storage for ThaiBulkSms");
+        if (otp.AccountNameChangeEnabled)
+        {
+            if (usesThaiBulkSms)
+                errors.Add(
+                    "ThaiBulkSms cannot enable account-name change until a purpose-specific template and ten-minute lifetime are certified");
+            else
+            {
+                if (otp.AccountNameChangeCodeLifetimeSeconds != 600)
+                    errors.Add(
+                        "Otp:AccountNameChangeCodeLifetimeSeconds must be 600");
+                if (string.IsNullOrWhiteSpace(
+                        otp.AccountNameChangeCertificationReference))
+                    errors.Add(
+                        "Otp:AccountNameChangeCertificationReference is required");
+                if (otp.ApiKey.Length < 32)
+                    errors.Add(
+                        "Otp:ApiKey must be at least 32 characters when account-name change is enabled");
+            }
+        }
 
         var reconciliationSecret =
             configuration["Reconciliation:SigningSecret"] ?? "";
