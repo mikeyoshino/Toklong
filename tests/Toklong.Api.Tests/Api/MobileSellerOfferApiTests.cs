@@ -120,7 +120,7 @@ public sealed class MobileSellerOfferApiTests
             var buyerAccessToken = await CreateBuyerSessionAsync(
                 localFactory.Services,
                 $"+6691000000{index + 1}",
-                $"ผู้ซื้อ Pricing {index + 1}",
+                $"ผู้ซื้อ Pricing{(char)('A' + index)}",
                 $"pricing-{index + 1}@example.com");
             client.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue(
@@ -1099,6 +1099,11 @@ public sealed class MobileSellerOfferApiTests
             return verification.Session;
 
         Assert.NotNull(verification.Registration);
+        var nameSeparator = fullName.LastIndexOf(' ');
+        if (nameSeparator <= 0 || nameSeparator == fullName.Length - 1)
+            throw new ArgumentException(
+                "Test registration names require first and last values.",
+                nameof(fullName));
         using var completion = new HttpRequestMessage(
             HttpMethod.Post,
             "/api/mobile/auth/registration/complete")
@@ -1106,7 +1111,8 @@ public sealed class MobileSellerOfferApiTests
             Content = JsonContent.Create(new
             {
                 verification.Registration.RegistrationTicket,
-                FullName = fullName,
+                FirstName = fullName[..nameSeparator],
+                LastName = fullName[(nameSeparator + 1)..],
                 Email = $"{phoneNumber}@example.com",
                 TermsVersion = "terms-mvp-v1",
                 InstallationId = installationId

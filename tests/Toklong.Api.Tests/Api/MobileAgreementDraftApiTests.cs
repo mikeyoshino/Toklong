@@ -127,7 +127,8 @@ public sealed class MobileAgreementDraftApiTests
             Content = JsonContent.Create(new
             {
                 verification.Registration.RegistrationTicket,
-                FullName = "ผู้ซื้อ เอไอ",
+                FirstName = "ผู้ซื้อ",
+                LastName = "เอไอ",
                 Email = "ai-buyer@example.com",
                 TermsVersion = "terms-mvp-v1",
                 InstallationId = installationId

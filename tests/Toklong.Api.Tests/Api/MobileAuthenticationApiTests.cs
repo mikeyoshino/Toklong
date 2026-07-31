@@ -17,8 +17,11 @@ using Microsoft.Extensions.Logging;
 using Toklong.Api.Security;
 using Toklong.Api.Services;
 using Toklong.Application.Abstractions;
+using Toklong.Application.Features.Authentication;
 using Toklong.Application.Pricing;
+using Toklong.Domain.Accounts;
 using Toklong.Domain.Authentication;
+using Toklong.Domain.Sellers;
 using Toklong.Domain.Transactions;
 using Toklong.Infrastructure.Persistence;
 using Toklong.Infrastructure.Payments;
@@ -291,6 +294,54 @@ public sealed class MobileAuthenticationApiTests
         Assert.Equal(
             HttpStatusCode.Unauthorized,
             rejectedProfile.StatusCode);
+    }
+
+    [Fact]
+    public async Task Seller_only_profile_returns_structured_names()
+    {
+        const string phoneNumber = "+66812345009";
+        var now = DateTimeOffset.UtcNow;
+        var seller = SellerAccount.Create(
+            phoneNumber,
+            now,
+            AccountName.Create("ผู้ขาย", "ทดสอบ"));
+        string accessToken;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var database = scope.ServiceProvider
+                .GetRequiredService<ToklongDbContext>();
+            database.Sellers.Add(seller);
+            await database.SaveChangesAsync();
+            accessToken = (await scope.ServiceProvider
+                .GetRequiredService<MobileSessionTokenService>()
+                .CreateAsync(
+                    new MobileSessionProfile(
+                        BuyerId: null,
+                        SellerId: seller.Id,
+                        PhoneNumber: seller.PhoneNumber,
+                        DisplayName: seller.DisplayName),
+                    CancellationToken.None)).AccessToken;
+        }
+
+        using var client = factory.CreateClient(
+            new WebApplicationFactoryClientOptions
+            {
+                BaseAddress = new Uri("https://localhost"),
+                AllowAutoRedirect = false
+            });
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", accessToken);
+
+        using var response = await client.GetAsync("/api/mobile/me");
+
+        response.EnsureSuccessStatusCode();
+        var profile = await response.Content
+            .ReadFromJsonAsync<ProfileResponse>();
+        Assert.NotNull(profile);
+        Assert.Equal("ผู้ขาย", profile.FirstName);
+        Assert.Equal("ทดสอบ", profile.LastName);
+        Assert.Equal("ผู้ขาย ทดสอบ", profile.DisplayName);
+        Assert.Null(profile.Email);
     }
 
     [Theory]

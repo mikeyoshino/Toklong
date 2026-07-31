@@ -184,6 +184,8 @@ public sealed record SellerProfile(
     Guid Id,
     string PhoneNumber,
     string DisplayName,
+    string? FirstName,
+    string? LastName,
     DateTimeOffset PhoneVerifiedAt,
     IReadOnlyList<SellerPayoutAccountView> PayoutAccounts,
     SellerSavedShippingOriginView? SavedShippingOrigin)
@@ -195,6 +197,8 @@ public sealed record SellerProfile(
             seller.Id,
             seller.PhoneNumber,
             seller.DisplayName,
+            seller.FirstName,
+            seller.LastName,
             seller.PhoneVerifiedAt,
             seller.PayoutAccounts
                 .OrderByDescending(x => x.IsDefault)

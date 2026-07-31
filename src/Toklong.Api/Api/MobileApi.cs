@@ -467,8 +467,8 @@ public static class MobileApi
 
         return Results.Ok(new MobileProfileResponse(
             buyer?.FullName ?? seller?.DisplayName ?? principal.Identity?.Name ?? "",
-            buyer?.FirstName,
-            buyer?.LastName,
+            buyer?.FirstName ?? seller?.FirstName,
+            buyer?.LastName ?? seller?.LastName,
             buyer?.PhoneNumber ?? seller?.PhoneNumber ??
             principal.FindFirstValue(ClaimTypes.MobilePhone) ?? "",
             buyer?.Email,

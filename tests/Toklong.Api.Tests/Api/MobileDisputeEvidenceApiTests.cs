@@ -274,7 +274,8 @@ public sealed class MobileDisputeEvidenceApiTests
             Content = JsonContent.Create(new
             {
                 RegistrationTicket = registrationTicket,
-                FullName = "ผู้ซื้อ หลักฐาน",
+                FirstName = "ผู้ซื้อ",
+                LastName = "หลักฐาน",
                 Email = "evidence@example.com",
                 TermsVersion = "terms-mvp-v1",
                 InstallationId = installationId
