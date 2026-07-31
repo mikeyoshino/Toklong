@@ -1,4 +1,5 @@
 using Toklong.Domain.Common;
+using Toklong.Domain.Accounts;
 
 namespace Toklong.Domain.Sellers;
 
@@ -10,7 +11,10 @@ public sealed class SellerAccount
 
     public Guid Id { get; private set; }
     public string PhoneNumber { get; private set; } = "";
+    public string FirstName { get; private set; } = "";
+    public string LastName { get; private set; } = "";
     public string DisplayName { get; private set; } = "";
+    public DateTimeOffset? NameChangedAt { get; private set; }
     public DateTimeOffset PhoneVerifiedAt { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public string? SavedShippingAddressLine { get; private set; }
@@ -27,7 +31,7 @@ public sealed class SellerAccount
     public static SellerAccount Create(
         string phoneNumber,
         DateTimeOffset verifiedAt,
-        string? displayName = null)
+        AccountName? name = null)
     {
         if (string.IsNullOrWhiteSpace(phoneNumber))
             throw new DomainException("หมายเลขโทรศัพท์ไม่ถูกต้อง");
@@ -39,18 +43,40 @@ public sealed class SellerAccount
             PhoneVerifiedAt = verifiedAt,
             CreatedAt = verifiedAt
         };
-        seller.DisplayName =
-            string.IsNullOrWhiteSpace(displayName)
-                ? $"ผู้ขาย {phoneNumber[^4..]}"
-                : NormalizeDisplayName(displayName);
+        if (name is null)
+        {
+            seller.SetAccountName(AccountName.MaterializeLegacy(
+                "ผู้ขาย",
+                phoneNumber[^4..]));
+        }
+        else
+        {
+            seller.SetAccountName(name);
+        }
         return seller;
     }
+
+    public static SellerAccount Create(
+        string phoneNumber,
+        DateTimeOffset verifiedAt,
+        string displayName) =>
+        Create(
+            phoneNumber,
+            verifiedAt,
+            AccountName.CreateFromDisplayName(displayName));
 
     public void MarkPhoneVerified(DateTimeOffset verifiedAt) =>
         PhoneVerifiedAt = verifiedAt;
 
     public void UpdateDisplayName(string displayName) =>
-        DisplayName = NormalizeDisplayName(displayName);
+        SetAccountName(AccountName.CreateFromDisplayName(displayName));
+
+    public void ApplyAccountName(AccountName name, DateTimeOffset changedAt)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        SetAccountName(name);
+        NameChangedAt = changedAt;
+    }
 
     public void UpdateSavedShippingOrigin(
         SellerShippingOriginAddress address,
@@ -116,22 +142,11 @@ public sealed class SellerAccount
         return account;
     }
 
-    private static string NormalizeDisplayName(string value)
+    private void SetAccountName(AccountName name)
     {
-        var normalized = string.Join(
-            ' ',
-            (value ?? "")
-                .Split(
-                    ' ',
-                    StringSplitOptions.RemoveEmptyEntries |
-                    StringSplitOptions.TrimEntries));
-        if (string.IsNullOrWhiteSpace(normalized))
-            throw new DomainException(
-                "กรุณากรอกชื่อและนามสกุล");
-        if (normalized.Length > 120)
-            throw new DomainException(
-                "ชื่อและนามสกุลยาวเกิน 120 ตัวอักษร");
-        return normalized;
+        FirstName = name.FirstName;
+        LastName = name.LastName;
+        DisplayName = name.DisplayName;
     }
 }
 

@@ -35,4 +35,25 @@ public sealed class MobileSessionTests
                 "ผู้ขายอื่น",
                 Now.AddMinutes(2)));
     }
+
+    [Fact]
+    public void Updating_display_name_validates_the_value_and_increments_the_version()
+    {
+        var session = MobileSession.Create(
+            Guid.NewGuid(),
+            null,
+            "ผู้ซื้อ ทดสอบ",
+            "+66812345678",
+            new string('a', 64),
+            Now,
+            Now.AddDays(30));
+
+        session.UpdateDisplayName("  สมหญิง   มั่นคง  ");
+
+        Assert.Equal("สมหญิง   มั่นคง", session.DisplayName);
+        Assert.Equal(1, session.Version);
+        Assert.Throws<DomainException>(() => session.UpdateDisplayName(""));
+        Assert.Throws<DomainException>(() =>
+            session.UpdateDisplayName(new string('ก', 121)));
+    }
 }

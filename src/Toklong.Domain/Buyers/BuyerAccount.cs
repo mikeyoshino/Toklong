@@ -1,4 +1,5 @@
 using System.Net.Mail;
+using Toklong.Domain.Accounts;
 using Toklong.Domain.Common;
 
 namespace Toklong.Domain.Buyers;
@@ -9,7 +10,10 @@ public sealed class BuyerAccount
 
     public Guid Id { get; private set; }
     public string PhoneNumber { get; private set; } = "";
+    public string FirstName { get; private set; } = "";
+    public string LastName { get; private set; } = "";
     public string FullName { get; private set; } = "";
+    public DateTimeOffset? NameChangedAt { get; private set; }
     public string? Email { get; private set; }
     public DateTimeOffset PhoneVerifiedAt { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
@@ -25,7 +29,7 @@ public sealed class BuyerAccount
 
     public static BuyerAccount Create(
         string phoneNumber,
-        string fullName,
+        AccountName name,
         string email,
         DateTimeOffset verifiedAt)
     {
@@ -34,20 +38,38 @@ public sealed class BuyerAccount
             Id = Guid.NewGuid(),
             CreatedAt = verifiedAt
         };
-        account.UpdateVerifiedProfile(phoneNumber, fullName, email, verifiedAt);
+        account.UpdateVerifiedProfile(phoneNumber, name, email, verifiedAt);
         return account;
     }
 
-    public void UpdateVerifiedProfile(
+    public static BuyerAccount Create(
         string phoneNumber,
         string fullName,
         string email,
+        DateTimeOffset verifiedAt) =>
+        Create(
+            phoneNumber,
+            AccountName.CreateFromDisplayName(fullName),
+            email,
+            verifiedAt);
+
+    public void UpdateVerifiedProfile(
+        string phoneNumber,
+        AccountName name,
+        string email,
         DateTimeOffset verifiedAt)
     {
-        var normalizedName = NormalizeFullName(fullName);
+        ArgumentNullException.ThrowIfNull(name);
         UpdatePhoneVerification(phoneNumber, verifiedAt);
-        FullName = normalizedName;
+        SetAccountName(name);
         Email = NormalizeEmail(email);
+    }
+
+    public void ApplyAccountName(AccountName name, DateTimeOffset changedAt)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        SetAccountName(name);
+        NameChangedAt = changedAt;
     }
 
     public void ActivateVerifiedEmail(string email)
@@ -100,16 +122,11 @@ public sealed class BuyerAccount
                 SavedPostalCode ?? "")
             : null;
 
-    private static string NormalizeFullName(string value)
+    private void SetAccountName(AccountName name)
     {
-        var parts = value
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (parts.Length < 2)
-            throw new DomainException("กรุณากรอกชื่อและนามสกุล");
-        var normalized = string.Join(' ', parts);
-        if (normalized.Length > 120)
-            throw new DomainException("ชื่อและนามสกุลยาวเกิน 120 ตัวอักษร");
-        return normalized;
+        FirstName = name.FirstName;
+        LastName = name.LastName;
+        FullName = name.DisplayName;
     }
 
     public static string NormalizeEmail(string value)

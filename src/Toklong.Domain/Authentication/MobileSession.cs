@@ -59,6 +59,16 @@ public sealed class MobileSession
         Version++;
     }
 
+    public void UpdateDisplayName(string displayName)
+    {
+        var normalized = Required(displayName, "ชื่อผู้ใช้");
+        if (normalized.Length > 120)
+            throw new DomainException("ชื่อผู้ใช้ยาวเกิน 120 ตัวอักษร");
+
+        DisplayName = normalized;
+        Version++;
+    }
+
     public void AttachSeller(
         Guid sellerId,
         string phoneNumber,
