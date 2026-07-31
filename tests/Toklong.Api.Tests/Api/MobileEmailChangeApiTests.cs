@@ -761,7 +761,11 @@ public sealed class MobileEmailChangeApiTests
             ref accountSequence);
         var phoneNumber = $"+669{sequence:D8}";
         var email = $"buyer-{sequence}@example.com";
-        var fullName = $"ผู้ซื้อ ทดสอบ{sequence}";
+        const string thaiDigitsAsLetters = "กขฃคฅฆงจฉช";
+        var nameSuffix = string.Concat(
+            sequence.ToString().Select(digit =>
+                thaiDigitsAsLetters[digit - '0']));
+        var fullName = $"ผู้ซื้อ ทดสอบ{nameSuffix}";
         await using var scope =
             factory.Services.CreateAsyncScope();
         var database = scope.ServiceProvider
