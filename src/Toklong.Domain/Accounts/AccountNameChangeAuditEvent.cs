@@ -11,8 +11,8 @@ public sealed class AccountNameChangeAuditEvent
         Guid? sellerId,
         Guid sessionId,
         Guid challengeId,
-        string oldNameReference,
-        string newNameReference,
+        byte[] protectedNameEvidence,
+        string protectionVersion,
         DateTimeOffset createdAt,
         string name,
         string result)
@@ -29,12 +29,15 @@ public sealed class AccountNameChangeAuditEvent
         SellerId = sellerId;
         SessionId = sessionId;
         ChallengeId = challengeId;
-        OldName = DigestReference(
-            oldNameReference,
-            "ข้อมูลอ้างอิงชื่อเดิม");
-        NewName = DigestReference(
-            newNameReference,
-            "ข้อมูลอ้างอิงชื่อใหม่");
+        if (protectedNameEvidence is null ||
+            protectedNameEvidence.Length is < 32 or > 4096)
+            throw new DomainException(
+                "หลักฐานชื่อที่ป้องกันไว้ไม่ถูกต้อง");
+        ProtectedNameEvidence = [.. protectedNameEvidence];
+        ProtectionVersion = Required(
+            protectionVersion,
+            "รุ่นการป้องกันหลักฐานชื่อ",
+            32);
         CreatedAt = createdAt;
         Name = Required(name, "ชื่อเหตุการณ์", 100);
         Result = Required(result, "ผลลัพธ์", 100);
@@ -45,20 +48,13 @@ public sealed class AccountNameChangeAuditEvent
     public Guid? SellerId { get; private set; }
     public Guid SessionId { get; private set; }
     public Guid ChallengeId { get; private set; }
-    public string OldName { get; private set; } = "";
-    public string NewName { get; private set; } = "";
+    public byte[]? ProtectedNameEvidence { get; private set; }
+    public string ProtectionVersion { get; private set; } = "";
+    public string? LegacyOldNameDigest { get; private set; }
+    public string? LegacyNewNameDigest { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public string Name { get; private set; } = "";
     public string Result { get; private set; } = "";
-
-    private static string DigestReference(string value, string label)
-    {
-        var clean = (value ?? "").Trim();
-        if (clean.Length != 64 ||
-            clean.Any(character => !Uri.IsHexDigit(character)))
-            throw new DomainException($"{label}ไม่ถูกต้อง");
-        return clean.ToLowerInvariant();
-    }
 
     private static string Required(
         string value,

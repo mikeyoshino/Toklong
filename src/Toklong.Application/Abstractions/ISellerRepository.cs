@@ -36,9 +36,26 @@ public sealed record OtpProviderCapabilities(
     TimeSpan? AccountNameChangeCodeLifetime,
     bool SupportsRequestLookup)
 {
+    public bool SupportsVerificationLookup { get; init; }
+
     public static OtpProviderCapabilities MobileAuthenticationOnly { get; } =
         new(false, null, false);
 }
+
+public enum OtpProviderVerificationOutcome
+{
+    Verified,
+    Rejected
+}
+
+public sealed record OtpProviderVerificationEvidence(
+    string VerificationRequestKey,
+    string ChallengeId,
+    OtpPurpose Purpose,
+    string PhoneNumber,
+    OtpProviderVerificationOutcome Outcome,
+    DateTimeOffset RequestedAt,
+    DateTimeOffset CompletedAt);
 
 public interface IOtpVerificationProvider
 {
@@ -63,4 +80,21 @@ public interface IOtpVerificationProvider
         string code,
         OtpPurpose purpose,
         CancellationToken cancellationToken);
+
+    Task<OtpProviderVerificationEvidence> VerifyIdempotentlyAsync(
+        string challengeId,
+        string code,
+        OtpPurpose purpose,
+        string verificationRequestKey,
+        CancellationToken cancellationToken) =>
+        throw new NotSupportedException(
+            "The OTP provider does not support idempotent verification.");
+
+    Task<OtpProviderVerificationEvidence?> LookupVerificationAsync(
+        string verificationRequestKey,
+        string challengeId,
+        string phoneNumber,
+        OtpPurpose purpose,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<OtpProviderVerificationEvidence?>(null);
 }

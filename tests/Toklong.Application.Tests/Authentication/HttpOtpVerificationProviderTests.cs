@@ -409,6 +409,52 @@ public sealed class HttpOtpVerificationProviderTests
     }
 
     [Fact]
+    public async Task Http_verification_uses_stable_key_and_lookup_recovers_lost_response()
+    {
+        const string sendKey =
+            "aaaaaaaa11111111bbbbbbbb22222222";
+        const string verificationKey =
+            "cccccccc33333333dddddddd44444444";
+        var handler = new LostVerificationResponseHandler(
+            sendKey,
+            verificationKey);
+        var provider = CreateCertifiedNameChangeProvider(handler);
+        var challenge = await provider.RequestAsync(
+            "0812345678",
+            OtpPurpose.AccountNameChange,
+            sendKey,
+            default);
+
+        await Assert.ThrowsAsync<HttpRequestException>(() =>
+            provider.VerifyIdempotentlyAsync(
+                challenge.ChallengeId,
+                "123456",
+                OtpPurpose.AccountNameChange,
+                verificationKey,
+                default));
+        var recovered = await provider.LookupVerificationAsync(
+            verificationKey,
+            challenge.ChallengeId,
+            "+66812345678",
+            OtpPurpose.AccountNameChange,
+            default);
+
+        Assert.NotNull(recovered);
+        Assert.Equal(
+            OtpProviderVerificationOutcome.Verified,
+            recovered.Outcome);
+        Assert.Equal(verificationKey, recovered.VerificationRequestKey);
+        Assert.Equal(challenge.ChallengeId, recovered.ChallengeId);
+        Assert.Equal(
+            OtpPurpose.AccountNameChange,
+            recovered.Purpose);
+        Assert.Equal("+66812345678", recovered.PhoneNumber);
+        Assert.True(recovered.RequestedAt <= recovered.CompletedAt);
+        Assert.Equal(verificationKey, handler.VerificationIdempotencyKey);
+        Assert.Equal(verificationKey, handler.LookupVerificationKey);
+    }
+
+    [Fact]
     public async Task Http_lookup_rejects_a_wrong_original_purpose()
     {
         var now = DateTimeOffset.UtcNow;
@@ -511,7 +557,8 @@ public sealed class HttpOtpVerificationProviderTests
                 AccountNameChangeEnabled = true,
                 AccountNameChangeCertificationReference =
                     "cert-account-name-001",
-                AccountNameChangeCodeLifetimeSeconds = 600
+                AccountNameChangeCodeLifetimeSeconds = 600,
+                AccountNameChangeVerificationLookupEnabled = true
             });
 
     private static async Task AssertLookupRejectedAsync(
@@ -653,5 +700,77 @@ public sealed class HttpOtpVerificationProviderTests
                     "application/json")
             };
         }
+    }
+
+    private sealed class LostVerificationResponseHandler(
+        string sendKey,
+        string verificationKey) : HttpMessageHandler
+    {
+        public string? VerificationIdempotencyKey { get; private set; }
+        public string? LookupVerificationKey { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            if (request.Method == HttpMethod.Post &&
+                request.RequestUri!.AbsolutePath ==
+                "/v1/otp/challenges")
+            {
+                Assert.Equal(
+                    sendKey,
+                    request.Headers.GetValues("Idempotency-Key").Single());
+                return Json(
+                    """
+                    {
+                      "challengeId": "provider_challenge_0123456789",
+                      "maskedPhoneNumber": "081-***-5678"
+                    }
+                    """);
+            }
+
+            if (request.Method == HttpMethod.Post)
+            {
+                VerificationIdempotencyKey = request.Headers
+                    .GetValues("Idempotency-Key")
+                    .Single();
+                using var body = JsonDocument.Parse(
+                    await request.Content!.ReadAsStringAsync(
+                        cancellationToken));
+                Assert.Equal(
+                    verificationKey,
+                    body.RootElement.GetProperty(
+                        "verificationRequestKey").GetString());
+                throw new HttpRequestException(
+                    "response lost after verification");
+            }
+
+            LookupVerificationKey = request.RequestUri!
+                .Segments[^1]
+                .TrimEnd('/');
+            var requestedAt =
+                DateTimeOffset.UtcNow.AddSeconds(-2);
+            return Json(
+                $$"""
+                {
+                  "verificationRequestKey": "{{verificationKey}}",
+                  "challengeId": "provider_challenge_0123456789",
+                  "purpose": "AccountNameChange",
+                  "phoneNumber": "0812345678",
+                  "outcome": "Verified",
+                  "requestedAt": "{{requestedAt:O}}",
+                  "completedAt": "{{requestedAt.AddSeconds(1):O}}"
+                }
+                """);
+        }
+
+        private static HttpResponseMessage Json(string body) =>
+            new(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    body,
+                    Encoding.UTF8,
+                    "application/json")
+            };
     }
 }

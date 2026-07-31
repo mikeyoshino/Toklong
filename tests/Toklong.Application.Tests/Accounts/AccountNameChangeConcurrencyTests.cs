@@ -9,6 +9,7 @@ using Toklong.Domain.Authentication;
 using Toklong.Domain.Buyers;
 using Toklong.Domain.Sellers;
 using Toklong.Infrastructure.Persistence;
+using Toklong.Application.Tests.TestSupport;
 
 namespace Toklong.Application.Tests.Accounts;
 
@@ -150,8 +151,10 @@ public sealed class AccountNameChangeConcurrencyTests
             new AccountNameChangeRepository(database),
             provider,
             new DeterministicSecurity(),
+            new DeterministicAccountNameAuditEvidenceWriter(),
             unitOfWork,
-            new FixedClock());
+            new FixedClock(),
+            new ImmediateAccountPhoneTransactionManager());
 
     private static async Task WaitForBlockedSaveAsync(
         Task<VerifiedAccountNameChange> operation,
@@ -324,6 +327,16 @@ public sealed class AccountNameChangeConcurrencyTests
     private sealed class AcceptingProvider(string phoneNumber)
         : IOtpVerificationProvider
     {
+        private readonly Dictionary<
+            string,
+            OtpProviderVerificationEvidence> evidenceByKey = [];
+
+        public OtpProviderCapabilities Capabilities { get; } =
+            new(true, TimeSpan.FromMinutes(10), true)
+            {
+                SupportsVerificationLookup = true
+            };
+
         public Task<OtpChallenge> RequestAsync(
             string phoneNumber,
             OtpPurpose purpose,
@@ -337,6 +350,52 @@ public sealed class AccountNameChangeConcurrencyTests
             OtpPurpose purpose,
             CancellationToken cancellationToken) =>
             Task.FromResult<string?>(phoneNumber);
+
+        public Task<OtpProviderVerificationEvidence>
+            VerifyIdempotentlyAsync(
+                string challengeId,
+                string code,
+                OtpPurpose purpose,
+                string verificationRequestKey,
+                CancellationToken cancellationToken)
+        {
+            lock (evidenceByKey)
+            {
+                if (!evidenceByKey.TryGetValue(
+                        verificationRequestKey,
+                        out var evidence))
+                {
+                    evidence = new(
+                        verificationRequestKey,
+                        challengeId,
+                        purpose,
+                        phoneNumber,
+                        OtpProviderVerificationOutcome.Verified,
+                        Now.AddSeconds(-1),
+                        Now);
+                    evidenceByKey[verificationRequestKey] = evidence;
+                }
+                return Task.FromResult(evidence);
+            }
+        }
+
+        public Task<OtpProviderVerificationEvidence?>
+            LookupVerificationAsync(
+                string verificationRequestKey,
+                string challengeId,
+                string phoneNumber,
+                OtpPurpose purpose,
+                CancellationToken cancellationToken)
+        {
+            lock (evidenceByKey)
+            {
+                evidenceByKey.TryGetValue(
+                    verificationRequestKey,
+                    out var evidence);
+                return Task.FromResult<
+                    OtpProviderVerificationEvidence?>(evidence);
+            }
+        }
     }
 
     private sealed class DeterministicSecurity
@@ -344,9 +403,6 @@ public sealed class AccountNameChangeConcurrencyTests
     {
         public string Digest(Guid challengeId, string code) =>
             Hash($"account-name:{challengeId:N}:{code}");
-
-        public string DigestAuditValue(Guid challengeId, string value) =>
-            Hash($"account-name-audit:{challengeId:N}:{value}");
     }
 
     private sealed class FixedClock : IClock

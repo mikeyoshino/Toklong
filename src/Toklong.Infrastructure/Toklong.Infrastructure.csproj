@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Stripe.net" Version="52.1.1" />
     <ProjectReference Include="..\Toklong.Domain\Toklong.Domain.csproj" />
     <ProjectReference Include="..\Toklong.Application\Toklong.Application.csproj" />
@@ -17,7 +18,6 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <PackageReference Include="OpenAI" Version="2.9.1" />
     <PackageReference Include="SkiaSharp" Version="3.119.2" />

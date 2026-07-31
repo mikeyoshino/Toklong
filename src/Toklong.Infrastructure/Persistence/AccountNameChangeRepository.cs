@@ -56,6 +56,18 @@ public sealed class AccountNameChangeRepository(
                 attempt.IdempotencyKey == idempotencyKey,
             cancellationToken);
 
+    public Task<AccountNameVerificationOperation?>
+        GetVerificationOperationAsync(
+            Guid challengeId,
+            string idempotencyKey,
+            CancellationToken cancellationToken) =>
+        dbContext.AccountNameVerificationOperations
+            .SingleOrDefaultAsync(
+                operation =>
+                    operation.ChallengeId == challengeId &&
+                    operation.IdempotencyKey == idempotencyKey,
+                cancellationToken);
+
     public Task<int> CountAcceptedSendsAsync(
         Guid? buyerId,
         Guid? sellerId,
@@ -107,6 +119,13 @@ public sealed class AccountNameChangeRepository(
         AccountNameVerificationAttempt value,
         CancellationToken cancellationToken) =>
         dbContext.AccountNameVerificationAttempts
+            .AddAsync(value, cancellationToken)
+            .AsTask();
+
+    public Task AddVerificationOperationAsync(
+        AccountNameVerificationOperation value,
+        CancellationToken cancellationToken) =>
+        dbContext.AccountNameVerificationOperations
             .AddAsync(value, cancellationToken)
             .AsTask();
 

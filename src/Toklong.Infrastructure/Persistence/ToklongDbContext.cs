@@ -46,6 +46,9 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
     public DbSet<AccountNameVerificationAttempt>
         AccountNameVerificationAttempts =>
         Set<AccountNameVerificationAttempt>();
+    public DbSet<AccountNameVerificationOperation>
+        AccountNameVerificationOperations =>
+        Set<AccountNameVerificationOperation>();
     public DbSet<SellerAccount> Sellers => Set<SellerAccount>();
     public DbSet<SellerPayoutAccount> SellerPayoutAccounts => Set<SellerPayoutAccount>();
     public DbSet<MobileSession> MobileSessions => Set<MobileSession>();
@@ -814,13 +817,51 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
             .HasForeignKey(x => x.SessionId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        var operation =
+            modelBuilder.Entity<AccountNameVerificationOperation>();
+        operation.ToTable(
+            "account_name_verification_operations");
+        operation.HasKey(x => x.Id);
+        operation.HasIndex(x => new
+        {
+            x.ChallengeId,
+            x.IdempotencyKey
+        }).IsUnique();
+        operation.HasIndex(x => x.ProviderVerificationKey)
+            .IsUnique();
+        operation.Property(x => x.IdempotencyKey)
+            .HasMaxLength(32);
+        operation.Property(x => x.SubmittedDigest)
+            .HasMaxLength(64);
+        operation.Property(x => x.ProviderVerificationKey)
+            .HasMaxLength(32);
+        operation.Property(x => x.PhoneNumber)
+            .HasMaxLength(20);
+        operation.Property(x => x.ProviderChallengeId)
+            .HasMaxLength(800);
+        operation.Property(x => x.Status)
+            .HasConversion<string>()
+            .HasMaxLength(24);
+        operation.Property(x => x.Version)
+            .IsConcurrencyToken();
+        operation.HasOne<AccountNameChangeChallenge>()
+            .WithMany()
+            .HasForeignKey(x => x.ChallengeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         var audit =
             modelBuilder.Entity<AccountNameChangeAuditEvent>();
         audit.ToTable("account_name_change_audit_events");
         audit.HasKey(x => x.Id);
         audit.HasIndex(x => x.ChallengeId);
-        audit.Property(x => x.OldName).HasMaxLength(120);
-        audit.Property(x => x.NewName).HasMaxLength(120);
+        audit.Property(x => x.ProtectedNameEvidence)
+            .HasColumnType("bytea");
+        audit.Property(x => x.ProtectionVersion)
+            .HasMaxLength(32);
+        audit.Property(x => x.LegacyOldNameDigest)
+            .HasMaxLength(64);
+        audit.Property(x => x.LegacyNewNameDigest)
+            .HasMaxLength(64);
         audit.Property(x => x.Name).HasMaxLength(100);
         audit.Property(x => x.Result).HasMaxLength(100);
         audit.HasOne<AccountNameChangeChallenge>()

@@ -572,6 +572,7 @@ public sealed class MobileApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<IParcelProtectionQuoteProvider>();
             services.RemoveAll<IPaymentIntentProvider>();
             services.RemoveAll<IPaymentFeePolicy>();
+            services.RemoveAll<IAccountPhoneTransactionManager>();
             services.RemoveAll<BuyerProtectionFeeOptions>();
             services.RemoveAll<
                 DevelopmentShippingQuoteProvider>();
@@ -580,6 +581,9 @@ public sealed class MobileApiFactory : WebApplicationFactory<Program>
             services.AddSingleton<
                 IStartupFilter,
                 TestRemoteAddressStartupFilter>();
+            services.AddSingleton<
+                IAccountPhoneTransactionManager,
+                TestAccountPhoneTransactionManager>();
             var databaseName = Guid.NewGuid().ToString("N");
             services.AddDbContext<ToklongDbContext>(options =>
                 options.UseInMemoryDatabase(

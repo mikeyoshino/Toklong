@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -48,6 +49,8 @@ public sealed class AccountNameChangePersistenceTests
             typeof(AccountNameChangeChallenge))!;
         var attempt = database.Model.FindEntityType(
             typeof(AccountNameVerificationAttempt))!;
+        var operation = database.Model.FindEntityType(
+            typeof(AccountNameVerificationOperation))!;
         var audit = database.Model.FindEntityType(
             typeof(AccountNameChangeAuditEvent))!;
 
@@ -144,14 +147,52 @@ public sealed class AccountNameChangePersistenceTests
                              nameof(AccountNameVerificationAttempt.ChallengeId),
                              nameof(AccountNameVerificationAttempt.IdempotencyKey)
                          ]));
+        Assert.True(
+            operation.FindProperty(
+                nameof(AccountNameVerificationOperation.Version))!
+                .IsConcurrencyToken);
         Assert.Equal(
-            120,
-            audit.FindProperty(
-                nameof(AccountNameChangeAuditEvent.OldName))!.GetMaxLength());
+            32,
+            operation.FindProperty(
+                nameof(AccountNameVerificationOperation.ProviderVerificationKey))!
+                .GetMaxLength());
+        Assert.Contains(
+            operation.GetIndexes(),
+            index => index.IsUnique &&
+                     index.Properties.Select(property => property.Name)
+                         .SequenceEqual([
+                             nameof(AccountNameVerificationOperation.ChallengeId),
+                             nameof(AccountNameVerificationOperation.IdempotencyKey)
+                         ]));
+        Assert.Contains(
+            operation.GetIndexes(),
+            index => index.IsUnique &&
+                     index.Properties.Select(property => property.Name)
+                         .SequenceEqual([
+                             nameof(AccountNameVerificationOperation.ProviderVerificationKey)
+                         ]));
         Assert.Equal(
-            120,
+            "bytea",
             audit.FindProperty(
-                nameof(AccountNameChangeAuditEvent.NewName))!.GetMaxLength());
+                nameof(AccountNameChangeAuditEvent.ProtectedNameEvidence))!
+                .FindAnnotation(
+                    "Relational:ColumnType")!
+                .Value);
+        Assert.Equal(
+            32,
+            audit.FindProperty(
+                nameof(AccountNameChangeAuditEvent.ProtectionVersion))!
+                .GetMaxLength());
+        Assert.Equal(
+            64,
+            audit.FindProperty(
+                nameof(AccountNameChangeAuditEvent.LegacyOldNameDigest))!
+                .GetMaxLength());
+        Assert.Equal(
+            64,
+            audit.FindProperty(
+                nameof(AccountNameChangeAuditEvent.LegacyNewNameDigest))!
+                .GetMaxLength());
     }
 
     [Fact]
@@ -163,6 +204,7 @@ public sealed class AccountNameChangePersistenceTests
                  {
                      typeof(AccountNameChangeChallenge),
                      typeof(AccountNameVerificationAttempt),
+                     typeof(AccountNameVerificationOperation),
                      typeof(AccountNameChangeAuditEvent)
                  })
         {
@@ -257,6 +299,84 @@ public sealed class AccountNameChangePersistenceTests
             operation =>
                 operation.Name ==
                     "account_name_change_challenges");
+    }
+
+    [Fact]
+    public void Hardening_migration_preserves_legacy_audit_digests_and_adds_durable_operation()
+    {
+        var operations = HardeningMigrationProbe.CreateUpOperations();
+
+        Assert.Contains(
+            operations.OfType<RenameColumnOperation>(),
+            operation =>
+                operation.Table == "account_name_change_audit_events" &&
+                operation.Name == "OldName" &&
+                operation.NewName == "LegacyOldNameDigest");
+        Assert.Contains(
+            operations.OfType<RenameColumnOperation>(),
+            operation =>
+                operation.Table == "account_name_change_audit_events" &&
+                operation.Name == "NewName" &&
+                operation.NewName == "LegacyNewNameDigest");
+        Assert.DoesNotContain(
+            operations.OfType<DropColumnOperation>(),
+            operation =>
+                operation.Table == "account_name_change_audit_events" &&
+                operation.Name is "OldName" or "NewName");
+
+        var protectionVersion = Assert.Single(
+            operations.OfType<AddColumnOperation>(),
+            operation =>
+                operation.Table == "account_name_change_audit_events" &&
+                operation.Name == "ProtectionVersion");
+        Assert.Equal("legacy-hmac:v1", protectionVersion.DefaultValue);
+        Assert.Contains(
+            operations.OfType<AddColumnOperation>(),
+            operation =>
+                operation.Table == "account_name_change_audit_events" &&
+                operation.Name == "ProtectedNameEvidence" &&
+                operation.ColumnType == "bytea" &&
+                operation.IsNullable);
+
+        var table = Assert.Single(
+            operations.OfType<CreateTableOperation>(),
+            operation =>
+                operation.Name ==
+                "account_name_verification_operations");
+        Assert.Contains(
+            table.Columns,
+            column =>
+                column.Name == "ProviderVerificationKey" &&
+                column.MaxLength == 32 &&
+                !column.IsNullable);
+        Assert.Contains(
+            table.ForeignKeys,
+            foreignKey =>
+                foreignKey.Columns.SequenceEqual(["ChallengeId"]) &&
+                foreignKey.PrincipalTable ==
+                "account_name_change_challenges" &&
+                foreignKey.OnDelete == ReferentialAction.Restrict);
+        Assert.Contains(
+            operations.OfType<CreateIndexOperation>(),
+            index =>
+                index.Table ==
+                "account_name_verification_operations" &&
+                index.IsUnique &&
+                index.Columns.SequenceEqual([
+                    "ProviderVerificationKey"
+                ]));
+
+        var down = HardeningMigrationProbe.CreateDownOperations();
+        Assert.Contains(
+            down.OfType<RenameColumnOperation>(),
+            operation =>
+                operation.Name == "LegacyOldNameDigest" &&
+                operation.NewName == "OldName");
+        Assert.Contains(
+            down.OfType<DropTableOperation>(),
+            operation =>
+                operation.Name ==
+                "account_name_verification_operations");
     }
 
     [Fact]
@@ -436,6 +556,50 @@ public sealed class AccountNameChangePersistenceTests
         Assert.Equal(challenge.Id, storedAudit.ChallengeId);
     }
 
+    [Fact]
+    public async Task Repository_round_trips_durable_provider_verification_operation()
+    {
+        await using var database = CreateDatabase();
+        var repository = new AccountNameChangeRepository(database);
+        var challenge = NewChallenge();
+        challenge.MarkSendAccepted("provider-reference", Now);
+        var key = Guid.NewGuid().ToString("N");
+        var operation = new AccountNameVerificationOperation(
+            Guid.NewGuid(),
+            challenge.Id,
+            key,
+            new string('c', 64),
+            Guid.NewGuid().ToString("N"),
+            challenge.PhoneNumber,
+            challenge.ProviderChallengeId!,
+            Now);
+        operation.RecordProviderOutcome(
+            true,
+            Now,
+            Now.AddSeconds(1),
+            Now.AddSeconds(1));
+        await repository.AddAsync(challenge, default);
+        await repository.AddVerificationOperationAsync(
+            operation,
+            default);
+        await database.SaveChangesAsync();
+        database.ChangeTracker.Clear();
+
+        var stored =
+            await repository.GetVerificationOperationAsync(
+                challenge.Id,
+                key,
+                default);
+
+        Assert.Equal(
+            AccountNameVerificationOperationStatus.ProviderVerified,
+            stored?.Status);
+        Assert.Equal(
+            operation.ProviderVerificationKey,
+            stored?.ProviderVerificationKey);
+        Assert.Equal(Now.AddSeconds(1), stored?.ProviderCompletedAt);
+    }
+
     [Theory]
     [InlineData(EntityState.Modified)]
     [InlineData(EntityState.Deleted)]
@@ -473,6 +637,30 @@ public sealed class AccountNameChangePersistenceTests
     }
 
     [Fact]
+    public void Audit_name_evidence_round_trips_without_plaintext_at_rest()
+    {
+        var protector = new AccountNameAuditEvidenceProtector(
+            new EphemeralDataProtectionProvider());
+        var names = new AccountNameAuditEvidence(
+            "สมชาย ใจดี",
+            "สมชาย ใจเย็น",
+            "สมศักดิ์ ใจดี");
+
+        var protectedEvidence = protector.Protect(names);
+        var recovered = protector.UnprotectForAuditReview(
+            protectedEvidence);
+
+        Assert.Equal("aspnet-dp:v1", protectedEvidence.ProtectionVersion);
+        Assert.Equal(names, recovered);
+        Assert.True(
+            protectedEvidence.Ciphertext.AsSpan().IndexOf(
+                Encoding.UTF8.GetBytes("สมชาย ใจดี")) < 0);
+        Assert.True(
+            protectedEvidence.Ciphertext.AsSpan().IndexOf(
+                Encoding.UTF8.GetBytes("สมศักดิ์ ใจดี")) < 0);
+    }
+
+    [Fact]
     public void Security_digest_uses_the_account_name_domain_and_never_returns_code()
     {
         var key = "account-name-test-secret-that-is-long-enough";
@@ -497,21 +685,6 @@ public sealed class AccountNameChangePersistenceTests
             security.Digest(Guid.NewGuid(), "123456"));
         Assert.Throws<ArgumentException>(
             () => security.Digest(challengeId, " 123456 "));
-
-        var auditReference = security.DigestAuditValue(
-            challengeId,
-            "สมชาย ใจดี");
-        var expectedAuditReference = Convert.ToHexString(
-                HMACSHA256.HashData(
-                    Encoding.UTF8.GetBytes(key),
-                    Encoding.UTF8.GetBytes(
-                        "account-name-audit:" +
-                        "11111111222233334444555555555555:" +
-                        "สมชาย ใจดี")))
-            .ToLowerInvariant();
-        Assert.Equal(expectedAuditReference, auditReference);
-        Assert.DoesNotContain("สมชาย", auditReference);
-        Assert.NotEqual(digest, auditReference);
     }
 
     private static AccountNameChangeChallenge NewChallenge()
@@ -552,8 +725,8 @@ public sealed class AccountNameChangePersistenceTests
             challenge.SellerId,
             challenge.SessionId,
             challenge.Id,
-            new string('a', 64),
-            new string('b', 64),
+            Enumerable.Repeat((byte)0xA5, 32).ToArray(),
+            "test:v1",
             Now,
             "account.name_change.verified",
             "verified");
@@ -593,6 +766,28 @@ public sealed class AccountNameChangePersistenceTests
             var builder = new MigrationBuilder(
                 "Npgsql.EntityFrameworkCore.PostgreSQL");
             new MigrationProbe().Down(builder);
+            return builder.Operations;
+        }
+    }
+
+    private sealed class HardeningMigrationProbe
+        : HardenAccountNameVerification
+    {
+        public static IReadOnlyList<MigrationOperation>
+            CreateUpOperations()
+        {
+            var builder = new MigrationBuilder(
+                "Npgsql.EntityFrameworkCore.PostgreSQL");
+            new HardeningMigrationProbe().Up(builder);
+            return builder.Operations;
+        }
+
+        public static IReadOnlyList<MigrationOperation>
+            CreateDownOperations()
+        {
+            var builder = new MigrationBuilder(
+                "Npgsql.EntityFrameworkCore.PostgreSQL");
+            new HardeningMigrationProbe().Down(builder);
             return builder.Operations;
         }
     }

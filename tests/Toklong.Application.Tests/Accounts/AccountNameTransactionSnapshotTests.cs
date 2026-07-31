@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Toklong.Application.Abstractions;
 using Toklong.Application.Features.Accounts.NameChanges;
 using Toklong.Application.Features.Offers.CreateBuyerOffer;
+using Toklong.Application.Features.Offers.RespondToBuyerOffer;
 using Toklong.Domain.Accounts;
 using Toklong.Domain.Authentication;
 using Toklong.Domain.Buyers;
@@ -11,6 +12,7 @@ using Toklong.Domain.Common;
 using Toklong.Domain.Sellers;
 using Toklong.Domain.Transactions;
 using Toklong.Infrastructure.Persistence;
+using Toklong.Application.Tests.TestSupport;
 using Toklong.Infrastructure.Pricing;
 using Toklong.Infrastructure.Services;
 
@@ -119,11 +121,81 @@ public sealed class AccountNameTransactionSnapshotTests
             later.Id);
     }
 
+    [Fact]
+    public async Task Seller_acceptance_after_verification_captures_the_new_seller_name()
+    {
+        await using var scenario = await Scenario.CreateAsync();
+        await scenario.VerifyHandler().Handle(
+            scenario.VerifyCommand(),
+            default);
+        var payout = scenario.SellerRole.SavePayoutAccount(
+            null,
+            "KBANK",
+            "สมศักดิ์ ใจดี",
+            "1234567890",
+            Now);
+        await new SellerRepository(scenario.Database)
+            .AddPayoutAccountAsync(payout, default);
+        await scenario.Database.SaveChangesAsync();
+        var transitions = new TransactionTransitionService();
+        var feePolicy = new ConfiguredBuyerProtectionFeePolicy(
+            new BuyerProtectionFeeOptions
+            {
+                Enabled = true,
+                PolicyVersion = "buyer-protection-test-v2"
+            });
+        var offer = await new CreateBuyerOfferHandler(
+            new TransactionRepository(scenario.Database),
+            new BuyerRepository(scenario.Database),
+            new BundledThaiAddressCatalog(),
+            scenario.Database,
+            new FixedClock(),
+            feePolicy,
+            transitions).Handle(
+            new CreateBuyerOfferCommand(
+                scenario.OtherBuyer.Id,
+                scenario.Buyer.PhoneNumber,
+                FulfillmentType.DigitalHandoff,
+                "สิทธิ์ดิจิทัลที่โอนได้",
+                "สิทธิ์ดิจิทัลที่ผู้ขายมีสิทธิ์โอน",
+                ConditionCode.UsedGood,
+                "ไม่มีตำหนิที่ผู้ซื้อระบุ",
+                null,
+                100_000,
+                false,
+                null,
+                false),
+            default);
+
+        var accepted = await new AcceptBuyerOfferHandler(
+            new TransactionRepository(scenario.Database),
+            new SellerRepository(scenario.Database),
+            feePolicy,
+            new UnusedShippingQuoteProvider(),
+            new BundledThaiAddressCatalog(),
+            scenario.Database,
+            new FixedClock(),
+            transitions).Handle(
+            new AcceptBuyerOfferCommand(
+                offer.PublicToken,
+                scenario.SellerRole.Id,
+                payout.Id,
+                true,
+                true),
+            default);
+
+        Assert.Equal("สมศักดิ์ ใจดี", accepted.SellerDisplayName);
+        Assert.Equal(
+            "สมชาย ใจดี",
+            scenario.ExistingSellerTransaction.SellerDisplayName);
+    }
+
     private sealed class Scenario : IAsyncDisposable
     {
         private Scenario(
             ToklongDbContext database,
             BuyerAccount buyer,
+            BuyerAccount otherBuyer,
             SellerAccount sellerRole,
             MobileSession session,
             AccountNameChangeChallenge challenge,
@@ -132,6 +204,7 @@ public sealed class AccountNameTransactionSnapshotTests
         {
             Database = database;
             Buyer = buyer;
+            OtherBuyer = otherBuyer;
             SellerRole = sellerRole;
             Session = session;
             Challenge = challenge;
@@ -141,6 +214,7 @@ public sealed class AccountNameTransactionSnapshotTests
 
         public ToklongDbContext Database { get; }
         public BuyerAccount Buyer { get; }
+        public BuyerAccount OtherBuyer { get; }
         public SellerAccount SellerRole { get; }
         public MobileSession Session { get; }
         public AccountNameChangeChallenge Challenge { get; }
@@ -262,6 +336,7 @@ public sealed class AccountNameTransactionSnapshotTests
             return new(
                 database,
                 buyer,
+                otherBuyer,
                 sellerRole,
                 session,
                 challenge,
@@ -288,8 +363,10 @@ public sealed class AccountNameTransactionSnapshotTests
                 new AccountNameChangeRepository(Database),
                 new AcceptingProvider(Buyer.PhoneNumber),
                 new DeterministicSecurity(),
+                new DeterministicAccountNameAuditEvidenceWriter(),
                 Database,
-                new FixedClock());
+                new FixedClock(),
+                new ImmediateAccountPhoneTransactionManager());
 
         public ValueTask DisposeAsync() => Database.DisposeAsync();
     }
@@ -297,6 +374,12 @@ public sealed class AccountNameTransactionSnapshotTests
     private sealed class AcceptingProvider(string phoneNumber)
         : IOtpVerificationProvider
     {
+        public OtpProviderCapabilities Capabilities { get; } =
+            new(true, TimeSpan.FromMinutes(10), true)
+            {
+                SupportsVerificationLookup = true
+            };
+
         public Task<OtpChallenge> RequestAsync(
             string phoneNumber,
             OtpPurpose purpose,
@@ -310,6 +393,23 @@ public sealed class AccountNameTransactionSnapshotTests
             OtpPurpose purpose,
             CancellationToken cancellationToken) =>
             Task.FromResult<string?>(phoneNumber);
+
+        public Task<OtpProviderVerificationEvidence>
+            VerifyIdempotentlyAsync(
+                string challengeId,
+                string code,
+                OtpPurpose purpose,
+                string verificationRequestKey,
+                CancellationToken cancellationToken) =>
+            Task.FromResult(
+                new OtpProviderVerificationEvidence(
+                    verificationRequestKey,
+                    challengeId,
+                    purpose,
+                    phoneNumber,
+                    OtpProviderVerificationOutcome.Verified,
+                    Now.AddSeconds(-1),
+                    Now));
     }
 
     private sealed class DeterministicSecurity
@@ -317,14 +417,27 @@ public sealed class AccountNameTransactionSnapshotTests
     {
         public string Digest(Guid challengeId, string code) =>
             Hash($"account-name:{challengeId:N}:{code}");
-
-        public string DigestAuditValue(Guid challengeId, string value) =>
-            Hash($"account-name-audit:{challengeId:N}:{value}");
     }
 
     private sealed class FixedClock : IClock
     {
         public DateTimeOffset UtcNow => Now;
+    }
+
+    private sealed class UnusedShippingQuoteProvider
+        : IShippingQuoteProvider
+    {
+        public Task<IReadOnlyList<ShippingQuoteOption>> GetQuotesAsync(
+            ShippingQuoteRequest request,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<ShippingQuoteOption> ValidateQuoteAsync(
+            ShippingQuoteRequest request,
+            string quoteReference,
+            long disclosedFeeSatang,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 
     private static string Hash(string value) =>

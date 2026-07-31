@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Toklong.Application.Abstractions;
+using Toklong.Application.Common;
 using Toklong.Application.Features.Authentication;
 using Toklong.Application.Features.Sellers;
 using Toklong.Domain.Authentication;
@@ -32,7 +33,10 @@ public sealed class MobileSessionTokenService(
     IDataProtectionProvider dataProtectionProvider,
     TimeProvider timeProvider,
     IMobileSessionRepository sessions,
-    IUnitOfWork unitOfWork)
+    IBuyerRepository buyers,
+    ISellerRepository sellers,
+    IUnitOfWork unitOfWork,
+    IAccountPhoneTransactionManager phoneTransactions)
 {
     private static readonly JsonSerializerOptions JsonOptions =
         new(JsonSerializerDefaults.Web);
@@ -48,17 +52,29 @@ public sealed class MobileSessionTokenService(
         CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
+        var phone = ThaiMobilePhone.Normalize(
+            profile.PhoneNumber);
+        await using var phoneTransaction =
+            await phoneTransactions.BeginAsync(
+                phone,
+                cancellationToken);
+        var displayName = await ResolveCurrentDisplayNameAsync(
+            profile.BuyerId,
+            profile.SellerId,
+            phone,
+            cancellationToken);
         var refreshToken = NewRefreshToken();
         var session = MobileSession.Create(
             profile.BuyerId,
             profile.SellerId,
-            profile.DisplayName,
-            profile.PhoneNumber,
+            displayName,
+            phone,
             Hash(refreshToken),
             now,
             now.Add(RefreshLifetime));
         await sessions.AddAsync(session, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        await phoneTransaction.CommitAsync(cancellationToken);
         return Issue(session, refreshToken, now);
     }
 
@@ -108,22 +124,45 @@ public sealed class MobileSessionTokenService(
         CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
+        var phone = ThaiMobilePhone.Normalize(
+            seller.PhoneNumber);
+        await using var phoneTransaction =
+            await phoneTransactions.BeginAsync(
+                phone,
+                cancellationToken);
         var session = await sessions.GetByIdAsync(
             sessionId,
             cancellationToken);
         if (session is null || !session.IsActive(now))
             return null;
+        var currentSeller = await sellers.GetByIdAsync(
+            seller.Id,
+            cancellationToken);
+        if (currentSeller is null ||
+            !string.Equals(
+                ThaiMobilePhone.Normalize(
+                    currentSeller.PhoneNumber),
+                phone,
+                StringComparison.Ordinal))
+            return null;
+        var displayName = await ResolveCurrentDisplayNameAsync(
+            session.BuyerId,
+            currentSeller.Id,
+            phone,
+            cancellationToken);
 
         var replacement = NewRefreshToken();
         session.AttachSeller(
-            seller.Id,
-            seller.PhoneNumber,
-            seller.DisplayName,
+            currentSeller.Id,
+            currentSeller.PhoneNumber,
+            displayName,
             now);
+        session.UpdateDisplayName(displayName);
         session.RotateRefreshToken(Hash(replacement), now);
         try
         {
             await unitOfWork.SaveChangesAsync(cancellationToken);
+            await phoneTransaction.CommitAsync(cancellationToken);
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -131,6 +170,56 @@ public sealed class MobileSessionTokenService(
         }
 
         return Issue(session, replacement, now);
+    }
+
+    private async Task<string> ResolveCurrentDisplayNameAsync(
+        Guid? buyerId,
+        Guid? sellerId,
+        string normalizedPhone,
+        CancellationToken cancellationToken)
+    {
+        if (!buyerId.HasValue && !sellerId.HasValue)
+            throw new InvalidOperationException(
+                "Mobile session must reference an account.");
+        string? buyerName = null;
+        if (buyerId.HasValue)
+        {
+            var buyer = await buyers.GetByIdAsync(
+                    buyerId.Value,
+                    cancellationToken)
+                ?? throw new InvalidOperationException(
+                    "Buyer account is unavailable.");
+            EnsurePhone(
+                normalizedPhone,
+                buyer.PhoneNumber);
+            buyerName = buyer.FullName;
+        }
+        string? sellerName = null;
+        if (sellerId.HasValue)
+        {
+            var seller = await sellers.GetByIdAsync(
+                    sellerId.Value,
+                    cancellationToken)
+                ?? throw new InvalidOperationException(
+                    "Seller account is unavailable.");
+            EnsurePhone(
+                normalizedPhone,
+                seller.PhoneNumber);
+            sellerName = seller.DisplayName;
+        }
+        return buyerName ?? sellerName!;
+    }
+
+    private static void EnsurePhone(
+        string expected,
+        string actual)
+    {
+        if (!string.Equals(
+                expected,
+                ThaiMobilePhone.Normalize(actual),
+                StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                "Account phone does not match the session.");
     }
 
     public async Task<ClaimsPrincipal?> ValidateAccessAsync(

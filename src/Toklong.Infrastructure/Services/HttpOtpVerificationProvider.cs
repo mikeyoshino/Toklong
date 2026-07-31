@@ -19,6 +19,7 @@ public sealed class OtpProviderOptions
     public bool AccountNameChangeEnabled { get; init; }
     public string AccountNameChangeCertificationReference { get; init; } = "";
     public int AccountNameChangeCodeLifetimeSeconds { get; init; }
+    public bool AccountNameChangeVerificationLookupEnabled { get; init; }
 
     public static OtpProviderOptions From(IConfiguration configuration)
     {
@@ -35,7 +36,10 @@ public sealed class OtpProviderOptions
                 section["AccountNameChangeCertificationReference"] ?? "",
             AccountNameChangeCodeLifetimeSeconds =
                 section.GetValue<int>(
-                    "AccountNameChangeCodeLifetimeSeconds")
+                    "AccountNameChangeCodeLifetimeSeconds"),
+            AccountNameChangeVerificationLookupEnabled =
+                section.GetValue<bool>(
+                    "AccountNameChangeVerificationLookupEnabled")
         };
     }
 
@@ -318,7 +322,12 @@ public sealed class HttpOtpVerificationProvider(
             IsCertifiedForAccountNameChange()
                 ? TimeSpan.FromMinutes(10)
                 : null,
-            true);
+            true)
+        {
+            SupportsVerificationLookup =
+                IsCertifiedForAccountNameChange() &&
+                options.AccountNameChangeVerificationLookupEnabled
+        };
 
     public async Task<OtpChallenge> RequestAsync(
         string phoneNumber,
@@ -502,6 +511,109 @@ public sealed class HttpOtpVerificationProvider(
             : null;
     }
 
+    public async Task<OtpProviderVerificationEvidence>
+        VerifyIdempotentlyAsync(
+            string challengeId,
+            string code,
+            OtpPurpose purpose,
+            string verificationRequestKey,
+            CancellationToken cancellationToken)
+    {
+        EnsureVerificationLookupSupported(purpose);
+        verificationRequestKey = ValidProviderRequestKey(
+            verificationRequestKey);
+        if (code.Length != 6 ||
+            code.Any(character => !char.IsAsciiDigit(character)) ||
+            !TryUnprotectChallenge(
+                challengeId,
+                purpose,
+                out var phoneNumber,
+                out var providerChallengeId,
+                out _,
+                out _,
+                out _))
+            throw new ArgumentException(
+                "Verification request is invalid.");
+        using var request = CreateRequest(
+            HttpMethod.Post,
+            "v1/otp/verifications",
+            new IdempotentOtpVerification(
+                providerChallengeId,
+                code,
+                purpose.ToString(),
+                verificationRequestKey),
+            verificationRequestKey);
+        using var response = await httpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException(
+                "ผู้ให้บริการรหัสยืนยันไม่พร้อมใช้งาน");
+        var result = await response.Content
+            .ReadFromJsonAsync<OtpVerificationEvidenceResult>(
+                cancellationToken: cancellationToken);
+        return ToValidatedVerificationEvidence(
+            result,
+            verificationRequestKey,
+            challengeId,
+            providerChallengeId,
+            phoneNumber,
+            purpose);
+    }
+
+    public async Task<OtpProviderVerificationEvidence?>
+        LookupVerificationAsync(
+            string verificationRequestKey,
+            string challengeId,
+            string phoneNumber,
+            OtpPurpose purpose,
+            CancellationToken cancellationToken)
+    {
+        EnsureVerificationLookupSupported(purpose);
+        verificationRequestKey = ValidProviderRequestKey(
+            verificationRequestKey);
+        var expectedPhone = ThaiMobilePhone.Normalize(phoneNumber);
+        if (!TryUnprotectChallenge(
+                challengeId,
+                purpose,
+                out var protectedPhone,
+                out var providerChallengeId,
+                out _,
+                out _,
+                out _) ||
+            !string.Equals(
+                protectedPhone,
+                expectedPhone,
+                StringComparison.Ordinal))
+            return null;
+        using var request = CreateRequest(
+            HttpMethod.Get,
+            $"v1/otp/verifications/by-request/{verificationRequestKey}",
+            body: (object?)null,
+            providerRequestKey: null);
+        using var response = await httpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+        if (response.StatusCode ==
+            System.Net.HttpStatusCode.NotFound)
+            return null;
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException(
+                "ผู้ให้บริการรหัสยืนยันไม่พร้อมใช้งาน");
+        var result = await response.Content
+            .ReadFromJsonAsync<OtpVerificationEvidenceResult>(
+                cancellationToken: cancellationToken);
+        return ToValidatedVerificationEvidence(
+            result,
+            verificationRequestKey,
+            challengeId,
+            providerChallengeId,
+            expectedPhone,
+            purpose);
+    }
+
     private HttpRequestMessage CreateRequest<T>(
         HttpMethod method,
         string relativePath,
@@ -530,6 +642,72 @@ public sealed class HttpOtpVerificationProvider(
             !Capabilities.SupportsAccountNameChange)
             throw new InvalidOperationException(
                 "ผู้ให้บริการรหัสยืนยันยังไม่ได้รับรองรหัสเปลี่ยนชื่อที่มีอายุ 10 นาที");
+    }
+
+    private void EnsureVerificationLookupSupported(
+        OtpPurpose purpose)
+    {
+        EnsurePurposeSupported(purpose);
+        if (!Capabilities.SupportsVerificationLookup)
+            throw new InvalidOperationException(
+                "ผู้ให้บริการรหัสยืนยันยังไม่รองรับการตรวจสอบผลยืนยันแบบอ้างอิงได้");
+    }
+
+    private OtpProviderVerificationEvidence
+        ToValidatedVerificationEvidence(
+            OtpVerificationEvidenceResult? result,
+            string expectedVerificationKey,
+            string protectedChallengeId,
+            string expectedProviderChallengeId,
+            string expectedPhone,
+            OtpPurpose expectedPurpose)
+    {
+        if (result is null ||
+            !string.Equals(
+                result.VerificationRequestKey,
+                expectedVerificationKey,
+                StringComparison.Ordinal) ||
+            !string.Equals(
+                result.ChallengeId,
+                expectedProviderChallengeId,
+                StringComparison.Ordinal) ||
+            !string.Equals(
+                result.Purpose,
+                expectedPurpose.ToString(),
+                StringComparison.Ordinal) ||
+            !Enum.TryParse<OtpProviderVerificationOutcome>(
+                result.Outcome,
+                ignoreCase: false,
+                out var outcome) ||
+            result.RequestedAt > result.CompletedAt ||
+            result.CompletedAt > providerClock.UtcNow.AddMinutes(1))
+            throw new InvalidOperationException(
+                "ผู้ให้บริการรหัสยืนยันส่งหลักฐานไม่ถูกต้อง");
+        string normalizedPhone;
+        try
+        {
+            normalizedPhone = ThaiMobilePhone.Normalize(
+                result.PhoneNumber);
+        }
+        catch (ArgumentException)
+        {
+            throw new InvalidOperationException(
+                "ผู้ให้บริการรหัสยืนยันส่งหลักฐานไม่ถูกต้อง");
+        }
+        if (!string.Equals(
+                normalizedPhone,
+                expectedPhone,
+                StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                "ผู้ให้บริการรหัสยืนยันส่งหลักฐานไม่ถูกต้อง");
+        return new(
+            expectedVerificationKey,
+            protectedChallengeId,
+            expectedPurpose,
+            normalizedPhone,
+            outcome,
+            result.RequestedAt,
+            result.CompletedAt);
     }
 
     private bool IsCertifiedForAccountNameChange() =>
@@ -722,6 +900,19 @@ public sealed class HttpOtpVerificationProvider(
     private sealed record OtpVerificationResult(
         bool Verified,
         string? PhoneNumber);
+    private sealed record IdempotentOtpVerification(
+        string ChallengeId,
+        string Code,
+        string Purpose,
+        string VerificationRequestKey);
+    private sealed record OtpVerificationEvidenceResult(
+        string VerificationRequestKey,
+        string ChallengeId,
+        string Purpose,
+        string PhoneNumber,
+        string Outcome,
+        DateTimeOffset RequestedAt,
+        DateTimeOffset CompletedAt);
     private sealed record OtpLookupResult(
         string ChallengeId,
         string MaskedPhoneNumber,

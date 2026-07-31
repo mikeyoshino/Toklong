@@ -26,6 +26,11 @@ public interface IAccountNameChangeRepository
         string idempotencyKey,
         CancellationToken cancellationToken);
 
+    Task<AccountNameVerificationOperation?> GetVerificationOperationAsync(
+        Guid challengeId,
+        string idempotencyKey,
+        CancellationToken cancellationToken);
+
     Task<int> CountAcceptedSendsAsync(
         Guid? buyerId,
         Guid? sellerId,
@@ -46,6 +51,10 @@ public interface IAccountNameChangeRepository
 
     Task AddAttemptAsync(
         AccountNameVerificationAttempt value,
+        CancellationToken cancellationToken);
+
+    Task AddVerificationOperationAsync(
+        AccountNameVerificationOperation value,
         CancellationToken cancellationToken);
 
     Task AddAuditAsync(

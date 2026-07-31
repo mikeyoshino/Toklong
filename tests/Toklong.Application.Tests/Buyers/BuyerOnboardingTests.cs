@@ -4,6 +4,7 @@ using Toklong.Application.Features.Buyers;
 using Toklong.Domain.Buyers;
 using Toklong.Domain.Common;
 using Toklong.Infrastructure.Persistence;
+using Toklong.Application.Tests.TestSupport;
 
 namespace Toklong.Application.Tests.Buyers;
 
@@ -48,8 +49,10 @@ public sealed class BuyerOnboardingTests
         var handler = new RegisterBuyerHandler(
             new SuccessfulOtpProvider("+66812345678"),
             new BuyerRepository(db),
+            new SellerRepository(db),
             db,
-            new FixedClock(Now));
+            new FixedClock(Now),
+            new ImmediateAccountPhoneTransactionManager());
 
         var profile = await handler.Handle(
             new RegisterBuyerCommand(
@@ -132,8 +135,10 @@ public sealed class BuyerOnboardingTests
         var handler = new RegisterBuyerHandler(
             new SuccessfulOtpProvider("+66812345678"),
             new BuyerRepository(db),
+            new SellerRepository(db),
             db,
-            new FixedClock(Now));
+            new FixedClock(Now),
+            new ImmediateAccountPhoneTransactionManager());
 
         var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
             handler.Handle(

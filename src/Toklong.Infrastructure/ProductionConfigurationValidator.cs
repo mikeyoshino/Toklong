@@ -71,6 +71,9 @@ public static class ProductionConfigurationValidator
                 if (otp.ApiKey.Length < 32)
                     errors.Add(
                         "Otp:ApiKey must be at least 32 characters when account-name change is enabled");
+                if (!otp.AccountNameChangeVerificationLookupEnabled)
+                    errors.Add(
+                        "Otp:AccountNameChangeVerificationLookupEnabled must be true when account-name change is enabled");
             }
         }
 

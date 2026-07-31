@@ -27,8 +27,10 @@ public sealed record VerifySellerOtpCommand(string ChallengeId, string Code)
 public sealed class VerifySellerOtpHandler(
     IOtpVerificationProvider provider,
     ISellerRepository sellers,
+    IBuyerRepository buyers,
     IUnitOfWork unitOfWork,
-    IClock clock)
+    IClock clock,
+    IAccountPhoneTransactionManager phoneTransactions)
     : IRequestHandler<VerifySellerOtpCommand, SellerProfile>
 {
     public async Task<SellerProfile> Handle(
@@ -44,18 +46,33 @@ public sealed class VerifySellerOtpHandler(
             throw new ArgumentException(
                 "รหัสไม่ถูกต้อง ใช้ไปแล้ว หรือหมดอายุ กรุณาขอรหัสใหม่");
 
+        phone = ThaiMobilePhone.Normalize(phone);
+        await using var phoneTransaction =
+            await phoneTransactions.BeginAsync(
+                phone,
+                cancellationToken);
         var seller = await sellers.GetByPhoneAsync(phone, cancellationToken);
+        var registeredAccount = await buyers.GetByPhoneAsync(
+            phone,
+            cancellationToken);
         if (seller is null)
         {
-            seller = SellerAccount.Create(phone, clock.UtcNow);
+            seller = SellerAccount.Create(
+                phone,
+                clock.UtcNow,
+                registeredAccount?.FullName);
             await sellers.AddAsync(seller, cancellationToken);
         }
         else
         {
             seller.MarkPhoneVerified(clock.UtcNow);
+            if (registeredAccount is not null)
+                seller.UpdateDisplayName(
+                    registeredAccount.FullName);
         }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        await phoneTransaction.CommitAsync(cancellationToken);
         return SellerProfile.From(seller);
     }
 }
@@ -101,7 +118,8 @@ public sealed class EnsureSellerProfileHandler(
     ISellerRepository sellers,
     IBuyerRepository buyers,
     IUnitOfWork unitOfWork,
-    IClock clock)
+    IClock clock,
+    IAccountPhoneTransactionManager phoneTransactions)
     : IRequestHandler<EnsureSellerProfileCommand, SellerProfile>
 {
     public async Task<SellerProfile> Handle(
@@ -109,6 +127,10 @@ public sealed class EnsureSellerProfileHandler(
         CancellationToken cancellationToken)
     {
         var phone = ThaiMobilePhone.Normalize(request.PhoneNumber);
+        await using var phoneTransaction =
+            await phoneTransactions.BeginAsync(
+                phone,
+                cancellationToken);
         var seller = await sellers.GetByPhoneAsync(
             phone,
             cancellationToken);
@@ -132,6 +154,7 @@ public sealed class EnsureSellerProfileHandler(
         }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        await phoneTransaction.CommitAsync(cancellationToken);
         return SellerProfile.From(seller);
     }
 }

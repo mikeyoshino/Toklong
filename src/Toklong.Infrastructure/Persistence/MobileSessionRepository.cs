@@ -35,13 +35,50 @@ public sealed class MobileSessionRepository(ToklongDbContext dbContext)
         if (!buyerId.HasValue && !sellerId.HasValue)
             return [];
 
-        var candidates = await dbContext.MobileSessions
-            .Where(session =>
-                (buyerId.HasValue && session.BuyerId == buyerId ||
-                 sellerId.HasValue && session.SellerId == sellerId))
+        if (!dbContext.Database.IsRelational())
+            return await dbContext.MobileSessions
+                .Where(
+                    session =>
+                        session.RevokedAt == null &&
+                        session.ExpiresAt > now &&
+                        ((buyerId.HasValue &&
+                          session.BuyerId == buyerId.Value) ||
+                         (sellerId.HasValue &&
+                          session.SellerId == sellerId.Value)))
+                .ToListAsync(cancellationToken);
+
+        IQueryable<MobileSession> query;
+        if (buyerId.HasValue && sellerId.HasValue)
+            query = dbContext.MobileSessions.FromSqlInterpolated(
+                $"""
+                 SELECT *
+                 FROM "mobile_sessions"
+                 WHERE "RevokedAt" IS NULL
+                   AND "ExpiresAt" > {now}
+                   AND (
+                     "BuyerId" = {buyerId.Value}
+                     OR "SellerId" = {sellerId.Value})
+                 """);
+        else if (buyerId.HasValue)
+            query = dbContext.MobileSessions.FromSqlInterpolated(
+                $"""
+                 SELECT *
+                 FROM "mobile_sessions"
+                 WHERE "RevokedAt" IS NULL
+                   AND "ExpiresAt" > {now}
+                   AND "BuyerId" = {buyerId.Value}
+                 """);
+        else
+            query = dbContext.MobileSessions.FromSqlInterpolated(
+                $"""
+                 SELECT *
+                 FROM "mobile_sessions"
+                 WHERE "RevokedAt" IS NULL
+                   AND "ExpiresAt" > {now}
+                   AND "SellerId" = {sellerId!.Value}
+                 """);
+
+        return await query
             .ToListAsync(cancellationToken);
-        return candidates
-            .Where(session => session.IsActive(now))
-            .ToList();
     }
 }

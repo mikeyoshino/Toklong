@@ -65,8 +65,10 @@ public sealed record RegisterBuyerCommand(
 public sealed class RegisterBuyerHandler(
     IOtpVerificationProvider provider,
     IBuyerRepository buyers,
+    ISellerRepository sellers,
     IUnitOfWork unitOfWork,
-    IClock clock)
+    IClock clock,
+    IAccountPhoneTransactionManager phoneTransactions)
     : IRequestHandler<RegisterBuyerCommand, BuyerProfile>
 {
     public async Task<BuyerProfile> Handle(
@@ -82,17 +84,26 @@ public sealed class RegisterBuyerHandler(
             throw new ArgumentException(
                 "รหัสไม่ถูกต้อง ใช้ไปแล้ว หรือหมดอายุ กรุณาขอรหัสใหม่");
 
+        phone = ThaiMobilePhone.Normalize(phone);
+        await using var phoneTransaction =
+            await phoneTransactions.BeginAsync(
+                phone,
+                cancellationToken);
         if (await buyers.GetByPhoneAsync(phone, cancellationToken) is not null)
             throw new ArgumentException(
                 "เบอร์นี้มีบัญชีแล้ว กรุณาเข้าสู่ระบบ");
+        var seller = await sellers.GetByPhoneAsync(
+            phone,
+            cancellationToken);
 
         var buyer = BuyerAccount.Create(
             phone,
-            request.FullName,
+            seller?.DisplayName ?? request.FullName,
             request.Email,
             clock.UtcNow);
         await buyers.AddAsync(buyer, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        await phoneTransaction.CommitAsync(cancellationToken);
         return BuyerProfile.From(buyer);
     }
 }

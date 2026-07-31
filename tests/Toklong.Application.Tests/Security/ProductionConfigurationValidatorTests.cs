@@ -190,6 +190,34 @@ public sealed class ProductionConfigurationValidatorTests
     }
 
     [Fact]
+    public void Production_requires_authoritative_name_verification_lookup()
+    {
+        var values = SafeProductionValues();
+        values["Otp:AccountNameChangeEnabled"] = "true";
+        values["Otp:AccountNameChangeCodeLifetimeSeconds"] = "600";
+        values["Otp:AccountNameChangeCertificationReference"] =
+            "cert-account-name-001";
+        values["Otp:ApiKey"] =
+            "otp-key-long-enough-for-name-change";
+        values[
+            "Otp:AccountNameChangeVerificationLookupEnabled"] =
+            "false";
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(
+                new ConfigurationBuilder()
+                    .AddInMemoryCollection(values)
+                    .Build(),
+                new TestEnvironment("Production"),
+                requireMobileLinks: false,
+                requirePersistentStorage: true));
+
+        Assert.Contains(
+            "AccountNameChangeVerificationLookupEnabled",
+            exception.Message);
+    }
+
+    [Fact]
     public void Production_requires_email_digest_key_from_secret_storage()
     {
         var values = SafeProductionValues();

@@ -46,6 +46,9 @@ public static class DependencyInjection
         services.AddScoped<ISellerRepository, SellerRepository>();
         services.AddScoped<IMobileSessionRepository, MobileSessionRepository>();
         services.AddScoped<
+            IAccountPhoneTransactionManager,
+            PostgresAccountPhoneTransactionManager>();
+        services.AddScoped<
             IPendingMobileRegistrationRepository,
             PendingMobileRegistrationRepository>();
         services.AddSingleton<
@@ -82,6 +85,9 @@ public static class DependencyInjection
         services.AddSingleton<
             IAccountNameVerificationSecurity,
             AccountNameVerificationSecurity>();
+        services.AddSingleton<
+            IAccountNameAuditEvidenceWriter,
+            AccountNameAuditEvidenceProtector>();
         services.AddSingleton<
             IEmailVerificationTemplate,
             ToklongEmailVerificationTemplate>();

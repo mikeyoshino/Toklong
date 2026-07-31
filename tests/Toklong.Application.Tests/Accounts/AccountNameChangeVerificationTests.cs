@@ -10,6 +10,7 @@ using Toklong.Domain.Buyers;
 using Toklong.Domain.Common;
 using Toklong.Domain.Sellers;
 using Toklong.Infrastructure.Persistence;
+using Toklong.Application.Tests.TestSupport;
 
 namespace Toklong.Application.Tests.Accounts;
 
@@ -57,11 +58,94 @@ public sealed class AccountNameChangeVerificationTests
         var audit = Assert.Single(
             scenario.Database.AccountNameChangeAuditEvents);
         Assert.Equal("account.name_change_verified", audit.Name);
-        Assert.DoesNotContain("สมชาย", audit.OldName);
-        Assert.DoesNotContain("สมศักดิ์", audit.NewName);
+        Assert.Equal("test:v1", audit.ProtectionVersion);
+        Assert.True(
+            audit.ProtectedNameEvidence!.AsSpan().IndexOf(
+                Encoding.UTF8.GetBytes("สมชาย")) < 0);
+        Assert.True(
+            audit.ProtectedNameEvidence.AsSpan().IndexOf(
+                Encoding.UTF8.GetBytes("สมศักดิ์")) < 0);
         Assert.DoesNotContain("123456", attempt.SubmittedDigest);
-        Assert.Equal(1, unitOfWork.SaveCount);
+        Assert.Equal(2, unitOfWork.SaveCount);
         Assert.Equal(OtpPurpose.AccountNameChange, scenario.Provider.Purpose);
+    }
+
+    [Fact]
+    public async Task Verification_claim_is_committed_before_provider_mutation()
+    {
+        await using var scenario = await Scenario.CreateAsync();
+        scenario.Provider.BeforeIdempotentVerify = async () =>
+        {
+            scenario.Database.ChangeTracker.Clear();
+            Assert.Single(
+                await scenario.Database.AccountNameVerificationOperations
+                    .AsNoTracking()
+                    .ToListAsync());
+        };
+
+        await scenario.Handler().Handle(scenario.Command(), default);
+
+        Assert.Equal(1, scenario.Provider.IdempotentVerifyCount);
+        Assert.Single(
+            scenario.Database.AccountNameVerificationOperations);
+    }
+
+    [Fact]
+    public async Task Accepted_response_loss_is_recovered_without_consuming_code_again()
+    {
+        await using var scenario = await Scenario.CreateAsync();
+        var command = scenario.Command();
+        scenario.Provider.ThrowAfterAcceptanceOnce = true;
+        scenario.Provider.LookupAvailable = false;
+
+        await Assert.ThrowsAsync<DomainException>(
+            () => scenario.Handler().Handle(command, default));
+        scenario.Database.ChangeTracker.Clear();
+        Assert.Single(
+            await scenario.Database.AccountNameVerificationOperations
+                .AsNoTracking()
+                .ToListAsync());
+        Assert.Empty(
+            await scenario.Database.AccountNameVerificationAttempts
+                .AsNoTracking()
+                .ToListAsync());
+
+        scenario.Provider.LookupAvailable = true;
+        scenario.Clock.UtcNow =
+            scenario.Challenge.ExpiresAt!.Value.AddMinutes(1);
+        var recovered = await scenario.Handler().Handle(
+            command,
+            default);
+
+        Assert.Equal("สมศักดิ์ ใจดี", recovered.DisplayName);
+        Assert.Equal(1, scenario.Provider.IdempotentVerifyCount);
+        Assert.Single(
+            await scenario.Database.AccountNameVerificationOperations
+                .AsNoTracking()
+                .ToListAsync());
+        Assert.Single(
+            await scenario.Database.AccountNameVerificationAttempts
+                .AsNoTracking()
+                .ToListAsync());
+    }
+
+    [Fact]
+    public async Task Mismatched_provider_evidence_never_changes_the_account()
+    {
+        await using var scenario = await Scenario.CreateAsync();
+        scenario.Provider.MutateEvidence = evidence =>
+            evidence with { ChallengeId = "another-challenge" };
+
+        await Assert.ThrowsAsync<DomainException>(
+            () => scenario.Handler().Handle(
+                scenario.Command(),
+                default));
+
+        Assert.Equal("สมชาย ใจดี", scenario.Buyer.FullName);
+        Assert.Empty(
+            scenario.Database.AccountNameVerificationAttempts);
+        Assert.Empty(
+            scenario.Database.AccountNameChangeAuditEvents);
     }
 
     [Fact]
@@ -191,9 +275,9 @@ public sealed class AccountNameChangeVerificationTests
         var error = await Assert.ThrowsAsync<DomainException>(() =>
             scenario.Handler().Handle(scenario.Command(), default));
 
-        Assert.Contains("รหัสไม่ถูกต้อง", error.Message);
+        Assert.Contains("ตรวจสอบผลยืนยัน", error.Message);
         Assert.Equal(AccountNameChangeStatus.Active, scenario.Challenge.Status);
-        Assert.Equal(1, scenario.Challenge.IncorrectAttempts);
+        Assert.Equal(0, scenario.Challenge.IncorrectAttempts);
         Assert.Equal("สมชาย ใจดี", scenario.Buyer.FullName);
         Assert.Equal("สมชาย ใจดี", scenario.Seller.DisplayName);
         Assert.Empty(scenario.Database.AccountNameChangeAuditEvents);
@@ -451,18 +535,43 @@ public sealed class AccountNameChangeVerificationTests
                 new AccountNameChangeRepository(Database),
                 Provider,
                 new DeterministicSecurity(),
+                new DeterministicAccountNameAuditEvidenceWriter(),
                 unitOfWork ?? Database,
-                Clock);
+                Clock,
+                new ImmediateAccountPhoneTransactionManager());
 
         public ValueTask DisposeAsync() => Database.DisposeAsync();
     }
 
-    private sealed class RecordingOtpProvider(string phone)
+    private sealed class RecordingOtpProvider
         : IOtpVerificationProvider
     {
+        private readonly string phone;
+        private readonly Dictionary<
+            string,
+            OtpProviderVerificationEvidence> evidenceByKey = [];
+
+        public RecordingOtpProvider(string phone)
+        {
+            this.phone = phone;
+            VerifiedPhone = phone;
+        }
+
+        public OtpProviderCapabilities Capabilities { get; } =
+            new(true, TimeSpan.FromMinutes(10), true)
+            {
+                SupportsVerificationLookup = true
+            };
         public OtpPurpose? Purpose { get; private set; }
         public int VerifyCount { get; private set; }
-        public string? VerifiedPhone { get; set; } = phone;
+        public int IdempotentVerifyCount { get; private set; }
+        public string? VerifiedPhone { get; set; }
+        public Func<Task>? BeforeIdempotentVerify { get; set; }
+        public bool ThrowAfterAcceptanceOnce { get; set; }
+        public bool LookupAvailable { get; set; } = true;
+        public Func<
+            OtpProviderVerificationEvidence,
+            OtpProviderVerificationEvidence>? MutateEvidence { get; set; }
 
         public Task<OtpChallenge> RequestAsync(
             string phoneNumber,
@@ -482,6 +591,66 @@ public sealed class AccountNameChangeVerificationTests
             return Task.FromResult<string?>(
                 code == "123456" ? VerifiedPhone : null);
         }
+
+        public async Task<OtpProviderVerificationEvidence>
+            VerifyIdempotentlyAsync(
+                string challengeId,
+                string code,
+                OtpPurpose purpose,
+                string verificationRequestKey,
+                CancellationToken cancellationToken)
+        {
+            Purpose = purpose;
+            VerifyCount++;
+            IdempotentVerifyCount++;
+            if (BeforeIdempotentVerify is not null)
+                await BeforeIdempotentVerify();
+            if (!evidenceByKey.TryGetValue(
+                    verificationRequestKey,
+                    out var evidence))
+            {
+                evidence = new(
+                    verificationRequestKey,
+                    challengeId,
+                    purpose,
+                    code == "123456"
+                        ? VerifiedPhone ?? phone
+                        : phone,
+                    code == "123456" && VerifiedPhone is not null
+                        ? OtpProviderVerificationOutcome.Verified
+                        : OtpProviderVerificationOutcome.Rejected,
+                    Now.AddSeconds(-1),
+                    Now);
+                evidenceByKey[verificationRequestKey] = evidence;
+            }
+            var result = MutateEvidence?.Invoke(evidence) ?? evidence;
+            if (ThrowAfterAcceptanceOnce)
+            {
+                ThrowAfterAcceptanceOnce = false;
+                throw new HttpRequestException(
+                    "accepted response lost");
+            }
+            return result;
+        }
+
+        public Task<OtpProviderVerificationEvidence?>
+            LookupVerificationAsync(
+                string verificationRequestKey,
+                string challengeId,
+                string phoneNumber,
+                OtpPurpose purpose,
+                CancellationToken cancellationToken)
+        {
+            if (!LookupAvailable ||
+                !evidenceByKey.TryGetValue(
+                    verificationRequestKey,
+                    out var evidence))
+                return Task.FromResult<
+                    OtpProviderVerificationEvidence?>(null);
+            var result = MutateEvidence?.Invoke(evidence) ?? evidence;
+            return Task.FromResult<
+                OtpProviderVerificationEvidence?>(result);
+        }
     }
 
     private sealed class DeterministicSecurity
@@ -489,9 +658,6 @@ public sealed class AccountNameChangeVerificationTests
     {
         public string Digest(Guid challengeId, string code) =>
             Hash($"account-name:{challengeId:N}:{code}");
-
-        public string DigestAuditValue(Guid challengeId, string value) =>
-            Hash($"account-name-audit:{challengeId:N}:{value}");
     }
 
     private sealed class CountingUnitOfWork(IUnitOfWork inner)

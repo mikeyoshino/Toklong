@@ -27,8 +27,10 @@ public sealed class VerifyAccountNameChangeHandler(
     IAccountNameChangeRepository nameChanges,
     IOtpVerificationProvider provider,
     IAccountNameVerificationSecurity security,
+    IAccountNameAuditEvidenceWriter auditEvidenceWriter,
     IUnitOfWork unitOfWork,
-    IClock clock)
+    IClock clock,
+    IAccountPhoneTransactionManager phoneTransactions)
     : IRequestHandler<
         VerifyAccountNameChangeCommand,
         VerifiedAccountNameChange>
@@ -44,6 +46,8 @@ public sealed class VerifyAccountNameChangeHandler(
         "รหัสยืนยันไม่อยู่ในสถานะที่ใช้งานได้";
     private const string NonExactReplayMessage =
         "คำขอนี้ไม่ตรงกับข้อมูลเดิม กรุณาลองใหม่";
+    private const string UnknownOutcomeMessage =
+        "ยังตรวจสอบผลยืนยันไม่สำเร็จ กรุณาลองใหม่";
 
     public async Task<VerifiedAccountNameChange> Handle(
         VerifyAccountNameChangeCommand request,
@@ -58,8 +62,8 @@ public sealed class VerifyAccountNameChangeHandler(
                 "รหัสคำขอเปลี่ยนชื่อไม่ถูกต้อง");
         var submittedDigest =
             security.Digest(request.ChallengeId, code);
-        var providerInvoked = false;
-        string? providerPhone = null;
+        EnsureProviderCapabilities();
+        AccountNameVerificationOperation? operation = null;
 
         for (var persistenceAttempt = 0;
              persistenceAttempt < MaximumPersistenceAttempts;
@@ -104,34 +108,150 @@ public sealed class VerifyAccountNameChangeHandler(
                 subject,
                 now);
 
-            AccountNameVerificationOutcome outcome;
+            operation =
+                await nameChanges.GetVerificationOperationAsync(
+                    challenge.Id,
+                    verificationKey,
+                    cancellationToken);
+            if (operation is not null)
+            {
+                operation.EnsureExactReplay(submittedDigest);
+                break;
+            }
+
             if (challenge.ExpiresAt <= now)
             {
-                outcome = challenge.RecordVerification(
+                var expiredOutcome = challenge.RecordVerification(
                     verificationKey,
                     providerAccepted: false,
                     now);
-            }
-            else
-            {
-                if (!providerInvoked)
-                {
-                    providerPhone = await provider.VerifyAsync(
-                        challenge.ProviderChallengeId!,
-                        code,
-                        OtpPurpose.AccountNameChange,
-                        cancellationToken);
-                    providerInvoked = true;
-                }
-
-                outcome = challenge.RecordVerification(
+                var expiredAttempt = CreateAttempt(
+                    subject,
+                    challenge,
                     verificationKey,
-                    ProviderPhoneMatches(
-                        providerPhone,
-                        subject.PhoneNumber),
+                    submittedDigest,
+                    expiredOutcome,
                     now);
+                await nameChanges.AddAttemptAsync(
+                    expiredAttempt,
+                    cancellationToken);
+                try
+                {
+                    await unitOfWork.SaveChangesAsync(
+                        cancellationToken);
+                }
+                catch (Exception exception) when (
+                    nameChanges.IsPersistenceConflict(exception))
+                {
+                    continue;
+                }
+                return Replay(
+                    challenge,
+                    expiredAttempt,
+                    submittedDigest);
             }
 
+            var operationId = Guid.NewGuid();
+            operation = new AccountNameVerificationOperation(
+                operationId,
+                challenge.Id,
+                verificationKey,
+                submittedDigest,
+                operationId.ToString("N"),
+                subject.PhoneNumber,
+                challenge.ProviderChallengeId!,
+                now);
+            await nameChanges.AddVerificationOperationAsync(
+                operation,
+                cancellationToken);
+            try
+            {
+                await unitOfWork.SaveChangesAsync(
+                    cancellationToken);
+            }
+            catch (Exception exception) when (
+                nameChanges.IsPersistenceConflict(exception))
+            {
+                continue;
+            }
+            break;
+        }
+
+        if (operation is null)
+            throw new DomainException(UnknownOutcomeMessage);
+
+        var evidence = await GetProviderEvidenceAsync(
+            operation,
+            code,
+            cancellationToken);
+
+        for (var persistenceAttempt = 0;
+             persistenceAttempt < MaximumPersistenceAttempts;
+             persistenceAttempt++)
+        {
+            if (persistenceAttempt > 0)
+                nameChanges.DiscardPendingChanges();
+            await using var phoneTransaction =
+                await phoneTransactions.BeginAsync(
+                    request.Subject.PhoneNumber,
+                    cancellationToken);
+            var now = clock.UtcNow;
+            var subject = await ResolveAllRolesAsync(
+                request.Subject,
+                cancellationToken);
+            await EnsureAuthenticatedSessionAsync(
+                request.Subject,
+                subject.PhoneNumber,
+                now,
+                cancellationToken);
+            var challenge = await nameChanges.GetByIdAsync(
+                    request.ChallengeId,
+                    cancellationToken)
+                ?? throw new NotFoundException(
+                    "ไม่พบคำขอเปลี่ยนชื่อ");
+            AccountNameChangeSubjectResolver.EnsureChallengeOwnership(
+                challenge,
+                request.Subject,
+                subject.PhoneNumber);
+            var existingAttempt = await nameChanges.GetAttemptAsync(
+                challenge.Id,
+                verificationKey,
+                cancellationToken);
+            if (existingAttempt is not null)
+                return Replay(
+                    challenge,
+                    existingAttempt,
+                    submittedDigest);
+            operation =
+                await nameChanges.GetVerificationOperationAsync(
+                    challenge.Id,
+                    verificationKey,
+                    cancellationToken)
+                ?? throw new DomainException(UnknownOutcomeMessage);
+            operation.EnsureExactReplay(submittedDigest);
+            EnsureChallengeCanBeSubmitted(challenge);
+            AccountNameChangeEligibilityPolicy.EnsureEligible(
+                subject,
+                now);
+            ValidateEvidence(
+                evidence,
+                operation,
+                challenge,
+                subject.PhoneNumber,
+                now);
+
+            var providerAccepted =
+                evidence.Outcome ==
+                OtpProviderVerificationOutcome.Verified;
+            var outcome = challenge.RecordVerification(
+                verificationKey,
+                providerAccepted,
+                evidence.CompletedAt);
+            operation.RecordProviderOutcome(
+                providerAccepted,
+                evidence.RequestedAt,
+                evidence.CompletedAt,
+                now);
             var attempt = CreateAttempt(
                 subject,
                 challenge,
@@ -145,41 +265,11 @@ public sealed class VerifyAccountNameChangeHandler(
 
             if (outcome == AccountNameVerificationOutcome.Verified)
             {
-                var pendingName = AccountName.Create(
-                    challenge.PendingFirstName,
-                    challenge.PendingLastName);
-                var oldNameReference = security.DigestAuditValue(
-                    challenge.Id,
-                    $"{subject.Buyer?.FullName ?? ""}|" +
-                    $"{subject.Seller?.DisplayName ?? ""}");
-                var newNameReference = security.DigestAuditValue(
-                    challenge.Id,
-                    pendingName.DisplayName);
-                subject.Buyer?.ApplyAccountName(pendingName, now);
-                subject.Seller?.ApplyAccountName(pendingName, now);
-                var activeSessions =
-                    await sessions.GetActiveByPartyAsync(
-                        subject.Buyer?.Id,
-                        subject.Seller?.Id,
-                        now,
-                        cancellationToken);
-                foreach (var session in activeSessions.Where(
-                             value => HasPhone(
-                                 value,
-                                 subject.PhoneNumber)))
-                    session.UpdateDisplayName(
-                        pendingName.DisplayName);
-                await nameChanges.AddAuditAsync(
-                    new AccountNameChangeAuditEvent(
-                        subject.Buyer?.Id,
-                        subject.Seller?.Id,
-                        request.Subject.SessionId,
-                        challenge.Id,
-                        oldNameReference,
-                        newNameReference,
-                        now,
-                        "account.name_change_verified",
-                        "verified"),
+                await ApplyVerifiedNameAsync(
+                    request,
+                    subject,
+                    challenge,
+                    now,
                     cancellationToken);
             }
 
@@ -187,17 +277,15 @@ public sealed class VerifyAccountNameChangeHandler(
             {
                 await unitOfWork.SaveChangesAsync(
                     cancellationToken);
+                await phoneTransaction.CommitAsync(
+                    cancellationToken);
             }
             catch (Exception exception) when (
                 nameChanges.IsPersistenceConflict(exception))
             {
                 continue;
             }
-
-            return Replay(
-                challenge,
-                attempt,
-                submittedDigest);
+            return Replay(challenge, attempt, submittedDigest);
         }
 
         nameChanges.DiscardPendingChanges();
@@ -222,8 +310,165 @@ public sealed class VerifyAccountNameChangeHandler(
         AccountNameChangeEligibilityPolicy.EnsureEligible(
             currentSubject,
             clock.UtcNow);
-        throw new DomainException(
-            "ยังยืนยันการเปลี่ยนชื่อไม่สำเร็จ กรุณาลองใหม่");
+        throw new DomainException(UnknownOutcomeMessage);
+    }
+
+    private void EnsureProviderCapabilities()
+    {
+        var capabilities = provider.Capabilities;
+        if (!capabilities.SupportsAccountNameChange ||
+            capabilities.AccountNameChangeCodeLifetime !=
+            TimeSpan.FromMinutes(10) ||
+            !capabilities.SupportsRequestLookup ||
+            !capabilities.SupportsVerificationLookup)
+            throw new InvalidOperationException(
+                "ผู้ให้บริการรหัสยืนยันยังไม่รองรับการเปลี่ยนชื่ออย่างปลอดภัย");
+    }
+
+    private async Task<OtpProviderVerificationEvidence>
+        GetProviderEvidenceAsync(
+            AccountNameVerificationOperation operation,
+            string code,
+            CancellationToken cancellationToken)
+    {
+        OtpProviderVerificationEvidence? evidence;
+        try
+        {
+            evidence = await provider.LookupVerificationAsync(
+                operation.ProviderVerificationKey,
+                operation.ProviderChallengeId,
+                operation.PhoneNumber,
+                OtpPurpose.AccountNameChange,
+                cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            throw new DomainException(UnknownOutcomeMessage);
+        }
+        if (evidence is not null)
+            return evidence;
+
+        try
+        {
+            return await provider.VerifyIdempotentlyAsync(
+                operation.ProviderChallengeId,
+                code,
+                OtpPurpose.AccountNameChange,
+                operation.ProviderVerificationKey,
+                cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            try
+            {
+                evidence = await provider.LookupVerificationAsync(
+                    operation.ProviderVerificationKey,
+                    operation.ProviderChallengeId,
+                    operation.PhoneNumber,
+                    OtpPurpose.AccountNameChange,
+                    cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                throw new DomainException(UnknownOutcomeMessage);
+            }
+            return evidence ??
+                   throw new DomainException(UnknownOutcomeMessage);
+        }
+    }
+
+    private static void ValidateEvidence(
+        OtpProviderVerificationEvidence evidence,
+        AccountNameVerificationOperation operation,
+        AccountNameChangeChallenge challenge,
+        string phoneNumber,
+        DateTimeOffset now)
+    {
+        string normalizedEvidencePhone;
+        try
+        {
+            normalizedEvidencePhone =
+                ThaiMobilePhone.Normalize(evidence.PhoneNumber);
+        }
+        catch (ArgumentException)
+        {
+            throw new DomainException(UnknownOutcomeMessage);
+        }
+        if (!string.Equals(
+                evidence.VerificationRequestKey,
+                operation.ProviderVerificationKey,
+                StringComparison.Ordinal) ||
+            !string.Equals(
+                evidence.ChallengeId,
+                operation.ProviderChallengeId,
+                StringComparison.Ordinal) ||
+            evidence.Purpose != OtpPurpose.AccountNameChange ||
+            !string.Equals(
+                normalizedEvidencePhone,
+                phoneNumber,
+                StringComparison.Ordinal) ||
+            !string.Equals(
+                operation.PhoneNumber,
+                phoneNumber,
+                StringComparison.Ordinal) ||
+            evidence.RequestedAt > evidence.CompletedAt ||
+            evidence.CompletedAt > now.AddMinutes(1) ||
+            evidence.CompletedAt >= challenge.ExpiresAt)
+            throw new DomainException(UnknownOutcomeMessage);
+    }
+
+    private async Task ApplyVerifiedNameAsync(
+        VerifyAccountNameChangeCommand request,
+        ResolvedAccountNameChangeSubject subject,
+        AccountNameChangeChallenge challenge,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var pendingName = AccountName.Create(
+            challenge.PendingFirstName,
+            challenge.PendingLastName);
+        var protectedEvidence = auditEvidenceWriter.Protect(
+            new AccountNameAuditEvidence(
+                subject.Buyer?.FullName,
+                subject.Seller?.DisplayName,
+                pendingName.DisplayName));
+        subject.Buyer?.ApplyAccountName(pendingName, now);
+        subject.Seller?.ApplyAccountName(pendingName, now);
+        var activeSessions =
+            await sessions.GetActiveByPartyAsync(
+                subject.Buyer?.Id,
+                subject.Seller?.Id,
+                now,
+                cancellationToken);
+        foreach (var session in activeSessions.Where(
+                     value => HasPhone(
+                         value,
+                         subject.PhoneNumber)))
+            session.UpdateDisplayName(pendingName.DisplayName);
+        await nameChanges.AddAuditAsync(
+            new AccountNameChangeAuditEvent(
+                subject.Buyer?.Id,
+                subject.Seller?.Id,
+                request.Subject.SessionId,
+                challenge.Id,
+                protectedEvidence.Ciphertext,
+                protectedEvidence.ProtectionVersion,
+                now,
+                "account.name_change_verified",
+                "verified"),
+            cancellationToken);
     }
 
     private async Task<ResolvedAccountNameChangeSubject>
@@ -366,25 +611,6 @@ public sealed class VerifyAccountNameChangeHandler(
             _ => throw new InvalidOperationException(
                 "Unsupported account name verification outcome.")
         };
-    }
-
-    private static bool ProviderPhoneMatches(
-        string? providerPhone,
-        string expectedPhone)
-    {
-        if (string.IsNullOrWhiteSpace(providerPhone))
-            return false;
-        try
-        {
-            return string.Equals(
-                ThaiMobilePhone.Normalize(providerPhone),
-                expectedPhone,
-                StringComparison.Ordinal);
-        }
-        catch (ArgumentException)
-        {
-            return false;
-        }
     }
 
     private static bool HasPhone(

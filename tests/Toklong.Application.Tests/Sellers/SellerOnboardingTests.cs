@@ -238,6 +238,52 @@ public sealed class SellerOnboardingTests
     }
 
     [Fact]
+    public async Task Development_name_verification_replays_one_authoritative_provider_outcome()
+    {
+        var provider = new DevelopmentOtpVerificationProvider(
+            new TestEnvironment(Environments.Development));
+        var phone = $"088{Random.Shared.Next(10_000_000):D7}";
+        var challenge = await provider.RequestAsync(
+            phone,
+            OtpPurpose.AccountNameChange,
+            Guid.NewGuid().ToString("N"),
+            CancellationToken.None);
+        var verificationKey = Guid.NewGuid().ToString("N");
+
+        var results = await Task.WhenAll(
+            Enumerable.Range(0, 4)
+                .Select(_ => provider.VerifyIdempotentlyAsync(
+                    challenge.ChallengeId,
+                    challenge.DevelopmentCode!,
+                    OtpPurpose.AccountNameChange,
+                    verificationKey,
+                    CancellationToken.None)));
+        var lookup = await provider.LookupVerificationAsync(
+            verificationKey,
+            challenge.ChallengeId,
+            phone,
+            OtpPurpose.AccountNameChange,
+            CancellationToken.None);
+
+        Assert.All(
+            results,
+            result => Assert.Equal(results[0], result));
+        Assert.Equal(
+            OtpProviderVerificationOutcome.Verified,
+            lookup?.Outcome);
+        Assert.Equal(
+            DevelopmentOtpVerificationProvider.NormalizeThaiPhone(phone),
+            lookup?.PhoneNumber);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            provider.VerifyIdempotentlyAsync(
+                challenge.ChallengeId,
+                challenge.DevelopmentCode!,
+                OtpPurpose.AccountNameChange,
+                Guid.NewGuid().ToString("N"),
+                CancellationToken.None));
+    }
+
+    [Fact]
     public void Seller_can_reuse_and_update_owned_payout_account()
     {
         var now = new DateTimeOffset(2026, 7, 23, 10, 0, 0, TimeSpan.Zero);

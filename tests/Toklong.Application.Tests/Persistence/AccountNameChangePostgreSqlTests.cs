@@ -152,6 +152,42 @@ public sealed class AccountNameChangePostgreSqlTests
     }
 
     [RequiresPostgreSqlMigrationFixture]
+    public async Task Same_normalized_phone_transactions_hold_the_advisory_lock_until_commit()
+    {
+        await using var database =
+            await PostgreSqlDatabase.CreateAsync(
+                Environment.GetEnvironmentVariable(
+                    ConnectionEnvironmentVariable)!);
+        await using var setup = database.CreateContext();
+        await setup.Database.MigrateAsync();
+        await using var firstContext = database.CreateContext();
+        await using var secondContext = database.CreateContext();
+        var firstManager =
+            new PostgresAccountPhoneTransactionManager(
+                firstContext);
+        var secondManager =
+            new PostgresAccountPhoneTransactionManager(
+                secondContext);
+        Task<IAccountPhoneTransaction> waiting;
+
+        await using (var first = await firstManager.BeginAsync(
+                         "0812345678",
+                         default))
+        {
+            waiting = secondManager.BeginAsync(
+                "+66812345678",
+                default);
+            await Task.Delay(TimeSpan.FromMilliseconds(100));
+            Assert.False(waiting.IsCompleted);
+            await first.CommitAsync(default);
+        }
+
+        await using var second = await waiting.WaitAsync(
+            TimeSpan.FromSeconds(5));
+        await second.CommitAsync(default);
+    }
+
+    [RequiresPostgreSqlMigrationFixture]
     public async Task Concurrent_expired_replacements_send_only_for_the_open_winner()
     {
         await using var database =
@@ -238,7 +274,7 @@ public sealed class AccountNameChangePostgreSqlTests
         var migrator = context.GetService<IMigrator>();
 
         await migrator.MigrateAsync();
-        Assert.Equal(3, await CountNameChangeTablesAsync(
+        Assert.Equal(4, await CountNameChangeTablesAsync(
             database.ConnectionString));
 
         await migrator.MigrateAsync(PreviousMigration);
@@ -246,7 +282,7 @@ public sealed class AccountNameChangePostgreSqlTests
             database.ConnectionString));
 
         await migrator.MigrateAsync();
-        Assert.Equal(3, await CountNameChangeTablesAsync(
+        Assert.Equal(4, await CountNameChangeTablesAsync(
             database.ConnectionString));
     }
 
@@ -360,7 +396,8 @@ public sealed class AccountNameChangePostgreSqlTests
               AND table_name IN (
                 'account_name_change_challenges',
                 'account_name_change_audit_events',
-                'account_name_verification_attempts');
+                'account_name_verification_attempts',
+                'account_name_verification_operations');
             """,
             connection);
         return (int)(await command.ExecuteScalarAsync())!;
