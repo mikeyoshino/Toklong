@@ -191,9 +191,12 @@ account and current normalized phone. It must not reset on API restart and must
 not depend only on an IP-address rate limiter. Existing authenticated and
 network-level API rate limits remain additional defense.
 
-Only a digest of the code is stored. Raw codes must not be persisted, returned
-outside an explicitly development-only provider contract, added to analytics,
-or written to normal logs.
+The existing phone OTP provider remains authoritative for the issued code. The
+challenge stores the provider challenge reference, not the raw code. A
+purpose-bound HMAC digest of a submitted code may be retained on a verification
+attempt only to detect mismatched idempotent replays. Raw codes must not be
+persisted, returned outside an explicitly development-only provider contract,
+added to analytics, or written to normal logs.
 
 ## Domain model
 
@@ -241,7 +244,7 @@ A dedicated aggregate records the pending authorization. It includes:
 - challenge ID and authenticated account party IDs;
 - the normalized current verified phone and masked phone;
 - pending first and last name;
-- code digest;
+- provider challenge reference;
 - created, expiry, resend-available, send-accepted, verified, locked,
   superseded, and failed timestamps as applicable;
 - incorrect-attempt count;
@@ -385,7 +388,9 @@ numbers, codes, free-form errors, or other personal data.
 - An unchanged normalized name creates no challenge and sends no code.
 - Send cooldown, durable five-per-24-hour limit, 10-minute expiry, and five
   incorrect attempts are enforced.
-- Raw codes never appear in persisted challenge or audit fields.
+- Raw codes never appear in persisted challenge, attempt, or audit fields;
+  verification attempts retain only a purpose-bound HMAC digest for replay
+  comparison.
 - Request, resend, and verification idempotency and replay behavior are covered.
 - Concurrent completions permit one winner and one authoritative blocked result.
 - Buyer, seller, and active session names change atomically.
