@@ -153,14 +153,19 @@ public sealed class BuyerOnboardingTests
     {
         public Task<OtpChallenge> RequestAsync(
             string phoneNumber,
+            OtpPurpose purpose,
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
         public Task<string?> VerifyAsync(
             string challengeId,
             string code,
+            OtpPurpose purpose,
             CancellationToken cancellationToken) =>
-            Task.FromResult<string?>(phone);
+            Task.FromResult<string?>(
+                purpose == OtpPurpose.MobileAuthentication
+                    ? phone
+                    : null);
     }
 
     private sealed class FixedClock(DateTimeOffset now) : IClock

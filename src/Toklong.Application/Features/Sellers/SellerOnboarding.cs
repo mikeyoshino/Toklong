@@ -16,6 +16,7 @@ public sealed class RequestSellerOtpHandler(IOtpVerificationProvider provider)
         CancellationToken cancellationToken) =>
         provider.RequestAsync(
             ThaiMobilePhone.Normalize(request.PhoneNumber),
+            OtpPurpose.MobileAuthentication,
             cancellationToken);
 }
 
@@ -34,7 +35,10 @@ public sealed class VerifySellerOtpHandler(
         CancellationToken cancellationToken)
     {
         var phone = await provider.VerifyAsync(
-            request.ChallengeId, request.Code, cancellationToken);
+            request.ChallengeId,
+            request.Code,
+            OtpPurpose.MobileAuthentication,
+            cancellationToken);
         if (phone is null)
             throw new ArgumentException(
                 "รหัสไม่ถูกต้อง ใช้ไปแล้ว หรือหมดอายุ กรุณาขอรหัสใหม่");

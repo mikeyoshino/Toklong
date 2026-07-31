@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using Toklong.Application.Abstractions;
 using Toklong.Application.Common;
 using Toklong.Infrastructure.Services;
 
@@ -41,10 +42,12 @@ public sealed class HttpOtpVerificationProviderTests
 
         var challenge = await provider.RequestAsync(
             "081-234-5678",
+            OtpPurpose.MobileAuthentication,
             default);
         var phone = await provider.VerifyAsync(
             challenge.ChallengeId,
             "123456",
+            OtpPurpose.MobileAuthentication,
             default);
 
         Assert.Equal("081-***-5678", challenge.MaskedPhoneNumber);
@@ -95,11 +98,13 @@ public sealed class HttpOtpVerificationProviderTests
             });
         var challenge = await provider.RequestAsync(
             "0812345678",
+            OtpPurpose.MobileAuthentication,
             default);
 
         var result = await provider.VerifyAsync(
             $"{challenge.ChallengeId}x",
             "123456",
+            OtpPurpose.MobileAuthentication,
             default);
 
         Assert.Null(result);
@@ -121,6 +126,7 @@ public sealed class HttpOtpVerificationProviderTests
 
         var result = await provider.RequestAsync(
             "081-234-5678",
+            OtpPurpose.AccountNameChange,
             default);
 
         Assert.Equal("challenge_0123456789", result.ChallengeId);
@@ -129,6 +135,9 @@ public sealed class HttpOtpVerificationProviderTests
         Assert.Equal(
             "+66812345678",
             sent.RootElement.GetProperty("phoneNumber").GetString());
+        Assert.Equal(
+            "AccountNameChange",
+            sent.RootElement.GetProperty("purpose").GetString());
         Assert.Equal(
             "secret-test",
             handler.LastRequest!.Headers
@@ -152,9 +161,37 @@ public sealed class HttpOtpVerificationProviderTests
         var phone = await provider.VerifyAsync(
             "challenge_0123456789",
             "123456",
+            OtpPurpose.AccountNameChange,
             default);
 
         Assert.Equal("+66812345678", phone);
+        using var sent = JsonDocument.Parse(handler.LastBody);
+        Assert.Equal(
+            "AccountNameChange",
+            sent.RootElement.GetProperty("purpose").GetString());
+    }
+
+    [Fact]
+    public async Task Verify_rejects_non_ascii_digits_without_provider_call()
+    {
+        var handler = new StubHandler(
+            HttpStatusCode.OK,
+            """
+            {
+              "verified": true,
+              "phoneNumber": "0812345678"
+            }
+            """);
+        var provider = CreateProvider(handler);
+
+        var phone = await provider.VerifyAsync(
+            "challenge_0123456789",
+            "๑๒๓๔๕๖",
+            OtpPurpose.MobileAuthentication,
+            default);
+
+        Assert.Null(phone);
+        Assert.Null(handler.LastRequest);
     }
 
     [Fact]
@@ -168,7 +205,10 @@ public sealed class HttpOtpVerificationProviderTests
 
         var exception = await Assert.ThrowsAsync<
             RequestCooldownException>(() =>
-            provider.RequestAsync("0812345678", default));
+            provider.RequestAsync(
+                "0812345678",
+                OtpPurpose.MobileAuthentication,
+                default));
 
         Assert.True(exception.RetryAfter >= TimeSpan.FromSeconds(29));
     }
@@ -185,6 +225,57 @@ public sealed class HttpOtpVerificationProviderTests
 
         Assert.Throws<InvalidOperationException>(
             options.GetValidatedBaseUri);
+    }
+
+    [Fact]
+    public async Task ThaiBulkSms_challenge_cannot_be_verified_for_another_purpose()
+    {
+        var handler = new SequenceStubHandler(
+            (
+                HttpStatusCode.OK,
+                """
+                {
+                  "status": "success",
+                  "token": "provider-token-purpose-test",
+                  "refno": "ABC12"
+                }
+                """),
+            (
+                HttpStatusCode.OK,
+                """
+                {
+                  "status": "success",
+                  "message": "Code is correct."
+                }
+                """));
+        var provider = new ThaiBulkSmsOtpVerificationProvider(
+            new HttpClient(handler),
+            new OtpProviderOptions
+            {
+                Provider = "ThaiBulkSms",
+                BaseUrl = "https://otp.thaibulksms.test/",
+                ApiKey = "key-test",
+                ApiSecret = "secret-test-at-least-16"
+            });
+        var challenge = await provider.RequestAsync(
+            "0812345678",
+            OtpPurpose.AccountNameChange,
+            default);
+
+        var wrongPurpose = await provider.VerifyAsync(
+            challenge.ChallengeId,
+            "123456",
+            OtpPurpose.MobileAuthentication,
+            default);
+        var correctPurpose = await provider.VerifyAsync(
+            challenge.ChallengeId,
+            "123456",
+            OtpPurpose.AccountNameChange,
+            default);
+
+        Assert.Null(wrongPurpose);
+        Assert.Equal("+66812345678", correctPurpose);
+        Assert.Equal(2, handler.Requests.Count);
     }
 
     private static HttpOtpVerificationProvider CreateProvider(

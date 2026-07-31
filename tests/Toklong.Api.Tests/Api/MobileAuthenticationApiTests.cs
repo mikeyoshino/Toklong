@@ -628,6 +628,7 @@ public sealed class MobileApiFactory : WebApplicationFactory<Program>
     {
         public Task<OtpChallenge> RequestAsync(
             string phoneNumber,
+            OtpPurpose purpose,
             CancellationToken cancellationToken) =>
             Task.FromResult(
                 new OtpChallenge(
@@ -638,10 +639,12 @@ public sealed class MobileApiFactory : WebApplicationFactory<Program>
         public Task<string?> VerifyAsync(
             string challengeId,
             string code,
+            OtpPurpose purpose,
             CancellationToken cancellationToken) =>
             Task.FromResult<string?>(
                 challengeId == "challenge-test" &&
-                code == "123456"
+                code == "123456" &&
+                purpose == OtpPurpose.MobileAuthentication
                     ? "+66812345678"
                     : null);
     }

@@ -46,6 +46,7 @@ public sealed class ThaiBulkSmsOtpVerificationProvider(
 {
     public async Task<OtpChallenge> RequestAsync(
         string phoneNumber,
+        OtpPurpose purpose,
         CancellationToken cancellationToken)
     {
         EnsureConfigured();
@@ -87,7 +88,10 @@ public sealed class ThaiBulkSmsOtpVerificationProvider(
                 "ผู้ให้บริการรหัสยืนยันส่งข้อมูลไม่ครบ");
 
         return new OtpChallenge(
-            ProtectChallenge(normalized, result.Token.Trim()),
+            ProtectChallenge(
+                normalized,
+                result.Token.Trim(),
+                purpose),
             Mask(normalized),
             null);
     }
@@ -95,6 +99,7 @@ public sealed class ThaiBulkSmsOtpVerificationProvider(
     public async Task<string?> VerifyAsync(
         string challengeId,
         string code,
+        OtpPurpose purpose,
         CancellationToken cancellationToken)
     {
         EnsureConfigured();
@@ -102,6 +107,7 @@ public sealed class ThaiBulkSmsOtpVerificationProvider(
             code.Any(character => !char.IsAsciiDigit(character)) ||
             !TryUnprotectChallenge(
                 challengeId,
+                purpose,
                 out var phoneNumber,
                 out var providerToken))
             return null;
@@ -151,11 +157,12 @@ public sealed class ThaiBulkSmsOtpVerificationProvider(
 
     private string ProtectChallenge(
         string normalizedPhone,
-        string providerToken)
+        string providerToken,
+        OtpPurpose purpose)
     {
         var payload = Convert.ToBase64String(
                 Encoding.UTF8.GetBytes(
-                    $"{normalizedPhone}\n{providerToken}"))
+                    $"{purpose}\n{normalizedPhone}\n{providerToken}"))
             .TrimEnd('=')
             .Replace('+', '-')
             .Replace('/', '_');
@@ -169,6 +176,7 @@ public sealed class ThaiBulkSmsOtpVerificationProvider(
 
     private bool TryUnprotectChallenge(
         string challengeId,
+        OtpPurpose expectedPurpose,
         out string phoneNumber,
         out string providerToken)
     {
@@ -203,13 +211,22 @@ public sealed class ThaiBulkSmsOtpVerificationProvider(
                 '=');
             var decoded = Encoding.UTF8.GetString(
                 Convert.FromBase64String(base64));
-            var newline = decoded.IndexOf('\n');
-            if (newline <= 0 ||
-                newline == decoded.Length - 1)
+            var purposeSeparator = decoded.IndexOf('\n');
+            var phoneSeparator = purposeSeparator < 0
+                ? -1
+                : decoded.IndexOf('\n', purposeSeparator + 1);
+            if (purposeSeparator <= 0 ||
+                phoneSeparator <= purposeSeparator + 1 ||
+                phoneSeparator == decoded.Length - 1 ||
+                !Enum.TryParse<OtpPurpose>(
+                    decoded[..purposeSeparator],
+                    ignoreCase: false,
+                    out var protectedPurpose) ||
+                protectedPurpose != expectedPurpose)
                 return false;
             phoneNumber = ThaiMobilePhone.Normalize(
-                decoded[..newline]);
-            providerToken = decoded[(newline + 1)..];
+                decoded[(purposeSeparator + 1)..phoneSeparator]);
+            providerToken = decoded[(phoneSeparator + 1)..];
             return providerToken.Length <= 300;
         }
         catch (FormatException)
@@ -253,13 +270,14 @@ public sealed class HttpOtpVerificationProvider(
 {
     public async Task<OtpChallenge> RequestAsync(
         string phoneNumber,
+        OtpPurpose purpose,
         CancellationToken cancellationToken)
     {
         var normalized = ThaiMobilePhone.Normalize(phoneNumber);
         using var request = CreateRequest(
             HttpMethod.Post,
             "v1/otp/challenges",
-            new OtpRequest(normalized));
+            new OtpRequest(normalized, purpose.ToString()));
         using var response = await httpClient.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,
@@ -288,16 +306,20 @@ public sealed class HttpOtpVerificationProvider(
     public async Task<string?> VerifyAsync(
         string challengeId,
         string code,
+        OtpPurpose purpose,
         CancellationToken cancellationToken)
     {
         if (!ValidOpaqueId(challengeId) ||
             code.Length != 6 ||
-            code.Any(character => !char.IsDigit(character)))
+            code.Any(character => !char.IsAsciiDigit(character)))
             return null;
         using var request = CreateRequest(
             HttpMethod.Post,
             "v1/otp/verifications",
-            new OtpVerification(challengeId, code));
+            new OtpVerification(
+                challengeId,
+                code,
+                purpose.ToString()));
         using var response = await httpClient.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,
@@ -360,13 +382,16 @@ public sealed class HttpOtpVerificationProvider(
             : TimeSpan.FromSeconds(60);
     }
 
-    private sealed record OtpRequest(string PhoneNumber);
+    private sealed record OtpRequest(
+        string PhoneNumber,
+        string Purpose);
     private sealed record OtpRequestResult(
         string ChallengeId,
         string MaskedPhoneNumber);
     private sealed record OtpVerification(
         string ChallengeId,
-        string Code);
+        string Code,
+        string Purpose);
     private sealed record OtpVerificationResult(
         bool Verified,
         string? PhoneNumber);

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using Toklong.Application.Abstractions;
 using Toklong.Application.Common;
 using Microsoft.EntityFrameworkCore;
 using Toklong.Domain.Common;
@@ -42,23 +43,31 @@ public sealed class SellerOnboardingTests
         var provider = new DevelopmentOtpVerificationProvider(
             new TestEnvironment(Environments.Development));
         var phone = $"089{Random.Shared.Next(10_000_000):D7}";
-        var challenge = await provider.RequestAsync(phone, CancellationToken.None);
+        var challenge = await provider.RequestAsync(
+            phone,
+            OtpPurpose.MobileAuthentication,
+            CancellationToken.None);
         var wrongCode = challenge.DevelopmentCode == "000000"
             ? "999999"
             : "000000";
 
         Assert.NotNull(challenge.DevelopmentCode);
         Assert.Null(await provider.VerifyAsync(
-            challenge.ChallengeId, wrongCode, CancellationToken.None));
+            challenge.ChallengeId,
+            wrongCode,
+            OtpPurpose.MobileAuthentication,
+            CancellationToken.None));
         Assert.Equal(
             DevelopmentOtpVerificationProvider.NormalizeThaiPhone(phone),
             await provider.VerifyAsync(
                 challenge.ChallengeId,
                 challenge.DevelopmentCode!,
+                OtpPurpose.MobileAuthentication,
                 CancellationToken.None));
         Assert.Null(await provider.VerifyAsync(
             challenge.ChallengeId,
             challenge.DevelopmentCode!,
+            OtpPurpose.MobileAuthentication,
             CancellationToken.None));
     }
 
@@ -69,7 +78,10 @@ public sealed class SellerOnboardingTests
             new TestEnvironment(Environments.Production));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            provider.RequestAsync("0812345678", CancellationToken.None));
+            provider.RequestAsync(
+                "0812345678",
+                OtpPurpose.MobileAuthentication,
+                CancellationToken.None));
     }
 
     [Fact]
@@ -79,15 +91,108 @@ public sealed class SellerOnboardingTests
             new TestEnvironment(Environments.Development));
         var phone = $"086{Random.Shared.Next(10_000_000):D7}";
 
-        await provider.RequestAsync(phone, CancellationToken.None);
+        await provider.RequestAsync(
+            phone,
+            OtpPurpose.MobileAuthentication,
+            CancellationToken.None);
         var exception = await Assert.ThrowsAsync<RequestCooldownException>(() =>
-            provider.RequestAsync(phone, CancellationToken.None));
+            provider.RequestAsync(
+                phone,
+                OtpPurpose.MobileAuthentication,
+                CancellationToken.None));
 
         Assert.InRange(
             exception.RetryAfter,
             TimeSpan.FromMilliseconds(1),
             TimeSpan.FromSeconds(60));
         Assert.Contains("ก่อนขอรหัสใหม่", exception.Message);
+    }
+
+    [Fact]
+    public async Task Development_otp_is_bound_to_its_requested_purpose()
+    {
+        var provider = new DevelopmentOtpVerificationProvider(
+            new TestEnvironment(Environments.Development));
+        var phone = $"085{Random.Shared.Next(10_000_000):D7}";
+        var challenge = await provider.RequestAsync(
+            phone,
+            OtpPurpose.AccountNameChange,
+            CancellationToken.None);
+
+        Assert.Null(await provider.VerifyAsync(
+            challenge.ChallengeId,
+            challenge.DevelopmentCode!,
+            OtpPurpose.MobileAuthentication,
+            CancellationToken.None));
+        Assert.Equal(
+            DevelopmentOtpVerificationProvider.NormalizeThaiPhone(phone),
+            await provider.VerifyAsync(
+                challenge.ChallengeId,
+                challenge.DevelopmentCode!,
+                OtpPurpose.AccountNameChange,
+                CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Development_name_change_code_lasts_ten_minutes_without_extending_authentication()
+    {
+        var clock = new MutableClock(
+            new DateTimeOffset(2026, 7, 31, 10, 0, 0, TimeSpan.Zero));
+        var provider = new DevelopmentOtpVerificationProvider(
+            new TestEnvironment(Environments.Development),
+            clock);
+        var authentication = await provider.RequestAsync(
+            $"084{Random.Shared.Next(10_000_000):D7}",
+            OtpPurpose.MobileAuthentication,
+            CancellationToken.None);
+        var nameChange = await provider.RequestAsync(
+            $"083{Random.Shared.Next(10_000_000):D7}",
+            OtpPurpose.AccountNameChange,
+            CancellationToken.None);
+
+        clock.UtcNow = clock.UtcNow.AddMinutes(5);
+
+        Assert.Null(await provider.VerifyAsync(
+            authentication.ChallengeId,
+            authentication.DevelopmentCode!,
+            OtpPurpose.MobileAuthentication,
+            CancellationToken.None));
+        Assert.NotNull(await provider.VerifyAsync(
+            nameChange.ChallengeId,
+            nameChange.DevelopmentCode!,
+            OtpPurpose.AccountNameChange,
+            CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Development_otp_allows_only_one_concurrent_success()
+    {
+        var provider = new DevelopmentOtpVerificationProvider(
+            new TestEnvironment(Environments.Development));
+        var challenge = await provider.RequestAsync(
+            $"082{Random.Shared.Next(10_000_000):D7}",
+            OtpPurpose.AccountNameChange,
+            CancellationToken.None);
+        using var ready = new CountdownEvent(4);
+        using var start = new ManualResetEventSlim();
+        var attempts = Enumerable.Range(0, 4)
+            .Select(_ => Task.Run(async () =>
+            {
+                ready.Signal();
+                start.Wait();
+                return await provider.VerifyAsync(
+                    challenge.ChallengeId,
+                    challenge.DevelopmentCode!,
+                    OtpPurpose.AccountNameChange,
+                    CancellationToken.None);
+            }))
+            .ToArray();
+        ready.Wait();
+
+        start.Set();
+        var results = await Task.WhenAll(attempts);
+
+        Assert.Single(results, result => result is not null);
     }
 
     [Fact]
@@ -176,5 +281,10 @@ public sealed class SellerOnboardingTests
         public string ContentRootPath { get; set; } = Path.GetTempPath();
         public IFileProvider ContentRootFileProvider { get; set; } =
             new NullFileProvider();
+    }
+
+    private sealed class MutableClock(DateTimeOffset now) : IClock
+    {
+        public DateTimeOffset UtcNow { get; set; } = now;
     }
 }

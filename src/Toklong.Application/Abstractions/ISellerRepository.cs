@@ -17,14 +17,22 @@ public sealed record OtpChallenge(
     string MaskedPhoneNumber,
     string? DevelopmentCode);
 
+public enum OtpPurpose
+{
+    MobileAuthentication,
+    AccountNameChange
+}
+
 public interface IOtpVerificationProvider
 {
     Task<OtpChallenge> RequestAsync(
         string phoneNumber,
+        OtpPurpose purpose,
         CancellationToken cancellationToken);
 
     Task<string?> VerifyAsync(
         string challengeId,
         string code,
+        OtpPurpose purpose,
         CancellationToken cancellationToken);
 }

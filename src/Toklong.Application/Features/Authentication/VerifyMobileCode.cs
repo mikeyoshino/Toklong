@@ -69,6 +69,7 @@ public sealed class VerifyMobileCodeHandler(
         var phone = await provider.VerifyAsync(
             request.ChallengeId,
             request.Code,
+            OtpPurpose.MobileAuthentication,
             cancellationToken);
         if (phone is null)
             throw new ArgumentException(

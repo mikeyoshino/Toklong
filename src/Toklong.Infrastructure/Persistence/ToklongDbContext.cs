@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Toklong.Application.Abstractions;
+using Toklong.Domain.Accounts;
 using Toklong.Domain.Buyers;
 using Toklong.Domain.Authentication;
 using Toklong.Domain.Sellers;
@@ -36,6 +37,15 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
     public DbSet<BuyerEmailVerificationAttempt>
         BuyerEmailVerificationAttempts =>
         Set<BuyerEmailVerificationAttempt>();
+    public DbSet<AccountNameChangeChallenge>
+        AccountNameChangeChallenges =>
+        Set<AccountNameChangeChallenge>();
+    public DbSet<AccountNameChangeAuditEvent>
+        AccountNameChangeAuditEvents =>
+        Set<AccountNameChangeAuditEvent>();
+    public DbSet<AccountNameVerificationAttempt>
+        AccountNameVerificationAttempts =>
+        Set<AccountNameVerificationAttempt>();
     public DbSet<SellerAccount> Sellers => Set<SellerAccount>();
     public DbSet<SellerPayoutAccount> SellerPayoutAccounts => Set<SellerPayoutAccount>();
     public DbSet<MobileSession> MobileSessions => Set<MobileSession>();
@@ -540,6 +550,8 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
             .HasForeignKey(x => x.ChallengeId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        ConfigureAccountNameChanges(modelBuilder);
+
         transaction.HasIndex(x => x.SellerId);
         transaction.HasIndex(x => x.BuyerId);
         transaction.HasIndex(x => x.ShippingProviderTrackingCode)
@@ -663,6 +675,146 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
                     EntityState.Deleted))
             throw new InvalidOperationException(
                 "Buyer email verification attempt records are append-only.");
+
+        if (ChangeTracker
+            .Entries<AccountNameChangeAuditEvent>()
+            .Any(entry =>
+                entry.State is
+                    EntityState.Modified or
+                    EntityState.Deleted))
+            throw new InvalidOperationException(
+                "Account name change audit records are append-only.");
+
+        if (ChangeTracker
+            .Entries<AccountNameVerificationAttempt>()
+            .Any(entry =>
+                entry.State is
+                    EntityState.Modified or
+                    EntityState.Deleted))
+            throw new InvalidOperationException(
+                "Account name verification attempt records are append-only.");
+    }
+
+    private static void ConfigureAccountNameChanges(
+        ModelBuilder modelBuilder)
+    {
+        var challenge =
+            modelBuilder.Entity<AccountNameChangeChallenge>();
+        challenge.ToTable("account_name_change_challenges");
+        challenge.HasKey(x => x.Id);
+        challenge.HasIndex(x => x.PhoneNumber)
+            .IsUnique()
+            .HasFilter(
+                "\"Status\" IN ('PendingSend', 'Active')");
+        challenge.HasIndex(x => new
+        {
+            x.PhoneNumber,
+            x.RequestIdempotencyKey
+        }).IsUnique();
+        challenge.HasIndex(x => new
+        {
+            x.BuyerId,
+            x.SendAcceptedAt
+        });
+        challenge.HasIndex(x => new
+        {
+            x.SellerId,
+            x.SendAcceptedAt
+        });
+        challenge.HasIndex(x => new
+        {
+            x.PhoneNumber,
+            x.SendAcceptedAt
+        });
+        challenge.Property(x => x.Status)
+            .HasConversion<string>()
+            .HasMaxLength(24);
+        challenge.Property(x => x.PhoneNumber).HasMaxLength(16);
+        challenge.Property(x => x.MaskedPhoneNumber)
+            .HasMaxLength(32);
+        challenge.Property(x => x.PendingFirstName)
+            .HasMaxLength(60);
+        challenge.Property(x => x.PendingLastName)
+            .HasMaxLength(60);
+        challenge.Property(x => x.ProviderChallengeId)
+            .HasMaxLength(800);
+        challenge.Property(x => x.RequestIdempotencyKey)
+            .HasMaxLength(32);
+        challenge.Property(x => x.VerificationIdempotencyKey)
+            .HasMaxLength(32);
+        challenge.Property(x => x.Version)
+            .IsConcurrencyToken();
+        challenge.HasOne<BuyerAccount>()
+            .WithMany()
+            .HasForeignKey(x => x.BuyerId)
+            .OnDelete(DeleteBehavior.Restrict);
+        challenge.HasOne<SellerAccount>()
+            .WithMany()
+            .HasForeignKey(x => x.SellerId)
+            .OnDelete(DeleteBehavior.Restrict);
+        challenge.HasOne<MobileSession>()
+            .WithMany()
+            .HasForeignKey(x => x.SessionId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        var attempt =
+            modelBuilder.Entity<AccountNameVerificationAttempt>();
+        attempt.ToTable("account_name_verification_attempts");
+        attempt.HasKey(x => x.Id);
+        attempt.HasIndex(x => new
+        {
+            x.ChallengeId,
+            x.IdempotencyKey
+        }).IsUnique();
+        attempt.Property(x => x.IdempotencyKey)
+            .HasMaxLength(32);
+        attempt.Property(x => x.SubmittedDigest)
+            .HasMaxLength(64);
+        attempt.Property(x => x.Outcome)
+            .HasConversion<string>()
+            .HasMaxLength(16);
+        attempt.HasOne<AccountNameChangeChallenge>()
+            .WithMany()
+            .HasForeignKey(x => x.ChallengeId)
+            .OnDelete(DeleteBehavior.Restrict);
+        attempt.HasOne<BuyerAccount>()
+            .WithMany()
+            .HasForeignKey(x => x.BuyerId)
+            .OnDelete(DeleteBehavior.Restrict);
+        attempt.HasOne<SellerAccount>()
+            .WithMany()
+            .HasForeignKey(x => x.SellerId)
+            .OnDelete(DeleteBehavior.Restrict);
+        attempt.HasOne<MobileSession>()
+            .WithMany()
+            .HasForeignKey(x => x.SessionId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        var audit =
+            modelBuilder.Entity<AccountNameChangeAuditEvent>();
+        audit.ToTable("account_name_change_audit_events");
+        audit.HasKey(x => x.Id);
+        audit.HasIndex(x => x.ChallengeId);
+        audit.Property(x => x.OldName).HasMaxLength(120);
+        audit.Property(x => x.NewName).HasMaxLength(120);
+        audit.Property(x => x.Name).HasMaxLength(100);
+        audit.Property(x => x.Result).HasMaxLength(100);
+        audit.HasOne<AccountNameChangeChallenge>()
+            .WithMany()
+            .HasForeignKey(x => x.ChallengeId)
+            .OnDelete(DeleteBehavior.Restrict);
+        audit.HasOne<BuyerAccount>()
+            .WithMany()
+            .HasForeignKey(x => x.BuyerId)
+            .OnDelete(DeleteBehavior.Restrict);
+        audit.HasOne<SellerAccount>()
+            .WithMany()
+            .HasForeignKey(x => x.SellerId)
+            .OnDelete(DeleteBehavior.Restrict);
+        audit.HasOne<MobileSession>()
+            .WithMany()
+            .HasForeignKey(x => x.SessionId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 
     private static void ConfigureManagedShipping(

@@ -40,6 +40,9 @@ public static class DependencyInjection
         services.AddScoped<
             IBuyerEmailChangeRepository,
             BuyerEmailChangeRepository>();
+        services.AddScoped<
+            IAccountNameChangeRepository,
+            AccountNameChangeRepository>();
         services.AddScoped<ISellerRepository, SellerRepository>();
         services.AddScoped<IMobileSessionRepository, MobileSessionRepository>();
         services.AddScoped<
@@ -76,6 +79,9 @@ public static class DependencyInjection
         var emailVerificationOptions =
             EmailVerificationOptions.From(configuration);
         services.AddSingleton(emailVerificationOptions);
+        services.AddSingleton<
+            IAccountNameVerificationSecurity,
+            AccountNameVerificationSecurity>();
         services.AddSingleton<
             IEmailVerificationTemplate,
             ToklongEmailVerificationTemplate>();
