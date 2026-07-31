@@ -1,5 +1,6 @@
 using MediatR;
 using Toklong.Application.Abstractions;
+using Toklong.Domain.Accounts;
 using Toklong.Domain.Authentication;
 using Toklong.Domain.Buyers;
 
@@ -7,7 +8,8 @@ namespace Toklong.Application.Features.Authentication;
 
 public sealed record CompleteMobileRegistrationCommand(
     string RegistrationTicket,
-    string FullName,
+    string FirstName,
+    string LastName,
     string Email,
     string TermsVersion,
     string InstallationId,
@@ -67,7 +69,7 @@ public sealed class CompleteMobileRegistrationHandler(
 
         var buyer = BuyerAccount.Create(
             pending.PhoneNumber,
-            request.FullName,
+            AccountName.Create(request.FirstName, request.LastName),
             request.Email,
             clock.UtcNow);
         var acceptance = MobileAccountTermsAcceptance.Create(

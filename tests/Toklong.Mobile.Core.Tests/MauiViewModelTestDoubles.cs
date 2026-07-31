@@ -47,6 +47,16 @@ public sealed class PreferenceStore
     public void Clear() => values.Clear();
 }
 
+public static class Launcher
+{
+    public static LauncherService Default { get; } = new();
+}
+
+public sealed class LauncherService
+{
+    public Task OpenAsync(string url) => Task.CompletedTask;
+}
+
 public sealed class Shell
 {
     private static readonly AsyncLocal<Shell?> CurrentContext =

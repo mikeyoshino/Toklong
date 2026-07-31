@@ -30,7 +30,9 @@ public sealed record MobileProfile(
     bool CanBuy,
     bool CanSell,
     string? SavedDeliveryProvinceName = null,
-    string? SavedDeliveryPostalCode = null);
+    string? SavedDeliveryPostalCode = null,
+    string? FirstName = null,
+    string? LastName = null);
 
 public sealed record PendingEmailChange(
     Guid ChallengeId,
@@ -55,7 +57,8 @@ public interface IAuthenticationService
         CancellationToken cancellationToken = default);
 
     Task CompleteRegistrationAsync(
-        string fullName,
+        string firstName,
+        string lastName,
         string email,
         string termsVersion,
         CancellationToken cancellationToken = default);

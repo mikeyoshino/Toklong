@@ -41,7 +41,11 @@ public sealed class AuthenticationLayoutTests
         var xaml = ReadPage("CompleteRegistrationPage.xaml");
 
         Assert.Contains("ตั้งค่าบัญชีให้เสร็จ", xaml);
-        Assert.Contains("ชื่อและนามสกุล", xaml);
+        Assert.Contains("Text=\"ชื่อ\"", xaml);
+        Assert.Contains("Text=\"นามสกุล\"", xaml);
+        Assert.Contains("Text=\"{Binding FirstName}\"", xaml);
+        Assert.Contains("Text=\"{Binding LastName}\"", xaml);
+        Assert.DoesNotContain("{Binding FullName}", xaml);
         Assert.Contains(
             "อีเมลสำหรับใบเสร็จและการคืนเงิน",
             xaml);

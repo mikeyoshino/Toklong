@@ -38,6 +38,8 @@
              Link="MobileViewModels/ChangeEmailViewModel.cs" />
     <Compile Include="../../src/Toklong.Mobile/ViewModels/VerifyEmailChangeViewModel.cs"
              Link="MobileViewModels/VerifyEmailChangeViewModel.cs" />
+    <Compile Include="../../src/Toklong.Mobile/ViewModels/CompleteRegistrationViewModel.cs"
+             Link="MobileViewModels/CompleteRegistrationViewModel.cs" />
     <Compile Include="../../src/Toklong.Mobile/ViewModels/TransactionsViewModel.cs"
              Link="MobileViewModels/TransactionsViewModel.cs" />
     <Compile Include="../../src/Toklong.Mobile/ViewModels/TransactionDetailViewModel.cs"

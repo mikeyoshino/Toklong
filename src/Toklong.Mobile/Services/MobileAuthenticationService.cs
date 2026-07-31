@@ -95,7 +95,8 @@ public sealed class MobileAuthenticationService(
     }
 
     public async Task CompleteRegistrationAsync(
-        string fullName,
+        string firstName,
+        string lastName,
         string email,
         string termsVersion,
         CancellationToken cancellationToken = default)
@@ -111,7 +112,8 @@ public sealed class MobileAuthenticationService(
             Content = JsonContent.Create(new
             {
                 pending.RegistrationTicket,
-                FullName = fullName.Trim(),
+                FirstName = firstName.Trim(),
+                LastName = lastName.Trim(),
                 Email = email.Trim(),
                 TermsVersion = termsVersion,
                 pending.InstallationId

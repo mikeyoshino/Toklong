@@ -237,6 +237,9 @@ public sealed class MobileAuthenticationApiTests
         var profile = await profileResponse.Content
             .ReadFromJsonAsync<ProfileResponse>();
         Assert.NotNull(profile);
+        Assert.Equal("ผู้ซื้อ", profile.FirstName);
+        Assert.Equal("ทดสอบ", profile.LastName);
+        Assert.Equal("ผู้ซื้อ ทดสอบ", profile.DisplayName);
         Assert.Equal("buyer@example.com", profile.Email);
 
         using var removedEmailUpdateResponse = await client.PutAsJsonAsync(
@@ -413,7 +416,8 @@ public sealed class MobileAuthenticationApiTests
             Content = JsonContent.Create(new
             {
                 RegistrationTicket = registrationTicket,
-                FullName = "ผู้ซื้อ ทดสอบ",
+                FirstName = "ผู้ซื้อ",
+                LastName = "ทดสอบ",
                 Email = "buyer@example.com",
                 TermsVersion = termsVersion,
                 InstallationId = installationId
@@ -443,7 +447,11 @@ public sealed class MobileAuthenticationApiTests
         DateTimeOffset ExpiresAt,
         string MaskedPhoneNumber);
 
-    private sealed record ProfileResponse(string? Email);
+    private sealed record ProfileResponse(
+        string? DisplayName,
+        string? FirstName,
+        string? LastName,
+        string? Email);
 }
 
 public sealed class MobileApiFactory : WebApplicationFactory<Program>

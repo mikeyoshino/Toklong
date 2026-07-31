@@ -62,14 +62,29 @@
                         Style="{StaticResource RefinedFormSection}">
                         <controls:FormLabelView
                             IsRequired="True"
-                            Text="ชื่อและนามสกุล" />
+                            Text="ชื่อ" />
                         <Border Style="{StaticResource RefinedInputBorder}">
                             <Entry
                                 Style="{StaticResource RefinedEntry}"
-                                MaxLength="120"
-                                Placeholder="ชื่อ นามสกุล"
-                                SemanticProperties.Description="ชื่อและนามสกุล"
-                                Text="{Binding FullName}" />
+                                MaxLength="60"
+                                Placeholder="ชื่อ"
+                                SemanticProperties.Description="ชื่อ"
+                                Text="{Binding FirstName}" />
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout
+                        Style="{StaticResource RefinedFormSection}">
+                        <controls:FormLabelView
+                            IsRequired="True"
+                            Text="นามสกุล" />
+                        <Border Style="{StaticResource RefinedInputBorder}">
+                            <Entry
+                                Style="{StaticResource RefinedEntry}"
+                                MaxLength="60"
+                                Placeholder="นามสกุล"
+                                SemanticProperties.Description="นามสกุล"
+                                Text="{Binding LastName}" />
                         </Border>
                     </VerticalStackLayout>
 

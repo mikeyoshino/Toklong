@@ -109,6 +109,8 @@ public sealed record BuyerProfile(
     Guid Id,
     string PhoneNumber,
     string FullName,
+    string FirstName,
+    string LastName,
     string? Email,
     DateTimeOffset PhoneVerifiedAt,
     BuyerSavedAddressView? SavedDeliveryAddress)
@@ -118,6 +120,8 @@ public sealed record BuyerProfile(
             buyer.Id,
             buyer.PhoneNumber,
             buyer.FullName,
+            buyer.FirstName,
+            buyer.LastName,
             buyer.Email,
             buyer.PhoneVerifiedAt,
             BuyerSavedAddressView.From(

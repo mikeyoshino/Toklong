@@ -407,7 +407,8 @@ public static class MobileApi
         var profile = await sender.Send(
             new CompleteMobileRegistrationCommand(
                 request.RegistrationTicket,
-                request.FullName,
+                request.FirstName,
+                request.LastName,
                 request.Email,
                 request.TermsVersion,
                 RequiredInstallationId(request.InstallationId),
@@ -466,6 +467,8 @@ public static class MobileApi
 
         return Results.Ok(new MobileProfileResponse(
             buyer?.FullName ?? seller?.DisplayName ?? principal.Identity?.Name ?? "",
+            buyer?.FirstName,
+            buyer?.LastName,
             buyer?.PhoneNumber ?? seller?.PhoneNumber ??
             principal.FindFirstValue(ClaimTypes.MobilePhone) ?? "",
             buyer?.Email,
@@ -1828,7 +1831,8 @@ public sealed record MobileRegistrationRequiredResponse(
 
 public sealed record MobileRegistrationCompletion(
     string RegistrationTicket,
-    string FullName,
+    string FirstName,
+    string LastName,
     string Email,
     string TermsVersion,
     string InstallationId);
@@ -1846,6 +1850,8 @@ public sealed record MobileRefreshRequest(string RefreshToken);
 
 public sealed record MobileProfileResponse(
     string DisplayName,
+    string? FirstName,
+    string? LastName,
     string PhoneNumber,
     string? Email,
     string? SavedAddress,

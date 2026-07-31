@@ -152,7 +152,7 @@ public sealed class PhoneFirstAuthenticationTests
         var handler = CreateCompletionHandler(database, Now);
         var invalid = ValidCompletion(rawTicket) with
         {
-            FullName = "สมชาย"
+            LastName = ""
         };
 
         await Assert.ThrowsAsync<DomainException>(
@@ -254,7 +254,8 @@ public sealed class PhoneFirstAuthenticationTests
         string rawTicket) =>
         new(
             rawTicket,
-            "สมชาย ใจดี",
+            "สมชาย",
+            "ใจดี",
             "buyer@example.com",
             "terms-mvp-v1",
             InstallationId,

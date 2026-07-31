@@ -193,7 +193,8 @@ public sealed class StartupCoordinatorTests
             throw new NotSupportedException();
 
         public Task CompleteRegistrationAsync(
-            string fullName,
+            string firstName,
+            string lastName,
             string email,
             string termsVersion,
             CancellationToken cancellationToken = default) =>

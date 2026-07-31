@@ -408,6 +408,12 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         seller.HasIndex(x => x.PhoneNumber).IsUnique();
         seller.Property(x => x.PhoneNumber).HasMaxLength(16);
         seller.Property(x => x.DisplayName).HasMaxLength(120);
+        seller.Property(x => x.FirstName)
+            .HasMaxLength(120)
+            .IsRequired(false);
+        seller.Property(x => x.LastName)
+            .HasMaxLength(120)
+            .IsRequired(false);
         seller.Property(x => x.SavedShippingAddressLine)
             .HasMaxLength(500);
         seller.Property(x => x.SavedShippingProvinceName)
@@ -439,6 +445,8 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         buyer.HasIndex(x => x.PhoneNumber).IsUnique();
         buyer.Property(x => x.PhoneNumber).HasMaxLength(16);
         buyer.Property(x => x.FullName).HasMaxLength(120);
+        buyer.Property(x => x.FirstName).HasMaxLength(120);
+        buyer.Property(x => x.LastName).HasMaxLength(120);
         buyer.Property(x => x.Email).HasMaxLength(254);
         buyer.Property(x => x.SavedAddressLine).HasMaxLength(500);
         buyer.Property(x => x.SavedProvinceName).HasMaxLength(100);

@@ -16,17 +16,24 @@ public sealed class CompleteRegistrationViewModel(
         "https://toklong.co.th/terms";
     private const string PrivacyUrl =
         "https://toklong.co.th/privacy";
-    private string fullName = "";
+    private string firstName = "";
+    private string lastName = "";
     private string email = "";
     private string maskedPhoneNumber = "";
     private string message = "";
     private bool isBusy;
     private bool initialized;
 
-    public string FullName
+    public string FirstName
     {
-        get => fullName;
-        set => SetProperty(ref fullName, value);
+        get => firstName;
+        set => SetProperty(ref firstName, value);
+    }
+
+    public string LastName
+    {
+        get => lastName;
+        set => SetProperty(ref lastName, value);
     }
 
     public string Email
@@ -89,15 +96,17 @@ public sealed class CompleteRegistrationViewModel(
     {
         if (IsBusy)
             return;
-        var normalizedName = string.Join(
-            ' ',
-            FullName.Split(
-                ' ',
-                StringSplitOptions.RemoveEmptyEntries |
-                StringSplitOptions.TrimEntries));
-        if (normalizedName.Split(' ').Length < 2)
+        var normalizedFirstName = NormalizeNamePart(FirstName);
+        if (string.IsNullOrWhiteSpace(normalizedFirstName))
         {
-            Message = "กรอกชื่อและนามสกุล";
+            Message = "กรอกชื่อ";
+            return;
+        }
+
+        var normalizedLastName = NormalizeNamePart(LastName);
+        if (string.IsNullOrWhiteSpace(normalizedLastName))
+        {
+            Message = "กรอกนามสกุล";
             return;
         }
 
@@ -120,7 +129,8 @@ public sealed class CompleteRegistrationViewModel(
         try
         {
             await authentication.CompleteRegistrationAsync(
-                normalizedName,
+                normalizedFirstName,
+                normalizedLastName,
                 cleanEmail,
                 TermsVersion);
             await pushRegistration.InitializeAsync();
@@ -140,4 +150,11 @@ public sealed class CompleteRegistrationViewModel(
 
     private static Task OpenUrlAsync(string url) =>
         Launcher.Default.OpenAsync(url);
+
+    private static string NormalizeNamePart(string value) =>
+        string.Join(
+            ' ',
+            (value ?? "").Split(
+                (char[]?)null,
+                StringSplitOptions.RemoveEmptyEntries));
 }
