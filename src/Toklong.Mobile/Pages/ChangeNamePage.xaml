@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Toklong.Mobile.Pages.ChangeNamePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
+    Title="แก้ไขชื่อ"
+    SafeAreaEdges="Container"
+    Shell.TabBarIsVisible="False">
+    <ContentPage.Background>
+        <RadialGradientBrush Center="0.88,0.02" Radius="0.95">
+            <GradientStop Color="#DCEFFF" Offset="0" />
+            <GradientStop Color="#F6FAFF" Offset="0.34" />
+            <GradientStop Color="#FFFFFF" Offset="0.84" />
+        </RadialGradientBrush>
+    </ContentPage.Background>
+
+    <ScrollView x:Name="NameChangeScroll" SafeAreaEdges="SoftInput">
+        <VerticalStackLayout Style="{StaticResource RefinedScreenContent}">
+            <VerticalStackLayout Spacing="7">
+                <Label Style="{StaticResource Eyebrow}" Text="ขั้นตอน 1 จาก 2" />
+                <Label Style="{StaticResource PageTitle}" Text="แก้ไขชื่อ" />
+                <Label
+                    Style="{StaticResource RefinedBodyText}"
+                    Text="ชื่อใหม่จะใช้กับรายการซื้อและขายที่สร้างหลังเปลี่ยนสำเร็จ รายการเดิมจะยังใช้ชื่อที่บันทึกไว้"
+                    TextColor="{StaticResource InkSoft}" />
+            </VerticalStackLayout>
+
+            <Border Style="{StaticResource RefinedFormCard}">
+                <VerticalStackLayout Spacing="{StaticResource SpacingLg}">
+                    <VerticalStackLayout Style="{StaticResource RefinedFormSection}">
+                        <controls:FormLabelView IsRequired="True" Text="ชื่อ" />
+                        <Border Style="{StaticResource RefinedInputBorder}">
+                            <Entry
+                                x:Name="FirstNameEntry"
+                                AutomationId="AccountFirstNameEntry"
+                                Style="{StaticResource RefinedEntry}"
+                                IsEnabled="{Binding CanEditName}"
+                                MaxLength="60"
+                                ReturnType="Next"
+                                SemanticProperties.Description="ชื่อ"
+                                Text="{Binding FirstName, Mode=TwoWay}" />
+                        </Border>
+                        <Label
+                            IsVisible="{Binding HasFirstNameError}"
+                            Style="{StaticResource RefinedValidationText}"
+                            Text="{Binding FirstNameError}" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Style="{StaticResource RefinedFormSection}">
+                        <controls:FormLabelView IsRequired="True" Text="นามสกุล" />
+                        <Border Style="{StaticResource RefinedInputBorder}">
+                            <Entry
+                                x:Name="LastNameEntry"
+                                AutomationId="AccountLastNameEntry"
+                                Style="{StaticResource RefinedEntry}"
+                                IsEnabled="{Binding CanEditName}"
+                                MaxLength="60"
+                                ReturnType="Done"
+                                SemanticProperties.Description="นามสกุล"
+                                Text="{Binding LastName, Mode=TwoWay}" />
+                        </Border>
+                        <Label
+                            IsVisible="{Binding HasLastNameError}"
+                            Style="{StaticResource RefinedValidationText}"
+                            Text="{Binding LastNameError}" />
+                    </VerticalStackLayout>
+
+                    <Label
+                        Style="{StaticResource RefinedHelperText}"
+                        Text="ระบบจะส่งรหัส 6 หลักไปยังเบอร์โทรศัพท์เดิมของบัญชี" />
+
+                    <Button
+                        x:Name="SubmitButton"
+                        Style="{StaticResource RefinedPrimaryButton}"
+                        Command="{Binding SubmitCommand}"
+                        SemanticProperties.Description="{Binding SubmitSemanticDescription}"
+                        Text="{Binding SubmitButtonText}">
+                        <Button.Triggers>
+                            <DataTrigger
+                                TargetType="Button"
+                                Binding="{Binding IsBusy}"
+                                Value="True">
+                                <Setter Property="IsEnabled" Value="False" />
+                                <Setter Property="Text" Value="กำลังส่งรหัส..." />
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+                </VerticalStackLayout>
+            </Border>
+
+            <ActivityIndicator
+                HorizontalOptions="Center"
+                IsRunning="{Binding IsBusy}"
+                IsVisible="{Binding IsBusy}"
+                Color="{StaticResource BrandBlue}" />
+
+            <Border
+                AutomationId="NameChangeErrorSummary"
+                IsVisible="{Binding HasMessage}"
+                SemanticProperties.Description="{Binding Message}"
+                Style="{StaticResource RefinedValidationBorder}">
+                <Label
+                    AutomationProperties.IsInAccessibleTree="False"
+                    Style="{StaticResource RefinedValidationText}"
+                    Text="{Binding Message}" />
+            </Border>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

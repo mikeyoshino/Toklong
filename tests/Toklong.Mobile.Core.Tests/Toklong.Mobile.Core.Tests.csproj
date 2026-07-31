@@ -36,8 +36,12 @@
              Link="MobileViewModels/AccountViewModel.cs" />
     <Compile Include="../../src/Toklong.Mobile/ViewModels/ChangeEmailViewModel.cs"
              Link="MobileViewModels/ChangeEmailViewModel.cs" />
+    <Compile Include="../../src/Toklong.Mobile/ViewModels/ChangeNameViewModel.cs"
+             Link="MobileViewModels/ChangeNameViewModel.cs" />
     <Compile Include="../../src/Toklong.Mobile/ViewModels/VerifyEmailChangeViewModel.cs"
              Link="MobileViewModels/VerifyEmailChangeViewModel.cs" />
+    <Compile Include="../../src/Toklong.Mobile/ViewModels/VerifyNameChangeViewModel.cs"
+             Link="MobileViewModels/VerifyNameChangeViewModel.cs" />
     <Compile Include="../../src/Toklong.Mobile/ViewModels/CompleteRegistrationViewModel.cs"
              Link="MobileViewModels/CompleteRegistrationViewModel.cs" />
     <Compile Include="../../src/Toklong.Mobile/ViewModels/TransactionsViewModel.cs"
@@ -59,8 +63,14 @@
     <None Include="../../src/Toklong.Mobile/Pages/ChangeEmailPage.xaml.cs"
           Link="Ui/Pages/ChangeEmailPage.xaml.cs"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Mobile/Pages/ChangeNamePage.xaml.cs"
+          Link="Ui/Pages/ChangeNamePage.xaml.cs"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../src/Toklong.Mobile/Pages/VerifyEmailChangePage.xaml.cs"
           Link="Ui/Pages/VerifyEmailChangePage.xaml.cs"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Mobile/Pages/VerifyNameChangePage.xaml.cs"
+          Link="Ui/Pages/VerifyNameChangePage.xaml.cs"
           CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../src/Toklong.Mobile/MauiProgram.cs"
           Link="Ui/MauiProgram.cs"

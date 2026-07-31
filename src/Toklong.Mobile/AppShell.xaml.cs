@@ -26,5 +26,11 @@ public partial class AppShell : Shell
         Routing.RegisterRoute(
             nameof(VerifyEmailChangePage),
             typeof(VerifyEmailChangePage));
+        Routing.RegisterRoute(
+            nameof(ChangeNamePage),
+            typeof(ChangeNamePage));
+        Routing.RegisterRoute(
+            nameof(VerifyNameChangePage),
+            typeof(VerifyNameChangePage));
     }
 }

@@ -7,14 +7,18 @@ public sealed class AccountViewModel :
     ObservableViewModel
 {
     private readonly IAuthenticationService authentication;
+    private readonly IMobileAnalytics analytics;
     private readonly AuthenticatedSessionBoundary session;
     private readonly AccountEmailChangeCompletionState
         emailChangeCompletion;
+    private readonly AccountNameChangeCompletionState
+        nameChangeCompletion;
     private MobileProfile? profile;
     private PendingEmailChange? pendingEmailChange;
     private string message = "";
     private string successMessage = "";
     private bool isBusy;
+    private bool isOpeningNameChange;
     private long loadEpoch;
 
     public AccountViewModel(
@@ -22,14 +26,34 @@ public sealed class AccountViewModel :
         AuthenticatedSessionBoundary session,
         AccountEmailChangeCompletionState
             emailChangeCompletion)
+        : this(
+            authentication,
+            SilentAnalytics.Instance,
+            session,
+            emailChangeCompletion,
+            new AccountNameChangeCompletionState(session))
+    {
+    }
+
+    public AccountViewModel(
+        IAuthenticationService authentication,
+        IMobileAnalytics analytics,
+        AuthenticatedSessionBoundary session,
+        AccountEmailChangeCompletionState emailChangeCompletion,
+        AccountNameChangeCompletionState nameChangeCompletion)
     {
         this.authentication = authentication;
+        this.analytics = analytics;
         this.session = session;
         this.emailChangeCompletion =
             emailChangeCompletion;
+        this.nameChangeCompletion = nameChangeCompletion;
         session.ResetRequested +=
             OnSessionResetRequested;
     }
+
+    public event EventHandler<AccountNameChangeBlockedNotice>?
+        NameChangeBlocked;
 
     public string DisplayName => profile?.DisplayName ?? "";
 
@@ -118,6 +142,8 @@ public sealed class AccountViewModel :
     public ICommand SignOutCommand => new AsyncCommand(SignOutAsync);
     public ICommand OpenEmailChangeCommand =>
         new AsyncCommand(OpenEmailChangeAsync);
+    public ICommand OpenNameChangeCommand =>
+        new AsyncCommand(OpenNameChangeAsync);
     public ICommand OpenPayoutSettingsCommand =>
         new AsyncCommand(() =>
             Shell.Current.GoToAsync(
@@ -127,6 +153,15 @@ public sealed class AccountViewModel :
     {
         var generation = session.Capture();
         var epoch = Interlocked.Increment(ref loadEpoch);
+        if (nameChangeCompletion.TryConsume(generation))
+        {
+            ShowNameChangeSuccess();
+            if (!session.IsCurrent(generation))
+            {
+                DismissSuccessMessage();
+                return;
+            }
+        }
         if (emailChangeCompletion.TryConsume(
                 generation))
         {
@@ -234,16 +269,172 @@ public sealed class AccountViewModel :
                     ["Pending"] = pendingEmailChange
                 });
 
+    public async Task OpenNameChangeAsync()
+    {
+        if (profile is null || isOpeningNameChange)
+            return;
+
+        var generation = session.Capture();
+        isOpeningNameChange = true;
+        analytics.Track(AccountNameChangeAnalytics.Opened());
+        Message = "";
+        try
+        {
+            AccountNameChangeEligibility eligibility;
+            try
+            {
+                eligibility = await authentication
+                    .GetAccountNameChangeEligibilityAsync();
+            }
+            catch (Exception exception)
+            {
+                if (!session.IsCurrent(generation))
+                    return;
+
+                var error = AccountNameChangeErrorPresentation
+                    .ForRequest(exception);
+                if (error.Kind == AccountNameChangeErrorKind.Cooldown &&
+                    error.NextAllowedAt is { } nextAllowedAt)
+                {
+                    RaiseNameChangeBlocked(nextAllowedAt);
+                    return;
+                }
+
+                Message = error.Message;
+                analytics.Track(AccountNameChangeAnalytics.Failed(
+                    FailureReason(error.Kind)));
+                return;
+            }
+
+            if (!session.IsCurrent(generation))
+                return;
+
+            var blocked = AccountNameChangeErrorPresentation
+                .BlockedNotice(eligibility);
+            if (blocked is not null)
+            {
+                RaiseNameChangeBlocked(blocked.NextAllowedAt);
+                return;
+            }
+
+            PendingAccountNameChange? pending;
+            try
+            {
+                pending = await authentication
+                    .GetPendingAccountNameChangeAsync();
+            }
+            catch (Exception exception)
+            {
+                if (!session.IsCurrent(generation))
+                    return;
+
+                var error = AccountNameChangeErrorPresentation
+                    .ForRequest(exception);
+                Message = error.Message;
+                analytics.Track(AccountNameChangeAnalytics.Failed(
+                    FailureReason(error.Kind)));
+                return;
+            }
+
+            if (!session.IsCurrent(generation))
+                return;
+
+            if (pending is not null)
+            {
+                await Shell.Current.GoToAsync(
+                    nameof(Pages.VerifyNameChangePage),
+                    new Dictionary<string, object>
+                    {
+                        ["Pending"] = pending
+                    });
+                return;
+            }
+
+            await Shell.Current.GoToAsync(
+                nameof(Pages.ChangeNamePage),
+                new Dictionary<string, object>
+                {
+                    ["FirstName"] = profile.FirstName ?? "",
+                    ["LastName"] = profile.LastName ?? ""
+                });
+        }
+        catch
+        {
+            if (session.IsCurrent(generation))
+            {
+                Message = "เปิดการแก้ไขชื่อไม่สำเร็จ กรุณาลองอีกครั้ง";
+                analytics.Track(AccountNameChangeAnalytics.Failed(
+                    AccountNameChangeFailureReason.Network));
+            }
+        }
+        finally
+        {
+            if (session.IsCurrent(generation))
+                isOpeningNameChange = false;
+        }
+    }
+
     public void ShowEmailChangeSuccess() =>
         SuccessMessage = "เปลี่ยนอีเมลเรียบร้อยแล้ว";
+
+    public void ShowNameChangeSuccess() =>
+        SuccessMessage =
+            "เปลี่ยนชื่อเรียบร้อยแล้ว ชื่อใหม่จะใช้กับรายการใหม่";
 
     public void DismissSuccessMessage() =>
         SuccessMessage = "";
 
     private void OnSessionResetRequested(
         object? sender,
-        EventArgs eventArgs) =>
+        EventArgs eventArgs)
+    {
+        Interlocked.Increment(ref loadEpoch);
+        isOpeningNameChange = false;
+        profile = null;
+        pendingEmailChange = null;
+        Message = "";
         DismissSuccessMessage();
+        RaiseProfileChanged();
+    }
+
+    private void RaiseNameChangeBlocked(DateTimeOffset nextAllowedAt)
+    {
+        analytics.Track(AccountNameChangeAnalytics.Blocked(
+            AccountNameChangeBlockReason.Cooldown));
+        NameChangeBlocked?.Invoke(
+            this,
+            new AccountNameChangeBlockedNotice(nextAllowedAt));
+    }
+
+    private static AccountNameChangeFailureReason FailureReason(
+        AccountNameChangeErrorKind kind) =>
+        kind switch
+        {
+            AccountNameChangeErrorKind.Cooldown =>
+                AccountNameChangeFailureReason.Cooldown,
+            AccountNameChangeErrorKind.Unchanged =>
+                AccountNameChangeFailureReason.Unchanged,
+            AccountNameChangeErrorKind.SendLimit =>
+                AccountNameChangeFailureReason.SendLimit,
+            AccountNameChangeErrorKind.Expired =>
+                AccountNameChangeFailureReason.Expired,
+            AccountNameChangeErrorKind.Locked =>
+                AccountNameChangeFailureReason.Locked,
+            AccountNameChangeErrorKind.Network =>
+                AccountNameChangeFailureReason.Network,
+            AccountNameChangeErrorKind.Unavailable =>
+                AccountNameChangeFailureReason.Provider,
+            _ => AccountNameChangeFailureReason.Invalid
+        };
+
+    private sealed class SilentAnalytics : IMobileAnalytics
+    {
+        public static SilentAnalytics Instance { get; } = new();
+
+        public void Track(MobileAnalyticsEvent value)
+        {
+        }
+    }
 
     private async Task<PendingEmailChange?>
         LoadPendingEmailChangeAsync()

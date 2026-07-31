@@ -1,0 +1,94 @@
+using Toklong.Mobile.Core;
+using Toklong.Mobile.ViewModels;
+
+namespace Toklong.Mobile.Pages;
+
+public partial class VerifyNameChangePage :
+    ContentPage,
+    IQueryAttributable
+{
+    private readonly VerifyNameChangeViewModel viewModel;
+
+    public VerifyNameChangePage(VerifyNameChangeViewModel viewModel)
+    {
+        InitializeComponent();
+        BindingContext = this.viewModel = viewModel;
+    }
+
+    public void ApplyQueryAttributes(IDictionary<string, object> query)
+    {
+        if (query.TryGetValue("Pending", out var value) &&
+            value is PendingAccountNameChange pending)
+        {
+            viewModel.Apply(pending);
+        }
+    }
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        viewModel.ErrorPresented += OnErrorPresented;
+        viewModel.ActionBlocked += OnActionBlocked;
+        viewModel.Activate();
+        if (viewModel.CanUseChallenge)
+        {
+            Dispatcher.DispatchDelayed(
+                TimeSpan.FromMilliseconds(250),
+                () =>
+                {
+                    if (viewModel.CanUseChallenge)
+                        OtpForm.FocusInput();
+                });
+        }
+    }
+
+    protected override void OnDisappearing()
+    {
+        viewModel.ErrorPresented -= OnErrorPresented;
+        viewModel.ActionBlocked -= OnActionBlocked;
+        viewModel.Deactivate();
+        base.OnDisappearing();
+    }
+
+    private void OnActionBlocked(
+        object? sender,
+        AccountNameChangeModalNotice notice) =>
+        Dispatcher.Dispatch(async () =>
+        {
+            SemanticScreenReader.Announce(notice.Message);
+            await DisplayAlertAsync(
+                notice.Title,
+                notice.Message,
+                notice.AcceptText);
+        });
+
+    private void OnErrorPresented(
+        object? sender,
+        AccountNameChangeErrorNotice notice) =>
+        Dispatcher.Dispatch(async () =>
+            await PresentErrorAsync(notice));
+
+    private async Task PresentErrorAsync(
+        AccountNameChangeErrorNotice notice)
+    {
+        SemanticScreenReader.Announce(notice.Message);
+        var target = notice.Target switch
+        {
+            AccountNameChangeErrorTarget.ResendAction =>
+                (VisualElement)ResendButton,
+            AccountNameChangeErrorTarget.NewRequestAction =>
+                NewRequestButton,
+            AccountNameChangeErrorTarget.AccountReturnAction =>
+                ReturnToAccountButton,
+            _ => OtpForm
+        };
+        await NameVerificationScroll.ScrollToAsync(
+            target,
+            ScrollToPosition.Center,
+            true);
+        if (notice.Target == AccountNameChangeErrorTarget.CodeInput)
+            OtpForm.FocusInput();
+        else
+            target.Focus();
+    }
+}

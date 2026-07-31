@@ -53,7 +53,7 @@
                         <GradientStop Color="#185CB9" Offset="1" />
                     </LinearGradientBrush>
                 </Border.Background>
-                <Grid ColumnDefinitions="58,*" ColumnSpacing="14">
+                <Grid ColumnDefinitions="58,*,Auto" ColumnSpacing="14">
                     <Border
                         WidthRequest="58"
                         HeightRequest="58"
@@ -86,6 +86,23 @@
                                 TextColor="#E9F4FF" />
                         </Border>
                     </VerticalStackLayout>
+                    <Button
+                        Grid.Column="2"
+                        MinimumWidthRequest="44"
+                        MinimumHeightRequest="44"
+                        HorizontalOptions="End"
+                        VerticalOptions="Center"
+                        BackgroundColor="#24FFFFFF"
+                        BorderColor="#50FFFFFF"
+                        BorderWidth="1"
+                        Command="{Binding OpenNameChangeCommand}"
+                        CornerRadius="14"
+                        FontAttributes="Bold"
+                        FontSize="13"
+                        Padding="12,8"
+                        SemanticProperties.Description="แก้ไขชื่อและนามสกุลของบัญชี"
+                        Text="แก้ไข"
+                        TextColor="White" />
                 </Grid>
             </Border>
 

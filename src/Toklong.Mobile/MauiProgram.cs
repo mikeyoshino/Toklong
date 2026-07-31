@@ -110,6 +110,7 @@ public static class MauiProgram
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSingleton<AuthenticatedSessionBoundary>();
         builder.Services.AddSingleton<AccountNameChangeOperationState>();
+        builder.Services.AddSingleton<AccountNameChangeCompletionState>();
         builder.Services.AddSingleton<
             AccountEmailChangeCompletionState>();
         builder.Services.AddSingleton<IStartupMotionPreference, StartupMotionPreference>();
@@ -210,6 +211,8 @@ public static class MauiProgram
             CompleteRegistrationViewModel>();
         builder.Services.AddTransient<ChangeEmailViewModel>();
         builder.Services.AddTransient<VerifyEmailChangeViewModel>();
+        builder.Services.AddTransient<ChangeNameViewModel>();
+        builder.Services.AddTransient<VerifyNameChangeViewModel>();
         builder.Services.AddSingleton<AccountViewModel>();
 
         builder.Services.AddSingleton<WelcomePage>();
@@ -221,6 +224,8 @@ public static class MauiProgram
             CompleteRegistrationPage>();
         builder.Services.AddTransient<ChangeEmailPage>();
         builder.Services.AddTransient<VerifyEmailChangePage>();
+        builder.Services.AddTransient<ChangeNamePage>();
+        builder.Services.AddTransient<VerifyNameChangePage>();
         builder.Services.AddSingleton<TransactionsPage>();
         builder.Services.AddTransient<TransactionDetailPage>();
         builder.Services.AddTransient<ShippingLabelPage>();

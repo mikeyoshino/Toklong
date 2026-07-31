@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
+using System.Globalization;
 
 namespace Toklong.Mobile.Core;
 
@@ -25,6 +26,44 @@ public sealed record VerifiedAccountNameChange(
 
 public sealed record AccountNameChangeBlockedNotice(
     DateTimeOffset NextAllowedAt);
+
+public sealed record AccountNameChangeModalNotice(
+    string Title,
+    string Message,
+    string AcceptText);
+
+public static class AccountNameChangeModalPresenter
+{
+    private static readonly CultureInfo ThaiCulture =
+        CultureInfo.GetCultureInfo("th-TH");
+    private static readonly TimeZoneInfo Bangkok =
+        TimeZoneInfo.FindSystemTimeZoneById("Asia/Bangkok");
+
+    public static AccountNameChangeModalNotice Cooldown(
+        AccountNameChangeBlockedNotice notice) =>
+        new(
+            "ยังเปลี่ยนชื่อไม่ได้",
+            "เพื่อความปลอดภัย ชื่อบัญชีเปลี่ยนได้ทุก 2 เดือน\n\n" +
+            "คุณจะเปลี่ยนได้อีกครั้งวันที่ " +
+            FormatBangkok(notice.NextAllowedAt),
+            "เข้าใจแล้ว");
+
+    public static AccountNameChangeModalNotice SendLimit(
+        AccountNameChangeErrorNotice notice) =>
+        new(
+            "ขอรหัสยืนยันไม่ได้ในตอนนี้",
+            notice.NextAllowedAt is { } nextAllowedAt
+                ? "คุณขอรหัสยืนยันครบจำนวนแล้ว กรุณาลองใหม่วันที่ " +
+                  FormatBangkok(nextAllowedAt)
+                : notice.RetryAfter is { } retryAfter
+                    ? $"คุณขอรหัสยืนยันบ่อยเกินไป กรุณาลองใหม่ใน {Math.Max(1, (int)Math.Ceiling(retryAfter.TotalSeconds))} วินาที"
+                    : "คุณขอรหัสยืนยันครบจำนวนแล้ว กรุณาลองใหม่ภายหลัง",
+            "เข้าใจแล้ว");
+
+    private static string FormatBangkok(DateTimeOffset value) =>
+        TimeZoneInfo.ConvertTime(value, Bangkok)
+            .ToString("d MMM yyyy · HH:mm 'น.'", ThaiCulture);
+}
 
 public enum AccountNameChangeErrorTarget
 {

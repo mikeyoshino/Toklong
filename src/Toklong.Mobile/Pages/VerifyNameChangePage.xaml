@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Toklong.Mobile.Pages.VerifyNameChangePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
+    Title="ยืนยันการเปลี่ยนชื่อ"
+    SafeAreaEdges="Container"
+    Shell.TabBarIsVisible="False">
+    <ContentPage.Background>
+        <RadialGradientBrush Center="0.88,0.02" Radius="0.95">
+            <GradientStop Color="#DCEFFF" Offset="0" />
+            <GradientStop Color="#F6FAFF" Offset="0.34" />
+            <GradientStop Color="#FFFFFF" Offset="0.84" />
+        </RadialGradientBrush>
+    </ContentPage.Background>
+
+    <ScrollView x:Name="NameVerificationScroll" SafeAreaEdges="SoftInput">
+        <VerticalStackLayout Style="{StaticResource RefinedScreenContent}">
+            <VerticalStackLayout Spacing="7">
+                <Label Style="{StaticResource Eyebrow}" Text="ขั้นตอน 2 จาก 2" />
+                <Label Style="{StaticResource PageTitle}" Text="ยืนยันการเปลี่ยนชื่อ" />
+                <Label
+                    Style="{StaticResource RefinedBodyText}"
+                    Text="กรอกรหัส 6 หลักจาก SMS ล่าสุดที่ TOKLONG ส่งให้"
+                    TextColor="{StaticResource InkSoft}" />
+            </VerticalStackLayout>
+
+            <Border
+                AutomationId="NameChangeSummary"
+                Padding="14"
+                BackgroundColor="{StaticResource BrandBlueSoft}"
+                SemanticProperties.Description="{Binding PendingNameSemanticDescription}"
+                StrokeThickness="0"
+                StrokeShape="RoundRectangle 14">
+                <VerticalStackLayout
+                    AutomationProperties.IsInAccessibleTree="False"
+                    Spacing="3">
+                    <Label
+                        AutomationProperties.IsInAccessibleTree="False"
+                        Style="{StaticResource RefinedHelperText}"
+                        Text="ชื่อใหม่" />
+                    <Label
+                        AutomationProperties.IsInAccessibleTree="False"
+                        FontAttributes="Bold"
+                        Text="{Binding PendingDisplayName}"
+                        TextColor="{StaticResource BrandBlueDeep}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border
+                AutomationId="MaskedPhoneDestination"
+                Padding="14"
+                BackgroundColor="#F4F7FB"
+                SemanticProperties.Description="{Binding MaskedPhoneSemanticDescription}"
+                Stroke="{StaticResource Line}"
+                StrokeShape="RoundRectangle 14">
+                <VerticalStackLayout
+                    AutomationProperties.IsInAccessibleTree="False"
+                    Spacing="3">
+                    <Label
+                        AutomationProperties.IsInAccessibleTree="False"
+                        Style="{StaticResource RefinedHelperText}"
+                        Text="ส่งรหัสไปที่เบอร์เดิม" />
+                    <Label
+                        AutomationProperties.IsInAccessibleTree="False"
+                        FontAttributes="Bold"
+                        Text="{Binding MaskedPhoneNumber}"
+                        TextColor="{StaticResource Ink}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <VerticalStackLayout Spacing="{StaticResource SpacingLg}">
+                <controls:OtpVerificationFormView
+                    x:Name="OtpForm"
+                    Code="{Binding Code, Mode=TwoWay}"
+                    ConfirmCommand="{Binding ConfirmCommand}"
+                    CanConfirm="{Binding CanConfirm}"
+                    ConfirmText="ยืนยันและบันทึก"
+                    BusyText="กำลังยืนยัน..."
+                    ConfirmSemanticDescription="ยืนยันและบันทึกชื่อใหม่ด้วยรหัส 6 หลัก"
+                    IsBusy="{Binding IsBusy}"
+                    IsConfirmVisible="{Binding CanUseChallenge}" />
+
+                <Button
+                    x:Name="NewRequestButton"
+                    Style="{StaticResource RefinedPrimaryButton}"
+                    Command="{Binding StartNewRequestCommand}"
+                    IsVisible="{Binding RequiresNewRequest}"
+                    SemanticProperties.Description="เริ่มขอเปลี่ยนชื่อและรับรหัสยืนยันใหม่"
+                    Text="ขอรหัสใหม่" />
+
+                <Button
+                    x:Name="ReturnToAccountButton"
+                    Style="{StaticResource RefinedPrimaryButton}"
+                    Command="{Binding ReturnToAccountCommand}"
+                    IsVisible="{Binding CanReturnToAccount}"
+                    SemanticProperties.Description="กลับไปหน้าบัญชีเพื่อตรวจสอบชื่อปัจจุบัน"
+                    Text="กลับไปหน้าบัญชี" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="5">
+                <Button
+                    x:Name="ResendButton"
+                    HorizontalOptions="Center"
+                    Style="{StaticResource RefinedInlineButton}"
+                    Command="{Binding ResendCommand}"
+                    IsEnabled="{Binding CanResend}"
+                    IsVisible="{Binding CanUseChallenge}"
+                    SemanticProperties.Description="{Binding ResendSemanticDescription}"
+                    Text="{Binding ResendButtonText}" />
+                <Label
+                    HorizontalTextAlignment="Center"
+                    Style="{StaticResource RefinedHelperText}"
+                    Text="{Binding ExpiresText, StringFormat='รหัสหมดอายุ {0}'}" />
+            </VerticalStackLayout>
+
+            <ActivityIndicator
+                HorizontalOptions="Center"
+                IsRunning="{Binding IsBusy}"
+                IsVisible="{Binding IsBusy}"
+                Color="{StaticResource BrandBlue}" />
+
+            <Border
+                AutomationId="NameChangeErrorSummary"
+                IsVisible="{Binding HasMessage}"
+                SemanticProperties.Description="{Binding Message}"
+                Style="{StaticResource RefinedValidationBorder}">
+                <Label
+                    AutomationProperties.IsInAccessibleTree="False"
+                    Style="{StaticResource RefinedValidationText}"
+                    Text="{Binding Message}" />
+            </Border>
+
+            <Label
+                HorizontalTextAlignment="Center"
+                Style="{StaticResource RefinedHelperText}"
+                Text="รหัสใช้ได้ครั้งเดียว อย่าส่งต่อให้ผู้อื่น" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
