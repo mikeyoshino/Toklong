@@ -109,9 +109,43 @@ var emailChangeVerifyPermitLimit =
     builder.Configuration.GetValue(
         "RateLimits:EmailChangeVerifyPermitLimit",
         10);
+var nameChangeRequestPermitLimit =
+    builder.Configuration.GetValue(
+        "RateLimits:NameChangeRequestPermitLimit",
+        5);
+var nameChangeVerifyPermitLimit =
+    builder.Configuration.GetValue(
+        "RateLimits:NameChangeVerifyPermitLimit",
+        10);
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        if (!context.HttpContext.Request.Path.StartsWithSegments(
+                "/api/mobile/me/name-change"))
+            return;
+
+        var retryAfterSeconds = context.HttpContext.Request.Path.Value
+            ?.EndsWith("/verify", StringComparison.Ordinal) == true
+            ? 600
+            : 60;
+        context.HttpContext.Response.Headers["Retry-After"] =
+            retryAfterSeconds.ToString(
+                System.Globalization.CultureInfo.InvariantCulture);
+        await Results.Json(
+                new
+                {
+                    title = "ทำรายการไม่สำเร็จ",
+                    status = StatusCodes.Status429TooManyRequests,
+                    detail = "ทำรายการบ่อยเกินไป กรุณาลองใหม่ภายหลัง",
+                    code = "name_change_rate_limited",
+                    retryAfterSeconds
+                },
+                statusCode: StatusCodes.Status429TooManyRequests,
+                contentType: "application/problem+json")
+            .ExecuteAsync(context.HttpContext);
+    };
     options.AddPolicy("otp-request", context =>
         RateLimitPartition.GetSlidingWindowLimiter(
             RateLimitKey(
@@ -197,6 +231,30 @@ builder.Services.AddRateLimiter(options =>
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = emailChangeVerifyPermitLimit,
+                Window = TimeSpan.FromMinutes(10),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+    options.AddPolicy("name-change-request", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            AuthenticatedAccountRateLimitKey(
+                context,
+                rateLimiterPartitionSecret),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = nameChangeRequestPermitLimit,
+                Window = TimeSpan.FromSeconds(60),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+    options.AddPolicy("name-change-verify", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            AuthenticatedAccountRateLimitKey(
+                context,
+                rateLimiterPartitionSecret),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = nameChangeVerifyPermitLimit,
                 Window = TimeSpan.FromMinutes(10),
                 QueueLimit = 0,
                 AutoReplenishment = true
@@ -289,6 +347,18 @@ static string AuthenticatedBuyerRateLimitKey(
         MobileAuthenticationDefaults.BuyerIdClaim)?.Value
         ?? "no-buyer";
     return $"{buyerId}:{RateLimitKey(context, secret)}";
+}
+
+static string AuthenticatedAccountRateLimitKey(
+    HttpContext context,
+    byte[] secret)
+{
+    var accountId = context.User.FindFirst(
+        MobileAuthenticationDefaults.BuyerIdClaim)?.Value
+        ?? context.User.FindFirst(
+            MobileAuthenticationDefaults.SellerIdClaim)?.Value
+        ?? "no-account";
+    return $"{accountId}:{RateLimitKey(context, secret)}";
 }
 
 static async Task ApplyDatabaseMigrationsAsync(WebApplication app)

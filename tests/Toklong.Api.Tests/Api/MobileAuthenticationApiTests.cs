@@ -630,16 +630,32 @@ public sealed class MobileApiFactory : WebApplicationFactory<Program>
     private sealed class TestOtpVerificationProvider
         : IOtpVerificationProvider
     {
+        private readonly ConcurrentDictionary<string, string> phones = new();
+        public OtpProviderCapabilities Capabilities { get; } =
+            new(
+                SupportsAccountNameChange: true,
+                AccountNameChangeCodeLifetime: TimeSpan.FromMinutes(10),
+                SupportsRequestLookup: true)
+            {
+                SupportsVerificationLookup = true
+            };
+
         public Task<OtpChallenge> RequestAsync(
             string phoneNumber,
             OtpPurpose purpose,
             string providerRequestKey,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(
+            CancellationToken cancellationToken)
+        {
+            var challengeId = purpose == OtpPurpose.AccountNameChange
+                ? $"name-change-{providerRequestKey}"
+                : "challenge-test";
+            phones[challengeId] = phoneNumber;
+            return Task.FromResult(
                 new OtpChallenge(
-                    "challenge-test",
+                    challengeId,
                     "081-***-5678",
                     "123456"));
+        }
 
         public Task<string?> VerifyAsync(
             string challengeId,
@@ -652,6 +668,40 @@ public sealed class MobileApiFactory : WebApplicationFactory<Program>
                 purpose == OtpPurpose.MobileAuthentication
                     ? "+66812345678"
                     : null);
+
+        public Task<OtpProviderVerificationEvidence>
+            VerifyIdempotentlyAsync(
+                string challengeId,
+                string code,
+                OtpPurpose purpose,
+                string verificationRequestKey,
+                CancellationToken cancellationToken)
+        {
+            var now = DateTimeOffset.UtcNow;
+            return Task.FromResult(
+                new OtpProviderVerificationEvidence(
+                    verificationRequestKey,
+                    challengeId,
+                    purpose,
+                    phones.TryGetValue(challengeId, out var phone)
+                        ? phone
+                        : "+66812345678",
+                    code == "123456" &&
+                    purpose == OtpPurpose.AccountNameChange
+                        ? OtpProviderVerificationOutcome.Verified
+                        : OtpProviderVerificationOutcome.Rejected,
+                    now,
+                    now));
+        }
+
+        public Task<OtpProviderVerificationEvidence?>
+            LookupVerificationAsync(
+                string verificationRequestKey,
+                string challengeId,
+                string phoneNumber,
+                OtpPurpose purpose,
+                CancellationToken cancellationToken) =>
+            Task.FromResult<OtpProviderVerificationEvidence?>(null);
     }
 
     private sealed class TestPaymentIntentProvider(

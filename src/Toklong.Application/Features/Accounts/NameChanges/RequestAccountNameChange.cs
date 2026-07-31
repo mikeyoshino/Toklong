@@ -333,7 +333,8 @@ internal static class AccountNameChangeSendOperations
             retryAfter = TimeSpan.FromSeconds(1);
         throw new RequestCooldownException(
             "ขอรหัสยืนยันครบจำนวนแล้ว กรุณาลองใหม่ภายหลัง",
-            retryAfter);
+            retryAfter,
+            "name_change_send_limit");
     }
 
     public static void EnsureResendAvailable(
@@ -351,7 +352,8 @@ internal static class AccountNameChangeSendOperations
         if (challenge.ResendAvailableAt > now)
             throw new RequestCooldownException(
                 "กรุณารอก่อนขอรหัสยืนยันอีกครั้ง",
-                challenge.ResendAvailableAt.Value - now);
+                challenge.ResendAvailableAt.Value - now,
+                "name_change_resend_cooldown");
     }
 
     public static void EnsureProviderCapabilities(

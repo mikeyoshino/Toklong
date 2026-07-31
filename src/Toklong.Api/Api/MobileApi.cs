@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Toklong.Application.Abstractions;
 using Toklong.Application.Common;
 using Toklong.Application.Features.Authentication;
+using Toklong.Application.Features.Accounts.NameChanges;
 using Toklong.Application.Features.Buyers;
 using Toklong.Application.Features.Checkout.ChooseParcelProtection;
 using Toklong.Application.Features.Checkout.GetParcelProtection;
@@ -54,8 +55,52 @@ public static class MobileApi
                     ForbiddenException or
                     NotFoundException or
                     RequestCooldownException or
+                    AccountNameChangeCooldownException or
                     InvalidOperationException)
                 {
+                    if (context.Request.Path.StartsWithSegments(
+                            "/api/mobile/me/name-change"))
+                    {
+                        var (
+                            nameChangeStatus,
+                            code,
+                            nameChangeDetail,
+                            retryAfter,
+                            nextAllowedAt) =
+                            NameChangeError(exception);
+                        var nameChangeLogger = context.RequestServices
+                            .GetRequiredService<ILoggerFactory>()
+                            .CreateLogger("Toklong.MobileApi");
+                        nameChangeLogger.LogWarning(
+                            "A controlled account-name change request failed with {Code}",
+                            code);
+                        if (retryAfter.HasValue)
+                            context.Response.Headers["Retry-After"] = Math.Max(
+                                    1,
+                                    (int)Math.Ceiling(
+                                        retryAfter.Value.TotalSeconds))
+                                .ToString(
+                                    System.Globalization.CultureInfo.InvariantCulture);
+                        await Results.Json(
+                                new
+                                {
+                                    title = "ทำรายการไม่สำเร็จ",
+                                    status = nameChangeStatus,
+                                    detail = nameChangeDetail,
+                                    code,
+                                    retryAfterSeconds = retryAfter.HasValue
+                                        ? Math.Max(
+                                            1,
+                                            (int)Math.Ceiling(
+                                                retryAfter.Value.TotalSeconds))
+                                        : (int?)null,
+                                    nextAllowedAt
+                                },
+                                statusCode: nameChangeStatus,
+                                contentType: "application/problem+json")
+                            .ExecuteAsync(context);
+                        return;
+                    }
                     var logger = context.RequestServices
                         .GetRequiredService<ILoggerFactory>()
                         .CreateLogger("Toklong.MobileApi");
@@ -121,6 +166,24 @@ public static class MobileApi
             });
 
         authenticated.MapGet("/me", GetProfileAsync);
+        authenticated.MapGet(
+            "/me/name-change/eligibility",
+            GetAccountNameChangeEligibilityAsync);
+        authenticated.MapGet(
+            "/me/name-change",
+            GetPendingAccountNameChangeAsync);
+        authenticated.MapPost(
+                "/me/name-change",
+                RequestAccountNameChangeAsync)
+            .RequireRateLimiting("name-change-request");
+        authenticated.MapPost(
+                "/me/name-change/{challengeId:guid}/resend",
+                ResendAccountNameChangeAsync)
+            .RequireRateLimiting("name-change-request");
+        authenticated.MapPost(
+                "/me/name-change/{challengeId:guid}/verify",
+                VerifyAccountNameChangeAsync)
+            .RequireRateLimiting("name-change-verify");
         authenticated.MapGet(
             "/me/email-change",
             GetPendingEmailChangeAsync);
@@ -497,6 +560,181 @@ public static class MobileApi
             ? Results.NoContent()
             : Results.Ok(ToMobileEmailChange(pending));
     }
+
+    private static async Task<IResult> GetAccountNameChangeEligibilityAsync(
+        ClaimsPrincipal principal,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        var eligibility = await sender.Send(
+            new GetAccountNameChangeEligibilityQuery(
+                AccountNameChangeSubjectFrom(principal)),
+            cancellationToken);
+        return Results.Ok(new MobileAccountNameChangeEligibilityResponse(
+            eligibility.CanChange,
+            eligibility.NextAllowedAt));
+    }
+
+    private static async Task<IResult> GetPendingAccountNameChangeAsync(
+        ClaimsPrincipal principal,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        var pending = await sender.Send(
+            new GetPendingAccountNameChangeQuery(
+                AccountNameChangeSubjectFrom(principal)),
+            cancellationToken);
+        return pending is null
+            ? Results.NoContent()
+            : Results.Ok(ToMobileAccountNameChange(pending));
+    }
+
+    private static async Task<IResult> RequestAccountNameChangeAsync(
+        MobileAccountNameChangeRequest request,
+        ClaimsPrincipal principal,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        var pending = await sender.Send(
+            new RequestAccountNameChangeCommand(
+                AccountNameChangeSubjectFrom(principal),
+                request.FirstName,
+                request.LastName,
+                request.IdempotencyKey),
+            cancellationToken);
+        return Results.Ok(ToMobileAccountNameChange(pending));
+    }
+
+    private static async Task<IResult> ResendAccountNameChangeAsync(
+        Guid challengeId,
+        MobileAccountNameChangeResendRequest request,
+        ClaimsPrincipal principal,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        var pending = await sender.Send(
+            new ResendAccountNameChangeCodeCommand(
+                AccountNameChangeSubjectFrom(principal),
+                challengeId,
+                request.IdempotencyKey),
+            cancellationToken);
+        return Results.Ok(ToMobileAccountNameChange(pending));
+    }
+
+    private static async Task<IResult> VerifyAccountNameChangeAsync(
+        Guid challengeId,
+        MobileAccountNameChangeVerifyRequest request,
+        ClaimsPrincipal principal,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        var verified = await sender.Send(
+            new VerifyAccountNameChangeCommand(
+                AccountNameChangeSubjectFrom(principal),
+                challengeId,
+                request.Code,
+                request.IdempotencyKey),
+            cancellationToken);
+        return Results.Ok(new MobileAccountNameChangeVerifiedResponse(
+            verified.FirstName,
+            verified.LastName,
+            verified.DisplayName,
+            verified.CompletedAt));
+    }
+
+    private static MobileAccountNameChangeResponse ToMobileAccountNameChange(
+        PendingAccountNameChange pending) =>
+        new(
+            pending.ChallengeId,
+            pending.MaskedPhoneNumber,
+            pending.FirstName,
+            pending.LastName,
+            pending.ExpiresAt,
+            pending.ResendAvailableAt,
+            pending.RemainingAttempts);
+
+    private static AccountNameChangeSubject AccountNameChangeSubjectFrom(
+        ClaimsPrincipal principal)
+    {
+        var ids = PartyIds.From(principal);
+        if (!Guid.TryParse(
+                principal.FindFirstValue(
+                    MobileAuthenticationDefaults.SessionIdClaim),
+                out var sessionId) ||
+            sessionId == Guid.Empty)
+            throw new ForbiddenException("บัญชีผู้ใช้ไม่ถูกต้อง");
+        return new AccountNameChangeSubject(
+            ids.BuyerId,
+            ids.SellerId,
+            sessionId,
+            ids.PhoneNumber);
+    }
+
+    private static (
+        int Status,
+        string Code,
+        string Detail,
+        TimeSpan? RetryAfter,
+        DateTimeOffset? NextAllowedAt) NameChangeError(
+        Exception exception) => exception switch
+    {
+        AccountNameChangeCooldownException cooldown =>
+            (StatusCodes.Status409Conflict,
+                "name_change_cooldown",
+                "ยังเปลี่ยนชื่อไม่ได้ กรุณาลองใหม่เมื่อถึงเวลาที่แจ้ง",
+                null,
+                cooldown.NextAllowedAt),
+        RequestCooldownException cooldown when
+            string.Equals(
+                cooldown.Code,
+                "name_change_send_limit",
+                StringComparison.Ordinal) =>
+            (StatusCodes.Status429TooManyRequests,
+                "name_change_send_limit",
+                "ขอรหัสยืนยันครบจำนวนแล้ว กรุณาลองใหม่ภายหลัง",
+                cooldown.RetryAfter,
+                null),
+        RequestCooldownException cooldown =>
+            (StatusCodes.Status429TooManyRequests,
+                "name_change_resend_cooldown",
+                "กรุณารอก่อนขอรหัสยืนยันอีกครั้ง",
+                cooldown.RetryAfter,
+                null),
+        ForbiddenException =>
+            (StatusCodes.Status403Forbidden,
+                "name_change_access_denied",
+                "คุณไม่มีสิทธิ์ทำรายการนี้",
+                null,
+                null),
+        NotFoundException =>
+            (StatusCodes.Status404NotFound,
+                "name_change_not_found",
+                "ไม่พบคำขอเปลี่ยนชื่อ",
+                null,
+                null),
+        DomainException domain when domain.Message.Contains(
+            "หมดอายุ",
+            StringComparison.Ordinal) =>
+            (StatusCodes.Status400BadRequest,
+                "name_change_expired",
+                "รหัสยืนยันหมดอายุแล้ว กรุณาขอรหัสใหม่",
+                null,
+                null),
+        DomainException domain when domain.Message.Contains(
+            "ครบจำนวน",
+            StringComparison.Ordinal) =>
+            (StatusCodes.Status400BadRequest,
+                "name_change_locked",
+                "กรอกรหัสไม่ถูกต้องครบจำนวนแล้ว กรุณาขอรหัสใหม่",
+                null,
+                null),
+        _ =>
+            (StatusCodes.Status400BadRequest,
+                "name_change_invalid_request",
+                "ไม่สามารถทำรายการเปลี่ยนชื่อได้ กรุณาตรวจสอบข้อมูลแล้วลองใหม่",
+                null,
+                null)
+    };
 
     private static async Task<IResult> RequestEmailChangeAsync(
         MobileEmailChangeRequest request,
@@ -1885,6 +2123,37 @@ public sealed record MobileEmailChangeResponse(
 
 public sealed record MobileEmailChangeVerifiedResponse(
     string Email,
+    DateTimeOffset CompletedAt);
+
+public sealed record MobileAccountNameChangeEligibilityResponse(
+    bool CanChange,
+    DateTimeOffset? NextAllowedAt);
+
+public sealed record MobileAccountNameChangeRequest(
+    string FirstName,
+    string LastName,
+    string IdempotencyKey);
+
+public sealed record MobileAccountNameChangeResendRequest(
+    string IdempotencyKey);
+
+public sealed record MobileAccountNameChangeVerifyRequest(
+    string Code,
+    string IdempotencyKey);
+
+public sealed record MobileAccountNameChangeResponse(
+    Guid ChallengeId,
+    string MaskedPhoneNumber,
+    string FirstName,
+    string LastName,
+    DateTimeOffset ExpiresAt,
+    DateTimeOffset ResendAvailableAt,
+    int RemainingAttempts);
+
+public sealed record MobileAccountNameChangeVerifiedResponse(
+    string FirstName,
+    string LastName,
+    string DisplayName,
     DateTimeOffset CompletedAt);
 
 public sealed record MobileBuyerProtectionPreviewResponse(
