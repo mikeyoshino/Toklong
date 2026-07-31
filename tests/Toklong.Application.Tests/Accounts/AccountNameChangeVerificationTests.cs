@@ -98,7 +98,7 @@ public sealed class AccountNameChangeVerificationTests
         scenario.Provider.ThrowAfterAcceptanceOnce = true;
         scenario.Provider.LookupAvailable = false;
 
-        await Assert.ThrowsAsync<DomainException>(
+        await Assert.ThrowsAsync<AccountNameChangeProviderOutcomeUnknownException>(
             () => scenario.Handler().Handle(command, default));
         scenario.Database.ChangeTracker.Clear();
         Assert.Single(
@@ -136,7 +136,7 @@ public sealed class AccountNameChangeVerificationTests
         scenario.Provider.MutateEvidence = evidence =>
             evidence with { ChallengeId = "another-challenge" };
 
-        await Assert.ThrowsAsync<DomainException>(
+        await Assert.ThrowsAsync<AccountNameChangeProviderOutcomeUnknownException>(
             () => scenario.Handler().Handle(
                 scenario.Command(),
                 default));
@@ -155,25 +155,25 @@ public sealed class AccountNameChangeVerificationTests
 
         for (var index = 0; index < 4; index++)
         {
-            var error = await Assert.ThrowsAsync<DomainException>(() =>
+            var error = await Assert.ThrowsAsync<AccountNameChangeVerificationException>(() =>
                 scenario.Handler().Handle(
                     scenario.Command(
                         $"{index}{index}{index}{index}{index}{index}"),
                     default));
-            Assert.Contains("รหัสไม่ถูกต้อง", error.Message);
+            Assert.Equal(AccountNameVerificationFailure.Incorrect, error.Failure);
         }
 
-        var locked = await Assert.ThrowsAsync<DomainException>(() =>
+        var locked = await Assert.ThrowsAsync<AccountNameChangeVerificationException>(() =>
             scenario.Handler().Handle(
                 scenario.Command("999999"),
                 default));
         var rejectedAfterLock =
-            await Assert.ThrowsAsync<DomainException>(() =>
+            await Assert.ThrowsAsync<AccountNameChangeVerificationException>(() =>
                 scenario.Handler().Handle(
                     scenario.Command("123456"),
                     default));
 
-        Assert.Contains("ครบจำนวน", locked.Message);
+        Assert.Equal(AccountNameVerificationFailure.Locked, locked.Failure);
         Assert.Equal(locked.Message, rejectedAfterLock.Message);
         Assert.Equal(AccountNameChangeStatus.Locked, scenario.Challenge.Status);
         Assert.Equal(5, scenario.Challenge.IncorrectAttempts);
@@ -253,10 +253,10 @@ public sealed class AccountNameChangeVerificationTests
         await using var scenario = await Scenario.CreateAsync();
         scenario.Clock.UtcNow = scenario.Challenge.ExpiresAt!.Value;
 
-        var error = await Assert.ThrowsAsync<DomainException>(() =>
+        var error = await Assert.ThrowsAsync<AccountNameChangeVerificationException>(() =>
             scenario.Handler().Handle(scenario.Command(), default));
 
-        Assert.Contains("หมดอายุ", error.Message);
+        Assert.Equal(AccountNameVerificationFailure.Expired, error.Failure);
         Assert.Equal(AccountNameChangeStatus.Expired, scenario.Challenge.Status);
         Assert.Equal(0, scenario.Provider.VerifyCount);
         Assert.Equal(
@@ -272,10 +272,9 @@ public sealed class AccountNameChangeVerificationTests
         await using var scenario = await Scenario.CreateAsync();
         scenario.Provider.VerifiedPhone = "+66999999999";
 
-        var error = await Assert.ThrowsAsync<DomainException>(() =>
+        var error = await Assert.ThrowsAsync<AccountNameChangeProviderOutcomeUnknownException>(() =>
             scenario.Handler().Handle(scenario.Command(), default));
 
-        Assert.Contains("ตรวจสอบผลยืนยัน", error.Message);
         Assert.Equal(AccountNameChangeStatus.Active, scenario.Challenge.Status);
         Assert.Equal(0, scenario.Challenge.IncorrectAttempts);
         Assert.Equal("สมชาย ใจดี", scenario.Buyer.FullName);
@@ -307,12 +306,12 @@ public sealed class AccountNameChangeVerificationTests
             scenario.Command("123456", key),
             default);
 
-        var error = await Assert.ThrowsAsync<DomainException>(() =>
+        var error = await Assert.ThrowsAsync<AccountNameChangeVerificationException>(() =>
             scenario.Handler().Handle(
                 scenario.Command("654321", key),
                 default));
 
-        Assert.Contains("ไม่ตรงกับข้อมูลเดิม", error.Message);
+        Assert.Equal(AccountNameVerificationFailure.NonExactReplay, error.Failure);
         Assert.Equal(1, scenario.Provider.VerifyCount);
         Assert.Single(scenario.Database.AccountNameVerificationAttempts);
         Assert.Single(scenario.Database.AccountNameChangeAuditEvents);

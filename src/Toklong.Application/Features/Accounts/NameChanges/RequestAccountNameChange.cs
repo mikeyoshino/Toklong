@@ -33,7 +33,7 @@ public sealed class RequestAccountNameChangeHandler(
             buyers,
             sellers,
             cancellationToken);
-        var pendingName = AccountName.Create(
+        var pendingName = CreatePendingName(
             request.FirstName,
             request.LastName);
         var requestKey =
@@ -50,10 +50,17 @@ public sealed class RequestAccountNameChangeHandler(
                 replay,
                 request.Subject,
                 subject.PhoneNumber);
-            replay.EnsureExactOperationReplay(
-                requestKey,
-                null,
-                pendingName);
+            try
+            {
+                replay.EnsureExactOperationReplay(
+                    requestKey,
+                    null,
+                    pendingName);
+            }
+            catch (DomainException)
+            {
+                throw new AccountNameChangeIdempotencyException();
+            }
             return await AccountNameChangeSendOperations
                 .ReplayOrRecoverAsync(
                     replay,
@@ -64,8 +71,7 @@ public sealed class RequestAccountNameChangeHandler(
         }
 
         if (subject.HasCurrentName(pendingName))
-            throw new DomainException(
-                "ชื่อนี้เป็นชื่อปัจจุบันของคุณแล้ว");
+            throw new AccountNameChangeUnchangedNameException();
         AccountNameChangeEligibilityPolicy.EnsureEligible(
             subject,
             clock.UtcNow);
@@ -116,6 +122,33 @@ public sealed class RequestAccountNameChangeHandler(
             unitOfWork,
             clock,
             cancellationToken);
+    }
+
+    private static AccountName CreatePendingName(
+        string firstName,
+        string lastName)
+    {
+        try
+        {
+            return AccountName.Create(firstName, lastName);
+        }
+        catch (DomainException)
+        {
+            try
+            {
+                _ = AccountName.Create(firstName, "ทดสอบ");
+            }
+            catch (DomainException exception)
+            {
+                throw new AccountNameChangeInputException(
+                    AccountNameInputField.FirstName,
+                    exception.Message);
+            }
+
+            throw new AccountNameChangeInputException(
+                AccountNameInputField.LastName,
+                "นามสกุลไม่ถูกต้อง");
+        }
     }
 }
 
@@ -194,7 +227,8 @@ internal static class AccountNameChangeSendOperations
                 unitOfWork,
                 nameChanges,
                 cancellationToken);
-            throw;
+            throw new AccountNameChangeProviderThrottleException(
+                exception.RetryAfter);
         }
         catch (OperationCanceledException)
         {
@@ -202,7 +236,7 @@ internal static class AccountNameChangeSendOperations
         }
         catch (Exception)
         {
-            throw new DomainException(UnknownOutcomeError);
+            throw new AccountNameChangeProviderOutcomeUnknownException();
         }
 
         if (string.IsNullOrWhiteSpace(acceptance.ChallengeId))
@@ -216,7 +250,7 @@ internal static class AccountNameChangeSendOperations
                 unitOfWork,
                 nameChanges,
                 cancellationToken);
-            throw new DomainException(SendError);
+            throw new AccountNameChangeProviderUnavailableException();
         }
 
         challenge.MarkSendAccepted(
@@ -233,7 +267,7 @@ internal static class AccountNameChangeSendOperations
             var stored = await nameChanges.GetByIdAsync(
                     challenge.Id,
                     cancellationToken)
-                ?? throw new DomainException(UnknownOutcomeError);
+                ?? throw new AccountNameChangeProviderOutcomeUnknownException();
             return await ReplayOrRecoverAsync(
                 stored,
                 provider,
@@ -257,7 +291,7 @@ internal static class AccountNameChangeSendOperations
         if (challenge.Status == AccountNameChangeStatus.SendFailed)
             throw ReplaySendFailure(challenge);
         if (challenge.Status != AccountNameChangeStatus.PendingSend)
-            throw new DomainException(SendError);
+            throw new AccountNameChangeProviderUnavailableException();
 
         EnsureProviderCapabilities(provider);
         OtpChallengeRecovery? recovery;
@@ -275,11 +309,11 @@ internal static class AccountNameChangeSendOperations
         }
         catch (Exception)
         {
-            throw new DomainException(UnknownOutcomeError);
+            throw new AccountNameChangeProviderOutcomeUnknownException();
         }
 
         if (recovery is null)
-            throw new DomainException(UnknownOutcomeError);
+            throw new AccountNameChangeProviderOutcomeUnknownException();
         EnsureRecoveryMatches(challenge, recovery);
         challenge.MarkSendAccepted(
             recovery.Challenge.ChallengeId,
@@ -295,9 +329,9 @@ internal static class AccountNameChangeSendOperations
             var stored = await nameChanges.GetByIdAsync(
                     challenge.Id,
                     cancellationToken)
-                ?? throw new DomainException(UnknownOutcomeError);
+                ?? throw new AccountNameChangeProviderOutcomeUnknownException();
             if (stored.Status != AccountNameChangeStatus.Active)
-                throw new DomainException(UnknownOutcomeError);
+                throw new AccountNameChangeProviderOutcomeUnknownException();
             return AccountNameChangeViews.ToPending(stored);
         }
 
@@ -342,13 +376,13 @@ internal static class AccountNameChangeSendOperations
         DateTimeOffset now)
     {
         if (challenge.Status == AccountNameChangeStatus.PendingSend)
-            throw new DomainException(UnknownOutcomeError);
+            throw new AccountNameChangeProviderOutcomeUnknownException();
         if (challenge.Status != AccountNameChangeStatus.Active)
-            throw new DomainException(
-                "รหัสยืนยันไม่อยู่ในสถานะที่ใช้งานได้");
+            throw new AccountNameChangeVerificationException(
+                AccountNameVerificationFailure.Inactive);
         if (challenge.ExpiresAt <= now)
-            throw new DomainException(
-                "รหัสยืนยันหมดอายุแล้ว");
+            throw new AccountNameChangeVerificationException(
+                AccountNameVerificationFailure.Expired);
         if (challenge.ResendAvailableAt > now)
             throw new RequestCooldownException(
                 "กรุณารอก่อนขอรหัสยืนยันอีกครั้ง",
@@ -363,8 +397,7 @@ internal static class AccountNameChangeSendOperations
         if (!capabilities.SupportsAccountNameChange ||
             capabilities.AccountNameChangeCodeLifetime != RequiredLifetime ||
             !capabilities.SupportsRequestLookup)
-            throw new DomainException(
-                "ยังไม่พร้อมส่งรหัสยืนยันสำหรับการเปลี่ยนชื่อ");
+            throw new AccountNameChangeProviderUnavailableException();
     }
 
     public static string NormalizeIdempotencyKey(string value)
@@ -372,12 +405,12 @@ internal static class AccountNameChangeSendOperations
         var clean = (value ?? "").Trim();
         if (clean.Length != 32 ||
             !Guid.TryParseExact(clean, "N", out var parsed))
-            throw new DomainException("รหัสคำขอไม่ถูกต้อง");
+            throw new AccountNameChangeIdempotencyException();
         return parsed.ToString("N");
     }
 
-    public static DomainException NonExactReplay() =>
-        new("คำขอนี้ไม่ตรงกับข้อมูลเดิม กรุณาลองใหม่");
+    public static AccountNameChangeIdempotencyException NonExactReplay() =>
+        new();
 
     private static Exception ReplaySendFailure(
         AccountNameChangeChallenge challenge)
@@ -389,7 +422,18 @@ internal static class AccountNameChangeSendOperations
         if (challenge.SendFailureRetryAfterTicks is not { } ticks ||
             ticks <= 0 ||
             ticks > TimeSpan.FromHours(24).Ticks)
-            return new DomainException(message);
+            return new AccountNameChangeProviderUnavailableException();
+
+        if (!string.Equals(
+                challenge.SendFailureCode,
+                "name_change_send_limit",
+                StringComparison.Ordinal) &&
+            !string.Equals(
+                challenge.SendFailureCode,
+                "name_change_resend_cooldown",
+                StringComparison.Ordinal))
+            return new AccountNameChangeProviderThrottleException(
+                TimeSpan.FromTicks(ticks));
 
         return new RequestCooldownException(
             message,
@@ -464,7 +508,7 @@ internal static class AccountNameChangeSendOperations
                 challenge.Id,
                 cancellationToken);
             if (stored?.Status != AccountNameChangeStatus.SendFailed)
-                throw new DomainException(UnknownOutcomeError);
+                throw new AccountNameChangeProviderOutcomeUnknownException();
         }
     }
 
@@ -484,7 +528,7 @@ internal static class AccountNameChangeSendOperations
             recovery.ExpiresAt != recovery.AcceptedAt.Add(RequiredLifetime) ||
             string.IsNullOrWhiteSpace(
                 recovery.Challenge.ChallengeId))
-            throw new DomainException(UnknownOutcomeError);
+            throw new AccountNameChangeProviderOutcomeUnknownException();
     }
 
     private static string Mask(string phone) =>

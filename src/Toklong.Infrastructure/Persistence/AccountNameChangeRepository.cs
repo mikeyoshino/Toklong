@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Toklong.Application.Abstractions;
+using Toklong.Application.Common;
 using Toklong.Domain.Accounts;
 
 namespace Toklong.Infrastructure.Persistence;
@@ -75,15 +76,12 @@ public sealed class AccountNameChangeRepository(
         DateTimeOffset since,
         CancellationToken cancellationToken)
     {
-        if (!buyerId.HasValue && !sellerId.HasValue)
-            return Task.FromResult(0);
+        var normalizedPhone = ThaiMobilePhone.Normalize(phoneNumber);
 
         return dbContext.AccountNameChangeChallenges.CountAsync(
             challenge =>
-                challenge.PhoneNumber == phoneNumber &&
-                challenge.SendAcceptedAt > since &&
-                (buyerId.HasValue && challenge.BuyerId == buyerId ||
-                 sellerId.HasValue && challenge.SellerId == sellerId),
+                challenge.PhoneNumber == normalizedPhone &&
+                challenge.SendAcceptedAt > since,
             cancellationToken);
     }
 
@@ -94,15 +92,12 @@ public sealed class AccountNameChangeRepository(
         DateTimeOffset since,
         CancellationToken cancellationToken)
     {
-        if (!buyerId.HasValue && !sellerId.HasValue)
-            return Task.FromResult<DateTimeOffset?>(null);
+        var normalizedPhone = ThaiMobilePhone.Normalize(phoneNumber);
 
         return dbContext.AccountNameChangeChallenges
             .Where(challenge =>
-                challenge.PhoneNumber == phoneNumber &&
-                challenge.SendAcceptedAt > since &&
-                (buyerId.HasValue && challenge.BuyerId == buyerId ||
-                 sellerId.HasValue && challenge.SellerId == sellerId))
+                challenge.PhoneNumber == normalizedPhone &&
+                challenge.SendAcceptedAt > since)
             .MinAsync(
                 challenge => challenge.SendAcceptedAt,
                 cancellationToken);

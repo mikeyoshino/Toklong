@@ -56,6 +56,7 @@ public static class MobileApi
                     NotFoundException or
                     RequestCooldownException or
                     AccountNameChangeCooldownException or
+                    AccountNameChangeFlowException or
                     InvalidOperationException)
                 {
                     if (context.Request.Path.StartsWithSegments(
@@ -68,6 +69,10 @@ public static class MobileApi
                             retryAfter,
                             nextAllowedAt) =
                             NameChangeError(exception);
+                        var remainingAttempts = exception is
+                            AccountNameChangeVerificationException verification
+                            ? verification.RemainingAttempts
+                            : null;
                         var nameChangeLogger = context.RequestServices
                             .GetRequiredService<ILoggerFactory>()
                             .CreateLogger("Toklong.MobileApi");
@@ -94,6 +99,7 @@ public static class MobileApi
                                             (int)Math.Ceiling(
                                                 retryAfter.Value.TotalSeconds))
                                         : (int?)null,
+                                    remainingAttempts,
                                     nextAllowedAt
                                 },
                                 statusCode: nameChangeStatus,
@@ -684,6 +690,46 @@ public static class MobileApi
                 "ยังเปลี่ยนชื่อไม่ได้ กรุณาลองใหม่เมื่อถึงเวลาที่แจ้ง",
                 null,
                 cooldown.NextAllowedAt),
+        AccountNameChangeInputException input =>
+            (StatusCodes.Status422UnprocessableEntity,
+                input.Field == AccountNameInputField.FirstName
+                    ? "name_change_first_name_invalid"
+                    : "name_change_last_name_invalid",
+                "กรุณาตรวจสอบชื่อและนามสกุล",
+                null,
+                null),
+        AccountNameChangeUnchangedNameException =>
+            (StatusCodes.Status409Conflict,
+                "name_change_unchanged",
+                "ชื่อนี้เป็นชื่อปัจจุบันของคุณแล้ว",
+                null,
+                null),
+        AccountNameChangeIdempotencyException =>
+            (StatusCodes.Status409Conflict,
+                "name_change_idempotency_conflict",
+                "คำขอนี้ไม่ตรงกับข้อมูลเดิม กรุณาลองใหม่",
+                null,
+                null),
+        AccountNameChangeProviderUnavailableException =>
+            (StatusCodes.Status503ServiceUnavailable,
+                "name_change_provider_unavailable",
+                "บริการยืนยันชื่อยังไม่พร้อมใช้งาน กรุณาลองใหม่ภายหลัง",
+                null,
+                null),
+        AccountNameChangeProviderOutcomeUnknownException =>
+            (StatusCodes.Status503ServiceUnavailable,
+                "name_change_provider_outcome_unknown",
+                "กำลังตรวจสอบผลการยืนยัน กรุณาลองอีกครั้งด้วยคำขอเดิม",
+                TimeSpan.FromSeconds(5),
+                null),
+        AccountNameChangeProviderThrottleException throttle =>
+            (StatusCodes.Status429TooManyRequests,
+                "name_change_provider_throttled",
+                "กรุณารอก่อนขอรหัสยืนยันอีกครั้ง",
+                throttle.RetryAfter,
+                null),
+        AccountNameChangeVerificationException verification =>
+            NameChangeVerificationError(verification),
         RequestCooldownException cooldown when
             string.Equals(
                 cooldown.Code,
@@ -701,33 +747,9 @@ public static class MobileApi
                 cooldown.RetryAfter,
                 null),
         ForbiddenException =>
-            (StatusCodes.Status403Forbidden,
-                "name_change_access_denied",
-                "คุณไม่มีสิทธิ์ทำรายการนี้",
-                null,
-                null),
+            HiddenNameChangeChallenge(),
         NotFoundException =>
-            (StatusCodes.Status404NotFound,
-                "name_change_not_found",
-                "ไม่พบคำขอเปลี่ยนชื่อ",
-                null,
-                null),
-        DomainException domain when domain.Message.Contains(
-            "หมดอายุ",
-            StringComparison.Ordinal) =>
-            (StatusCodes.Status400BadRequest,
-                "name_change_expired",
-                "รหัสยืนยันหมดอายุแล้ว กรุณาขอรหัสใหม่",
-                null,
-                null),
-        DomainException domain when domain.Message.Contains(
-            "ครบจำนวน",
-            StringComparison.Ordinal) =>
-            (StatusCodes.Status400BadRequest,
-                "name_change_locked",
-                "กรอกรหัสไม่ถูกต้องครบจำนวนแล้ว กรุณาขอรหัสใหม่",
-                null,
-                null),
+            HiddenNameChangeChallenge(),
         _ =>
             (StatusCodes.Status400BadRequest,
                 "name_change_invalid_request",
@@ -735,6 +757,59 @@ public static class MobileApi
                 null,
                 null)
     };
+
+    private static (
+        int Status,
+        string Code,
+        string Detail,
+        TimeSpan? RetryAfter,
+        DateTimeOffset? NextAllowedAt) HiddenNameChangeChallenge() =>
+        (StatusCodes.Status404NotFound,
+            "name_change_challenge_unavailable",
+            "ไม่พบคำขอเปลี่ยนชื่อ",
+            null,
+            null);
+
+    private static (
+        int Status,
+        string Code,
+        string Detail,
+        TimeSpan? RetryAfter,
+        DateTimeOffset? NextAllowedAt) NameChangeVerificationError(
+        AccountNameChangeVerificationException exception) =>
+        exception.Failure switch
+        {
+            AccountNameVerificationFailure.Incorrect =>
+                (StatusCodes.Status422UnprocessableEntity,
+                    "name_change_code_incorrect",
+                    "รหัสยืนยันไม่ถูกต้อง ลองตรวจสอบแล้วกรอกอีกครั้ง",
+                    null,
+                    null),
+            AccountNameVerificationFailure.Locked =>
+                (StatusCodes.Status409Conflict,
+                    "name_change_locked",
+                    "กรอกรหัสไม่ถูกต้องครบจำนวนแล้ว กรุณาขอรหัสใหม่",
+                    null,
+                    null),
+            AccountNameVerificationFailure.Expired =>
+                (StatusCodes.Status409Conflict,
+                    "name_change_expired",
+                    "รหัสยืนยันหมดอายุแล้ว กรุณาขอรหัสใหม่",
+                    null,
+                    null),
+            AccountNameVerificationFailure.NonExactReplay =>
+                (StatusCodes.Status409Conflict,
+                    "name_change_idempotency_conflict",
+                    "คำขอนี้ไม่ตรงกับข้อมูลเดิม กรุณาลองใหม่",
+                    null,
+                    null),
+            _ =>
+                (StatusCodes.Status409Conflict,
+                    "name_change_challenge_inactive",
+                    "รหัสยืนยันนี้ใช้งานไม่ได้ กรุณาขอรหัสใหม่",
+                    null,
+                    null)
+        };
 
     private static async Task<IResult> RequestEmailChangeAsync(
         MobileEmailChangeRequest request,

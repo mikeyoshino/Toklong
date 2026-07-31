@@ -78,3 +78,26 @@ retrieve NuGet vulnerability data.
 Add mobile contracts and error-to-copy mapping, then connect the two-field
 account form and the shared six-digit OTP component without showing cooldown
 timing proactively on the account screen.
+
+---
+
+## Round 1 review fixes
+
+- Foreign and missing resend/verify challenges now return the same `404`
+  `name_change_challenge_unavailable` problem response; regression coverage
+  compares both complete contracts.
+- Replaced account-name API message-substring mapping with bounded flow
+  exceptions for input fields, unchanged names, idempotency conflicts,
+  verification outcomes, and provider availability/throttle/unknown outcomes.
+  Incorrect-code responses can carry authorized remaining attempts.
+- Durable accepted-send counts now use canonical normalized phone only, so a
+  buyer and seller sharing a verified phone share one rolling quota.
+- Updated focused application expectations for the explicit flow outcomes.
+
+Verification after the fix:
+
+```text
+Focused account-name Application: 57 passed, 5 PostgreSQL-gated skipped
+Full API:                         92 passed
+git diff --check: passed
+```

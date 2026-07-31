@@ -57,10 +57,17 @@ public sealed class ResendAccountNameChangeCodeHandler(
                 replay,
                 request.Subject,
                 subject.PhoneNumber);
-            replay.EnsureExactOperationReplay(
-                requestKey,
-                original.Id,
-                pendingName);
+            try
+            {
+                replay.EnsureExactOperationReplay(
+                    requestKey,
+                    original.Id,
+                    pendingName);
+            }
+            catch (DomainException)
+            {
+                throw new AccountNameChangeIdempotencyException();
+            }
             return await AccountNameChangeSendOperations
                 .ReplayOrRecoverAsync(
                     replay,

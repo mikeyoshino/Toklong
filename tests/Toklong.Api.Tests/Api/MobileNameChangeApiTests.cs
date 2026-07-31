@@ -176,7 +176,7 @@ public sealed class MobileNameChangeApiTests
     }
 
     [Fact]
-    public async Task Another_account_cannot_resume_or_verify_a_name_change_challenge()
+    public async Task Another_account_cannot_enumerate_a_name_change_challenge()
     {
         using var owner = await AuthenticatedBuyerAsync();
         using var other = await AuthenticatedBuyerAsync();
@@ -195,16 +195,39 @@ public sealed class MobileNameChangeApiTests
             "/api/mobile/me/name-change");
         Assert.Equal(HttpStatusCode.NoContent, otherPending.StatusCode);
 
-        using var verify = await VerifyAsync(
+        using var foreignVerify = await VerifyAsync(
             other.Client,
             pending.ChallengeId,
             "123456");
-        Assert.Equal(HttpStatusCode.Forbidden, verify.StatusCode);
-        var problem = await verify.Content.ReadFromJsonAsync<NameChangeProblem>();
-        Assert.NotNull(problem);
-        Assert.Equal("name_change_access_denied", problem.Code);
+        using var missingVerify = await VerifyAsync(
+            other.Client,
+            Guid.NewGuid(),
+            "123456");
+        var foreignVerifyProblem = await foreignVerify.Content
+            .ReadFromJsonAsync<NameChangeProblem>();
+        var missingVerifyProblem = await missingVerify.Content
+            .ReadFromJsonAsync<NameChangeProblem>();
+        Assert.Equal(missingVerify.StatusCode, foreignVerify.StatusCode);
+        Assert.Equal(missingVerifyProblem, foreignVerifyProblem);
+        Assert.NotNull(foreignVerifyProblem);
+        Assert.Equal("name_change_challenge_unavailable", foreignVerifyProblem.Code);
         Assert.DoesNotContain(pending.ChallengeId.ToString(),
-            await verify.Content.ReadAsStringAsync());
+            await foreignVerify.Content.ReadAsStringAsync());
+
+        using var foreignResend = await other.Client.PostAsJsonAsync(
+            $"/api/mobile/me/name-change/{pending.ChallengeId}/resend",
+            new { IdempotencyKey = NewKey() });
+        using var missingResend = await other.Client.PostAsJsonAsync(
+            $"/api/mobile/me/name-change/{Guid.NewGuid()}/resend",
+            new { IdempotencyKey = NewKey() });
+        var foreignResendProblem = await foreignResend.Content
+            .ReadFromJsonAsync<NameChangeProblem>();
+        var missingResendProblem = await missingResend.Content
+            .ReadFromJsonAsync<NameChangeProblem>();
+        Assert.Equal(missingResend.StatusCode, foreignResend.StatusCode);
+        Assert.Equal(missingResendProblem, foreignResendProblem);
+        Assert.NotNull(foreignResendProblem);
+        Assert.Equal("name_change_challenge_unavailable", foreignResendProblem.Code);
     }
 
     [Fact]

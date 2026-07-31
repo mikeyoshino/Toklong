@@ -121,7 +121,7 @@ public sealed class AccountNameChangeRequestTests
     {
         await using var scenario = await Scenario.CreateAsync();
 
-        await Assert.ThrowsAsync<DomainException>(() =>
+        await Assert.ThrowsAsync<AccountNameChangeUnchangedNameException>(() =>
             scenario.RequestHandler().Handle(
                 scenario.Request(
                     scenario.Buyer!.FirstName,
@@ -145,7 +145,7 @@ public sealed class AccountNameChangeRequestTests
 
         Assert.Equal(first, replay);
         Assert.Equal(1, scenario.Provider.RequestCount);
-        await Assert.ThrowsAsync<DomainException>(() =>
+        await Assert.ThrowsAsync<AccountNameChangeIdempotencyException>(() =>
             scenario.RequestHandler().Handle(mismatch, default));
         Assert.Equal(1, scenario.Provider.RequestCount);
     }
@@ -190,7 +190,7 @@ public sealed class AccountNameChangeRequestTests
         await using var scenario = await Scenario.CreateAsync();
         scenario.Provider.Behavior = SendBehavior.Rejected;
 
-        await Assert.ThrowsAsync<RequestCooldownException>(() =>
+        await Assert.ThrowsAsync<AccountNameChangeProviderThrottleException>(() =>
             scenario.RequestHandler().Handle(
                 scenario.Request("สมศักดิ์", "ใจดี"),
                 default));
@@ -212,13 +212,12 @@ public sealed class AccountNameChangeRequestTests
             TimeSpan.FromSeconds(37.25);
         var command = scenario.Request("สมศักดิ์", "ใจดี");
 
-        var first = await Assert.ThrowsAsync<RequestCooldownException>(() =>
+        var first = await Assert.ThrowsAsync<AccountNameChangeProviderThrottleException>(() =>
             scenario.RequestHandler().Handle(command, default));
-        var replay = await Assert.ThrowsAsync<RequestCooldownException>(() =>
+        var replay = await Assert.ThrowsAsync<AccountNameChangeProviderThrottleException>(() =>
             scenario.RequestHandler().Handle(command, default));
 
         Assert.Equal(first.Message, replay.Message);
-        Assert.Equal(first.Code, replay.Code);
         Assert.Equal(first.RetryAfter, replay.RetryAfter);
         Assert.Equal(1, scenario.Provider.RequestCount);
         Assert.Equal(0, scenario.Provider.LookupCount);
@@ -241,13 +240,12 @@ public sealed class AccountNameChangeRequestTests
             original.ChallengeId,
             Guid.NewGuid().ToString("N"));
 
-        var first = await Assert.ThrowsAsync<RequestCooldownException>(() =>
+        var first = await Assert.ThrowsAsync<AccountNameChangeProviderThrottleException>(() =>
             scenario.ResendHandler().Handle(command, default));
-        var replay = await Assert.ThrowsAsync<RequestCooldownException>(() =>
+        var replay = await Assert.ThrowsAsync<AccountNameChangeProviderThrottleException>(() =>
             scenario.ResendHandler().Handle(command, default));
 
         Assert.Equal(first.Message, replay.Message);
-        Assert.Equal(first.Code, replay.Code);
         Assert.Equal(first.RetryAfter, replay.RetryAfter);
         Assert.Equal(2, scenario.Provider.RequestCount);
 
@@ -255,7 +253,7 @@ public sealed class AccountNameChangeRequestTests
             "สมปอง",
             "ใจดี",
             command.IdempotencyKey);
-        await Assert.ThrowsAsync<DomainException>(() =>
+        await Assert.ThrowsAsync<AccountNameChangeIdempotencyException>(() =>
             scenario.RequestHandler().Handle(
                 mismatchedInitial,
                 default));
@@ -269,7 +267,7 @@ public sealed class AccountNameChangeRequestTests
         scenario.Provider.Behavior = SendBehavior.AcceptedThenResponseLost;
         var command = scenario.Request("สมศักดิ์", "ใจดี");
 
-        await Assert.ThrowsAsync<DomainException>(() =>
+        await Assert.ThrowsAsync<AccountNameChangeProviderOutcomeUnknownException>(() =>
             scenario.RequestHandler().Handle(command, default));
         var pending = Assert.Single(
             scenario.Database.AccountNameChangeChallenges);
@@ -459,14 +457,14 @@ public sealed class AccountNameChangeRequestTests
         scenario.Provider.Behavior =
             SendBehavior.AcceptedThenResponseLost;
 
-        await Assert.ThrowsAsync<DomainException>(() =>
+        await Assert.ThrowsAsync<AccountNameChangeProviderOutcomeUnknownException>(() =>
             scenario.RequestHandler().Handle(
                 scenario.Request("สมศักดิ์", "ใจดี"),
                 default));
         scenario.Clock.UtcNow = scenario.Clock.UtcNow.AddHours(1);
         scenario.Provider.Behavior = SendBehavior.Accepted;
 
-        await Assert.ThrowsAsync<DomainException>(() =>
+        await Assert.ThrowsAsync<AccountNameChangeProviderOutcomeUnknownException>(() =>
             scenario.RequestHandler().Handle(
                 scenario.Request("สมศักดิ์", "ใจดี"),
                 default));

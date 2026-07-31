@@ -58,8 +58,7 @@ public sealed class VerifyAccountNameChangeHandler(
         var verificationKey =
             NormalizeIdempotencyKey(request.IdempotencyKey);
         if (request.ChallengeId == Guid.Empty)
-            throw new DomainException(
-                "รหัสคำขอเปลี่ยนชื่อไม่ถูกต้อง");
+            throw new AccountNameChangeIdempotencyException();
         var submittedDigest =
             security.Digest(request.ChallengeId, code);
         EnsureProviderCapabilities();
@@ -178,7 +177,7 @@ public sealed class VerifyAccountNameChangeHandler(
         }
 
         if (operation is null)
-            throw new DomainException(UnknownOutcomeMessage);
+            throw new AccountNameChangeProviderOutcomeUnknownException();
 
         var evidence = await GetProviderEvidenceAsync(
             operation,
@@ -227,7 +226,7 @@ public sealed class VerifyAccountNameChangeHandler(
                     challenge.Id,
                     verificationKey,
                     cancellationToken)
-                ?? throw new DomainException(UnknownOutcomeMessage);
+                ?? throw new AccountNameChangeProviderOutcomeUnknownException();
             operation.EnsureExactReplay(submittedDigest);
             EnsureChallengeCanBeSubmitted(challenge);
             AccountNameChangeEligibilityPolicy.EnsureEligible(
@@ -310,7 +309,7 @@ public sealed class VerifyAccountNameChangeHandler(
         AccountNameChangeEligibilityPolicy.EnsureEligible(
             currentSubject,
             clock.UtcNow);
-        throw new DomainException(UnknownOutcomeMessage);
+        throw new AccountNameChangeProviderOutcomeUnknownException();
     }
 
     private void EnsureProviderCapabilities()
@@ -321,8 +320,7 @@ public sealed class VerifyAccountNameChangeHandler(
             TimeSpan.FromMinutes(10) ||
             !capabilities.SupportsRequestLookup ||
             !capabilities.SupportsVerificationLookup)
-            throw new InvalidOperationException(
-                "ผู้ให้บริการรหัสยืนยันยังไม่รองรับการเปลี่ยนชื่ออย่างปลอดภัย");
+            throw new AccountNameChangeProviderUnavailableException();
     }
 
     private async Task<OtpProviderVerificationEvidence>
@@ -347,7 +345,7 @@ public sealed class VerifyAccountNameChangeHandler(
         }
         catch (Exception)
         {
-            throw new DomainException(UnknownOutcomeMessage);
+            throw new AccountNameChangeProviderOutcomeUnknownException();
         }
         if (evidence is not null)
             return evidence;
@@ -382,10 +380,9 @@ public sealed class VerifyAccountNameChangeHandler(
             }
             catch (Exception)
             {
-                throw new DomainException(UnknownOutcomeMessage);
+                throw new AccountNameChangeProviderOutcomeUnknownException();
             }
-            return evidence ??
-                   throw new DomainException(UnknownOutcomeMessage);
+            return evidence ?? throw new AccountNameChangeProviderOutcomeUnknownException();
         }
     }
 
@@ -404,7 +401,7 @@ public sealed class VerifyAccountNameChangeHandler(
         }
         catch (ArgumentException)
         {
-            throw new DomainException(UnknownOutcomeMessage);
+            throw new AccountNameChangeProviderOutcomeUnknownException();
         }
         if (!string.Equals(
                 evidence.VerificationRequestKey,
@@ -426,7 +423,7 @@ public sealed class VerifyAccountNameChangeHandler(
             evidence.RequestedAt > evidence.CompletedAt ||
             evidence.CompletedAt > now.AddMinutes(1) ||
             evidence.CompletedAt >= challenge.ExpiresAt)
-            throw new DomainException(UnknownOutcomeMessage);
+            throw new AccountNameChangeProviderOutcomeUnknownException();
     }
 
     private async Task ApplyVerifiedNameAsync(
@@ -532,13 +529,16 @@ public sealed class VerifyAccountNameChangeHandler(
         AccountNameChangeChallenge challenge)
     {
         if (challenge.Status == AccountNameChangeStatus.Locked)
-            throw new DomainException(LockedCodeMessage);
+            throw new AccountNameChangeVerificationException(
+                AccountNameVerificationFailure.Locked);
         if (challenge.Status == AccountNameChangeStatus.Expired)
-            throw new DomainException(ExpiredCodeMessage);
+            throw new AccountNameChangeVerificationException(
+                AccountNameVerificationFailure.Expired);
         if (challenge.Status != AccountNameChangeStatus.Active ||
             string.IsNullOrWhiteSpace(
                 challenge.ProviderChallengeId))
-            throw new DomainException(InactiveCodeMessage);
+            throw new AccountNameChangeVerificationException(
+                AccountNameVerificationFailure.Inactive);
     }
 
     private static AccountNameVerificationAttempt CreateAttempt(
@@ -588,7 +588,8 @@ public sealed class VerifyAccountNameChangeHandler(
                 attempt.SubmittedDigest,
                 submittedDigest,
                 StringComparison.OrdinalIgnoreCase))
-            throw new DomainException(NonExactReplayMessage);
+            throw new AccountNameChangeVerificationException(
+                AccountNameVerificationFailure.NonExactReplay);
 
         return attempt.Outcome switch
         {
@@ -600,14 +601,15 @@ public sealed class VerifyAccountNameChangeHandler(
                     challenge.PendingLastName,
                     attempt.CompletedAt!.Value),
             AccountNameVerificationAttemptOutcome.Incorrect =>
-                throw new DomainException(
-                    IncorrectCodeMessage),
+                throw new AccountNameChangeVerificationException(
+                    AccountNameVerificationFailure.Incorrect,
+                    attempt.RemainingAttempts),
             AccountNameVerificationAttemptOutcome.Locked =>
-                throw new DomainException(
-                    LockedCodeMessage),
+                throw new AccountNameChangeVerificationException(
+                    AccountNameVerificationFailure.Locked),
             AccountNameVerificationAttemptOutcome.Expired =>
-                throw new DomainException(
-                    ExpiredCodeMessage),
+                throw new AccountNameChangeVerificationException(
+                    AccountNameVerificationFailure.Expired),
             _ => throw new InvalidOperationException(
                 "Unsupported account name verification outcome.")
         };
@@ -635,8 +637,8 @@ public sealed class VerifyAccountNameChangeHandler(
         var clean = (value ?? "").Trim();
         if (clean.Length != 6 ||
             clean.Any(character => !char.IsAsciiDigit(character)))
-            throw new DomainException(
-                "กรุณากรอกรหัสยืนยัน 6 หลัก");
+            throw new AccountNameChangeVerificationException(
+                AccountNameVerificationFailure.MalformedCode);
         return clean;
     }
 
@@ -645,7 +647,7 @@ public sealed class VerifyAccountNameChangeHandler(
         var clean = (value ?? "").Trim();
         if (clean.Length != 32 ||
             !Guid.TryParseExact(clean, "N", out var parsed))
-            throw new DomainException("รหัสคำขอไม่ถูกต้อง");
+            throw new AccountNameChangeIdempotencyException();
         return parsed.ToString("N");
     }
 }
