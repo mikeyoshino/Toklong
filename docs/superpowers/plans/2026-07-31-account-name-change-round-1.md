@@ -162,3 +162,37 @@ SQLite relational tests, ASP.NET Core Data Protection, xUnit.
   absence of API/UI scope creep.
 - [ ] Append the implementer report and commit with
   `fix: harden account name verification`.
+
+### Task 7: Reentrant mobile registration transaction composition
+
+**Files:**
+- Modify: `src/Toklong.Application/Abstractions/IPendingMobileRegistrationRepository.cs`
+- Modify: `src/Toklong.Application/Features/Authentication/CompleteMobileRegistration.cs`
+- Modify: `src/Toklong.Api/Api/MobileApi.cs`
+- Modify: `src/Toklong.Infrastructure/Persistence/PendingMobileRegistrationRepository.cs`
+- Modify: `src/Toklong.Infrastructure/Persistence/PostgresAccountPhoneTransactionManager.cs`
+- Test: `tests/Toklong.Application.Tests/Authentication/PhoneFirstAuthenticationTests.cs`
+- Test: `tests/Toklong.Api.Tests/Security/MobileSessionTokenServiceTests.cs`
+- Test: `tests/Toklong.Application.Tests/Persistence/AccountNameChangePostgreSqlTests.cs`
+
+**Interfaces:**
+- Adds `GetPhoneByTicketHashAsync` as a no-tracking, non-authorizing preflight.
+- Preserves `IAccountPhoneTransactionManager.BeginAsync` while making its
+  scoped implementation same-phone reentrant with outermost commit ownership.
+
+- [ ] Write real-manager SQLite tests for same-phone nesting, different-phone
+  rejection, LIFO/poison behavior, and one physical commit or rollback.
+- [ ] Run them and verify the current manager fails on nested transactions.
+- [ ] Implement the scoped lease state machine; keep Npgsql advisory SQL and
+  use transaction-only SQLite behavior for relational composition tests.
+- [ ] Run manager tests to green.
+- [ ] Write a failing registration composition test with an existing
+  seller-only structured name and first-session issuance under one outer lease.
+- [ ] Replace the raw endpoint EF transaction with preflight plus outer phone
+  lease. Make the handler acquire a nested lease, re-read pending/buyer/seller,
+  inherit the seller name, save, and mark its nested participation committed.
+- [ ] Run the composition test to green and add rollback evidence.
+- [ ] Run focused registration/session tests, full Application/API tests, the
+  EF pending-model check, and `git diff --check`.
+- [ ] Append the Task 5 implementer report, self-review transaction ownership,
+  then commit with `fix: compose mobile registration transaction`.

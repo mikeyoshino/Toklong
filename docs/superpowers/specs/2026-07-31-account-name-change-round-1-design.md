@@ -62,6 +62,34 @@ seller. New roles inherit the existing same-phone account name. New or
 modified sessions derive their display name from the current account, not
 from a previously materialized profile.
 
+### Mobile registration composition refinement
+
+Mobile registration and its first session are one atomic same-phone operation.
+The API performs a no-tracking ticket-to-phone preflight only to select the
+lock key; that lookup cannot authorize, consume, or mutate registration state.
+After acquiring the outer phone lease, the completion handler re-reads the
+pending registration and revalidates the ticket, installation, idempotency key,
+and normalized phone under the lock. It also re-reads a same-phone seller and
+uses that seller's structured account name for a new buyer when present.
+
+The scoped transaction manager is reentrant only for the same normalized phone
+and DbContext. The first lease owns the EF transaction and PostgreSQL advisory
+lock. Same-phone nested leases participate without starting another database
+transaction; their commits mark successful participation but cannot physically
+commit. Leases close in LIFO order, and only the outer lease may commit the
+database transaction after all nested leases have committed and disposed. A
+different-phone nested begin, out-of-order use, double commit, or commit after
+an uncommitted nested disposal is rejected. Any uncommitted lease poisons the
+outer scope, whose disposal rolls the transaction back.
+
+`CompleteMobileRegistrationHandler` and `MobileSessionTokenService.CreateAsync`
+both acquire nested same-phone leases. Their `SaveChangesAsync` calls therefore
+remain inside the outer transaction, so buyer creation, terms acceptance,
+pending-registration consumption, and first-session creation commit or roll
+back together. Npgsql retains the advisory-lock SQL; SQLite exercises the same
+ownership/reentrancy state machine with a real relational transaction but no
+PostgreSQL advisory function.
+
 ## Protected audit evidence
 
 New audit events store one authenticated encrypted payload:
@@ -120,3 +148,8 @@ materialized nor modified.
 - Relational repository test proving inactive sessions remain untouched.
 - Existing immutable transaction tests plus later seller-acceptance snapshot
   evidence.
+- Real-manager SQLite composition proving seller-name inheritance, identical
+  first-session name, one outer commit, and full rollback when outer commit is
+  omitted.
+- Same-phone reentry, different-phone rejection, LIFO, poisoned-outer, and
+  cancellation/disposal safety checks on the scoped manager.
