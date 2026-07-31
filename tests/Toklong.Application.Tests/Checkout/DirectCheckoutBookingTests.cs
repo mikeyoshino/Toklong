@@ -187,7 +187,7 @@ public sealed class DirectCheckoutBookingTests
                 0,
                 0),
             Now.AddMinutes(1));
-        transaction.QueueBuyerCheckoutShipmentIntent(
+        transaction.RecordBuyerCheckoutShipmentIntent(
             shipment,
             buyerId,
             "choice-direct-001",

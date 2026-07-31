@@ -7,6 +7,32 @@ namespace Toklong.Mobile.Core.Tests;
 public sealed class TransactionDetailParcelProtectionViewModelTests
 {
     [Fact]
+    public async Task First_visit_prepares_toggle_without_opening_modal()
+    {
+        var service = new ParcelProtectionService
+        {
+            Protection = ChoiceProtection(),
+            PreparedProtection = ChoiceProtection(),
+            Transaction = Transaction(amountSatang: 450_00)
+        };
+        var sheet = new RecordingSheet();
+        var analytics = new RecordingAnalytics();
+        var viewModel = ViewModel(service, sheet, analytics);
+
+        await viewModel.LoadAsync(service.Transaction.Id);
+
+        Assert.False(viewModel.IsParcelProtectionChoiceVisible);
+        Assert.True(viewModel.ShowParcelProtectionToggle);
+        Assert.False(viewModel.IsParcelProtectionToggleOn);
+        Assert.Equal(1, service.PrepareCalls);
+        Assert.Equal(0, service.ChooseCalls);
+        Assert.Equal(0, sheet.Calls);
+        Assert.Contains(
+            analytics.Events,
+            value => value.Name == "parcel_protection_offered");
+    }
+
+    [Fact]
     public async Task Fresh_instance_resumes_ready_election_without_resubmitting()
     {
         var service = new ParcelProtectionService
@@ -107,14 +133,410 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
     }
 
     [Fact]
-    public async Task Choosing_protection_refreshes_transaction_before_payment_sheet()
+    public async Task Payment_sheet_loading_state_stays_visible_until_the_sheet_returns()
+    {
+        var service = new ParcelProtectionService
+        {
+            Protection = ReadyProtection(),
+            Transaction = Transaction()
+        };
+        var sheet = new ControlledSheet();
+        var viewModel = ViewModel(service, sheet);
+
+        await viewModel.LoadAsync(service.Transaction.Id);
+        viewModel.AcceptedTerms = true;
+        var execution = ExecuteAsync(
+            viewModel.PrimaryActionCommand);
+
+        await sheet.Started.Task.WaitAsync(
+            TimeSpan.FromSeconds(2));
+
+        Assert.True(viewModel.IsPaymentSheetOpening);
+        Assert.Equal(
+            "กำลังเตรียมการจัดส่งและเปิดหน้าจ่ายเงิน…",
+            viewModel.Message);
+
+        sheet.Complete(PaymentSheetOutcome.Cancelled);
+        await execution;
+
+        Assert.False(viewModel.IsPaymentSheetOpening);
+        Assert.Equal(
+            "ยังไม่ได้จ่ายเงิน กดชำระอีกครั้งได้",
+            viewModel.Message);
+    }
+
+    [Fact]
+    public async Task Loading_another_transaction_never_reuses_its_checkout_key()
+    {
+        var first = Transaction();
+        var second = Transaction();
+        var service = new ParcelProtectionService
+        {
+            Protection = ReadyProtection(),
+            Transaction = first
+        };
+        var sheet = new RecordingSheet();
+        var viewModel = ViewModel(service, sheet);
+
+        await viewModel.LoadAsync(first.Id);
+        viewModel.AcceptedTerms = true;
+        await ExecuteAsync(viewModel.PrimaryActionCommand);
+
+        service.Transaction = second;
+        await viewModel.LoadAsync(second.Id);
+        viewModel.AcceptedTerms = true;
+        await ExecuteAsync(viewModel.PrimaryActionCommand);
+
+        Assert.Equal(2, sheet.Keys.Count);
+        Assert.NotEqual(sheet.Keys[0], sheet.Keys[1]);
+        Assert.Contains(first.Id.ToString("N"), sheet.Keys[0]);
+        Assert.Contains(second.Id.ToString("N"), sheet.Keys[1]);
+    }
+
+    [Fact]
+    public async Task Choosing_protection_updates_total_before_payment_and_submits_once()
     {
         var service = new ParcelProtectionService
         {
             Protection = ChoiceProtection(),
             PreparedProtection = ChoiceProtection(),
+            Transaction = Transaction(amountSatang: 450_00),
+            UpdatedTransaction = Transaction(amountSatang: 456_00),
+            ProtectionAfterChoice = ReadyProtection()
+        };
+        var sheet = new RecordingSheet();
+        var viewModel = ViewModel(service, sheet);
+
+        await viewModel.LoadAsync(service.Transaction.Id);
+        Assert.False(viewModel.IsParcelProtectionChoiceVisible);
+        Assert.Equal(1, service.PrepareCalls);
+
+        await ExecuteAsync(viewModel.ToggleParcelProtectionCommand);
+
+        Assert.True(viewModel.IsParcelProtectionChoiceVisible);
+        Assert.True(viewModel.IsParcelProtectionToggleOn);
+        Assert.Equal(0, service.ChooseCalls);
+
+        await ExecuteAsync(viewModel.ConfirmParcelProtectionCommand);
+
+        Assert.True(viewModel.IsParcelProtectionAddOnSelected);
+        Assert.Equal("฿456", viewModel.CheckoutAmountText);
+        Assert.Equal("ชำระ ฿456", viewModel.PaymentActionText);
+        Assert.Equal(1, service.ChooseCalls);
+        Assert.Equal(0, sheet.Calls);
+        Assert.False(viewModel.IsParcelProtectionChoiceVisible);
+        Assert.Equal(456_00, viewModel.Transaction!.AmountSatang);
+
+        viewModel.AcceptedTerms = true;
+        await ExecuteAsync(viewModel.PrimaryActionCommand);
+
+        Assert.Equal(1, service.ChooseCalls);
+        Assert.Equal(1, sheet.Calls);
+    }
+
+    [Fact]
+    public async Task Changed_protection_quote_keeps_modal_open_with_reconfirmation_message()
+    {
+        var refreshed = ChoiceProtection() with
+        {
+            OptionReference = "refreshed-option",
+            CustomerPriceSatang = 7_00
+        };
+        var service = new ParcelProtectionService
+        {
+            Protection = ChoiceProtection(),
+            PreparedProtection = refreshed,
+            Transaction = Transaction(amountSatang: 450_00)
+        };
+        service.ChooseStatuses.Enqueue("reconfirmation_required");
+        var viewModel = ViewModel(service);
+
+        await viewModel.LoadAsync(service.Transaction.Id);
+        await ExecuteAsync(viewModel.ToggleParcelProtectionCommand);
+        await ExecuteAsync(viewModel.ConfirmParcelProtectionCommand);
+
+        Assert.True(viewModel.IsParcelProtectionChoiceVisible);
+        Assert.True(viewModel.IsParcelProtectionToggleOn);
+        Assert.Equal("refreshed-option", viewModel.ParcelProtection!.OptionReference);
+        Assert.Equal(
+            "ข้อมูลความคุ้มครองเปลี่ยน กรุณาตรวจสอบอีกครั้งแล้วกดตกลง",
+            viewModel.Message);
+        Assert.Equal(2, service.PrepareCalls);
+        Assert.Equal(1, service.ChooseCalls);
+    }
+
+    [Fact]
+    public async Task Cancelling_add_on_confirmation_restores_toggle_and_total_without_saving()
+    {
+        var service = new ParcelProtectionService
+        {
+            Protection = ChoiceProtection(),
+            PreparedProtection = ChoiceProtection(),
+            Transaction = Transaction(amountSatang: 450_00)
+        };
+        var viewModel = ViewModel(service);
+
+        await viewModel.LoadAsync(service.Transaction.Id);
+        await ExecuteAsync(viewModel.ToggleParcelProtectionCommand);
+
+        Assert.True(viewModel.IsParcelProtectionToggleOn);
+        Assert.Equal("฿456", viewModel.CheckoutAmountText);
+
+        viewModel.CancelParcelProtectionCommand.Execute(null);
+
+        Assert.False(viewModel.IsParcelProtectionChoiceVisible);
+        Assert.False(viewModel.IsParcelProtectionToggleOn);
+        Assert.Equal("฿450", viewModel.CheckoutAmountText);
+        Assert.Equal(0, service.ChooseCalls);
+    }
+
+    [Fact]
+    public async Task Cancelling_removal_restores_saved_add_on()
+    {
+        var service = new ParcelProtectionService
+        {
+            Protection = ReadyProtection(),
+            Transaction = Transaction(amountSatang: 456_00)
+        };
+        var viewModel = ViewModel(service);
+
+        await viewModel.LoadAsync(service.Transaction.Id);
+        await ExecuteAsync(viewModel.ToggleParcelProtectionCommand);
+
+        Assert.False(viewModel.IsParcelProtectionToggleOn);
+        Assert.True(viewModel.IsParcelProtectionChoiceVisible);
+
+        viewModel.CancelParcelProtectionCommand.Execute(null);
+
+        Assert.True(viewModel.IsParcelProtectionToggleOn);
+        Assert.False(viewModel.IsParcelProtectionChoiceVisible);
+        Assert.Equal(0, service.ChooseCalls);
+    }
+
+    [Fact]
+    public async Task Confirming_removal_saves_decline_once()
+    {
+        var service = new ParcelProtectionService
+        {
+            Protection = ReadyProtection(),
             Transaction = Transaction(amountSatang: 456_00),
-            UpdatedTransaction = Transaction(amountSatang: 462_00),
+            UpdatedTransaction = Transaction(amountSatang: 450_00),
+            ProtectionAfterChoice = DeclinedProtection()
+        };
+        var viewModel = ViewModel(service);
+
+        await viewModel.LoadAsync(service.Transaction.Id);
+        await ExecuteAsync(viewModel.ToggleParcelProtectionCommand);
+        await ExecuteAsync(viewModel.ConfirmParcelProtectionCommand);
+
+        Assert.Equal([false], service.Choices);
+        Assert.False(viewModel.IsParcelProtectionToggleOn);
+        Assert.False(viewModel.IsParcelProtectionChoiceVisible);
+        Assert.Equal("฿450", viewModel.CheckoutAmountText);
+    }
+
+    [Fact]
+    public async Task Toggle_preparation_failure_keeps_saved_decline_and_does_not_open_modal()
+    {
+        var service = new ParcelProtectionService
+        {
+            Protection = DeclinedProtection(),
+            Transaction = Transaction(amountSatang: 450_00)
+        };
+        service.PrepareFailures.Enqueue(
+            new HttpRequestException("network unavailable"));
+        var viewModel = ViewModel(service);
+        var changedProperties = new List<string?>();
+        viewModel.PropertyChanged += (_, eventArgs) =>
+            changedProperties.Add(eventArgs.PropertyName);
+
+        await viewModel.LoadAsync(service.Transaction.Id);
+        Assert.True(viewModel.ShowParcelProtectionToggle);
+        Assert.True(viewModel.CanToggleParcelProtection);
+        changedProperties.Clear();
+        await ExecuteAsync(viewModel.ToggleParcelProtectionCommand);
+
+        Assert.False(viewModel.IsParcelProtectionToggleOn);
+        Assert.False(viewModel.IsParcelProtectionChoiceVisible);
+        Assert.Equal(0, service.ChooseCalls);
+        Assert.Equal("network unavailable", viewModel.Message);
+        Assert.Contains(
+            nameof(viewModel.IsParcelProtectionToggleOn),
+            changedProperties);
+    }
+
+    [Fact]
+    public async Task Payment_pending_decline_keeps_a_visible_locked_off_toggle()
+    {
+        var service = new ParcelProtectionService
+        {
+            Protection = DeclinedProtection(),
+            Transaction = Transaction(
+                amountSatang: 838_00,
+                state: "PaymentPending")
+        };
+        var viewModel = ViewModel(service);
+
+        await viewModel.LoadAsync(service.Transaction.Id);
+
+        Assert.True(viewModel.ShowParcelProtectionToggle);
+        Assert.True(viewModel.IsParcelProtectionChoiceLocked);
+        Assert.False(viewModel.CanToggleParcelProtection);
+        Assert.False(viewModel.IsParcelProtectionToggleOn);
+        Assert.Equal(
+            "ไม่เพิ่ม · เริ่มการชำระแล้ว เปลี่ยนไม่ได้",
+            viewModel.ParcelProtectionToggleDetailText);
+    }
+
+    [Fact]
+    public async Task Included_coverage_does_not_show_an_unnecessary_toggle()
+    {
+        var included = DeclinedProtection() with
+        {
+            AddOnAvailable = false,
+            IncludedCoverageLimitSatang = 500_00
+        };
+        var service = new ParcelProtectionService
+        {
+            Protection = included,
+            Transaction = Transaction(amountSatang: 456_00)
+        };
+        var viewModel = ViewModel(service);
+
+        await viewModel.LoadAsync(service.Transaction.Id);
+
+        Assert.False(viewModel.ShowParcelProtectionToggle);
+        Assert.False(viewModel.CanToggleParcelProtection);
+    }
+
+    [Fact]
+    public async Task Choosing_included_coverage_is_saved_before_payment()
+    {
+        var service = new ParcelProtectionService
+        {
+            Protection = ChoiceProtection(),
+            PreparedProtection = ChoiceProtection(),
+            Transaction = Transaction(),
+            ProtectionAfterChoice = DeclinedProtection()
+        };
+        var sheet = new RecordingSheet();
+        var viewModel = ViewModel(service, sheet);
+
+        await viewModel.LoadAsync(service.Transaction.Id);
+        viewModel.AcceptedTerms = true;
+        await ExecuteAsync(viewModel.PrimaryActionCommand);
+
+        Assert.Equal(1, service.ChooseCalls);
+        Assert.Equal(1, sheet.Calls);
+        Assert.True(viewModel.IsParcelProtectionIncludedSelected);
+        Assert.False(viewModel.IsParcelProtectionChoiceVisible);
+    }
+
+    [Fact]
+    public async Task Changing_choice_after_a_failed_request_uses_a_new_election_key()
+    {
+        var service = new ParcelProtectionService
+        {
+            Protection = ChoiceProtection(),
+            PreparedProtection = ChoiceProtection(),
+            Transaction = Transaction(amountSatang: 450_00)
+        };
+        service.ChooseFailures.Enqueue(
+            new HttpRequestException("network unavailable"));
+        var viewModel = ViewModel(service);
+
+        await viewModel.LoadAsync(service.Transaction.Id);
+        await ExecuteAsync(viewModel.ToggleParcelProtectionCommand);
+        await ExecuteAsync(viewModel.ConfirmParcelProtectionCommand);
+        viewModel.CancelParcelProtectionCommand.Execute(null);
+        await ExecuteAsync(viewModel.ToggleParcelProtectionCommand);
+        await ExecuteAsync(viewModel.ConfirmParcelProtectionCommand);
+
+        Assert.Equal([true, true], service.Choices);
+        Assert.Equal(2, service.ChooseKeys.Count);
+        Assert.NotEqual(
+            service.ChooseKeys[0],
+            service.ChooseKeys[1]);
+    }
+
+    [Fact]
+    public async Task Background_refresh_keeps_the_saved_choice_and_hides_the_modal()
+    {
+        var service = new ParcelProtectionService
+        {
+            Protection = ChoiceProtection(),
+            PreparedProtection = ChoiceProtection(),
+            Transaction = Transaction(amountSatang: 450_00),
+            UpdatedTransaction = Transaction(amountSatang: 456_00),
+            ProtectionAfterChoice = ReadyProtection()
+        };
+        var viewModel = ViewModel(service);
+
+        await viewModel.LoadAsync(service.Transaction.Id);
+        await ExecuteAsync(viewModel.ToggleParcelProtectionCommand);
+        await ExecuteAsync(viewModel.ConfirmParcelProtectionCommand);
+
+        await viewModel.RefreshAsync(service.Transaction.Id);
+
+        Assert.False(viewModel.IsParcelProtectionChoiceVisible);
+        Assert.True(viewModel.IsParcelProtectionAddOnSelected);
+        Assert.Equal("ชำระ ฿456", viewModel.PaymentActionText);
+        Assert.Equal(1, service.ChooseCalls);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Resuming_after_a_saved_choice_does_not_prompt_or_resubmit(
+        bool addProtection)
+    {
+        var service = new ParcelProtectionService
+        {
+            Protection = ChoiceProtection(),
+            PreparedProtection = ChoiceProtection(),
+            Transaction = Transaction(amountSatang: 450_00),
+            UpdatedTransaction = Transaction(
+                amountSatang: addProtection ? 456_00 : 450_00),
+            ProtectionAfterChoice = addProtection
+                ? ReadyProtection()
+                : DeclinedProtection()
+        };
+        var firstViewModel = ViewModel(service);
+
+        await firstViewModel.LoadAsync(service.Transaction.Id);
+        if (addProtection)
+        {
+            await ExecuteAsync(
+                firstViewModel.ToggleParcelProtectionCommand);
+            await ExecuteAsync(
+                firstViewModel.ConfirmParcelProtectionCommand);
+        }
+        else
+        {
+            firstViewModel.AcceptedTerms = true;
+            await ExecuteAsync(
+                firstViewModel.PrimaryActionCommand);
+        }
+
+        var resumedViewModel = ViewModel(service);
+        await resumedViewModel.LoadAsync(
+            service.Transaction.Id);
+
+        Assert.Equal(1, service.ChooseCalls);
+        Assert.False(
+            resumedViewModel.IsParcelProtectionChoiceVisible);
+        Assert.Equal(1, service.PrepareCalls);
+    }
+
+    [Fact]
+    public async Task Payment_does_not_submit_a_new_choice_when_server_requires_one()
+    {
+        var service = new ParcelProtectionService
+        {
+            Protection = ReadyProtection(),
+            PreparedProtection = ChoiceProtection(),
+            Transaction = Transaction(amountSatang: 450_00),
+            UpdatedTransaction = Transaction(amountSatang: 456_00),
             ProtectionAfterChoice = ReadyProtection()
         };
         var sheet = new RecordingSheet();
@@ -122,40 +544,14 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
 
         await viewModel.LoadAsync(service.Transaction.Id);
         viewModel.AcceptedTerms = true;
+        service.Protection = ChoiceProtection();
+
         await ExecuteAsync(viewModel.PrimaryActionCommand);
-        Assert.True(viewModel.IsParcelProtectionChoiceVisible);
 
-        await ExecuteAsync(viewModel.AcceptParcelProtectionCommand);
-
+        Assert.Equal(0, service.PrepareCalls);
         Assert.Equal(1, service.ChooseCalls);
-        Assert.True(service.GetTransactionCalls >= 3);
-        Assert.Equal(462_00, viewModel.Transaction!.AmountSatang);
         Assert.Equal(1, sheet.Calls);
-    }
-
-    [Fact]
-    public async Task Closing_choice_then_retrying_starts_a_fresh_choice_without_election()
-    {
-        var service = new ParcelProtectionService
-        {
-            Protection = ChoiceProtection(),
-            PreparedProtection = ChoiceProtection(),
-            Transaction = Transaction()
-        };
-        var sheet = new RecordingSheet();
-        var viewModel = ViewModel(service, sheet);
-
-        await viewModel.LoadAsync(service.Transaction.Id);
-        viewModel.AcceptedTerms = true;
-        await ExecuteAsync(viewModel.PrimaryActionCommand);
-        viewModel.DismissParcelProtectionCommand
-            .Execute(null);
-        await ExecuteAsync(viewModel.PrimaryActionCommand);
-
-        Assert.True(viewModel.IsParcelProtectionChoiceVisible);
-        Assert.Equal(2, service.PrepareCalls);
-        Assert.Equal(0, service.ChooseCalls);
-        Assert.Equal(0, sheet.Calls);
+        Assert.False(viewModel.IsParcelProtectionChoiceVisible);
     }
 
     [Fact]
@@ -179,11 +575,92 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
 
         Assert.True(viewModel.IsParcelProtectionChoiceVisible);
         Assert.True(viewModel.IsParcelProtectionUnavailable);
+        Assert.False(viewModel.CanToggleParcelProtection);
+        Assert.True(viewModel.CanConfirmParcelProtection);
         Assert.False(viewModel.HasParcelProtectionOfferDetails);
         Assert.Equal("", viewModel.MaximumCoverageText);
         Assert.Equal("", viewModel.ParcelProtectionPriceText);
         Assert.Equal(0, service.ChooseCalls);
         Assert.Equal(0, sheet.Calls);
+    }
+
+    [Fact]
+    public async Task Changed_price_requires_modal_confirmation_before_saving()
+    {
+        var changed = ChoiceProtection() with
+        {
+            ReconfirmationRequired = true,
+            Election = "ReconfirmationRequired",
+            CustomerPriceSatang = 700,
+            OptionReference = "option-2"
+        };
+        var service = new ParcelProtectionService
+        {
+            Protection = changed,
+            PreparedProtection = changed with
+            {
+                ReconfirmationRequired = false,
+                Election = "Pending"
+            },
+            Transaction = Transaction(amountSatang: 450_00),
+            UpdatedTransaction = Transaction(amountSatang: 457_00),
+            ProtectionAfterChoice = ReadyProtection() with
+            {
+                CustomerPriceSatang = 700,
+                OptionReference = "option-2"
+            }
+        };
+        var viewModel = ViewModel(service);
+
+        await viewModel.LoadAsync(service.Transaction.Id);
+
+        Assert.True(viewModel.IsParcelProtectionChoiceVisible);
+        Assert.True(viewModel.IsParcelProtectionToggleOn);
+        Assert.Equal("+฿7", viewModel.ParcelProtectionPriceAmountText);
+        Assert.Equal(0, service.ChooseCalls);
+
+        await ExecuteAsync(viewModel.ConfirmParcelProtectionCommand);
+
+        Assert.Equal([true], service.Choices);
+        Assert.False(viewModel.IsParcelProtectionChoiceVisible);
+        Assert.Equal("฿457", viewModel.CheckoutAmountText);
+    }
+
+    [Fact]
+    public async Task Background_price_change_reopens_confirmation_and_cancel_restores_saved_add_on()
+    {
+        var changed = ChoiceProtection() with
+        {
+            CustomerPriceSatang = 700,
+            OptionReference = "option-2"
+        };
+        var service = new ParcelProtectionService
+        {
+            Protection = ReadyProtection(),
+            PreparedProtection = changed,
+            Transaction = Transaction(amountSatang: 456_00)
+        };
+        var viewModel = ViewModel(service);
+
+        await viewModel.LoadAsync(service.Transaction.Id);
+        service.Protection = changed with
+        {
+            Election = "ReconfirmationRequired",
+            ReconfirmationRequired = true
+        };
+
+        await viewModel.RefreshAsync(service.Transaction.Id);
+
+        Assert.True(viewModel.IsParcelProtectionChoiceVisible);
+        Assert.True(viewModel.IsParcelProtectionToggleOn);
+        Assert.Equal("+฿7", viewModel.ParcelProtectionPriceAmountText);
+
+        viewModel.CancelParcelProtectionCommand.Execute(null);
+
+        Assert.False(viewModel.IsParcelProtectionChoiceVisible);
+        Assert.True(viewModel.IsParcelProtectionToggleOn);
+        Assert.Equal("฿456", viewModel.CheckoutAmountText);
+        Assert.Equal(0, service.ChooseCalls);
     }
 
     [Fact]
@@ -202,13 +679,14 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
 
         await ExecuteAsync(viewModel.ChangeParcelProtectionCommand);
 
-        Assert.Equal(1, service.PrepareCalls);
+        Assert.Equal(0, service.PrepareCalls);
         Assert.True(viewModel.IsParcelProtectionChoiceVisible);
+        Assert.True(viewModel.IsParcelProtectionIncludedSelected);
     }
 
     private static TransactionDetailViewModel ViewModel(
         ParcelProtectionService service,
-        RecordingSheet? sheet = null,
+        IStripePaymentSheetService? sheet = null,
         RecordingAnalytics? analytics = null) =>
         new(
             service,
@@ -231,11 +709,13 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
         await completed.Task.WaitAsync(TimeSpan.FromSeconds(2));
     }
 
-    private static AppTransaction Transaction(long amountSatang = 456_00) =>
+    private static AppTransaction Transaction(
+        long amountSatang = 456_00,
+        string state = "SellerAcceptedAwaitingPayment") =>
         new(
             Guid.NewGuid(), "กล้อง", amountSatang, "THB",
             AppTransactionRole.Buyer, AppFulfillmentType.Physical,
-            "SellerAcceptedAwaitingPayment",
+            state,
             DateTimeOffset.Parse("2026-07-30T10:00:00+07:00"),
             DateTimeOffset.Parse("2026-07-31T10:00:00+07:00"), "ผู้ขาย",
             ItemPriceSatang: 450_00,
@@ -253,6 +733,16 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
         {
             Election = "Accepted", BookingReady = true,
             RequiresChoice = true
+        };
+
+    private static BuyerParcelProtection DeclinedProtection() =>
+        ChoiceProtection() with
+        {
+            Election = "Declined",
+            BookingReady = false,
+            RequiresChoice = false,
+            CustomerPriceSatang = null,
+            OptionReference = null
         };
 
     private sealed class RecordingSheet(
@@ -277,6 +767,29 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
         }
     }
 
+    private sealed class ControlledSheet : IStripePaymentSheetService
+    {
+        private readonly TaskCompletionSource<PaymentSheetOutcome>
+            completion = new(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Started { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async Task<PaymentSheetOutcome> PresentAsync(
+            Guid transactionId,
+            string idempotencyKey,
+            CancellationToken cancellationToken = default)
+        {
+            Started.TrySetResult();
+            return await completion.Task.WaitAsync(
+                cancellationToken);
+        }
+
+        public void Complete(PaymentSheetOutcome outcome) =>
+            completion.TrySetResult(outcome);
+    }
+
     private sealed class RecordingAnalytics : IMobileAnalytics
     {
         public List<MobileAnalyticsEvent> Events { get; } = [];
@@ -286,11 +799,16 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
 
     private sealed class ParcelProtectionService : ITransactionService
     {
-        public required AppTransaction Transaction { get; init; }
+        public required AppTransaction Transaction { get; set; }
         public AppTransaction? UpdatedTransaction { get; init; }
         public required BuyerParcelProtection Protection { get; set; }
         public BuyerParcelProtection? PreparedProtection { get; init; }
         public BuyerParcelProtection? ProtectionAfterChoice { get; init; }
+        public Queue<Exception> ChooseFailures { get; } = [];
+        public Queue<Exception> PrepareFailures { get; } = [];
+        public Queue<string> ChooseStatuses { get; } = [];
+        public List<bool> Choices { get; } = [];
+        public List<string> ChooseKeys { get; } = [];
         public int GetProtectionCalls { get; private set; }
         public int GetTransactionCalls { get; private set; }
         public int PrepareCalls { get; private set; }
@@ -320,6 +838,9 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
             CancellationToken cancellationToken = default)
         {
             PrepareCalls++;
+            if (PrepareFailures.TryDequeue(
+                    out var failure))
+                throw failure;
             return Task.FromResult(PreparedProtection ?? Protection);
         }
 
@@ -332,8 +853,16 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
             CancellationToken cancellationToken = default)
         {
             ChooseCalls++;
+            Choices.Add(addProtection);
+            ChooseKeys.Add(idempotencyKey);
+            if (ChooseFailures.TryDequeue(
+                    out var failure))
+                throw failure;
             Protection = ProtectionAfterChoice ?? Protection;
-            return Task.FromResult("preparing");
+            return Task.FromResult(
+                ChooseStatuses.TryDequeue(out var status)
+                    ? status
+                    : "preparing");
         }
 
         public Task<BuyerCostPreview> GetBuyerCostPreviewAsync(long itemPriceSatang,

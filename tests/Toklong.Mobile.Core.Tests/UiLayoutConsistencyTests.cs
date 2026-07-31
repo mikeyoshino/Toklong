@@ -1643,7 +1643,7 @@ public sealed class UiLayoutConsistencyTests
             buyerCost.Descendants(Maui + "Label"),
             label =>
                 AttributeValue(label, "Text") ==
-                    "{Binding Transaction.FormattedAmount}");
+                    "{Binding CheckoutAmountText}");
         Assert.Contains(
             buyerCost.Descendants(Maui + "Label"),
             label =>
@@ -1774,11 +1774,52 @@ public sealed class UiLayoutConsistencyTests
                 AttributeValue(button, "Command") ==
                     "{Binding PrimaryActionCommand}" &&
                 AttributeValue(button, "Text") ==
-                    "{Binding Transaction.FormattedAmount, StringFormat='ชำระ {0}'}" &&
+                    "{Binding PaymentActionText}" &&
                 AttributeValue(
                     button,
                     "SemanticProperties.Description") ==
-                    "{Binding Transaction.FormattedAmount, StringFormat='เปิดหน้าจ่ายเงินยอด {0}'}");
+                    "{Binding PaymentSemanticDescription}");
+        Assert.Contains(
+            payment.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "AutomationId") ==
+                    "BuyerPaymentFeedback" &&
+                AttributeValue(label, "IsVisible") ==
+                    "{Binding HasMessage}" &&
+                AttributeValue(label, "Text") ==
+                    "{Binding Message}");
+        var openingFeedback = payment
+            .Descendants(Maui + "HorizontalStackLayout")
+            .Single(stack =>
+                AttributeValue(stack, "AutomationId") ==
+                    "PaymentSheetOpeningFeedback");
+        Assert.Equal(
+            "{Binding IsPaymentSheetOpening}",
+            AttributeValue(
+                openingFeedback,
+                "IsVisible"));
+        Assert.Contains(
+            openingFeedback.Descendants(
+                Maui + "ActivityIndicator"),
+            indicator =>
+                AttributeValue(indicator, "IsRunning") ==
+                    "{Binding IsPaymentSheetOpening}");
+        Assert.Contains(
+            openingFeedback.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") ==
+                    "กำลังเปิดหน้าจ่ายเงิน…");
+        var toast = detail.Descendants(Maui + "Border")
+            .Single(border =>
+                AttributeValue(border, "AutomationId") ==
+                    "PaymentToast");
+        Assert.Equal(
+            "{Binding IsPaymentSheetOpening}",
+            AttributeValue(toast, "IsVisible"));
+        Assert.Contains(
+            toast.Descendants(Maui + "Label"),
+            label => AttributeValue(label, "Text") ==
+                "กำลังเปิดหน้าจ่ายเงิน…");
     }
 
     [Fact]
@@ -1789,27 +1830,72 @@ public sealed class UiLayoutConsistencyTests
             .Select(label => AttributeValue(label, "Text"))
             .ToArray();
         var buttons = detail.Descendants(Maui + "Button").ToArray();
-        var choice = detail.Descendants(Maui + "Border").Single(border =>
-            AttributeValue(border, "AutomationId") ==
-                "ParcelProtectionChoiceCard");
+        var choice = detail.Descendants(Maui + "Grid").Single(grid =>
+            AttributeValue(grid, "AutomationId") ==
+                "ParcelProtectionChoiceModal");
         var payment = detail.Descendants(Maui + "VerticalStackLayout")
             .Single(stack => AttributeValue(stack, "AutomationId") ==
                 "BuyerPaymentControls");
 
-        Assert.Contains("เพิ่มความคุ้มครองพัสดุไหม?", labels);
         Assert.Contains(
-            "มูลค่าสินค้าสูงกว่าวงเงินที่รวมมากับการจัดส่ง แนะนำเพิ่มความคุ้มครองก่อนชำระเงิน",
+            "{Binding ParcelProtectionModalTitle}",
             labels);
         Assert.Contains(
-            buttons,
-            button => AttributeValue(button, "Text") ==
-                "{Binding ParcelProtectionPrimaryActionText}" &&
-                AttributeValue(button, "MinimumHeightRequest") == "48");
+            "{Binding ParcelProtectionModalDescription}",
+            labels);
+        var toggleRow = detail.Descendants(Maui + "Grid").Single(grid =>
+            AttributeValue(grid, "AutomationId") ==
+                "ParcelProtectionToggleRow");
+        var toggle = toggleRow.Descendants(Maui + "Switch").Single(item =>
+            AttributeValue(item, "AutomationId") ==
+                "ParcelProtectionToggle");
+        Assert.Equal(
+            "{Binding IsParcelProtectionToggleOn, Mode=OneWay}",
+            AttributeValue(toggle, "IsToggled"));
+        Assert.Equal(
+            "{Binding CanToggleParcelProtection}",
+            AttributeValue(toggle, "IsEnabled"));
+        Assert.Equal(
+            "OnParcelProtectionToggled",
+            AttributeValue(toggle, "Toggled"));
+        var addOn = choice.Descendants(Maui + "Border").Single(border =>
+            AttributeValue(border, "AutomationId") ==
+                "ParcelProtectionModalAddOnSummary");
+        var included = choice.Descendants(Maui + "Border").Single(border =>
+            AttributeValue(border, "AutomationId") ==
+                "ParcelProtectionModalDeclinedSummary");
+        Assert.Equal(
+            "{Binding IsParcelProtectionAddOnSelected}",
+            AttributeValue(addOn, "IsVisible"));
+        Assert.Equal(
+            "{Binding IsParcelProtectionIncludedSelected}",
+            AttributeValue(included, "IsVisible"));
+        Assert.Equal(
+            "{Binding ParcelProtectionPrimaryActionText}",
+            AttributeValue(
+                addOn,
+                "SemanticProperties.Description"));
+        Assert.Equal(
+            "ใช้ความคุ้มครองที่รวมมา ไม่มีค่าใช้จ่ายเพิ่ม",
+            AttributeValue(
+                included,
+                "SemanticProperties.Description"));
         Assert.Contains(
-            buttons,
-            button => AttributeValue(button, "Text") ==
-                "{Binding ParcelProtectionDeclineActionText}" &&
-                AttributeValue(button, "MinimumHeightRequest") == "44");
+            choice.Descendants(Maui + "Button"),
+            button =>
+                AttributeValue(button, "Text") == "ตกลง" &&
+                AttributeValue(button, "Command") ==
+                    "{Binding ConfirmParcelProtectionCommand}" &&
+                AttributeValue(button, "MinimumHeightRequest") ==
+                    "48");
+        Assert.Contains(
+            choice.Descendants(Maui + "Button"),
+            button =>
+                AttributeValue(button, "Text") == "ยกเลิก" &&
+                AttributeValue(button, "Command") ==
+                    "{Binding CancelParcelProtectionCommand}" &&
+                AttributeValue(button, "MinimumHeightRequest") ==
+                    "48");
         Assert.DoesNotContain(
             buttons,
             button => AttributeValue(button, "Text") ==
@@ -1818,10 +1904,9 @@ public sealed class UiLayoutConsistencyTests
             labels,
             text => text ==
                 "วงเงินและเงื่อนไขที่เลือกใช้จะแสดงในรายละเอียดรายการก่อนชำระเงิน");
-        Assert.Contains(
+        Assert.DoesNotContain(
             buttons,
-            button => AttributeValue(button, "Text") == "เปลี่ยน" &&
-                AttributeValue(button, "MinimumHeightRequest") == "44");
+            button => AttributeValue(button, "Text") == "เปลี่ยน");
         Assert.Contains("ค่าความคุ้มครองพัสดุ", labels);
         Assert.Single(
             choice.Descendants(Maui + "Label"),
@@ -1830,17 +1915,15 @@ public sealed class UiLayoutConsistencyTests
         Assert.Single(
             choice.Descendants(Maui + "Label"),
             label => AttributeValue(label, "Text") ==
-                "{Binding ParcelProtectionPriceText}");
+                "{Binding ParcelProtectionPriceAmountText}");
         Assert.DoesNotContain(
             payment.Descendants(Maui + "Label"),
             label => AttributeValue(label, "Text") ==
                 "{Binding MaximumCoverageText}");
-        Assert.Contains(
-            buttons,
-            button => AttributeValue(button, "Text") ==
-                "{Binding ParcelProtectionDeclineActionText}" &&
-                AttributeValue(button, "SemanticProperties.Description") ==
-                    "{Binding ParcelProtectionDeclineActionText}");
+        Assert.Single(
+            payment.Descendants(Maui + "Button"),
+            button => AttributeValue(button, "Command") ==
+                "{Binding PrimaryActionCommand}");
         var source = File.ReadAllText(
             Path.Combine(AppContext.BaseDirectory, "Ui", "Pages",
                 "TransactionDetailPage.xaml"));

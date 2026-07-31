@@ -39,6 +39,20 @@ public partial class TransactionDetailPage : ContentPage, IQueryAttributable
         base.OnDisappearing();
     }
 
+    private void OnParcelProtectionToggled(
+        object? sender,
+        ToggledEventArgs eventArgs)
+    {
+        if (eventArgs.Value ==
+                viewModel.IsParcelProtectionToggleOn ||
+            !viewModel.CanToggleParcelProtection ||
+            !viewModel.ToggleParcelProtectionCommand
+                .CanExecute(null))
+            return;
+
+        viewModel.ToggleParcelProtectionCommand.Execute(null);
+    }
+
     private void StartRefreshLoop()
     {
         if (!transactionId.HasValue ||

@@ -223,7 +223,7 @@ public static class TestTransactionFactory
                 now);
         if (transaction.CurrentOutboundShipment is null)
         {
-            transaction.QueueBuyerCheckoutShipmentIntent(
+            transaction.RecordBuyerCheckoutShipmentIntent(
                 shipment,
                 transaction.BuyerId!.Value,
                 $"test-book:{shipment.Id:N}",

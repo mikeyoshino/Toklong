@@ -727,6 +727,10 @@ public sealed class TransactionPresentationTests
             ParcelProtectionCheckoutStep.SubmitIncludedCoverage,
             ParcelProtectionCheckoutPresentation.Next(included));
         Assert.Equal(
+            ParcelProtectionCheckoutStep.SubmitIncludedCoverage,
+            ParcelProtectionCheckoutPresentation.Next(
+                included with { Election = "Unavailable" }));
+        Assert.Equal(
             ParcelProtectionCheckoutStep.PresentPayment,
             ParcelProtectionCheckoutPresentation.Next(
                 offered with

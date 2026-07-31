@@ -278,7 +278,11 @@ internal static partial class ParcelProtectionCheckout
             transaction.CarrierCode ?? throw new DomainException("ไม่พบผู้ให้บริการขนส่งที่เลือก"),
             transaction.ShippingServiceCode ?? throw new DomainException("ไม่พบบริการขนส่งที่เลือก"),
             transaction.ShippingQuoteReference ?? throw new DomainException("ไม่พบราคาอ้างอิงการจัดส่ง"),
-            transaction.PriceSatang);
+            transaction.PriceSatang,
+            transaction.ShippingQuoteExpiresAt ??
+                throw new DomainException("ไม่พบเวลาหมดอายุของราคาจัดส่ง"),
+            transaction.BuyerPaymentDeadlineAt ??
+                throw new DomainException("ไม่พบเวลาสิ้นสุดการชำระเงิน"));
 
     [GeneratedRegex("^[A-Za-z0-9:_-]{16,80}$", RegexOptions.CultureInvariant)]
     private static partial Regex SafeIdempotencyKeyPattern();

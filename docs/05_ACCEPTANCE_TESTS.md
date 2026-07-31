@@ -684,23 +684,38 @@ PaymentIntent until that booking is ready.
 
 **Given** an accepted physical offer above the included limit with a certified
 available add-on
-**When** the buyer starts payment preparation
-**Then** the buyer sees one choice surface with the disclosed maximum and one
-combined price
-**And** the buyer may accept the add-on or explicitly decline it
+**When** the buyer opens the accepted transaction
+**Then** the buyer sees one off-by-default protection switch with its text on
+the left and the switch on the right
+**And** turning it on opens one confirmation modal with the disclosed maximum,
+one combined price, `ตกลง`, and `ยกเลิก`
 **And** neither provider cost, TOKLONG fee split, provider identity, address,
 nor option reference is exposed to the buyer UI or any seller projection.
 
-**When** the buyer accepts
+**When** the buyer turns the switch on and taps `ตกลง`
 **Then** the final buyer total includes exactly the disclosed combined price
 **And** that combined price remains visible in the buyer payment breakdown
 **And** the maximum is shown only in the choice/details surface
 **And** the verified Stripe amount must equal that final integer-satang total.
 
-**When** the buyer declines
+**When** the buyer leaves the switch off and confirms the displayed payment
+total
 **Then** the final buyer total contains no optional-protection charge
 **And** the buyer payment breakdown omits the parcel-protection row
+**And** `Declined` is persisted before PaymentIntent creation
 **And** the result remains buyer-only and does not alter seller net.
+
+**Given** a saved add-on election
+**When** the buyer turns the switch off
+**Then** a confirmation modal appears
+**And** `ยกเลิก` restores the on state and prior total without an API write
+**And** `ตกลง` persists decline idempotently and removes the add-on price.
+
+**Given** checkout has started with either an accepted or declined election
+**When** the buyer returns to the transaction
+**Then** the protection row remains visible with the saved switch state
+**And** the switch is disabled with plain-language copy that the choice can no
+longer be changed.
 
 **Given** an over-limit offer whose add-on is unavailable or uncertified
 **When** the buyer continues
@@ -709,10 +724,10 @@ nor option reference is exposed to the buyer UI or any seller projection.
 which may be zero
 **And** the buyer payment breakdown omits the parcel-protection row.
 
-**Given** the buyer closes a required choice without deciding
-**When** the buyer tries payment again
-**Then** the same choice appears once again
-**And** no election, booking, or PaymentIntent was created by closing it.
+**Given** the buyer opens an add-on confirmation and taps `ยกเลิก`
+**When** the transaction remains unpaid
+**Then** the switch and total return to the last server-saved election
+**And** no election, booking, or PaymentIntent was created by cancellation.
 
 **Given** a buyer election whose price, selected/included limit, expiry, or
 terms changes before booking

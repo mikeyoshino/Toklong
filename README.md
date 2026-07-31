@@ -211,7 +211,31 @@ and run this foreground command instead:
 ```
 
 It serves the same mobile API on port `5181`, enables only Stripe Test Mode,
-forwards signed Stripe events, and cleans up its webhook listener on `Ctrl+C`.
+runs the background Worker that confirms managed shipping, forwards signed
+Stripe events, and cleans up the Worker and webhook listener on `Ctrl+C`.
+
+For the complete local buyer/seller simulator setup, use:
+
+```bash
+./scripts/run-local-dual-sim.sh
+```
+
+This starts PostgreSQL when needed, boots the configured buyer and seller iOS
+simulators, builds and installs the Debug app, starts the API, Worker, and
+Stripe Test Mode webhook listener, waits for API readiness, and launches both
+apps. Stop the complete setup with:
+
+```bash
+./scripts/stop-local-dual-sim.sh
+```
+
+The default simulator IDs target this repository's local buyer and seller
+devices. Override them on another Mac with
+`TOKLONG_BUYER_SIMULATOR_UDID` and `TOKLONG_SELLER_SIMULATOR_UDID`. Set
+`TOKLONG_SKIP_MOBILE_BUILD=1` to reuse the existing app build, or
+`TOKLONG_KEEP_SIMULATORS_BOOTED=1` when stopping to close the apps and services
+without shutting down the simulator devices. The stopper also stops PostgreSQL;
+set `TOKLONG_KEEP_POSTGRES_RUNNING=1` to leave the database running.
 
 See `docs/08_IMPLEMENTATION.md` for architecture, production configuration,
 mobile seller-link claiming, provider boundaries, health checks, durable

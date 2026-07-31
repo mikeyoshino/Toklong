@@ -200,8 +200,11 @@ API and run:
 ./scripts/run-stripe-test-api.sh
 ```
 
-This keeps `Toklong.Api` on the mobile app's expected port `5181` and runs the
-Stripe webhook listener alongside it. The mobile app receives only the
+This keeps `Toklong.Api` on the mobile app's expected port `5181` and runs
+`Toklong.Worker` plus the Stripe webhook listener alongside it. The Worker
+confirms the durable managed-shipping operation so the seller receives the
+provider-issued tracking number and shipping-label action. The mobile app
+receives only the
 publishable key and PaymentIntent client secret; the secret key and webhook
 secret stay in the API process environment. This command also enables the
 Development-only demo simulation: the deterministic managed-shipping provider
@@ -210,6 +213,22 @@ in-transit and delivered one backend step at a time; after the buyer taps
 `ตรวจแล้ว ทุกอย่างเรียบร้อย`, the already-created manual-bank payout becomes paid out on
 the next step. No carrier or payout command is needed during the demo. Stop the
 command with `Ctrl+C`.
+
+For the standard two-device iOS workflow, use the lifecycle scripts:
+
+```bash
+./scripts/run-local-dual-sim.sh
+./scripts/stop-local-dual-sim.sh
+```
+
+The launcher starts PostgreSQL only when needed, builds and installs the app on
+the configured buyer and seller simulators, starts the API, Worker, and Stripe
+listener, and waits for `/health/ready` before launching both apps. The stopper
+terminates both apps and backend processes, shuts down the two simulator
+devices and PostgreSQL by default. Set `TOKLONG_KEEP_POSTGRES_RUNNING=1` or
+`TOKLONG_KEEP_SIMULATORS_BOOTED=1` to preserve either dependency. Override the
+device IDs with `TOKLONG_BUYER_SIMULATOR_UDID` and
+`TOKLONG_SELLER_SIMULATOR_UDID`.
 
 New offers use snapshot schema version 11. The product photo is optional and is
 represented by its managed reference or explicit `null`; when supplied it
@@ -220,10 +239,12 @@ one provider-validated shipping quote. Seller acceptance freezes those delivery
 facts only; it does not book a shipment or select parcel protection. After
 acceptance, a within-limit outcome auto-submits `AddProtection=false` and
 persists `Declined`; an over-limit outcome is unavailable, explicitly declined,
-or accepted by the buyer. The Worker revalidates an accepted option and reserves
-the exact booking before PaymentIntent provider preparation, without extending
-the existing payment deadline. The shared core contains delivery facts but not
-the buyer-only election. Provider preparation may create or reuse its
+or accepted by the buyer. Payment preparation directly revalidates the saved
+election and synchronously reserves the exact booking before PaymentIntent
+provider preparation, without extending the existing payment deadline. The
+Worker is not part of this pre-payment request path. The shared core contains
+delivery facts but not the buyer-only election. Provider preparation may create
+or reuse its
 idempotent reference before `BeginCheckout` persists the v11 buyer
 checkout-annex acceptance that binds the final buyer total and protection
 commercial terms with a canonical hash. Verified payment cannot progress unless

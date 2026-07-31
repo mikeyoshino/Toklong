@@ -218,13 +218,18 @@ Show:
 - Show the complete locked delivery address once in the agreement details.
 - Before payment preparation, obtain the buyer-only parcel-protection outcome.
   When an add-on is available and the item exceeds the verified included limit,
-  show exactly one accessible choice card titled
-  `เพิ่มความคุ้มครองพัสดุไหม`: disclose its maximum and one combined price,
-  then offer `เพิ่มความคุ้มครอง` and `ไม่เพิ่มความคุ้มครอง`. Do not show a
+  show one accessible checkout row with `เพิ่มความคุ้มครองพัสดุ` on the left
+  and a switch on the right. The switch is off when no paid add-on is saved.
+  Turning it on, or turning off an already-saved add-on, opens a confirmation
+  modal with explicit `ตกลง` and `ยกเลิก` actions. The add-on confirmation
+  discloses its maximum and one combined price. Cancel restores the last
+  server-saved choice and total without submitting a change. Do not show a
   provider name, internal cost split, package label, or coverage gap. Included
-  coverage skips this card and adds no charge; unavailable add-on status lets
-  the buyer continue only with the verified included-coverage outcome, which
-  may be zero, without claiming coverage beyond that verified amount.
+  coverage skips this control and adds no charge; unavailable add-on status
+  lets the buyer continue only with the verified included-coverage outcome,
+  which may be zero, without claiming coverage beyond that verified amount.
+  Once checkout has started, keep the applicable row visible but disable the
+  switch and state that the saved choice can no longer be changed.
 - Show the exact item price, Buyer Protection fee, shipping charge, final
   `ค่าความคุ้มครองพัสดุ` and total in one buyer-only breakdown only when the
   buyer accepted a paid add-on. Omit that row for declined, unavailable,

@@ -5,7 +5,9 @@ public sealed record ParcelProtectionQuoteRequest(
     string CarrierCode,
     string ServiceCode,
     string DeliveryQuoteReference,
-    long ItemPriceSatang);
+    long ItemPriceSatang,
+    DateTimeOffset DeliveryQuoteExpiresAt,
+    DateTimeOffset BuyerPaymentDeadlineAt);
 
 public sealed record ProviderParcelProtectionOption(
     string Provider,

@@ -209,7 +209,7 @@ public sealed partial class ChooseParcelProtectionHandler(
         if (!selectionAlreadyRecorded)
             transaction.RecordParcelProtectionElection(
                 request.BuyerId, resolved.Selection, clock.UtcNow);
-        transaction.QueueBuyerCheckoutShipmentIntent(
+        transaction.RecordBuyerCheckoutShipmentIntent(
             shipment,
             request.BuyerId,
             idempotencyKey, clock.UtcNow);

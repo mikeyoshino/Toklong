@@ -139,6 +139,9 @@ public sealed class DevelopmentShippingQuoteProvider(
     {
         ValidateProtectionRequest(request);
         ValidateDeliveryQuote(request);
+        if (request.BuyerPaymentDeadlineAt <= clock.UtcNow)
+            throw new DomainException(
+                "หมดเวลาชำระแล้ว กรุณาส่งข้อเสนอใหม่ให้ผู้ขายยืนยัน");
         if (request.ItemPriceSatang <= IncludedCoverageLimitSatang)
             return Task.FromResult(
                 new ParcelProtectionAvailability(
@@ -158,6 +161,10 @@ public sealed class DevelopmentShippingQuoteProvider(
                     ProviderCapabilityCertified: true));
 
         var quotedAt = clock.UtcNow;
+        var expiresAt = quotedAt.AddHours(1) <
+            request.BuyerPaymentDeadlineAt
+                ? quotedAt.AddHours(1)
+                : request.BuyerPaymentDeadlineAt;
         var option = new ProviderParcelProtectionOption(
             ProviderName,
             $"dev-protection-{Guid.NewGuid():N}",
@@ -167,7 +174,7 @@ public sealed class DevelopmentShippingQuoteProvider(
             ProtectionTermsVersion,
             "DEV_PARCEL_PROTECTION",
             quotedAt,
-            quotedAt.AddHours(1));
+            expiresAt);
         protectionOptions[option.OptionReference] = new(
             request,
             option);
@@ -197,12 +204,14 @@ public sealed class DevelopmentShippingQuoteProvider(
         return Task.FromResult(stored.Option);
     }
 
-    private static void ValidateProtectionRequest(
+    private void ValidateProtectionRequest(
         ParcelProtectionQuoteRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidatePackage(request.Shipment);
         if (request.ItemPriceSatang <= 0 ||
+            request.DeliveryQuoteExpiresAt == default ||
+            request.BuyerPaymentDeadlineAt == default ||
             string.IsNullOrWhiteSpace(request.DeliveryQuoteReference) ||
             string.IsNullOrWhiteSpace(request.CarrierCode) ||
             string.IsNullOrWhiteSpace(request.ServiceCode))
@@ -212,21 +221,46 @@ public sealed class DevelopmentShippingQuoteProvider(
     private void ValidateDeliveryQuote(
         ParcelProtectionQuoteRequest request)
     {
-        if (!quotes.TryGetValue(
-                request.DeliveryQuoteReference.Trim(),
-                out var stored) ||
-            stored.Request != request.Shipment ||
-            stored.Option.ExpiresAt <= clock.UtcNow ||
-            !string.Equals(
-                stored.Option.CarrierCode,
-                request.CarrierCode,
-                StringComparison.Ordinal) ||
-            !string.Equals(
-                stored.Option.ServiceCode,
-                request.ServiceCode,
-                StringComparison.Ordinal))
-            throw new DomainException(
-                "ราคาค่าจัดส่งหมดอายุหรือข้อมูลพัสดุเปลี่ยน กรุณาดูราคาใหม่");
+        var reference = request.DeliveryQuoteReference.Trim();
+        if (quotes.TryGetValue(reference, out var stored))
+        {
+            if (stored.Request == request.Shipment &&
+                stored.Option.ExpiresAt > clock.UtcNow &&
+                string.Equals(
+                    stored.Option.CarrierCode,
+                    request.CarrierCode,
+                    StringComparison.Ordinal) &&
+                string.Equals(
+                    stored.Option.ServiceCode,
+                    request.ServiceCode,
+                    StringComparison.Ordinal))
+                return;
+        }
+        else if (IsDevelopmentQuoteReference(reference) &&
+                 request.DeliveryQuoteExpiresAt > clock.UtcNow)
+        {
+            // Protection requests are built from the immutable, previously
+            // validated seller-acceptance snapshot. Rehydrate that accepted
+            // development quote after a local API restart.
+            return;
+        }
+
+        throw new DomainException(
+            "ราคาค่าจัดส่งหมดอายุหรือข้อมูลพัสดุเปลี่ยน กรุณาดูราคาใหม่");
+    }
+
+    private static bool IsDevelopmentQuoteReference(string value)
+    {
+        if (value.Length != 41 ||
+            !value.StartsWith("dev-ship-", StringComparison.Ordinal))
+            return false;
+        foreach (var character in value.AsSpan(9))
+        {
+            if (character is not (>= '0' and <= '9') and
+                not (>= 'a' and <= 'f'))
+                return false;
+        }
+        return true;
     }
 
     private sealed record StoredProtectionOption(

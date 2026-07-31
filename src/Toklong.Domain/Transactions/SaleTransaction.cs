@@ -336,7 +336,7 @@ public sealed class SaleTransaction
         Version++;
     }
 
-    public void QueueBuyerCheckoutShipmentIntent(
+    public void RecordBuyerCheckoutShipmentIntent(
         ManagedShipment shipment,
         Guid buyerId,
         string idempotencyKey,

@@ -607,7 +607,9 @@ public sealed class ShippopServiceCertificationTests
                 quote.CarrierCode,
                 quote.ServiceCode,
                 quote.QuoteReference,
-                Shipment.DeclaredValueSatang);
+                Shipment.DeclaredValueSatang,
+                quote.ExpiresAt,
+                DateTimeOffset.UtcNow.AddHours(1));
         }
 
         private static ParcelProtectionCertificationEvidence?
@@ -935,7 +937,9 @@ public sealed class ShippopServiceCertificationTests
             "THAIPOST",
             "EMST",
             "synthetic-delivery-quote",
-            450_000);
+            450_000,
+            DateTimeOffset.UtcNow.AddHours(2),
+            DateTimeOffset.UtcNow.AddHours(1));
     }
 
     private static ParcelProtectionCertificationEvidence

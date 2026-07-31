@@ -8,17 +8,57 @@ api_port="${TOKLONG_STRIPE_TEST_PORT:-5181}"
 api_base_url="http://127.0.0.1:${api_port}"
 stripe_config_path="${STRIPE_CONFIG_PATH:-${HOME}/.config/stripe/config.toml}"
 temporary_directory="$(mktemp -d "${TMPDIR:-/tmp}/toklong-stripe-api.XXXXXX")"
+runtime_directory="${TOKLONG_BACKEND_RUNTIME_DIR:-}"
 listener_pid=""
+worker_pid=""
+api_pid=""
+cleaned_up=false
+
+write_runtime_pid() {
+    local name="$1"
+    local value="$2"
+    if [[ -z "${runtime_directory}" ]]; then
+        return
+    fi
+    mkdir -p -- "${runtime_directory}"
+    chmod 700 "${runtime_directory}"
+    printf '%s\n' "${value}" >"${runtime_directory}/${name}.pid"
+}
 
 cleanup() {
+    if [[ "${cleaned_up}" == true ]]; then
+        return
+    fi
+    cleaned_up=true
+    if [[ -n "${api_pid}" ]] &&
+        kill -0 "${api_pid}" 2>/dev/null; then
+        kill "${api_pid}" 2>/dev/null || true
+        wait "${api_pid}" 2>/dev/null || true
+    fi
+    if [[ -n "${worker_pid}" ]] &&
+        kill -0 "${worker_pid}" 2>/dev/null; then
+        kill "${worker_pid}" 2>/dev/null || true
+        wait "${worker_pid}" 2>/dev/null || true
+    fi
     if [[ -n "${listener_pid}" ]] &&
         kill -0 "${listener_pid}" 2>/dev/null; then
         kill "${listener_pid}" 2>/dev/null || true
         wait "${listener_pid}" 2>/dev/null || true
     fi
-    rm -r -- "${temporary_directory}"
+    if [[ -n "${runtime_directory}" ]]; then
+        rm -f -- \
+            "${runtime_directory}/api.pid" \
+            "${runtime_directory}/worker.pid" \
+            "${runtime_directory}/stripe-listener.pid"
+    fi
+    if [[ -d "${temporary_directory}" ]]; then
+        rm -r -- "${temporary_directory}"
+    fi
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 
 read_stripe_config_value() {
     local key="$1"
@@ -78,9 +118,29 @@ stripe listen \
     --forward-to "${api_base_url}/api/webhooks/stripe" \
     >"${temporary_directory}/stripe-listener.log" 2>&1 &
 listener_pid="$!"
+write_runtime_pid stripe-listener "${listener_pid}"
 
-echo "Toklong.Api + Stripe Test Mode: ${api_base_url}"
-echo "กด Ctrl+C เพื่อปิด API และ Stripe webhook listener"
+DOTNET_ENVIRONMENT=Development \
+Stripe__Enabled=true \
+Stripe__LiveMode=false \
+Stripe__EnableDigitalGoods=false \
+Stripe__PublishableKey="${stripe_publishable_key}" \
+Stripe__SecretKey="${stripe_secret_key}" \
+Stripe__WebhookSecret="${stripe_webhook_secret}" \
+BuyerProtectionFee__Enabled=true \
+BuyerProtectionFee__PolicyVersion=buyer-protection-v2 \
+ShippingQuotes__Provider=Development \
+BankPayout__Provider=Manual \
+Reconciliation__SigningSecret=local-development-only-not-for-production \
+dotnet run \
+    --project "${repo_root}/src/Toklong.Worker/Toklong.Worker.csproj" \
+    --no-launch-profile \
+    >"${temporary_directory}/worker.log" 2>&1 &
+worker_pid="$!"
+write_runtime_pid worker "${worker_pid}"
+
+echo "Toklong.Api + Worker + Stripe Test Mode: ${api_base_url}"
+echo "กด Ctrl+C เพื่อปิด API, Worker และ Stripe webhook listener"
 
 ASPNETCORE_ENVIRONMENT=Development \
 ASPNETCORE_URLS="${api_base_url}" \
@@ -102,4 +162,7 @@ DevelopmentDemoSimulation__StepIntervalSeconds=3 \
 Reconciliation__SigningSecret=local-development-only-not-for-production \
 dotnet run \
     --project "${repo_root}/src/Toklong.Api/Toklong.Api.csproj" \
-    --no-launch-profile
+    --no-launch-profile &
+api_pid="$!"
+write_runtime_pid api "${api_pid}"
+wait "${api_pid}"

@@ -29,10 +29,14 @@ public sealed class TransactionDetailViewModel(
     private bool carrierDataLoaded;
     private BuyerParcelProtection? parcelProtection;
     private bool isParcelProtectionChoiceVisible;
+    private bool? selectedParcelProtection;
+    private bool? parcelProtectionSelectionBeforeModal;
     private string? parcelProtectionIdempotencyKey;
+    private bool? parcelProtectionIdempotencySelection;
     private string? parcelProtectionPreparationIdempotencyKey;
     private string? checkoutIdempotencyKey;
     private bool parcelProtectionOfferedTracked;
+    private bool isPaymentSheetOpening;
 
     public AppTransaction? Transaction
     {
@@ -49,6 +53,14 @@ public sealed class TransactionDetailViewModel(
                     DisputeStatement = "";
                     SelectedDisputeReason =
                         DisputeReasonOption.All[^1];
+                    selectedParcelProtection = null;
+                    parcelProtectionSelectionBeforeModal = null;
+                    parcelProtectionIdempotencyKey = null;
+                    parcelProtectionIdempotencySelection = null;
+                    parcelProtectionPreparationIdempotencyKey =
+                        null;
+                    checkoutIdempotencyKey = null;
+                    parcelProtectionOfferedTracked = false;
                 }
                 IsAgreementDetailsExpanded =
                     value?.Role != AppTransactionRole.Seller;
@@ -71,6 +83,10 @@ public sealed class TransactionDetailViewModel(
                 OnPropertyChanged(nameof(ShowAgreementDetailsContent));
                 OnPropertyChanged(nameof(CanManageDisputeEvidence));
                 OnPropertyChanged(nameof(CanChangeParcelProtection));
+                OnPropertyChanged(nameof(ShowParcelProtectionToggle));
+                OnPropertyChanged(nameof(CanToggleParcelProtection));
+                OnPropertyChanged(nameof(IsParcelProtectionChoiceLocked));
+                NotifyCheckoutPresentationChanged();
             }
         }
     }
@@ -106,37 +122,92 @@ public sealed class TransactionDetailViewModel(
         private set
         {
             if (SetProperty(ref isBusy, value))
+            {
                 OnPropertyChanged(nameof(CanSubmitTracking));
+                OnPropertyChanged(nameof(CanStartPayment));
+                OnPropertyChanged(nameof(CanToggleParcelProtection));
+                OnPropertyChanged(nameof(CanConfirmParcelProtection));
+                OnPropertyChanged(nameof(CanCancelParcelProtection));
+            }
         }
     }
 
     public bool IsPaymentAction =>
         Transaction?.Presentation.PrimaryAction == TransactionAction.ReviewAndPay;
 
+    public bool IsPaymentSheetOpening
+    {
+        get => isPaymentSheetOpening;
+        private set => SetProperty(
+            ref isPaymentSheetOpening,
+            value);
+    }
+
     public BuyerParcelProtection? ParcelProtection
     {
         get => parcelProtection;
         private set
         {
+            var previousOptionReference =
+                parcelProtection?.OptionReference;
             if (!SetProperty(ref parcelProtection, value))
                 return;
+            switch (value?.Election)
+            {
+                case "Accepted":
+                    selectedParcelProtection = true;
+                    break;
+                case "Declined":
+                    selectedParcelProtection = false;
+                    break;
+                case "ReconfirmationRequired":
+                    selectedParcelProtection = null;
+                    break;
+                default:
+                    if (previousOptionReference is not null &&
+                    !string.Equals(
+                        previousOptionReference,
+                        value?.OptionReference,
+                        StringComparison.Ordinal))
+                    {
+                        selectedParcelProtection = null;
+                    }
+                    break;
+            }
             OnPropertyChanged(nameof(MaximumCoverageText));
             OnPropertyChanged(nameof(ParcelProtectionPriceText));
+            OnPropertyChanged(nameof(ParcelProtectionPriceAmountText));
             OnPropertyChanged(nameof(IsParcelProtectionUnavailable));
             OnPropertyChanged(nameof(IsParcelProtectionChoiceAvailable));
             OnPropertyChanged(nameof(HasParcelProtectionOfferDetails));
             OnPropertyChanged(nameof(ParcelProtectionPrimaryActionText));
             OnPropertyChanged(nameof(ParcelProtectionDeclineActionText));
             OnPropertyChanged(nameof(CanChangeParcelProtection));
+            OnPropertyChanged(nameof(ShowParcelProtectionToggle));
+            OnPropertyChanged(nameof(CanToggleParcelProtection));
+            OnPropertyChanged(nameof(IsParcelProtectionChoiceLocked));
+            OnPropertyChanged(nameof(ParcelProtectionToggleDetailText));
+            OnPropertyChanged(nameof(ParcelProtectionModalTitle));
+            OnPropertyChanged(nameof(ParcelProtectionModalDescription));
+            NotifyCheckoutPresentationChanged();
         }
     }
 
     public bool IsParcelProtectionChoiceVisible
     {
         get => isParcelProtectionChoiceVisible;
-        private set => SetProperty(
-            ref isParcelProtectionChoiceVisible,
-            value);
+        private set
+        {
+            if (SetProperty(
+                    ref isParcelProtectionChoiceVisible,
+                    value))
+            {
+                OnPropertyChanged(nameof(CanStartPayment));
+                OnPropertyChanged(nameof(CanToggleParcelProtection));
+                OnPropertyChanged(nameof(CanConfirmParcelProtection));
+                OnPropertyChanged(nameof(CanCancelParcelProtection));
+            }
+        }
     }
 
     public string MaximumCoverageText =>
@@ -150,6 +221,119 @@ public sealed class TransactionDetailViewModel(
             ? $"เพิ่มความคุ้มครอง {MoneyFormatter.Format(
                 price,
                 Transaction?.Currency ?? "THB")}" : "";
+
+    public string ParcelProtectionPriceAmountText =>
+        ParcelProtection?.CustomerPriceSatang is { } price
+            ? $"+{MoneyFormatter.Format(
+                price,
+                Transaction?.Currency ?? "THB")}" : "";
+
+    public bool IsParcelProtectionAddOnSelected =>
+        selectedParcelProtection == true;
+
+    public bool IsParcelProtectionIncludedSelected =>
+        selectedParcelProtection == false;
+
+    public bool IsParcelProtectionToggleOn =>
+        IsParcelProtectionAddOnSelected;
+
+    public bool ShowParcelProtectionToggle =>
+        Transaction is
+        {
+            Role: AppTransactionRole.Buyer,
+            FulfillmentType: AppFulfillmentType.Physical,
+            State: "SellerAcceptedAwaitingPayment" or
+                "CheckoutStarted" or "PaymentPending"
+        } &&
+        ParcelProtection is not null &&
+        (ParcelProtection.AddOnAvailable ||
+         ParcelProtection.ReconfirmationRequired ||
+         ParcelProtection.Election == "Accepted" ||
+         Transaction.ItemPriceSatang >
+            ParcelProtection.IncludedCoverageLimitSatang);
+
+    private bool IsParcelProtectionEditableState =>
+        Transaction is
+        {
+            Role: AppTransactionRole.Buyer,
+            FulfillmentType: AppFulfillmentType.Physical,
+            State: "SellerAcceptedAwaitingPayment"
+        };
+
+    public bool CanToggleParcelProtection =>
+        ShowParcelProtectionToggle &&
+        IsParcelProtectionEditableState &&
+        !IsBusy &&
+        !IsParcelProtectionChoiceVisible &&
+        !IsParcelProtectionUnavailable;
+
+    public bool IsParcelProtectionChoiceLocked =>
+        ShowParcelProtectionToggle &&
+        !IsParcelProtectionEditableState;
+
+    public bool CanConfirmParcelProtection =>
+        IsParcelProtectionChoiceVisible &&
+        selectedParcelProtection.HasValue &&
+        !IsBusy &&
+        (selectedParcelProtection == false ||
+         IsParcelProtectionChoiceAvailable);
+
+    public bool CanCancelParcelProtection =>
+        IsParcelProtectionChoiceVisible && !IsBusy;
+
+    public string ParcelProtectionToggleDetailText =>
+        IsParcelProtectionChoiceLocked
+            ? IsParcelProtectionToggleOn
+                ? "เพิ่มแล้ว · เริ่มการชำระแล้ว เปลี่ยนไม่ได้"
+                : "ไม่เพิ่ม · เริ่มการชำระแล้ว เปลี่ยนไม่ได้"
+            : IsParcelProtectionToggleOn
+            ? "เลือกเพิ่มแล้ว · แตะเพื่อเปลี่ยน"
+            : IsParcelProtectionUnavailable
+                ? "ไม่มีวงเงินเสริม ใช้วงเงินที่รวมมา"
+                : "เปิดเพื่อดูวงเงิน ราคา และยืนยัน";
+
+    public string ParcelProtectionModalTitle =>
+        IsParcelProtectionAddOnSelected
+            ? "ยืนยันเพิ่มความคุ้มครองพัสดุ"
+            : "ยืนยันไม่เพิ่มความคุ้มครอง";
+
+    public string ParcelProtectionModalDescription =>
+        IsParcelProtectionAddOnSelected
+            ? "ตรวจวงเงินและราคาก่อนเพิ่มในยอดชำระ"
+            : "ยอดชำระจะไม่รวมค่าความคุ้มครองพัสดุเพิ่มเติม";
+
+    public string CheckoutAmountText
+    {
+        get
+        {
+            if (Transaction is null)
+                return "";
+
+            var amount = Transaction.AmountSatang;
+            if (IsParcelProtectionChoiceVisible &&
+                selectedParcelProtection.HasValue)
+            {
+                amount -= Transaction.ParcelInsuranceFeeSatang;
+                if (selectedParcelProtection == true)
+                    amount += ParcelProtection?.CustomerPriceSatang ?? 0;
+            }
+
+            return MoneyFormatter.Format(
+                amount,
+                Transaction.Currency);
+        }
+    }
+
+    public string PaymentActionText =>
+        $"ชำระ {CheckoutAmountText}";
+
+    public string PaymentSemanticDescription =>
+        $"เปิดหน้าจ่ายเงินยอด {CheckoutAmountText}";
+
+    public bool CanStartPayment =>
+        !IsBusy &&
+        AcceptedTerms &&
+        !IsParcelProtectionChoiceVisible;
 
     public bool IsParcelProtectionUnavailable =>
         ParcelProtection is
@@ -177,11 +361,8 @@ public sealed class TransactionDetailViewModel(
             : "ไม่เพิ่มความคุ้มครอง";
 
     public bool CanChangeParcelProtection =>
-        Transaction is
-        {
-            Role: AppTransactionRole.Buyer,
-            State: "SellerAcceptedAwaitingPayment"
-        } && ParcelProtection is
+        IsParcelProtectionEditableState &&
+        ParcelProtection is
         {
             Election: not "Pending" and not "ReconfirmationRequired"
         };
@@ -281,7 +462,11 @@ public sealed class TransactionDetailViewModel(
     public bool AcceptedTerms
     {
         get => acceptedTerms;
-        set => SetProperty(ref acceptedTerms, value);
+        set
+        {
+            if (SetProperty(ref acceptedTerms, value))
+                OnPropertyChanged(nameof(CanStartPayment));
+        }
     }
 
     public CarrierOption? SelectedCarrier
@@ -398,21 +583,17 @@ public sealed class TransactionDetailViewModel(
 
     public ICommand PrimaryActionCommand => new AsyncCommand(ExecutePrimaryActionAsync);
 
-    public ICommand AcceptParcelProtectionCommand =>
-        new AsyncCommand(() => ChooseParcelProtectionAsync(true));
+    public ICommand ToggleParcelProtectionCommand =>
+        new AsyncCommand(ToggleParcelProtectionAsync);
 
-    public ICommand DeclineParcelProtectionCommand =>
-        new AsyncCommand(() => ChooseParcelProtectionAsync(false));
+    public ICommand ConfirmParcelProtectionCommand =>
+        new AsyncCommand(ConfirmParcelProtectionAsync);
+
+    public ICommand CancelParcelProtectionCommand =>
+        new Command(CancelParcelProtection);
 
     public ICommand ChangeParcelProtectionCommand =>
         new AsyncCommand(ChangeParcelProtectionAsync);
-
-    public ICommand DismissParcelProtectionCommand =>
-        new Command(() =>
-        {
-            IsParcelProtectionChoiceVisible = false;
-            Message = "";
-        });
 
     public ICommand ToggleAgreementDetailsCommand =>
         new Command(() =>
@@ -470,8 +651,23 @@ public sealed class TransactionDetailViewModel(
             Transaction = await transactionService.GetTransactionAsync(transactionId);
             Message = Transaction is null ? "ไม่พบรายการนี้" : "";
             if (CanLoadParcelProtection())
+            {
                 ParcelProtection = await transactionService
                     .GetParcelProtectionAsync(transactionId);
+                if (showBusy)
+                    await InitializeParcelProtectionOnEntryAsync(
+                        transactionId);
+                else if (ParcelProtection.ReconfirmationRequired)
+                {
+                    await RefreshParcelProtectionForReconfirmationAsync(
+                        transactionId);
+                    OpenParcelProtectionModal(
+                        ParcelProtection.AddOnAvailable);
+                }
+                else if (ParcelProtection.Election is
+                    "Accepted" or "Declined")
+                    IsParcelProtectionChoiceVisible = false;
+            }
             if (CanManageDisputeEvidence)
                 await LoadDisputeEvidenceAsync();
             if (IsPhysicalFulfillmentAction && !carrierDataLoaded)
@@ -480,10 +676,11 @@ public sealed class TransactionDetailViewModel(
                 carrierDataLoaded = true;
             }
         }
-        catch (Exception exception) when (!showBusy)
+        catch (Exception exception)
         {
-            Message =
-                $"อัปเดตสถานะไม่สำเร็จ · {exception.Message}";
+            Message = showBusy
+                ? exception.Message
+                : $"อัปเดตสถานะไม่สำเร็จ · {exception.Message}";
         }
         finally
         {
@@ -507,6 +704,9 @@ public sealed class TransactionDetailViewModel(
                 return;
             }
 
+            IsPaymentSheetOpening = true;
+            Message =
+                "กำลังเตรียมการจัดส่งและเปิดหน้าจ่ายเงิน…";
             try
             {
                 await StartPaymentAsync(transactionId);
@@ -514,6 +714,10 @@ public sealed class TransactionDetailViewModel(
             catch (Exception exception)
             {
                 Message = exception.Message;
+            }
+            finally
+            {
+                IsPaymentSheetOpening = false;
             }
             return;
         }
@@ -572,7 +776,13 @@ public sealed class TransactionDetailViewModel(
 
     private async Task StartPaymentAsync(Guid transactionId)
     {
-        Message = "";
+        if (IsParcelProtectionChoiceVisible)
+        {
+            Message =
+                "เลือกความคุ้มครองพัสดุให้เสร็จก่อนชำระเงิน";
+            return;
+        }
+
         var persisted = await transactionService.GetParcelProtectionAsync(
             transactionId);
         ParcelProtection = persisted;
@@ -582,7 +792,15 @@ public sealed class TransactionDetailViewModel(
             case ParcelProtectionCheckoutStep.Reconfirm:
                 await RefreshParcelProtectionForReconfirmationAsync(
                     transactionId);
-                IsParcelProtectionChoiceVisible = true;
+                OpenParcelProtectionModal(
+                    ParcelProtection?.AddOnAvailable == true);
+                return;
+            case ParcelProtectionCheckoutStep.Choose
+                when HasParcelProtectionOfferDetails:
+                TrackParcelProtectionOffered();
+                await ChooseParcelProtectionAsync(
+                    IsParcelProtectionAddOnSelected,
+                    continueToPayment: true);
                 return;
             case ParcelProtectionCheckoutStep.PresentPayment:
                 await PresentPaymentSheetAsync(transactionId);
@@ -605,21 +823,22 @@ public sealed class TransactionDetailViewModel(
             case ParcelProtectionCheckoutStep.Reconfirm:
                 await RefreshParcelProtectionForReconfirmationAsync(
                     transactionId);
-                IsParcelProtectionChoiceVisible = true;
+                OpenParcelProtectionModal(
+                    ParcelProtection?.AddOnAvailable == true);
                 return;
             case ParcelProtectionCheckoutStep.Choose:
-                if (!parcelProtectionOfferedTracked)
-                {
-                    analytics.Track(ParcelProtectionAnalytics.Offered());
-                    parcelProtectionOfferedTracked = true;
-                }
-                IsParcelProtectionChoiceVisible = true;
+                TrackParcelProtectionOffered();
+                await ChooseParcelProtectionAsync(
+                    IsParcelProtectionAddOnSelected,
+                    continueToPayment: true);
                 return;
             case ParcelProtectionCheckoutStep.PresentPayment:
                 await PresentPaymentSheetAsync(transactionId);
                 return;
             case ParcelProtectionCheckoutStep.SubmitIncludedCoverage:
-                await ChooseParcelProtectionAsync(false);
+                await ChooseParcelProtectionAsync(
+                    false,
+                    continueToPayment: true);
                 return;
             default:
                 await PresentPaymentSheetAsync(
@@ -628,22 +847,188 @@ public sealed class TransactionDetailViewModel(
         }
     }
 
+    private async Task InitializeParcelProtectionOnEntryAsync(
+        Guid transactionId)
+    {
+        if (ParcelProtection is null)
+            return;
+
+        if (ParcelProtection.Election == "Pending")
+        {
+            ParcelProtection = await transactionService
+                .PrepareParcelProtectionAsync(
+                    transactionId,
+                    NewParcelProtectionPreparationIdempotencyKey());
+        }
+
+        switch (ParcelProtectionCheckoutPresentation.Next(
+                    ParcelProtection))
+        {
+            case ParcelProtectionCheckoutStep.Reconfirm:
+                await RefreshParcelProtectionForReconfirmationAsync(
+                    transactionId);
+                OpenParcelProtectionModal(
+                    ParcelProtection?.AddOnAvailable == true);
+                return;
+            case ParcelProtectionCheckoutStep.Choose:
+                TrackParcelProtectionOffered();
+                IsParcelProtectionChoiceVisible = false;
+                return;
+            case ParcelProtectionCheckoutStep.SubmitIncludedCoverage:
+                await ChooseParcelProtectionAsync(
+                    false,
+                    continueToPayment: false);
+                return;
+            case ParcelProtectionCheckoutStep.PresentPayment:
+                IsParcelProtectionChoiceVisible = false;
+                return;
+        }
+    }
+
+    private void TrackParcelProtectionOffered()
+    {
+        if (parcelProtectionOfferedTracked)
+            return;
+
+        analytics.Track(ParcelProtectionAnalytics.Offered());
+        parcelProtectionOfferedTracked = true;
+    }
+
     private async Task ChangeParcelProtectionAsync()
     {
         if (Transaction is null || !CanChangeParcelProtection)
             return;
 
-        analytics.Track(ParcelProtectionAnalytics.Changed());
-        parcelProtectionIdempotencyKey = null;
-        parcelProtectionPreparationIdempotencyKey = null;
-        checkoutIdempotencyKey = null;
-        ParcelProtection = await transactionService.PrepareParcelProtectionAsync(
-            Transaction.Id,
-            NewParcelProtectionPreparationIdempotencyKey());
-        IsParcelProtectionChoiceVisible = true;
+        await ToggleParcelProtectionAsync();
     }
 
-    private async Task ChooseParcelProtectionAsync(bool addProtection)
+    private async Task ToggleParcelProtectionAsync()
+    {
+        if (Transaction is null || !CanToggleParcelProtection)
+            return;
+
+        var addProtection = !IsParcelProtectionToggleOn;
+        if (addProtection &&
+            (!HasParcelProtectionOfferDetails ||
+             ParcelProtection?.Election == "Declined"))
+        {
+            IsBusy = true;
+            try
+            {
+                parcelProtectionPreparationIdempotencyKey = null;
+                ParcelProtection = await transactionService
+                    .PrepareParcelProtectionAsync(
+                        Transaction.Id,
+                        NewParcelProtectionPreparationIdempotencyKey());
+            }
+            catch (Exception exception)
+            {
+                Message = exception.Message;
+                OnPropertyChanged(
+                    nameof(IsParcelProtectionToggleOn));
+                return;
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+
+            if (!HasParcelProtectionOfferDetails)
+            {
+                Message =
+                    "ยังเปิดความคุ้มครองเพิ่มไม่ได้ กรุณาลองใหม่ภายหลัง";
+                OnPropertyChanged(
+                    nameof(IsParcelProtectionToggleOn));
+                return;
+            }
+        }
+
+        analytics.Track(ParcelProtectionAnalytics.Changed());
+        OpenParcelProtectionModal(addProtection);
+    }
+
+    private void OpenParcelProtectionModal(bool addProtection)
+    {
+        parcelProtectionSelectionBeforeModal =
+            selectedParcelProtection ??
+            (Transaction?.ParcelInsuranceFeeSatang > 0
+                ? true
+                : null);
+        SetParcelProtectionSelection(addProtection);
+        Message = "";
+        IsParcelProtectionChoiceVisible = true;
+        if (addProtection)
+            TrackParcelProtectionOffered();
+    }
+
+    private async Task ConfirmParcelProtectionAsync()
+    {
+        if (!IsParcelProtectionChoiceVisible ||
+            !selectedParcelProtection.HasValue ||
+            IsBusy)
+            return;
+
+        if (selectedParcelProtection == true &&
+            !IsParcelProtectionChoiceAvailable)
+            return;
+
+        Message = "";
+        try
+        {
+            await ChooseParcelProtectionAsync(
+                selectedParcelProtection.Value,
+                continueToPayment: false);
+            if (!IsParcelProtectionChoiceVisible)
+                parcelProtectionSelectionBeforeModal = null;
+        }
+        catch (Exception exception)
+        {
+            Message = exception.Message;
+            IsParcelProtectionChoiceVisible = true;
+        }
+    }
+
+    private void CancelParcelProtection()
+    {
+        if (!IsParcelProtectionChoiceVisible || IsBusy)
+            return;
+
+        SetParcelProtectionSelection(
+            parcelProtectionSelectionBeforeModal);
+        parcelProtectionSelectionBeforeModal = null;
+        IsParcelProtectionChoiceVisible = false;
+        Message = "";
+    }
+
+    private void SetParcelProtectionSelection(bool? value)
+    {
+        if (selectedParcelProtection == value)
+            return;
+
+        parcelProtectionIdempotencyKey = null;
+        parcelProtectionIdempotencySelection = null;
+        selectedParcelProtection = value;
+        NotifyCheckoutPresentationChanged();
+    }
+
+    private void NotifyCheckoutPresentationChanged()
+    {
+        OnPropertyChanged(nameof(IsParcelProtectionAddOnSelected));
+        OnPropertyChanged(nameof(IsParcelProtectionIncludedSelected));
+        OnPropertyChanged(nameof(IsParcelProtectionToggleOn));
+        OnPropertyChanged(nameof(CanConfirmParcelProtection));
+        OnPropertyChanged(nameof(ParcelProtectionToggleDetailText));
+        OnPropertyChanged(nameof(ParcelProtectionModalTitle));
+        OnPropertyChanged(nameof(ParcelProtectionModalDescription));
+        OnPropertyChanged(nameof(CheckoutAmountText));
+        OnPropertyChanged(nameof(PaymentActionText));
+        OnPropertyChanged(nameof(PaymentSemanticDescription));
+        OnPropertyChanged(nameof(CanStartPayment));
+    }
+
+    private async Task ChooseParcelProtectionAsync(
+        bool addProtection,
+        bool continueToPayment)
     {
         if (Transaction is null || ParcelProtection is null)
             return;
@@ -670,12 +1055,17 @@ public sealed class TransactionDetailViewModel(
                 addProtection
                     ? ParcelProtection.CustomerPriceSatang
                     : null,
-                NewParcelProtectionIdempotencyKey());
+                NewParcelProtectionIdempotencyKey(
+                    addProtection));
             if (status == "reconfirmation_required")
             {
                 await RefreshParcelProtectionForReconfirmationAsync(
                     transactionId);
-                IsParcelProtectionChoiceVisible = true;
+                OpenParcelProtectionModal(
+                    addProtection &&
+                    ParcelProtection?.AddOnAvailable == true);
+                Message =
+                    "ข้อมูลความคุ้มครองเปลี่ยน กรุณาตรวจสอบอีกครั้งแล้วกดตกลง";
                 return;
             }
 
@@ -686,6 +1076,8 @@ public sealed class TransactionDetailViewModel(
             IsParcelProtectionChoiceVisible = false;
             Transaction = await transactionService.GetTransactionAsync(
                 transactionId);
+            ParcelProtection = await transactionService
+                .GetParcelProtectionAsync(transactionId);
             checkoutIdempotencyKey = null;
             if (status == "cancelling_shipping")
             {
@@ -693,9 +1085,18 @@ public sealed class TransactionDetailViewModel(
                     "กำลังปรับรายการจัดส่ง กรุณาลองชำระอีกครั้ง";
                 return;
             }
-            Message = "กำลังเตรียมการจัดส่ง…";
-            await PresentPaymentSheetAsync(
-                transactionId);
+            if (continueToPayment)
+            {
+                Message = "กำลังเตรียมการจัดส่ง…";
+                await PresentPaymentSheetAsync(
+                    transactionId);
+            }
+            else
+            {
+                Message = addProtection
+                    ? "เพิ่มความคุ้มครองพัสดุในยอดชำระแล้ว"
+                    : "ใช้ความคุ้มครองที่รวมมาแล้ว ไม่มีค่าใช้จ่ายเพิ่ม";
+            }
         }
         finally
         {
@@ -719,6 +1120,9 @@ public sealed class TransactionDetailViewModel(
     private async Task PresentPaymentSheetAsync(Guid transactionId)
     {
         IsBusy = true;
+        IsPaymentSheetOpening = true;
+        Message =
+            "กำลังเตรียมการจัดส่งและเปิดหน้าจ่ายเงิน…";
         try
         {
             Transaction = await transactionService.GetTransactionAsync(transactionId);
@@ -728,8 +1132,8 @@ public sealed class TransactionDetailViewModel(
             if (outcome == PaymentSheetOutcome.Completed)
                 analytics.Track(ParcelProtectionAnalytics.CheckoutConverted());
             Message = outcome == PaymentSheetOutcome.Completed
-                ? "ส่งข้อมูลการจ่ายเงินแล้ว กำลังรอ Stripe ยืนยัน"
-                : "ยังไม่ได้จ่ายเงิน";
+                ? "ส่งข้อมูลการจ่ายเงินแล้ว กำลังตรวจสอบการชำระ"
+                : "ยังไม่ได้จ่ายเงิน กดชำระอีกครั้งได้";
             Transaction = await transactionService.GetTransactionAsync(transactionId);
         }
         catch (PaymentPreparationException exception)
@@ -740,28 +1144,56 @@ public sealed class TransactionDetailViewModel(
         }
         finally
         {
+            IsPaymentSheetOpening = false;
             IsBusy = false;
         }
     }
 
-    private string NewParcelProtectionIdempotencyKey() =>
-        parcelProtectionIdempotencyKey ??=
-            $"mobile:{Transaction?.Id:N}:{Guid.NewGuid():N}";
+    private string NewParcelProtectionIdempotencyKey(
+        bool addProtection)
+    {
+        if (parcelProtectionIdempotencyKey is null ||
+            parcelProtectionIdempotencySelection !=
+                addProtection)
+        {
+            parcelProtectionIdempotencyKey =
+                MobileIdempotencyKey.Create(
+                    Transaction?.Id ??
+                        throw new InvalidOperationException(
+                            "ไม่พบรายการสำหรับเลือกความคุ้มครอง"),
+                    MobileIdempotencyOperation
+                        .ParcelProtectionElection);
+            parcelProtectionIdempotencySelection =
+                addProtection;
+        }
+
+        return parcelProtectionIdempotencyKey;
+    }
 
     private string NewParcelProtectionPreparationIdempotencyKey() =>
         parcelProtectionPreparationIdempotencyKey ??=
-            $"mobile:{Transaction?.Id:N}:prepare:{Guid.NewGuid():N}";
+            MobileIdempotencyKey.Create(
+                Transaction?.Id ??
+                    throw new InvalidOperationException(
+                        "ไม่พบรายการสำหรับเตรียมความคุ้มครอง"),
+                MobileIdempotencyOperation
+                    .ParcelProtectionPreparation);
 
     private string NewCheckoutIdempotencyKey() =>
         checkoutIdempotencyKey ??=
-            $"mobile:{Transaction?.Id:N}:checkout:{Guid.NewGuid():N}";
+            MobileIdempotencyKey.Create(
+                Transaction?.Id ??
+                    throw new InvalidOperationException(
+                        "ไม่พบรายการสำหรับชำระเงิน"),
+                MobileIdempotencyOperation.Checkout);
 
     private bool CanLoadParcelProtection() =>
         Transaction is
         {
             Role: AppTransactionRole.Buyer,
             FulfillmentType: AppFulfillmentType.Physical,
-            State: "SellerAcceptedAwaitingPayment" or "PaymentPending"
+            State: "SellerAcceptedAwaitingPayment" or
+                "CheckoutStarted" or "PaymentPending"
         };
 
     private async Task CopyInvitationLinkAsync()

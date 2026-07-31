@@ -132,8 +132,11 @@ The text and normalized snapshot must preserve what the buyer specified and the 
 4. After seller acceptance, checkout obtains the buyer-only protection
    availability. Within a verified included limit, it skips the prompt and
    auto-submits `AddProtection=false`, persisting `Declined` with no charge;
-   that is not a distinct included-only election. An over-limit available
-   add-on is accepted or explicitly declined once by the buyer.
+   that is not a distinct included-only election. For an over-limit available
+   add-on, checkout presents an off-by-default switch. Confirming the on state
+   persists acceptance; leaving it off and confirming the displayed payment
+   total persists decline before any PaymentIntent is created. Removing an
+   already-saved add-on requires its own confirmation modal.
    The election and durable booking intent are idempotent. Before provider
    mutation, the Worker revalidates elected price, included/selected limits,
    option, terms, and expiry. A changed or expired option requires buyer

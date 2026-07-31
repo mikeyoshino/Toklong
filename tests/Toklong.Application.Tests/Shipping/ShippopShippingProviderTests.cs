@@ -74,7 +74,9 @@ public sealed class ShippopShippingProviderTests
                     "THAIPOST",
                     "EMS",
                     "forged-delivery-quote",
-                    90_000),
+                    90_000,
+                    Now.AddHours(2),
+                    Now.AddHours(1)),
                 default));
     }
 
@@ -129,6 +131,63 @@ public sealed class ShippopShippingProviderTests
         Assert.Equal(first.OptionReference, resumed.OptionReference);
         Assert.Equal(first.QuotedAt, resumed.QuotedAt);
         Assert.Equal(first.ExpiresAt, resumed.ExpiresAt);
+    }
+
+    [Fact]
+    public async Task Development_provider_caps_add_on_expiry_at_payment_deadline()
+    {
+        var provider = new DevelopmentShippingQuoteProvider(new FixedClock());
+        var paymentDeadline = Now.AddMinutes(20);
+        var request = (await ProtectionRequest(provider, 450_000)) with
+        {
+            BuyerPaymentDeadlineAt = paymentDeadline
+        };
+
+        var option = (await provider.GetAvailabilityAsync(
+            request,
+            default)).AddOn!;
+        var validated = await provider.ValidateOptionAsync(
+            request,
+            option.OptionReference,
+            default);
+
+        Assert.Equal(paymentDeadline, option.ExpiresAt);
+        Assert.Equal(paymentDeadline, validated.ExpiresAt);
+    }
+
+    [Fact]
+    public async Task Development_provider_resumes_accepted_quote_after_restart()
+    {
+        var originalProvider = new DevelopmentShippingQuoteProvider(
+            new FixedClock());
+        var request = await ProtectionRequest(originalProvider, 450_000);
+        var restartedProvider = new DevelopmentShippingQuoteProvider(
+            new FixedClock());
+
+        var availability = await restartedProvider.GetAvailabilityAsync(
+            request,
+            default);
+
+        Assert.True(availability.ProviderCapabilityCertified);
+        Assert.NotNull(availability.AddOn);
+        Assert.Equal(
+            request.BuyerPaymentDeadlineAt,
+            availability.AddOn.ExpiresAt);
+    }
+
+    [Fact]
+    public async Task Development_provider_does_not_resume_expired_quote_after_restart()
+    {
+        var originalProvider = new DevelopmentShippingQuoteProvider(
+            new FixedClock());
+        var request = await ProtectionRequest(originalProvider, 450_000);
+        var restartedProvider = new DevelopmentShippingQuoteProvider(
+            new MutableClock(request.DeliveryQuoteExpiresAt));
+
+        await Assert.ThrowsAsync<DomainException>(() =>
+            restartedProvider.GetAvailabilityAsync(
+                request,
+                default));
     }
 
     [Fact]
@@ -243,7 +302,9 @@ public sealed class ShippopShippingProviderTests
             deliveryQuote.CarrierCode,
             deliveryQuote.ServiceCode,
             deliveryQuote.QuoteReference,
-            450_000);
+            450_000,
+            deliveryQuote.ExpiresAt,
+            Now.AddHours(1));
         var availability = await shippop.GetAvailabilityAsync(
             request,
             default);
@@ -997,7 +1058,9 @@ public sealed class ShippopShippingProviderTests
             quote.CarrierCode,
             quote.ServiceCode,
             quote.QuoteReference,
-            itemPriceSatang);
+            itemPriceSatang,
+            quote.ExpiresAt,
+            Now.AddHours(1));
     }
 
     private static ShippingQuoteOption Quote() =>
