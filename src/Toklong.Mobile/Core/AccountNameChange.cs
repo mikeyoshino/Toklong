@@ -1,0 +1,245 @@
+using System.Net;
+
+namespace Toklong.Mobile.Core;
+
+public sealed record AccountNameChangeEligibility(
+    bool CanChange,
+    DateTimeOffset? NextAllowedAt);
+
+public sealed record PendingAccountNameChange(
+    Guid ChallengeId,
+    string MaskedPhoneNumber,
+    string FirstName,
+    string LastName,
+    DateTimeOffset ExpiresAt,
+    DateTimeOffset ResendAvailableAt,
+    int RemainingAttempts);
+
+public sealed record VerifiedAccountNameChange(
+    string FirstName,
+    string LastName,
+    string DisplayName,
+    DateTimeOffset CompletedAt);
+
+public sealed record AccountNameChangeBlockedNotice(
+    DateTimeOffset NextAllowedAt);
+
+public enum AccountNameChangeErrorTarget
+{
+    FirstNameInput,
+    LastNameInput,
+    CodeInput,
+    VerificationAction,
+    ResendAction,
+    NewRequestAction,
+    AccountReturnAction,
+    BlockedAction
+}
+
+public enum AccountNameChangeErrorKind
+{
+    Invalid,
+    Cooldown,
+    Expired,
+    Locked,
+    Unavailable,
+    Network,
+    Missing
+}
+
+public sealed record AccountNameChangeErrorNotice(
+    AccountNameChangeErrorKind Kind,
+    AccountNameChangeErrorTarget Target,
+    string Message,
+    TimeSpan? RetryAfter = null,
+    int? RemainingAttempts = null,
+    DateTimeOffset? NextAllowedAt = null,
+    bool RetryWithSameIdempotencyKey = false);
+
+public static class AccountNameChangeErrorPresentation
+{
+    public static AccountNameChangeBlockedNotice? BlockedNotice(
+        AccountNameChangeEligibility eligibility) =>
+        !eligibility.CanChange && eligibility.NextAllowedAt is { } nextAllowedAt
+            ? new AccountNameChangeBlockedNotice(nextAllowedAt)
+            : null;
+
+    public static AccountNameChangeErrorNotice ForRequest(Exception exception) =>
+        Present(exception, AccountNameChangeErrorTarget.VerificationAction);
+
+    public static AccountNameChangeErrorNotice ForResend(Exception exception) =>
+        Present(exception, AccountNameChangeErrorTarget.ResendAction);
+
+    public static AccountNameChangeErrorNotice ForVerification(Exception exception) =>
+        Present(exception, AccountNameChangeErrorTarget.VerificationAction);
+
+    private static AccountNameChangeErrorNotice Present(
+        Exception exception,
+        AccountNameChangeErrorTarget defaultTarget)
+    {
+        if (exception is HttpRequestException or TimeoutException or TaskCanceledException)
+            return Notice(
+                AccountNameChangeErrorKind.Network,
+                defaultTarget,
+                "เชื่อมต่อไม่สำเร็จ กรุณาลองอีกครั้ง",
+                retryWithSameIdempotencyKey: true);
+
+        if (exception is not MobileApiRequestException api)
+            return Notice(
+                AccountNameChangeErrorKind.Invalid,
+                defaultTarget,
+                "เปลี่ยนชื่อไม่สำเร็จ กรุณาลองอีกครั้ง");
+
+        return api.Code switch
+        {
+            "name_change_cooldown" when api.NextAllowedAt is { } nextAllowedAt =>
+                Notice(
+                    AccountNameChangeErrorKind.Cooldown,
+                    AccountNameChangeErrorTarget.BlockedAction,
+                    "ยังเปลี่ยนชื่อไม่ได้ กรุณาลองใหม่เมื่อถึงเวลาที่แจ้ง",
+                    nextAllowedAt: nextAllowedAt),
+            "name_change_first_name_invalid" =>
+                Notice(
+                    AccountNameChangeErrorKind.Invalid,
+                    AccountNameChangeErrorTarget.FirstNameInput,
+                    "กรุณาตรวจสอบชื่อ"),
+            "name_change_last_name_invalid" =>
+                Notice(
+                    AccountNameChangeErrorKind.Invalid,
+                    AccountNameChangeErrorTarget.LastNameInput,
+                    "กรุณาตรวจสอบนามสกุล"),
+            "name_change_unchanged" =>
+                Notice(
+                    AccountNameChangeErrorKind.Invalid,
+                    AccountNameChangeErrorTarget.VerificationAction,
+                    "ชื่อนี้เป็นชื่อปัจจุบันของคุณแล้ว"),
+            "name_change_code_incorrect" =>
+                Notice(
+                    AccountNameChangeErrorKind.Invalid,
+                    AccountNameChangeErrorTarget.CodeInput,
+                    "รหัสยืนยันไม่ถูกต้อง ลองตรวจสอบแล้วกรอกอีกครั้ง",
+                    api.RetryAfter,
+                    api.RemainingAttempts),
+            "name_change_code_invalid" =>
+                Notice(
+                    AccountNameChangeErrorKind.Invalid,
+                    AccountNameChangeErrorTarget.CodeInput,
+                    "กรอกรหัสยืนยัน 6 หลัก"),
+            "name_change_expired" =>
+                Notice(
+                    AccountNameChangeErrorKind.Expired,
+                    AccountNameChangeErrorTarget.NewRequestAction,
+                    "รหัสยืนยันหมดอายุแล้ว กรุณาขอรหัสใหม่"),
+            "name_change_locked" =>
+                Notice(
+                    AccountNameChangeErrorKind.Locked,
+                    AccountNameChangeErrorTarget.NewRequestAction,
+                    "กรอกรหัสไม่ถูกต้องครบจำนวนแล้ว กรุณาขอรหัสใหม่"),
+            "name_change_challenge_unavailable" or "name_change_challenge_inactive" =>
+                Notice(
+                    AccountNameChangeErrorKind.Missing,
+                    AccountNameChangeErrorTarget.AccountReturnAction,
+                    "คำขอเปลี่ยนชื่อนี้ใช้ไม่ได้แล้ว กรุณากลับไปหน้าบัญชี"),
+            "name_change_provider_unavailable" =>
+                Notice(
+                    AccountNameChangeErrorKind.Unavailable,
+                    defaultTarget,
+                    "บริการยืนยันชื่อยังไม่พร้อมใช้งาน กรุณาลองใหม่ภายหลัง"),
+            "name_change_provider_outcome_unknown" =>
+                Notice(
+                    AccountNameChangeErrorKind.Unavailable,
+                    defaultTarget,
+                    "กำลังตรวจสอบผลการยืนยัน กรุณาลองอีกครั้งด้วยคำขอเดิม",
+                    api.RetryAfter,
+                    retryWithSameIdempotencyKey: true),
+            "name_change_provider_throttled" or
+            "name_change_send_limit" or
+            "name_change_resend_cooldown" when api.RetryAfter is { } retryAfter =>
+                Notice(
+                    AccountNameChangeErrorKind.Cooldown,
+                    defaultTarget,
+                    $"กรุณารอก่อนลองอีกครั้ง {Math.Max(1, (int)Math.Ceiling(retryAfter.TotalSeconds))} วินาที",
+                    retryAfter),
+            "name_change_idempotency_invalid" =>
+                Notice(
+                    AccountNameChangeErrorKind.Invalid,
+                    defaultTarget,
+                    "คำขอไม่ถูกต้อง กรุณาลองใหม่"),
+            "name_change_idempotency_conflict" =>
+                Notice(
+                    AccountNameChangeErrorKind.Invalid,
+                    defaultTarget,
+                    "คำขอนี้ไม่ตรงกับข้อมูลเดิม กรุณาลองใหม่"),
+            _ when api.StatusCode == HttpStatusCode.TooManyRequests =>
+                Notice(
+                    AccountNameChangeErrorKind.Cooldown,
+                    defaultTarget,
+                    "กรุณารอสักครู่ก่อนลองอีกครั้ง",
+                    api.RetryAfter),
+            _ => Notice(
+                AccountNameChangeErrorKind.Invalid,
+                defaultTarget,
+                "เปลี่ยนชื่อไม่สำเร็จ กรุณาลองอีกครั้ง")
+        };
+    }
+
+    private static AccountNameChangeErrorNotice Notice(
+        AccountNameChangeErrorKind kind,
+        AccountNameChangeErrorTarget target,
+        string message,
+        TimeSpan? retryAfter = null,
+        int? remainingAttempts = null,
+        DateTimeOffset? nextAllowedAt = null,
+        bool retryWithSameIdempotencyKey = false) =>
+        new(
+            kind,
+            target,
+            message,
+            retryAfter,
+            remainingAttempts,
+            nextAllowedAt,
+            retryWithSameIdempotencyKey);
+}
+
+public sealed class AccountNameChangeCompletionState
+{
+    private readonly AuthenticatedSessionBoundary session;
+    private readonly object sync = new();
+    private long? completedSessionGeneration;
+
+    public AccountNameChangeCompletionState(AuthenticatedSessionBoundary session)
+    {
+        this.session = session;
+        session.ResetRequested += OnSessionResetRequested;
+    }
+
+    public void RecordCompletion(long sessionGeneration)
+    {
+        lock (sync)
+        {
+            completedSessionGeneration = session.IsCurrent(sessionGeneration)
+                ? sessionGeneration
+                : null;
+        }
+    }
+
+    public bool TryConsume(long sessionGeneration)
+    {
+        lock (sync)
+        {
+            if (completedSessionGeneration != sessionGeneration)
+                return false;
+
+            completedSessionGeneration = null;
+            return session.IsCurrent(sessionGeneration);
+        }
+    }
+
+    private void OnSessionResetRequested(object? sender, EventArgs eventArgs)
+    {
+        lock (sync)
+        {
+            completedSessionGeneration = null;
+        }
+    }
+}

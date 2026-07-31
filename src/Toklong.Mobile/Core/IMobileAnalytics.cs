@@ -54,6 +54,57 @@ public static class AccountEmailChangeAnalytics
                 StringComparer.Ordinal));
 }
 
+public enum AccountNameChangeBlockReason
+{
+    Cooldown
+}
+
+public enum AccountNameChangeFailureReason
+{
+    Invalid,
+    Expired,
+    Locked,
+    Network,
+    Provider
+}
+
+public static class AccountNameChangeAnalytics
+{
+    public static MobileAnalyticsEvent Started() => Event("account_name_change_started");
+
+    public static MobileAnalyticsEvent CodeResent() => Event("account_name_change_code_resent");
+
+    public static MobileAnalyticsEvent Verified() => Event("account_name_change_verified");
+
+    public static MobileAnalyticsEvent Blocked(AccountNameChangeBlockReason reason) =>
+        Event("account_name_change_blocked", ("reason", reason switch
+        {
+            AccountNameChangeBlockReason.Cooldown => "cooldown",
+            _ => "cooldown"
+        }));
+
+    public static MobileAnalyticsEvent Failed(AccountNameChangeFailureReason reason) =>
+        Event("account_name_change_failed", ("reason", reason switch
+        {
+            AccountNameChangeFailureReason.Invalid => "invalid",
+            AccountNameChangeFailureReason.Expired => "expired",
+            AccountNameChangeFailureReason.Locked => "locked",
+            AccountNameChangeFailureReason.Network => "network",
+            AccountNameChangeFailureReason.Provider => "provider",
+            _ => "invalid"
+        }));
+
+    private static MobileAnalyticsEvent Event(
+        string name,
+        params (string Key, string Value)[] properties) =>
+        new(
+            name,
+            properties.ToDictionary(
+                property => property.Key,
+                property => property.Value,
+                StringComparer.Ordinal));
+}
+
 public static class SellerWorkspaceAnalytics
 {
     public static MobileAnalyticsEvent FilterSelected(

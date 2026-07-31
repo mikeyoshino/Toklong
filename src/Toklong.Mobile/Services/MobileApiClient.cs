@@ -52,11 +52,13 @@ public sealed class MobileApiClient(
         if (response.IsSuccessStatusCode)
             return;
         string? message = null;
+        ApiProblem? problemMetadata = null;
         try
         {
             var problem = await response.Content.ReadFromJsonAsync<ApiProblem>(
                 cancellationToken: cancellationToken);
             message = problem?.Detail ?? problem?.Title;
+            problemMetadata = problem;
         }
         catch (JsonException)
         {
@@ -68,13 +70,19 @@ public sealed class MobileApiClient(
                     0,
                     (retryAt - DateTimeOffset.UtcNow)
                     .TotalSeconds))
-                : null);
+                : problemMetadata?.RetryAfterSeconds is { } seconds
+                    ? TimeSpan.FromSeconds(Math.Max(1, seconds))
+                    : null);
         throw new MobileApiRequestException(
             response.StatusCode,
             string.IsNullOrWhiteSpace(message)
                 ? "เชื่อมต่อ TOKLONG ไม่สำเร็จ กรุณาลองอีกครั้ง"
                 : message,
-            retryAfter);
+            retryAfter,
+            problemMetadata?.Code,
+            problemMetadata?.Field,
+            problemMetadata?.RemainingAttempts,
+            problemMetadata?.NextAllowedAt);
     }
 
     private async Task<StoredMobileSession?> EnsureFreshSessionAsync(
@@ -140,5 +148,12 @@ public sealed class MobileApiClient(
         bool CanBuy,
         bool CanSell);
 
-    private sealed record ApiProblem(string? Title, string? Detail);
+    private sealed record ApiProblem(
+        string? Title,
+        string? Detail,
+        string? Code,
+        string? Field,
+        int? RemainingAttempts,
+        int? RetryAfterSeconds,
+        DateTimeOffset? NextAllowedAt);
 }

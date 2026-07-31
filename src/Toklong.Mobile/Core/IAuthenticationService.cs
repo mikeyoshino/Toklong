@@ -66,6 +66,34 @@ public interface IAuthenticationService
     Task<MobileProfile> GetProfileAsync(
         CancellationToken cancellationToken = default);
 
+    Task<AccountNameChangeEligibility> GetAccountNameChangeEligibilityAsync(
+        CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException();
+
+    Task<PendingAccountNameChange?> GetPendingAccountNameChangeAsync(
+        CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException();
+
+    Task<PendingAccountNameChange> RequestAccountNameChangeAsync(
+        string firstName,
+        string lastName,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException();
+
+    Task<PendingAccountNameChange> ResendAccountNameChangeAsync(
+        Guid challengeId,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException();
+
+    Task<VerifiedAccountNameChange> VerifyAccountNameChangeAsync(
+        Guid challengeId,
+        string code,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException();
+
     Task<PendingEmailChange?> GetPendingEmailChangeAsync(
         CancellationToken cancellationToken = default);
 
