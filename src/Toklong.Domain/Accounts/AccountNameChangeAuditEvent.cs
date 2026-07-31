@@ -11,8 +11,8 @@ public sealed class AccountNameChangeAuditEvent
         Guid? sellerId,
         Guid sessionId,
         Guid challengeId,
-        string oldName,
-        AccountName newName,
+        string oldNameReference,
+        string newNameReference,
         DateTimeOffset createdAt,
         string name,
         string result)
@@ -25,14 +25,16 @@ public sealed class AccountNameChangeAuditEvent
             throw new DomainException("เซสชันไม่ถูกต้อง");
         if (challengeId == Guid.Empty)
             throw new DomainException("รหัสคำขอเปลี่ยนชื่อไม่ถูกต้อง");
-        ArgumentNullException.ThrowIfNull(newName);
-
         BuyerId = buyerId;
         SellerId = sellerId;
         SessionId = sessionId;
         ChallengeId = challengeId;
-        OldName = Optional(oldName, 120);
-        NewName = newName.DisplayName;
+        OldName = DigestReference(
+            oldNameReference,
+            "ข้อมูลอ้างอิงชื่อเดิม");
+        NewName = DigestReference(
+            newNameReference,
+            "ข้อมูลอ้างอิงชื่อใหม่");
         CreatedAt = createdAt;
         Name = Required(name, "ชื่อเหตุการณ์", 100);
         Result = Required(result, "ผลลัพธ์", 100);
@@ -49,12 +51,13 @@ public sealed class AccountNameChangeAuditEvent
     public string Name { get; private set; } = "";
     public string Result { get; private set; } = "";
 
-    private static string Optional(string value, int maximumLength)
+    private static string DigestReference(string value, string label)
     {
         var clean = (value ?? "").Trim();
-        if (clean.Length > maximumLength)
-            throw new DomainException("ชื่อเดิมไม่ถูกต้อง");
-        return clean;
+        if (clean.Length != 64 ||
+            clean.Any(character => !Uri.IsHexDigit(character)))
+            throw new DomainException($"{label}ไม่ถูกต้อง");
+        return clean.ToLowerInvariant();
     }
 
     private static string Required(

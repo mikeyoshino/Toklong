@@ -33,11 +33,24 @@ public sealed class AccountNameVerificationSecurity
                 "Verification code must contain six ASCII digits.",
                 nameof(code));
 
-        return Convert.ToHexString(
+        return Hmac($"account-name:{challengeId:N}:{code}");
+    }
+
+    public string DigestAuditValue(Guid challengeId, string value)
+    {
+        if (challengeId == Guid.Empty)
+            throw new ArgumentException(
+                "Challenge ID must not be empty.",
+                nameof(challengeId));
+        ArgumentException.ThrowIfNullOrWhiteSpace(value);
+        return Hmac(
+            $"account-name-audit:{challengeId:N}:{value.Trim()}");
+    }
+
+    private string Hmac(string value) =>
+        Convert.ToHexString(
                 HMACSHA256.HashData(
                     _digestKey,
-                    Encoding.UTF8.GetBytes(
-                        $"account-name:{challengeId:N}:{code}")))
+                    Encoding.UTF8.GetBytes(value)))
             .ToLowerInvariant();
-    }
 }

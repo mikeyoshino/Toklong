@@ -497,6 +497,21 @@ public sealed class AccountNameChangePersistenceTests
             security.Digest(Guid.NewGuid(), "123456"));
         Assert.Throws<ArgumentException>(
             () => security.Digest(challengeId, " 123456 "));
+
+        var auditReference = security.DigestAuditValue(
+            challengeId,
+            "สมชาย ใจดี");
+        var expectedAuditReference = Convert.ToHexString(
+                HMACSHA256.HashData(
+                    Encoding.UTF8.GetBytes(key),
+                    Encoding.UTF8.GetBytes(
+                        "account-name-audit:" +
+                        "11111111222233334444555555555555:" +
+                        "สมชาย ใจดี")))
+            .ToLowerInvariant();
+        Assert.Equal(expectedAuditReference, auditReference);
+        Assert.DoesNotContain("สมชาย", auditReference);
+        Assert.NotEqual(digest, auditReference);
     }
 
     private static AccountNameChangeChallenge NewChallenge()
@@ -537,10 +552,8 @@ public sealed class AccountNameChangePersistenceTests
             challenge.SellerId,
             challenge.SessionId,
             challenge.Id,
-            "สมชาย ใจดี",
-            AccountName.Create(
-                challenge.PendingFirstName,
-                challenge.PendingLastName),
+            new string('a', 64),
+            new string('b', 64),
             Now,
             "account.name_change.verified",
             "verified");

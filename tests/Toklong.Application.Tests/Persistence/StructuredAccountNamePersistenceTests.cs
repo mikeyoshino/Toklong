@@ -32,10 +32,16 @@ public sealed class StructuredAccountNamePersistenceTests
             buyer.FindProperty(nameof(BuyerAccount.FirstName))!.IsNullable);
         Assert.True(
             buyer.FindProperty(nameof(BuyerAccount.NameChangedAt))!.IsNullable);
+        Assert.True(
+            buyer.FindProperty(nameof(BuyerAccount.NameChangedAt))!
+                .IsConcurrencyToken);
         Assert.Equal(120,
             seller.FindProperty(nameof(SellerAccount.LastName))!.GetMaxLength());
         Assert.True(
             seller.FindProperty(nameof(SellerAccount.LastName))!.IsNullable);
+        Assert.True(
+            seller.FindProperty(nameof(SellerAccount.NameChangedAt))!
+                .IsConcurrencyToken);
     }
 
     [Fact]

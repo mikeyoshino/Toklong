@@ -15,4 +15,10 @@ public interface IMobileSessionRepository
     Task<MobileSession?> GetByRefreshTokenHashAsync(
         string refreshTokenHash,
         CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<MobileSession>> GetActiveByPartyAsync(
+        Guid? buyerId,
+        Guid? sellerId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken);
 }

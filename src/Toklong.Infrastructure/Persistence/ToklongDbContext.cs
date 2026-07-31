@@ -424,6 +424,8 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         seller.Property(x => x.LastName)
             .HasMaxLength(120)
             .IsRequired(false);
+        seller.Property(x => x.NameChangedAt)
+            .IsConcurrencyToken();
         seller.Property(x => x.SavedShippingAddressLine)
             .HasMaxLength(500);
         seller.Property(x => x.SavedShippingProvinceName)
@@ -457,6 +459,8 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         buyer.Property(x => x.FullName).HasMaxLength(120);
         buyer.Property(x => x.FirstName).HasMaxLength(120);
         buyer.Property(x => x.LastName).HasMaxLength(120);
+        buyer.Property(x => x.NameChangedAt)
+            .IsConcurrencyToken();
         buyer.Property(x => x.Email).HasMaxLength(254);
         buyer.Property(x => x.SavedAddressLine).HasMaxLength(500);
         buyer.Property(x => x.SavedProvinceName).HasMaxLength(100);
