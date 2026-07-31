@@ -73,6 +73,19 @@ public static class MobileApi
                             AccountNameChangeVerificationException verification
                             ? verification.RemainingAttempts
                             : null;
+                        var field = exception switch
+                        {
+                            AccountNameChangeInputException input =>
+                                input.Field == AccountNameInputField.FirstName
+                                    ? "firstName"
+                                    : "lastName",
+                            AccountNameChangeInvalidIdempotencyException =>
+                                "idempotencyKey",
+                            AccountNameChangeVerificationException
+                                { Failure: AccountNameVerificationFailure.MalformedCode } =>
+                                "code",
+                            _ => null
+                        };
                         var nameChangeLogger = context.RequestServices
                             .GetRequiredService<ILoggerFactory>()
                             .CreateLogger("Toklong.MobileApi");
@@ -100,6 +113,7 @@ public static class MobileApi
                                                 retryAfter.Value.TotalSeconds))
                                         : (int?)null,
                                     remainingAttempts,
+                                    field,
                                     nextAllowedAt
                                 },
                                 statusCode: nameChangeStatus,

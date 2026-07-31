@@ -418,6 +418,72 @@ public sealed class MobileNameChangeApiTests
         Assert.Equal(owner.PhoneNumber, challenge.PhoneNumber);
     }
 
+    [Fact]
+    public async Task Validation_and_code_errors_have_stable_field_contracts()
+    {
+        using var buyer = await AuthenticatedBuyerAsync();
+        foreach (var item in new[]
+        {
+            new { FirstName = "123", LastName = "ใจดี", Field = "firstName", Code = "name_change_first_name_invalid" },
+            new { FirstName = "สมชาย", LastName = "123", Field = "lastName", Code = "name_change_last_name_invalid" }
+        })
+        {
+            using var response = await RequestPendingAsync(
+                buyer.Client, item.FirstName, item.LastName);
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+            var problem = await response.Content.ReadFromJsonAsync<NameChangeProblem>();
+            Assert.NotNull(problem);
+            Assert.Equal(item.Code, problem.Code);
+            Assert.Equal(item.Field, problem.Field);
+        }
+
+        using var badKey = await RequestPendingAsync(
+            buyer.Client, "สมชาย", "ใจดี", "bad");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, badKey.StatusCode);
+        Assert.Equal("name_change_idempotency_invalid", (await badKey.Content.ReadFromJsonAsync<NameChangeProblem>())!.Code);
+
+        using var requested = await RequestPendingAsync(buyer.Client, "สมชาย", "ใจดี");
+        requested.EnsureSuccessStatusCode();
+        var pending = (await requested.Content.ReadFromJsonAsync<PendingResponse>())!;
+        using var malformed = await VerifyAsync(buyer.Client, pending.ChallengeId, "12");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, malformed.StatusCode);
+        var malformedProblem = await malformed.Content.ReadFromJsonAsync<NameChangeProblem>();
+        Assert.NotNull(malformedProblem);
+        Assert.Equal("name_change_code_invalid", malformedProblem.Code);
+        Assert.Equal("code", malformedProblem.Field);
+
+        using var incorrect = await VerifyAsync(buyer.Client, pending.ChallengeId, "654321");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, incorrect.StatusCode);
+        var incorrectProblem = await incorrect.Content.ReadFromJsonAsync<NameChangeProblem>();
+        Assert.NotNull(incorrectProblem);
+        Assert.Equal("name_change_code_incorrect", incorrectProblem.Code);
+        Assert.Equal(4, incorrectProblem.RemainingAttempts);
+    }
+
+    [Fact]
+    public async Task Resend_succeeds_and_exact_replay_returns_the_same_replacement()
+    {
+        using var buyer = await AuthenticatedBuyerAsync();
+        using var requested = await RequestPendingAsync(buyer.Client, "สมชาย", "ใจดี");
+        requested.EnsureSuccessStatusCode();
+        var pending = (await requested.Content.ReadFromJsonAsync<PendingResponse>())!;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var database = scope.ServiceProvider.GetRequiredService<ToklongDbContext>();
+            var challenge = await database.AccountNameChangeChallenges.SingleAsync(x => x.Id == pending.ChallengeId);
+            database.Entry(challenge).Property("ResendAvailableAt").CurrentValue = DateTimeOffset.UtcNow.AddSeconds(-1);
+            await database.SaveChangesAsync();
+        }
+        var key = NewKey();
+        using var resend = await buyer.Client.PostAsJsonAsync($"/api/mobile/me/name-change/{pending.ChallengeId}/resend", new { IdempotencyKey = key });
+        resend.EnsureSuccessStatusCode();
+        var replacement = (await resend.Content.ReadFromJsonAsync<PendingResponse>())!;
+        Assert.NotEqual(pending.ChallengeId, replacement.ChallengeId);
+        using var replay = await buyer.Client.PostAsJsonAsync($"/api/mobile/me/name-change/{pending.ChallengeId}/resend", new { IdempotencyKey = key });
+        replay.EnsureSuccessStatusCode();
+        Assert.Equal(replacement.ChallengeId, (await replay.Content.ReadFromJsonAsync<PendingResponse>())!.ChallengeId);
+    }
+
     private async Task<BuyerSession> AuthenticatedBuyerAsync(
         WebApplicationFactory<Program>? host = null)
     {
@@ -520,5 +586,7 @@ public sealed class MobileNameChangeApiTests
     private sealed record NameChangeProblem(
         string Code,
         DateTimeOffset? NextAllowedAt,
-        int? RetryAfterSeconds);
+        int? RetryAfterSeconds,
+        int? RemainingAttempts = null,
+        string? Field = null);
 }

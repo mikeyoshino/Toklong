@@ -61,6 +61,22 @@ git diff --check: passed
   translate to the typed idempotency-conflict boundary rather than generic
   invalid input.
 
+## Round 3 HTTP checklist
+
+- [x] All five authenticated routes and non-enumeration: `Every_name_change_route_requires_authentication`, `Another_account_cannot_enumerate_a_name_change_challenge`.
+- [x] Eligibility/request/pending/verify/profile refresh and headers: `Authenticated_account_can_request_resume_and_verify_a_name_change`.
+- [x] Field validation, malformed idempotency, malformed and incorrect OTP: `Validation_and_code_errors_have_stable_field_contracts`.
+- [x] Request replay, verification replay, resend cooldown, successful resend and resend replay: `Exact_request_replay_returns_the_same_challenge_without_sending_a_second_response_shape`, `Exact_verification_replay_returns_the_original_completion`, `Resend_cooldown_returns_retry_metadata_without_a_code_or_provider_detail`, `Resend_succeeds_and_exact_replay_returns_the_same_replacement`.
+- [x] Cooldown and durable quota: `Cooldown_is_returned_only_after_a_blocked_action_with_its_exact_timestamp`, `Durable_five_per_day_send_limit_survives_a_new_api_scope`.
+- [x] Request limiter and redaction: `Authenticated_name_change_request_rate_limit_returns_a_consumer_safe_problem`, `Resend_cooldown_returns_retry_metadata_without_a_code_or_provider_detail`.
+
+Round 3 focused verification:
+
+```text
+Focused MobileNameChange API: 12 passed
+Focused AccountNameChange Application: 57 passed, 5 PostgreSQL-gated skipped
+```
+
 The PostgreSQL-gated skips require `TOKLONG_POSTGRES_MIGRATION_TEST_CONNECTION`.
 The domain restore emitted only `NU1900` because the environment could not
 retrieve NuGet vulnerability data.
