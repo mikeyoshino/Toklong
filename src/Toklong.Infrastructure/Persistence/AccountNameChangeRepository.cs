@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Toklong.Application.Abstractions;
 using Toklong.Domain.Accounts;
 
@@ -68,10 +69,31 @@ public sealed class AccountNameChangeRepository(
         return dbContext.AccountNameChangeChallenges.CountAsync(
             challenge =>
                 challenge.PhoneNumber == phoneNumber &&
-                challenge.SendAcceptedAt >= since &&
+                challenge.SendAcceptedAt > since &&
                 (buyerId.HasValue && challenge.BuyerId == buyerId ||
                  sellerId.HasValue && challenge.SellerId == sellerId),
             cancellationToken);
+    }
+
+    public Task<DateTimeOffset?> GetOldestAcceptedSendAtAsync(
+        Guid? buyerId,
+        Guid? sellerId,
+        string phoneNumber,
+        DateTimeOffset since,
+        CancellationToken cancellationToken)
+    {
+        if (!buyerId.HasValue && !sellerId.HasValue)
+            return Task.FromResult<DateTimeOffset?>(null);
+
+        return dbContext.AccountNameChangeChallenges
+            .Where(challenge =>
+                challenge.PhoneNumber == phoneNumber &&
+                challenge.SendAcceptedAt > since &&
+                (buyerId.HasValue && challenge.BuyerId == buyerId ||
+                 sellerId.HasValue && challenge.SellerId == sellerId))
+            .MinAsync(
+                challenge => challenge.SendAcceptedAt,
+                cancellationToken);
     }
 
     public Task AddAsync(
@@ -94,4 +116,29 @@ public sealed class AccountNameChangeRepository(
         dbContext.AccountNameChangeAuditEvents
             .AddAsync(value, cancellationToken)
             .AsTask();
+
+    public bool IsPersistenceConflict(Exception exception)
+    {
+        if (exception is DbUpdateConcurrencyException)
+            return true;
+        if (exception is not DbUpdateException updateException)
+            return false;
+        if (updateException.InnerException is PostgresException
+            {
+                SqlState: PostgresErrorCodes.UniqueViolation
+            })
+            return true;
+
+        var providerException = updateException.InnerException;
+        if (providerException?.GetType().FullName !=
+            "Microsoft.Data.Sqlite.SqliteException")
+            return false;
+        var extendedErrorCode = providerException.GetType()
+            .GetProperty("SqliteExtendedErrorCode")
+            ?.GetValue(providerException);
+        return extendedErrorCode is 1555 or 2067;
+    }
+
+    public void DiscardPendingChanges() =>
+        dbContext.ChangeTracker.Clear();
 }

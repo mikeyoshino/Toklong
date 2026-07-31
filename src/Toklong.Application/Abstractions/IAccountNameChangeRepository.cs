@@ -33,6 +33,13 @@ public interface IAccountNameChangeRepository
         DateTimeOffset since,
         CancellationToken cancellationToken);
 
+    Task<DateTimeOffset?> GetOldestAcceptedSendAtAsync(
+        Guid? buyerId,
+        Guid? sellerId,
+        string phoneNumber,
+        DateTimeOffset since,
+        CancellationToken cancellationToken);
+
     Task AddAsync(
         AccountNameChangeChallenge value,
         CancellationToken cancellationToken);
@@ -44,4 +51,8 @@ public interface IAccountNameChangeRepository
     Task AddAuditAsync(
         AccountNameChangeAuditEvent value,
         CancellationToken cancellationToken);
+
+    bool IsPersistenceConflict(Exception exception);
+
+    void DiscardPendingChanges();
 }
