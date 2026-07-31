@@ -196,3 +196,42 @@ SQLite relational tests, ASP.NET Core Data Protection, xUnit.
   EF pending-model check, and `git diff --check`.
 - [ ] Append the Task 5 implementer report, self-review transaction ownership,
   then commit with `fix: compose mobile registration transaction`.
+
+### Task 8: Authoritative post-lock mobile-session name reads
+
+**Files:**
+- Create: `src/Toklong.Application/Abstractions/IMobileSessionAccountNameReader.cs`
+- Create: `src/Toklong.Infrastructure/Persistence/MobileSessionAccountNameReader.cs`
+- Modify: `src/Toklong.Infrastructure/DependencyInjection.cs`
+- Modify: `src/Toklong.Api/Security/MobileSessionTokenService.cs`
+- Modify: `tests/Toklong.Api.Tests/Security/MobileSessionTokenServiceTests.cs`
+- Modify: `tests/Toklong.Api.Tests/Security/MobileRegistrationTransactionCompositionTests.cs`
+- Modify: `.superpowers/sdd/2026-07-31-account-name-change/task-5-implementer-report.md`
+
+**Interfaces:**
+- Produces `IMobileSessionAccountNameReader.GetBuyerAsync(Guid, ct)` and
+  `GetSellerAsync(Guid, ct)`, returning a scalar
+  `MobileSessionAccountName(Guid AccountId, string PhoneNumber,
+  string FirstName, string LastName, string DisplayName)` or null.
+- The infrastructure implementation uses `AsNoTracking` scalar projections;
+  no account entity crosses this boundary.
+
+- [ ] Add one buyer-only and one seller-only OTP sign-in composition case that
+  first tracks the old role in the session DbContext, blocks session creation
+  on the phone lease, commits a new name in another DbContext, releases the
+  lease, and expects the issued and persisted session name to be the new
+  literal value.
+- [ ] Run the focused test and verify the tracking repositories return the old
+  name, proving the race before changing production code.
+- [ ] Add the minimal reader interface, no-tracking projections, and scoped DI
+  registration. Replace token-service role repository reads after lease
+  acquisition in both creation and seller attachment.
+- [ ] Preserve buyer precedence only after every present role matches the
+  normalized phone and both structured/display names agree; otherwise throw
+  before creating or mutating a session.
+- [ ] Add fail-safe dual-role divergence and authoritative attachment tests,
+  then run the session/sign-in/registration tests to green.
+- [ ] Run full Application and API tests, EF pending-model check, and
+  `git diff --check`.
+- [ ] Append the Round 3 Task 5 report and commit with
+  `fix: read session names after phone lock`.

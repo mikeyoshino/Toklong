@@ -153,3 +153,32 @@ materialized nor modified.
   omitted.
 - Same-phone reentry, different-phone rejection, LIFO, poisoned-outer, and
   cancellation/disposal safety checks on the scoped manager.
+
+### Post-lock authoritative session-name refinement
+
+Acquiring the normalized-phone lease is not sufficient when the same scoped
+`ToklongDbContext` tracked a buyer or seller before the lease. EF tracking
+queries identity-resolve that stale instance even after another transaction
+commits a name change. Session issuance and seller attachment therefore use a
+dedicated current-name reader only after acquiring or joining the phone lease.
+
+The reader executes `AsNoTracking` scalar projections for buyer and seller and
+returns the account id, normalized-phone source, structured first and last
+name, and stored display name. It never returns an entity and therefore cannot
+identity-resolve a pre-lock tracked role. Every requested role must still
+exist and match the lease phone. If both roles are present, their structured
+first name, last name, and display name must agree before buyer precedence may
+select the result. Divergence fails session issuance safely; it never mints a
+session from either stale or inconsistent role data. Seller-only legacy rows
+retain their stored display fallback while structured fields remain explicit.
+
+The same reader supplies seller authorization and current role names for
+`AttachSellerAsync`. Tracked session concurrency remains responsible for
+rejecting an attachment that raced an update to that session row.
+
+Regression coverage must reproduce the actual OTP composition with one scoped
+DbContext: OTP verification tracks the old buyer or seller, a concurrent name
+change commits while session creation waits for the phone lease, then session
+creation must persist the new authoritative display name. Buyer-only and
+seller-only paths are both required, plus a fail-safe dual-role divergence
+check and authoritative seller attachment coverage.
