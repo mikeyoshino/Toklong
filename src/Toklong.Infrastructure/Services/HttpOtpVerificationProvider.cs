@@ -118,11 +118,12 @@ public sealed class ThaiBulkSmsOtpVerificationProvider(
             null);
     }
 
-    public Task<OtpChallenge?> LookupAsync(
+    public Task<OtpChallengeRecovery?> LookupAsync(
         string providerRequestKey,
+        string phoneNumber,
         OtpPurpose purpose,
         CancellationToken cancellationToken) =>
-        Task.FromResult<OtpChallenge?>(null);
+        Task.FromResult<OtpChallengeRecovery?>(null);
 
     public async Task<string?> VerifyAsync(
         string challengeId,
@@ -305,8 +306,12 @@ public sealed class ThaiBulkSmsOtpVerificationProvider(
 
 public sealed class HttpOtpVerificationProvider(
     HttpClient httpClient,
-    OtpProviderOptions options) : IOtpVerificationProvider
+    OtpProviderOptions options,
+    IClock? clock = null) : IOtpVerificationProvider
 {
+    private readonly IClock providerClock =
+        clock ?? new SystemClock();
+
     public OtpProviderCapabilities Capabilities =>
         new(
             IsCertifiedForAccountNameChange(),
@@ -365,14 +370,17 @@ public sealed class HttpOtpVerificationProvider(
             null);
     }
 
-    public async Task<OtpChallenge?> LookupAsync(
+    public async Task<OtpChallengeRecovery?> LookupAsync(
         string providerRequestKey,
+        string phoneNumber,
         OtpPurpose purpose,
         CancellationToken cancellationToken)
     {
         EnsurePurposeSupported(purpose);
         providerRequestKey = ValidProviderRequestKey(
             providerRequestKey);
+        var expectedPhone = ThaiMobilePhone.Normalize(
+            phoneNumber);
         using var request = CreateRequest(
             HttpMethod.Get,
             $"v1/otp/challenges/by-request/{providerRequestKey}" +
@@ -394,20 +402,49 @@ public sealed class HttpOtpVerificationProvider(
                 cancellationToken: cancellationToken);
         if (result is null ||
             !ValidOpaqueId(result.ChallengeId) ||
+            string.IsNullOrWhiteSpace(result.ProviderRequestKey) ||
+            string.IsNullOrWhiteSpace(result.Purpose) ||
             string.IsNullOrWhiteSpace(result.PhoneNumber) ||
             string.IsNullOrWhiteSpace(result.MaskedPhoneNumber))
             throw new InvalidOperationException(
                 "ผู้ให้บริการรหัสยืนยันส่งข้อมูลไม่ครบ");
         var normalized = ThaiMobilePhone.Normalize(
             result.PhoneNumber);
-        return new OtpChallenge(
+        if (!string.Equals(
+                result.ProviderRequestKey,
+                providerRequestKey,
+                StringComparison.Ordinal) ||
+            !string.Equals(
+                result.Purpose,
+                purpose.ToString(),
+                StringComparison.Ordinal) ||
+            !string.Equals(
+                normalized,
+                expectedPhone,
+                StringComparison.Ordinal) ||
+            !ValidProviderWindow(
+                purpose,
+                result.AcceptedAt,
+                result.ExpiresAt,
+                providerClock.UtcNow))
+            return null;
+        var challenge = new OtpChallenge(
             ProtectChallenge(
                 normalized,
                 result.ChallengeId,
                 purpose,
-                providerRequestKey),
+                providerRequestKey,
+                result.AcceptedAt,
+                result.ExpiresAt),
             result.MaskedPhoneNumber.Trim(),
             null);
+        return new OtpChallengeRecovery(
+            challenge,
+            providerRequestKey,
+            purpose,
+            normalized,
+            result.AcceptedAt,
+            result.ExpiresAt);
     }
 
     public async Task<string?> VerifyAsync(
@@ -424,6 +461,8 @@ public sealed class HttpOtpVerificationProvider(
                 purpose,
                 out var phoneNumber,
                 out var providerChallengeId,
+                out _,
+                out _,
                 out _))
             return null;
         using var request = CreateRequest(
@@ -503,12 +542,26 @@ public sealed class HttpOtpVerificationProvider(
         string normalizedPhone,
         string providerChallengeId,
         OtpPurpose purpose,
-        string providerRequestKey)
+        string providerRequestKey,
+        DateTimeOffset? acceptedAt = null,
+        DateTimeOffset? expiresAt = null)
     {
+        if (acceptedAt.HasValue != expiresAt.HasValue)
+            throw new ArgumentException(
+                "Provider acceptance and expiry must be supplied together.");
+        var acceptedValue = acceptedAt.HasValue
+            ? acceptedAt.Value.ToUnixTimeMilliseconds().ToString(
+                System.Globalization.CultureInfo.InvariantCulture)
+            : "-";
+        var expiryValue = expiresAt.HasValue
+            ? expiresAt.Value.ToUnixTimeMilliseconds().ToString(
+                System.Globalization.CultureInfo.InvariantCulture)
+            : "-";
         var payload = Convert.ToBase64String(
                 Encoding.UTF8.GetBytes(
                     $"{purpose}\n{normalizedPhone}\n" +
-                    $"{providerRequestKey}\n{providerChallengeId}"))
+                    $"{providerRequestKey}\n{providerChallengeId}\n" +
+                    $"{acceptedValue}\n{expiryValue}"))
             .TrimEnd('=')
             .Replace('+', '-')
             .Replace('/', '_');
@@ -525,11 +578,15 @@ public sealed class HttpOtpVerificationProvider(
         OtpPurpose expectedPurpose,
         out string phoneNumber,
         out string providerChallengeId,
-        out string providerRequestKey)
+        out string providerRequestKey,
+        out DateTimeOffset? acceptedAt,
+        out DateTimeOffset? expiresAt)
     {
         phoneNumber = "";
         providerChallengeId = "";
         providerRequestKey = "";
+        acceptedAt = null;
+        expiresAt = null;
         if (string.IsNullOrWhiteSpace(challengeId) ||
             challengeId.Length > 800)
             return false;
@@ -560,7 +617,7 @@ public sealed class HttpOtpVerificationProvider(
             var parts = Encoding.UTF8.GetString(
                     Convert.FromBase64String(base64))
                 .Split('\n');
-            if (parts.Length != 4 ||
+            if (parts.Length != 6 ||
                 !Enum.TryParse<OtpPurpose>(
                     parts[0],
                     ignoreCase: false,
@@ -571,7 +628,30 @@ public sealed class HttpOtpVerificationProvider(
             providerRequestKey =
                 ValidProviderRequestKey(parts[2]);
             providerChallengeId = parts[3];
-            return ValidOpaqueId(providerChallengeId);
+            if (!ValidOpaqueId(providerChallengeId))
+                return false;
+            if (parts[4] == "-" && parts[5] == "-")
+                return true;
+            if (!long.TryParse(
+                    parts[4],
+                    System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out var acceptedMilliseconds) ||
+                !long.TryParse(
+                    parts[5],
+                    System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out var expiryMilliseconds))
+                return false;
+            acceptedAt = DateTimeOffset.FromUnixTimeMilliseconds(
+                acceptedMilliseconds);
+            expiresAt = DateTimeOffset.FromUnixTimeMilliseconds(
+                expiryMilliseconds);
+            return ValidProviderWindow(
+                purpose,
+                acceptedAt.Value,
+                expiresAt.Value,
+                providerClock.UtcNow);
         }
         catch (FormatException)
         {
@@ -581,6 +661,22 @@ public sealed class HttpOtpVerificationProvider(
         {
             return false;
         }
+    }
+
+    private bool ValidProviderWindow(
+        OtpPurpose purpose,
+        DateTimeOffset acceptedAt,
+        DateTimeOffset expiresAt,
+        DateTimeOffset now)
+    {
+        if (acceptedAt > now ||
+            expiresAt <= now ||
+            expiresAt <= acceptedAt)
+            return false;
+        return purpose != OtpPurpose.AccountNameChange ||
+               expiresAt - acceptedAt ==
+               TimeSpan.FromSeconds(
+                   options.AccountNameChangeCodeLifetimeSeconds);
     }
 
     private static string ValidProviderRequestKey(string value)
@@ -629,5 +725,9 @@ public sealed class HttpOtpVerificationProvider(
     private sealed record OtpLookupResult(
         string ChallengeId,
         string MaskedPhoneNumber,
-        string PhoneNumber);
+        string PhoneNumber,
+        string ProviderRequestKey,
+        string Purpose,
+        DateTimeOffset AcceptedAt,
+        DateTimeOffset ExpiresAt);
 }

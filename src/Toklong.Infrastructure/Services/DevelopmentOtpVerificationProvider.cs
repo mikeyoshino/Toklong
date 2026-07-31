@@ -86,6 +86,7 @@ public sealed class DevelopmentOtpVerificationProvider
             providerRequestKey,
             code,
             Hash(challengeId, code, purpose),
+            now,
             now.Add(LifetimeFor(purpose)),
             0);
         LastRequests[requestKey] = now;
@@ -96,21 +97,33 @@ public sealed class DevelopmentOtpVerificationProvider
             ToChallenge(challengeId, Challenges[challengeId]));
     }
 
-    public Task<OtpChallenge?> LookupAsync(
+    public Task<OtpChallengeRecovery?> LookupAsync(
         string providerRequestKey,
+        string phoneNumber,
         OtpPurpose purpose,
         CancellationToken cancellationToken)
     {
         providerRequestKey = ValidProviderRequestKey(
             providerRequestKey);
+        var normalized = NormalizeThaiPhone(phoneNumber);
         if (Requests.TryGetValue(
                 (providerRequestKey, purpose),
                 out var challengeId) &&
             Challenges.TryGetValue(challengeId, out var entry) &&
+            string.Equals(
+                entry.PhoneNumber,
+                normalized,
+                StringComparison.Ordinal) &&
             entry.ExpiresAt > _clock.UtcNow)
-            return Task.FromResult<OtpChallenge?>(
-                ToChallenge(challengeId, entry));
-        return Task.FromResult<OtpChallenge?>(null);
+            return Task.FromResult<OtpChallengeRecovery?>(
+                new OtpChallengeRecovery(
+                    ToChallenge(challengeId, entry),
+                    entry.ProviderRequestKey,
+                    entry.Purpose,
+                    entry.PhoneNumber,
+                    entry.AcceptedAt,
+                    entry.ExpiresAt));
+        return Task.FromResult<OtpChallengeRecovery?>(null);
     }
 
     public Task<string?> VerifyAsync(
@@ -203,6 +216,7 @@ public sealed class DevelopmentOtpVerificationProvider
         string ProviderRequestKey,
         string DevelopmentCode,
         byte[] CodeHash,
+        DateTimeOffset AcceptedAt,
         DateTimeOffset ExpiresAt,
         int Attempts);
 }

@@ -192,6 +192,10 @@ namespace Toklong.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("SessionId");
 
+                    b.HasIndex("SourceChallengeId")
+                        .IsUnique()
+                        .HasFilter("\"SourceChallengeId\" IS NOT NULL");
+
                     b.HasIndex("BuyerId", "SendAcceptedAt");
 
                     b.HasIndex("PhoneNumber", "RequestIdempotencyKey")
@@ -200,9 +204,6 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                     b.HasIndex("PhoneNumber", "SendAcceptedAt");
 
                     b.HasIndex("SellerId", "SendAcceptedAt");
-
-                    b.HasIndex("SourceChallengeId", "RequestIdempotencyKey")
-                        .IsUnique();
 
                     b.ToTable("account_name_change_challenges", (string)null);
                 });

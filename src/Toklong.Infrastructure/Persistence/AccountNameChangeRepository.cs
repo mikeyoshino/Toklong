@@ -35,6 +35,16 @@ public sealed class AccountNameChangeRepository(
                 challenge.RequestIdempotencyKey == key,
             cancellationToken);
 
+    public Task<AccountNameChangeChallenge?>
+        GetBySourceChallengeIdAsync(
+            Guid sourceChallengeId,
+            CancellationToken cancellationToken) =>
+        dbContext.AccountNameChangeChallenges.SingleOrDefaultAsync(
+            challenge =>
+                challenge.SourceChallengeId ==
+                sourceChallengeId,
+            cancellationToken);
+
     public Task<AccountNameVerificationAttempt?> GetAttemptAsync(
         Guid challengeId,
         string idempotencyKey,

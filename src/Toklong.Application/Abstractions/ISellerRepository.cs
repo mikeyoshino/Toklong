@@ -17,6 +17,14 @@ public sealed record OtpChallenge(
     string MaskedPhoneNumber,
     string? DevelopmentCode);
 
+public sealed record OtpChallengeRecovery(
+    OtpChallenge Challenge,
+    string ProviderRequestKey,
+    OtpPurpose Purpose,
+    string PhoneNumber,
+    DateTimeOffset AcceptedAt,
+    DateTimeOffset ExpiresAt);
+
 public enum OtpPurpose
 {
     MobileAuthentication,
@@ -43,11 +51,12 @@ public interface IOtpVerificationProvider
         string providerRequestKey,
         CancellationToken cancellationToken);
 
-    Task<OtpChallenge?> LookupAsync(
+    Task<OtpChallengeRecovery?> LookupAsync(
         string providerRequestKey,
+        string phoneNumber,
         OtpPurpose purpose,
         CancellationToken cancellationToken) =>
-        Task.FromResult<OtpChallenge?>(null);
+        Task.FromResult<OtpChallengeRecovery?>(null);
 
     Task<string?> VerifyAsync(
         string challengeId,

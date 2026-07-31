@@ -387,16 +387,61 @@ public sealed class HttpOtpVerificationProviderTests
                 default));
         var recovered = await provider.LookupAsync(
             requestKey,
+            "0812345678",
             OtpPurpose.AccountNameChange,
             default);
 
         Assert.NotNull(recovered);
         Assert.Equal(requestKey, handler.RequestIdempotencyKey);
         Assert.Equal(requestKey, handler.LookupRequestKey);
+        Assert.Equal(requestKey, recovered.ProviderRequestKey);
+        Assert.Equal(
+            OtpPurpose.AccountNameChange,
+            recovered.Purpose);
+        Assert.Equal("+66812345678", recovered.PhoneNumber);
+        Assert.Equal(
+            TimeSpan.FromMinutes(10),
+            recovered.ExpiresAt - recovered.AcceptedAt);
         Assert.DoesNotContain(
             "provider_challenge_0123456789",
-            recovered.ChallengeId,
+            recovered.Challenge.ChallengeId,
             StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Http_lookup_rejects_a_wrong_original_purpose()
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        await AssertLookupRejectedAsync(
+            "MobileAuthentication",
+            "aaaaaaaa11111111bbbbbbbb22222222",
+            now.AddMinutes(-2),
+            now.AddMinutes(8));
+    }
+
+    [Fact]
+    public async Task Http_lookup_rejects_a_mismatched_original_request_key()
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        await AssertLookupRejectedAsync(
+            "AccountNameChange",
+            "cccccccc33333333dddddddd44444444",
+            now.AddMinutes(-2),
+            now.AddMinutes(8));
+    }
+
+    [Fact]
+    public async Task Http_lookup_rejects_provider_expired_evidence()
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        await AssertLookupRejectedAsync(
+            "AccountNameChange",
+            "aaaaaaaa11111111bbbbbbbb22222222",
+            now.AddMinutes(-11),
+            now.AddMinutes(-1));
     }
 
     [Fact]
@@ -468,6 +513,39 @@ public sealed class HttpOtpVerificationProviderTests
                     "cert-account-name-001",
                 AccountNameChangeCodeLifetimeSeconds = 600
             });
+
+    private static async Task AssertLookupRejectedAsync(
+        string originalPurpose,
+        string originalRequestKey,
+        DateTimeOffset acceptedAt,
+        DateTimeOffset expiresAt)
+    {
+        const string requestedKey =
+            "aaaaaaaa11111111bbbbbbbb22222222";
+        var response = JsonSerializer.Serialize(new
+        {
+            challengeId = "provider_challenge_0123456789",
+            maskedPhoneNumber = "081-***-5678",
+            phoneNumber = "0812345678",
+            providerRequestKey = originalRequestKey,
+            purpose = originalPurpose,
+            acceptedAt,
+            expiresAt
+        });
+        var handler = new SequenceStubHandler(
+            (HttpStatusCode.OK, response));
+        var provider =
+            CreateCertifiedNameChangeProvider(handler);
+
+        var result = await provider.LookupAsync(
+            requestedKey,
+            "0812345678",
+            OtpPurpose.AccountNameChange,
+            default);
+
+        Assert.Null(result);
+        Assert.Single(handler.Requests);
+    }
 
     private sealed class StubHandler(
         HttpStatusCode status,
@@ -555,14 +633,20 @@ public sealed class HttpOtpVerificationProviderTests
             LookupRequestKey = request.RequestUri!
                 .Segments[^1]
                 .TrimEnd('/');
+            var acceptedAt =
+                DateTimeOffset.UtcNow.AddMinutes(-1);
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(
-                    """
+                    $$"""
                     {
                       "challengeId": "provider_challenge_0123456789",
                       "maskedPhoneNumber": "081-***-5678",
-                      "phoneNumber": "0812345678"
+                      "phoneNumber": "0812345678",
+                      "providerRequestKey": "{{expectedRequestKey}}",
+                      "purpose": "AccountNameChange",
+                      "acceptedAt": "{{acceptedAt:O}}",
+                      "expiresAt": "{{acceptedAt.AddMinutes(10):O}}"
                     }
                     """,
                     Encoding.UTF8,

@@ -94,6 +94,33 @@ public sealed class AccountNameChangePostgreSqlTests
             await Assert.ThrowsAsync<DbUpdateException>(
                 () => restrictiveDelete.SaveChangesAsync());
         }
+
+        await using (var firstReplacement = database.CreateContext())
+        {
+            var source = await firstReplacement
+                .AccountNameChangeChallenges
+                .SingleAsync(value =>
+                    value.Id == party.ChallengeId);
+            source.Supersede(Now.AddMinutes(1));
+            firstReplacement.AccountNameChangeChallenges.Add(
+                NewResend(
+                    party,
+                    "+66822222222",
+                    Guid.NewGuid().ToString("N")));
+            await firstReplacement.SaveChangesAsync();
+        }
+
+        await using (var secondReplacement = database.CreateContext())
+        {
+            secondReplacement.AccountNameChangeChallenges.Add(
+                NewResend(
+                    party,
+                    "+66833333333",
+                    Guid.NewGuid().ToString("N")));
+
+            await Assert.ThrowsAsync<DbUpdateException>(
+                () => secondReplacement.SaveChangesAsync());
+        }
     }
 
     [RequiresPostgreSqlMigrationFixture]
@@ -223,6 +250,22 @@ public sealed class AccountNameChangePostgreSqlTests
             4,
             Now,
             null);
+
+    private static AccountNameChangeChallenge NewResend(
+        Party party,
+        string phoneNumber,
+        string requestKey) =>
+        AccountNameChangeChallenge.Create(
+            Guid.NewGuid(),
+            party.BuyerId,
+            party.SellerId,
+            party.SessionId,
+            phoneNumber,
+            "081-•••-5678",
+            AccountName.Create("สมศักดิ์", "ใจดี"),
+            requestKey,
+            Now.AddMinutes(1),
+            party.ChallengeId);
 
     private static async Task<int> CountNameChangeTablesAsync(
         string connectionString)

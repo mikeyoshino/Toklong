@@ -713,11 +713,9 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         }).IsUnique();
         challenge.HasIndex(x => x.ProviderRequestKey)
             .IsUnique();
-        challenge.HasIndex(x => new
-        {
-            x.SourceChallengeId,
-            x.RequestIdempotencyKey
-        }).IsUnique();
+        challenge.HasIndex(x => x.SourceChallengeId)
+            .IsUnique()
+            .HasFilter("\"SourceChallengeId\" IS NOT NULL");
         challenge.HasIndex(x => new
         {
             x.BuyerId,

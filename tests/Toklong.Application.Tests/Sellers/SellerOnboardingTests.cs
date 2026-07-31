@@ -132,11 +132,18 @@ public sealed class SellerOnboardingTests
             CancellationToken.None);
         var lookup = await provider.LookupAsync(
             requestKey,
+            phone,
             OtpPurpose.AccountNameChange,
             CancellationToken.None);
 
         Assert.Equal(first, replay);
-        Assert.Equal(first, lookup);
+        Assert.Equal(first, lookup?.Challenge);
+        Assert.Equal(
+            DevelopmentOtpVerificationProvider.NormalizeThaiPhone(phone),
+            lookup?.PhoneNumber);
+        Assert.Equal(
+            TimeSpan.FromMinutes(10),
+            lookup?.ExpiresAt - lookup?.AcceptedAt);
     }
 
     [Fact]

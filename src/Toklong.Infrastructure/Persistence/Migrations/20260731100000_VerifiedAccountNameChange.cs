@@ -220,10 +220,11 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                 column: "SessionId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_account_name_change_challenges_SourceChallengeId_RequestIde~",
+                name: "IX_account_name_change_challenges_SourceChallengeId",
                 table: "account_name_change_challenges",
-                columns: new[] { "SourceChallengeId", "RequestIdempotencyKey" },
-                unique: true);
+                column: "SourceChallengeId",
+                unique: true,
+                filter: "\"SourceChallengeId\" IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_account_name_verification_attempts_BuyerId",

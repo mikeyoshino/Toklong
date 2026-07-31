@@ -155,6 +155,38 @@ public sealed class AccountNameChangeChallenge
             throw new DomainException("กรุณารอก่อนขอรหัสยืนยันอีกครั้ง");
     }
 
+    public void EnsureExactOperationReplay(
+        string requestIdempotencyKey,
+        Guid? sourceChallengeId,
+        AccountName pendingName)
+    {
+        if (sourceChallengeId == Guid.Empty)
+            throw new DomainException(
+                "รหัสคำขอเปลี่ยนชื่อต้นทางไม่ถูกต้อง");
+        ArgumentNullException.ThrowIfNull(pendingName);
+        var normalizedRequestKey =
+            NormalizeIdempotencyKey(requestIdempotencyKey);
+        var operationKind = sourceChallengeId.HasValue
+            ? AccountNameChangeOperationKind.Resend
+            : AccountNameChangeOperationKind.InitialRequest;
+        var fingerprint = Fingerprint(
+            operationKind,
+            sourceChallengeId,
+            PhoneNumber,
+            pendingName);
+        if (!string.Equals(
+                RequestIdempotencyKey,
+                normalizedRequestKey,
+                StringComparison.Ordinal) ||
+            SourceChallengeId != sourceChallengeId ||
+            !string.Equals(
+                OperationFingerprint,
+                fingerprint,
+                StringComparison.Ordinal))
+            throw new DomainException(
+                "รหัสคำขอนี้ถูกใช้กับข้อมูลอื่นแล้ว");
+    }
+
     public void Supersede(DateTimeOffset supersededAt)
     {
         EnsureStatus(

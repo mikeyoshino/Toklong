@@ -17,6 +17,10 @@ public interface IAccountNameChangeRepository
         string key,
         CancellationToken cancellationToken);
 
+    Task<AccountNameChangeChallenge?> GetBySourceChallengeIdAsync(
+        Guid sourceChallengeId,
+        CancellationToken cancellationToken);
+
     Task<AccountNameVerificationAttempt?> GetAttemptAsync(
         Guid challengeId,
         string idempotencyKey,

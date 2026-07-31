@@ -219,6 +219,79 @@ public sealed class AccountNameChangeChallengeTests
         Assert.Equal(64, challenge.OperationFingerprint.Length);
     }
 
+    [Fact]
+    public void Exact_resend_replay_requires_the_same_key_source_and_name()
+    {
+        var source = ActiveChallenge();
+        var name = AccountName.Create("สมศักดิ์", "ใจดี");
+        var key = Key();
+        var replacement = AccountNameChangeChallenge.Create(
+            Guid.NewGuid(),
+            source.BuyerId,
+            source.SellerId,
+            source.SessionId,
+            source.PhoneNumber,
+            source.MaskedPhoneNumber,
+            name,
+            key,
+            Now.AddMinutes(2),
+            source.Id);
+
+        replacement.EnsureExactOperationReplay(
+            key,
+            source.Id,
+            name);
+    }
+
+    [Fact]
+    public void Replay_rejects_the_same_key_for_a_different_source()
+    {
+        var source = ActiveChallenge();
+        var name = AccountName.Create("สมศักดิ์", "ใจดี");
+        var key = Key();
+        var replacement = AccountNameChangeChallenge.Create(
+            Guid.NewGuid(),
+            source.BuyerId,
+            source.SellerId,
+            source.SessionId,
+            source.PhoneNumber,
+            source.MaskedPhoneNumber,
+            name,
+            key,
+            Now.AddMinutes(2),
+            source.Id);
+
+        Assert.Throws<DomainException>(() =>
+            replacement.EnsureExactOperationReplay(
+                key,
+                Guid.NewGuid(),
+                name));
+    }
+
+    [Fact]
+    public void Replay_rejects_a_different_key_for_the_same_source()
+    {
+        var source = ActiveChallenge();
+        var name = AccountName.Create("สมศักดิ์", "ใจดี");
+        var replacement = AccountNameChangeChallenge.Create(
+            Guid.NewGuid(),
+            source.BuyerId,
+            source.SellerId,
+            source.SessionId,
+            source.PhoneNumber,
+            source.MaskedPhoneNumber,
+            name,
+            Key(),
+            Now.AddMinutes(2),
+            source.Id);
+
+        Assert.Throws<DomainException>(() =>
+            replacement.EnsureExactOperationReplay(
+                Key(),
+                source.Id,
+                name));
+    }
+
     private static AccountNameChangeChallenge ActiveChallenge()
     {
         var challenge = NewChallenge();

@@ -8,6 +8,7 @@ using Toklong.Application.Abstractions;
 using Toklong.Domain.Accounts;
 using Toklong.Domain.Authentication;
 using Toklong.Domain.Buyers;
+using Toklong.Domain.Common;
 using Toklong.Domain.Sellers;
 using Toklong.Infrastructure.Email;
 using Toklong.Infrastructure.Persistence;
@@ -94,9 +95,10 @@ public sealed class AccountNameChangePersistenceTests
             index => index.IsUnique &&
                      index.Properties.Select(property => property.Name)
                          .SequenceEqual([
-                             nameof(AccountNameChangeChallenge.SourceChallengeId),
-                             nameof(AccountNameChangeChallenge.RequestIdempotencyKey)
-                         ]));
+                             nameof(AccountNameChangeChallenge.SourceChallengeId)
+                         ]) &&
+                     index.GetFilter() ==
+                         "\"SourceChallengeId\" IS NOT NULL");
         Assert.Contains(
             challenge.GetIndexes(),
             index => index.Properties.Select(property => property.Name)
@@ -209,9 +211,10 @@ public sealed class AccountNameChangePersistenceTests
                      index.Table ==
                          "account_name_change_challenges" &&
                      index.Columns.SequenceEqual([
-                         "SourceChallengeId",
-                         "RequestIdempotencyKey"
-                     ]));
+                         "SourceChallengeId"
+                     ]) &&
+                     index.Filter ==
+                         "\"SourceChallengeId\" IS NOT NULL");
         Assert.Contains(
             table.ForeignKeys,
             foreignKey =>
@@ -294,29 +297,33 @@ public sealed class AccountNameChangePersistenceTests
             resend.PhoneNumber,
             key,
             default);
+        var bySource =
+            await repository.GetBySourceChallengeIdAsync(
+                source.Id,
+                default);
 
         Assert.Equal(source.Id, replay?.SourceChallengeId);
+        Assert.Equal(resend.Id, bySource?.Id);
         Assert.Equal(
             resend.OperationFingerprint,
             replay?.OperationFingerprint);
-        var differentSourceFingerprint =
-            AccountNameChangeChallenge.Create(
-                Guid.NewGuid(),
-                resend.BuyerId,
-                resend.SellerId,
-                resend.SessionId,
-                resend.PhoneNumber,
-                resend.MaskedPhoneNumber,
-                AccountName.Create(
-                    resend.PendingFirstName,
-                    resend.PendingLastName),
+        var pendingName = AccountName.Create(
+            resend.PendingFirstName,
+            resend.PendingLastName);
+        replay!.EnsureExactOperationReplay(
+            key,
+            source.Id,
+            pendingName);
+        Assert.Throws<DomainException>(() =>
+            replay.EnsureExactOperationReplay(
                 key,
-                Now.AddMinutes(3),
-                Guid.NewGuid())
-            .OperationFingerprint;
-        Assert.NotEqual(
-            replay?.OperationFingerprint,
-            differentSourceFingerprint);
+                Guid.NewGuid(),
+                pendingName));
+        Assert.Throws<DomainException>(() =>
+            replay.EnsureExactOperationReplay(
+                Guid.NewGuid().ToString("N"),
+                source.Id,
+                pendingName));
     }
 
     [Fact]
