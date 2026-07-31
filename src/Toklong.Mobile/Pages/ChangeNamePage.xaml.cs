@@ -18,11 +18,15 @@ public partial class ChangeNamePage : ContentPage, IQueryAttributable
     {
         query.TryGetValue("FirstName", out var firstName);
         query.TryGetValue("LastName", out var lastName);
+        query.TryGetValue("SessionGeneration", out var generation);
         if (firstName is string || lastName is string)
         {
-            viewModel.ApplyCurrentName(
+            viewModel.ApplyRouteName(
                 firstName as string,
-                lastName as string);
+                lastName as string,
+                generation is long routeGeneration
+                    ? routeGeneration
+                    : long.MinValue);
         }
     }
 

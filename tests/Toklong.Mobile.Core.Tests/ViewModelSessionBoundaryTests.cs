@@ -127,6 +127,119 @@ public sealed class ViewModelSessionBoundaryTests :
     }
 
     [Fact]
+    public async Task Reset_during_form_navigation_rejects_account_A_route_names_before_account_B_page_is_constructed()
+    {
+        Shell.Current = new Shell();
+        var session = new AuthenticatedSessionBoundary();
+        var authentication = new RecordingAuthentication
+        {
+            GetProfile = () =>
+                Task.FromResult(Profile("บัญชีเอ", "เดิม"))
+        };
+        var source = new AccountViewModel(
+            authentication,
+            new RecordingAnalytics(),
+            session,
+            new AccountEmailChangeCompletionState(session),
+            new AccountNameChangeCompletionState(session));
+        await source.LoadAsync();
+        var resetDuringRoute = false;
+        Shell.Current.Navigate = route =>
+        {
+            if (route == "ChangeNamePage" && !resetDuringRoute)
+            {
+                resetDuringRoute = true;
+                session.Reset();
+                authentication.GetProfile = () =>
+                    Task.FromResult(Profile("บัญชีบี", "ใหม่"));
+            }
+            return Task.CompletedTask;
+        };
+
+        await source.OpenNameChangeAsync();
+
+        var route = Assert.Single(Shell.Current.ParameterizedRoutes);
+        var destination = new ChangeNameViewModel(
+            authentication,
+            new RecordingAnalytics(),
+            session);
+        destination.ApplyRouteName(
+            (string)route.Parameters["FirstName"],
+            (string)route.Parameters["LastName"],
+            (long)route.Parameters["SessionGeneration"]);
+        destination.Activate();
+        await destination.LoadCurrentNameAsync();
+
+        Assert.Equal("บัญชีบี", destination.FirstName);
+        Assert.Equal("ใหม่", destination.LastName);
+        Assert.DoesNotContain("บัญชีเอ", destination.FirstName);
+        Assert.Equal("//main/account", Shell.Current.Routes[^1]);
+        destination.Dispose();
+    }
+
+    [Fact]
+    public async Task Reset_during_pending_navigation_rejects_account_A_challenge_before_account_B_page_is_constructed()
+    {
+        Shell.Current = new Shell();
+        var accountAPending = Pending();
+        var accountBPending = Pending(
+            challengeId: Guid.Parse(
+                "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")) with
+        {
+            MaskedPhoneNumber = "09x-xxx-9876",
+            FirstName = "บัญชีบี",
+            LastName = "ใหม่"
+        };
+        var session = new AuthenticatedSessionBoundary();
+        var authentication = new RecordingAuthentication
+        {
+            GetPendingName = () =>
+                Task.FromResult<PendingAccountNameChange?>(accountAPending)
+        };
+        var source = new AccountViewModel(
+            authentication,
+            new RecordingAnalytics(),
+            session,
+            new AccountEmailChangeCompletionState(session),
+            new AccountNameChangeCompletionState(session));
+        await source.LoadAsync();
+        var resetDuringRoute = false;
+        Shell.Current.Navigate = route =>
+        {
+            if (route == "VerifyNameChangePage" && !resetDuringRoute)
+            {
+                resetDuringRoute = true;
+                session.Reset();
+                authentication.GetPendingName = () =>
+                    Task.FromResult<PendingAccountNameChange?>(
+                        accountBPending);
+            }
+            return Task.CompletedTask;
+        };
+
+        await source.OpenNameChangeAsync();
+
+        var route = Assert.Single(Shell.Current.ParameterizedRoutes);
+        var destination = new VerifyNameChangeViewModel(
+            authentication,
+            new RecordingAnalytics(),
+            new FixedTimeProvider(Now),
+            session,
+            new AccountNameChangeCompletionState(session));
+        destination.ApplyRoutePending(
+            (PendingAccountNameChange)route.Parameters["Pending"],
+            (long)route.Parameters["SessionGeneration"]);
+        destination.Activate();
+        await destination.LoadPendingAfterResetAsync();
+
+        Assert.Equal("09x-xxx-9876", destination.MaskedPhoneNumber);
+        Assert.Equal("บัญชีบี ใหม่", destination.PendingDisplayName);
+        Assert.DoesNotContain("08x-xxx-1234", destination.MaskedPhoneNumber);
+        Assert.Equal("//main/account", Shell.Current.Routes[^1]);
+        destination.Dispose();
+    }
+
+    [Fact]
     public async Task Account_switch_failure_never_exposes_previous_account_workspace()
     {
         Preferences.Default.Clear();

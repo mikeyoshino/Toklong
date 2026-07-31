@@ -21,7 +21,12 @@ public partial class VerifyNameChangePage :
         if (query.TryGetValue("Pending", out var value) &&
             value is PendingAccountNameChange pending)
         {
-            viewModel.Apply(pending);
+            viewModel.ApplyRoutePending(
+                pending,
+                query.TryGetValue("SessionGeneration", out var generation) &&
+                generation is long routeGeneration
+                    ? routeGeneration
+                    : long.MinValue);
         }
     }
 

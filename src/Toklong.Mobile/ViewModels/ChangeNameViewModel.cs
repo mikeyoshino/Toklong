@@ -143,6 +143,20 @@ public sealed class ChangeNameViewModel : ObservableViewModel, IDisposable
         LastName = this.currentLastName;
     }
 
+    public void ApplyRouteName(
+        string? routeFirstName,
+        string? routeLastName,
+        long routeSessionGeneration)
+    {
+        if (!session.IsCurrent(routeSessionGeneration))
+        {
+            ClearForAuthoritativeReload();
+            return;
+        }
+
+        ApplyCurrentName(routeFirstName, routeLastName);
+    }
+
     public void Activate() => lifetime.Activate();
 
     public async Task LoadCurrentNameAsync()
@@ -385,6 +399,11 @@ public sealed class ChangeNameViewModel : ObservableViewModel, IDisposable
     private void OnSessionResetRequested(object? sender, EventArgs eventArgs)
     {
         lifetime.Deactivate();
+        ClearForAuthoritativeReload();
+    }
+
+    private void ClearForAuthoritativeReload()
+    {
         currentFirstName = "";
         currentLastName = "";
         hasCurrentName = false;

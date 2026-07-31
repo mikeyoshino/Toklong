@@ -29,6 +29,7 @@ public sealed class VerifyNameChangeViewModel : ObservableViewModel, IDisposable
     private CancellationTokenSource? countdown;
     private bool disposed;
     private bool mustReloadPending;
+    private AccountReturnReason accountReturnReason;
 
     public VerifyNameChangeViewModel(
         IAuthenticationService authentication,
@@ -221,6 +222,19 @@ public sealed class VerifyNameChangeViewModel : ObservableViewModel, IDisposable
         RaiseActionState();
     }
 
+    public void ApplyRoutePending(
+        PendingAccountNameChange value,
+        long routeSessionGeneration)
+    {
+        if (!session.IsCurrent(routeSessionGeneration))
+        {
+            ClearForAuthoritativeReload();
+            return;
+        }
+
+        Apply(value);
+    }
+
     public void Activate()
     {
         lifetime.Activate();
@@ -264,7 +278,7 @@ public sealed class VerifyNameChangeViewModel : ObservableViewModel, IDisposable
                 return;
             }
 
-            SetRequiresAccountReturn(true);
+            RequireAccountReturn(AccountReturnReason.MissingChallenge);
         }
         catch (OperationCanceledException) when (
             operation.Value.Token.IsCancellationRequested)
@@ -277,7 +291,7 @@ public sealed class VerifyNameChangeViewModel : ObservableViewModel, IDisposable
 
             Message =
                 "โหลดคำขอเปลี่ยนชื่อไม่สำเร็จ กรุณากลับไปหน้าบัญชี";
-            SetRequiresAccountReturn(true);
+            RequireAccountReturn(AccountReturnReason.PendingReloadFailed);
             PresentError(
                 AccountNameChangeErrorTarget.AccountReturnAction,
                 Message,
@@ -398,7 +412,7 @@ public sealed class VerifyNameChangeViewModel : ObservableViewModel, IDisposable
                 if (!lifetime.IsCurrent(operation.Value))
                     return;
 
-                SetRequiresAccountReturn(true);
+                RequireAccountReturn(AccountReturnReason.Verified);
                 Message =
                     "บันทึกชื่อสำเร็จแล้ว กรุณากลับไปหน้าบัญชีเพื่อตรวจสอบชื่อใหม่";
                 PresentError(
@@ -522,8 +536,17 @@ public sealed class VerifyNameChangeViewModel : ObservableViewModel, IDisposable
             if (!lifetime.IsCurrent(operation.Value))
                 return;
 
-            Message =
-                "บันทึกชื่อสำเร็จแล้ว กรุณากลับไปหน้าบัญชีเพื่อตรวจสอบชื่อใหม่";
+            Message = accountReturnReason switch
+            {
+                AccountReturnReason.Verified =>
+                    "บันทึกชื่อสำเร็จแล้ว กรุณากลับไปหน้าบัญชีเพื่อตรวจสอบชื่อใหม่",
+                AccountReturnReason.Cooldown =>
+                    "ยังเปลี่ยนชื่อไม่ได้ กรุณากลับไปหน้าบัญชี",
+                AccountReturnReason.PendingReloadFailed =>
+                    "โหลดคำขอเปลี่ยนชื่อไม่สำเร็จ กรุณากลับไปหน้าบัญชี",
+                _ =>
+                    "ไม่พบคำขอเปลี่ยนชื่อ กรุณากลับไปหน้าบัญชี"
+            };
             PresentError(
                 AccountNameChangeErrorTarget.AccountReturnAction,
                 Message,
@@ -617,7 +640,7 @@ public sealed class VerifyNameChangeViewModel : ObservableViewModel, IDisposable
         else if (error.Kind == AccountNameChangeErrorKind.Locked)
             IsLocked = true;
         else if (error.Kind == AccountNameChangeErrorKind.Missing)
-            SetRequiresAccountReturn(true);
+            RequireAccountReturn(AccountReturnReason.MissingChallenge);
         else if (error.Kind == AccountNameChangeErrorKind.Cooldown &&
                  pending is not null)
         {
@@ -663,7 +686,7 @@ public sealed class VerifyNameChangeViewModel : ObservableViewModel, IDisposable
         IsLocked = false;
         SetRequiresFreshRequest(false);
         SetVerified(false);
-        SetRequiresAccountReturn(true);
+        RequireAccountReturn(AccountReturnReason.Cooldown);
         OnPropertyChanged(nameof(MaskedPhoneNumber));
         OnPropertyChanged(nameof(MaskedPhoneSemanticDescription));
         OnPropertyChanged(nameof(PendingDisplayName));
@@ -682,6 +705,11 @@ public sealed class VerifyNameChangeViewModel : ObservableViewModel, IDisposable
         lifetime.Deactivate();
         isActive = false;
         StopCountdown();
+        ClearForAuthoritativeReload();
+    }
+
+    private void ClearForAuthoritativeReload()
+    {
         pending = null;
         mustReloadPending = true;
         Code = "";
@@ -732,9 +760,23 @@ public sealed class VerifyNameChangeViewModel : ObservableViewModel, IDisposable
 
     private void SetRequiresAccountReturn(bool value)
     {
+        if (!value)
+            accountReturnReason = AccountReturnReason.None;
         if (!SetProperty(ref requiresAccountReturn, value,
                 nameof(RequiresAccountReturn)))
             return;
+        RaiseActionState();
+    }
+
+    private void RequireAccountReturn(AccountReturnReason reason)
+    {
+        accountReturnReason = reason;
+        if (!SetProperty(ref requiresAccountReturn, true,
+                nameof(RequiresAccountReturn)))
+        {
+            RaiseActionState();
+            return;
+        }
         RaiseActionState();
     }
 
@@ -786,4 +828,13 @@ public sealed class VerifyNameChangeViewModel : ObservableViewModel, IDisposable
                 AccountNameChangeFailureReason.Provider,
             _ => AccountNameChangeFailureReason.Invalid
         };
+
+    private enum AccountReturnReason
+    {
+        None,
+        Verified,
+        Cooldown,
+        MissingChallenge,
+        PendingReloadFailed
+    }
 }

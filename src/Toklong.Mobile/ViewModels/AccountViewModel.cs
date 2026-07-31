@@ -345,8 +345,11 @@ public sealed class AccountViewModel :
                     nameof(Pages.VerifyNameChangePage),
                     new Dictionary<string, object>
                     {
-                        ["Pending"] = pending
+                        ["Pending"] = pending,
+                        ["SessionGeneration"] = generation
                     });
+                if (!session.IsCurrent(generation))
+                    await RecoverFromStaleNameNavigationAsync();
                 return;
             }
 
@@ -355,8 +358,11 @@ public sealed class AccountViewModel :
                 new Dictionary<string, object>
                 {
                     ["FirstName"] = profile.FirstName ?? "",
-                    ["LastName"] = profile.LastName ?? ""
+                    ["LastName"] = profile.LastName ?? "",
+                    ["SessionGeneration"] = generation
                 });
+            if (!session.IsCurrent(generation))
+                await RecoverFromStaleNameNavigationAsync();
         }
         catch
         {
@@ -404,6 +410,18 @@ public sealed class AccountViewModel :
         NameChangeBlocked?.Invoke(
             this,
             new AccountNameChangeBlockedNotice(nextAllowedAt));
+    }
+
+    private static async Task RecoverFromStaleNameNavigationAsync()
+    {
+        try
+        {
+            await Shell.Current.GoToAsync("//main/account");
+        }
+        catch
+        {
+            // The session owner controls its next safe route after reset.
+        }
     }
 
     private static AccountNameChangeFailureReason FailureReason(

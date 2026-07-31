@@ -187,8 +187,109 @@ public sealed class VerifyNameChangeViewModelTests :
         Assert.True(viewModel.RequiresNewRequest);
         Assert.False(viewModel.CanUseChallenge);
         Assert.Contains("เปิดหน้าแก้ไขชื่อไม่สำเร็จ", viewModel.Message);
+        Assert.DoesNotContain("บันทึกชื่อสำเร็จแล้ว", viewModel.Message);
         Assert.DoesNotContain("private", viewModel.Message);
         viewModel.Deactivate();
+    }
+
+    [Theory]
+    [InlineData("verified", "บันทึกชื่อสำเร็จแล้ว", true)]
+    [InlineData("cooldown", "ยังเปลี่ยนชื่อไม่ได้", false)]
+    [InlineData("missing", "ไม่พบคำขอเปลี่ยนชื่อ", false)]
+    [InlineData("reload", "โหลดคำขอเปลี่ยนชื่อไม่สำเร็จ", false)]
+    public async Task Account_return_failure_copy_matches_its_recovery_state(
+        string state,
+        string expectedCopy,
+        bool verified)
+    {
+        Shell.Current = new Shell
+        {
+            Navigate = _ => Task.FromException(
+                new InvalidOperationException(
+                    "private route implementation detail"))
+        };
+        var session = new AuthenticatedSessionBoundary();
+        var authentication = new RecordingAuthentication();
+        if (state == "cooldown")
+        {
+            authentication.VerifyName = (_, _) =>
+                Task.FromException<VerifiedAccountNameChange>(
+                    Problem(
+                        "name_change_cooldown",
+                        nextAllowedAt: Now.AddMonths(2)));
+        }
+        else if (state == "missing")
+        {
+            authentication.VerifyName = (_, _) =>
+                Task.FromException<VerifiedAccountNameChange>(
+                    Problem("name_change_challenge_inactive"));
+        }
+        else if (state == "reload")
+        {
+            authentication.GetPendingName = () =>
+                Task.FromException<PendingAccountNameChange?>(
+                    new InvalidOperationException(
+                        "private pending lookup detail"));
+        }
+        var viewModel = new VerifyNameChangeViewModel(
+            authentication,
+            new RecordingAnalytics(),
+            new FixedTimeProvider(Now),
+            session,
+            new AccountNameChangeCompletionState(session));
+        viewModel.Activate();
+
+        if (state == "reload")
+        {
+            viewModel.Apply(Pending());
+            session.Reset();
+            viewModel.Activate();
+            await viewModel.LoadPendingAfterResetAsync();
+        }
+        else
+        {
+            viewModel.Apply(Pending());
+            viewModel.Code = "123456";
+            await viewModel.ConfirmAsync();
+        }
+
+        Assert.True(viewModel.RequiresAccountReturn);
+        await viewModel.ReturnToAccountAsync();
+
+        Assert.Contains(expectedCopy, viewModel.Message);
+        Assert.DoesNotContain("private", viewModel.Message);
+        Assert.Equal(
+            verified,
+            viewModel.Message.Contains(
+                "บันทึกชื่อสำเร็จแล้ว",
+                StringComparison.Ordinal));
+        Assert.True(viewModel.RequiresAccountReturn);
+        viewModel.Dispose();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Expired_or_locked_new_request_route_failure_uses_only_recovery_copy(
+        bool expired)
+    {
+        Shell.Current = new Shell
+        {
+            Navigate = _ => Task.FromException(
+                new InvalidOperationException("private route detail"))
+        };
+        var viewModel = Verify(new RecordingAuthentication());
+        viewModel.Apply(expired
+            ? Pending(expiresAt: Now.AddSeconds(-1))
+            : Pending(remainingAttempts: 0));
+
+        await viewModel.StartNewRequestAsync();
+
+        Assert.True(viewModel.RequiresNewRequest);
+        Assert.Contains("เปิดหน้าแก้ไขชื่อไม่สำเร็จ", viewModel.Message);
+        Assert.DoesNotContain("บันทึกชื่อสำเร็จแล้ว", viewModel.Message);
+        Assert.DoesNotContain("private", viewModel.Message);
+        viewModel.Dispose();
     }
 
     [Fact]
