@@ -1,3 +1,4 @@
+using System.Net;
 using Toklong.Mobile.Core;
 using Toklong.Mobile.ViewModels;
 
@@ -99,11 +100,15 @@ public sealed class VerifyNameChangeViewModelTests :
     public async Task Resend_daily_limit_is_modal_only_and_keeps_the_pending_challenge()
     {
         var retryAt = Now.AddHours(12);
+        var problem = await ParsedApiProblemAsync(
+            "name_change_send_limit",
+            retryAt,
+            TimeSpan.FromHours(12));
         var authentication = new RecordingAuthentication
         {
             ResendName = _ =>
                 Task.FromException<PendingAccountNameChange>(
-                    Problem("name_change_send_limit", retryAt))
+                    problem)
         };
         var viewModel = Verify(authentication);
         viewModel.Apply(Pending(resendAvailableAt: Now.AddSeconds(-1)));
@@ -117,6 +122,117 @@ public sealed class VerifyNameChangeViewModelTests :
         Assert.True(viewModel.CanUseChallenge);
         Assert.Equal("สมศักดิ์ ใจดี", viewModel.PendingDisplayName);
         viewModel.Deactivate();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Another_device_cooldown_invalidates_verify_or_resend_and_opens_exact_return_modal(
+        bool duringVerification)
+    {
+        var nextAllowedAt =
+            DateTimeOffset.Parse("2026-09-30T02:45:00Z");
+        var blocked = await ParsedApiProblemAsync(
+            "name_change_cooldown",
+            nextAllowedAt,
+            status: HttpStatusCode.Conflict);
+        var authentication = new RecordingAuthentication
+        {
+            VerifyName = (_, _) =>
+                Task.FromException<VerifiedAccountNameChange>(blocked),
+            ResendName = _ =>
+                Task.FromException<PendingAccountNameChange>(blocked)
+        };
+        var viewModel = Verify(authentication);
+        viewModel.Apply(Pending(
+            resendAvailableAt: Now.AddSeconds(-1)));
+        viewModel.Code = "123456";
+        AccountNameChangeModalNotice? modal = null;
+        viewModel.ActionBlocked += (_, value) => modal = value;
+
+        if (duringVerification)
+            await viewModel.ConfirmAsync();
+        else
+            await viewModel.ResendAsync();
+
+        Assert.Equal("ยังเปลี่ยนชื่อไม่ได้", modal!.Title);
+        Assert.Contains("30 ก.ย. 2569 · 09:45 น.", modal.Message);
+        Assert.Equal("เข้าใจแล้ว", modal.AcceptText);
+        Assert.False(viewModel.CanUseChallenge);
+        Assert.False(viewModel.CanConfirm);
+        Assert.False(viewModel.CanResend);
+        Assert.False(viewModel.RequiresNewRequest);
+        Assert.True(viewModel.RequiresAccountReturn);
+        Assert.True(viewModel.CanReturnToAccount);
+        Assert.Equal("", viewModel.MaskedPhoneNumber);
+        Assert.Equal("", viewModel.PendingDisplayName);
+        Assert.Equal("", viewModel.Code);
+        Assert.False(viewModel.HasMessage);
+        viewModel.Deactivate();
+    }
+
+    [Fact]
+    public async Task Fresh_request_navigation_failure_is_recoverable_and_keeps_its_primary_action()
+    {
+        Shell.Current = new Shell
+        {
+            Navigate = _ => Task.FromException(
+                new InvalidOperationException("private navigation detail"))
+        };
+        var viewModel = Verify(new RecordingAuthentication());
+        viewModel.Apply(Pending(expiresAt: Now.AddSeconds(-1)));
+
+        await viewModel.StartNewRequestAsync();
+
+        Assert.True(viewModel.RequiresNewRequest);
+        Assert.False(viewModel.CanUseChallenge);
+        Assert.Contains("เปิดหน้าแก้ไขชื่อไม่สำเร็จ", viewModel.Message);
+        Assert.DoesNotContain("private", viewModel.Message);
+        viewModel.Deactivate();
+    }
+
+    [Fact]
+    public async Task Verification_states_expose_exactly_one_primary_action()
+    {
+        var active = Verify(new RecordingAuthentication());
+        active.Apply(Pending());
+        AssertPrimaryAction(active, confirm: true);
+
+        var locked = Verify(new RecordingAuthentication());
+        locked.Apply(Pending(remainingAttempts: 0));
+        AssertPrimaryAction(locked, newRequest: true);
+
+        var nextAllowedAt =
+            DateTimeOffset.Parse("2026-09-30T02:45:00Z");
+        var blockedAuthentication = new RecordingAuthentication
+        {
+            VerifyName = (_, _) =>
+                Task.FromException<VerifiedAccountNameChange>(
+                    Problem(
+                        "name_change_cooldown",
+                        nextAllowedAt: nextAllowedAt))
+        };
+        var blocked = Verify(blockedAuthentication);
+        blocked.Apply(Pending());
+        blocked.Code = "123456";
+        await blocked.ConfirmAsync();
+        AssertPrimaryAction(blocked, accountReturn: true);
+
+        Shell.Current = new Shell
+        {
+            Navigate = _ => Task.FromException(
+                new InvalidOperationException("route failed"))
+        };
+        var completed = Verify(new RecordingAuthentication());
+        completed.Apply(Pending());
+        completed.Code = "123456";
+        await completed.ConfirmAsync();
+        AssertPrimaryAction(completed, accountReturn: true);
+
+        active.Deactivate();
+        locked.Deactivate();
+        blocked.Deactivate();
+        completed.Deactivate();
     }
 
     [Fact]
@@ -244,5 +360,24 @@ public sealed class VerifyNameChangeViewModelTests :
             new AccountNameChangeCompletionState(session));
         viewModel.Activate();
         return viewModel;
+    }
+
+    private static void AssertPrimaryAction(
+        VerifyNameChangeViewModel viewModel,
+        bool confirm = false,
+        bool newRequest = false,
+        bool accountReturn = false)
+    {
+        Assert.Equal(confirm, viewModel.CanConfirm);
+        Assert.Equal(newRequest, viewModel.RequiresNewRequest);
+        Assert.Equal(accountReturn, viewModel.CanReturnToAccount);
+        Assert.Equal(
+            1,
+            new[]
+            {
+                viewModel.CanConfirm,
+                viewModel.RequiresNewRequest,
+                viewModel.CanReturnToAccount
+            }.Count(value => value));
     }
 }

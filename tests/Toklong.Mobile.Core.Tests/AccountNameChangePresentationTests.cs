@@ -335,6 +335,36 @@ public sealed class AccountNameChangePresentationTests
         Assert.Equal(exception.NextAllowedAt, notice.NextAllowedAt);
     }
 
+    [Fact]
+    public async Task Serialized_daily_limit_contract_reaches_the_exact_Bangkok_modal()
+    {
+        var response = new HttpResponseMessage(
+            HttpStatusCode.TooManyRequests)
+        {
+            Content = new StringContent(
+                "{\"title\":\"ทำรายการไม่สำเร็จ\",\"detail\":\"untrusted\",\"code\":\"name_change_send_limit\",\"field\":null,\"remainingAttempts\":null,\"nextAllowedAt\":\"2026-08-01T05:00:00Z\",\"retryAfterSeconds\":3600}",
+                Encoding.UTF8,
+                "application/problem+json")
+        };
+        response.Headers.RetryAfter =
+            new RetryConditionHeaderValue(TimeSpan.FromHours(1));
+        var service = CreateService(new RecordingHandler(response));
+
+        var exception = await Assert.ThrowsAsync<MobileApiRequestException>(
+            () => service.RequestAccountNameChangeAsync("ชื่อ", "นามสกุล"));
+        var notice = AccountNameChangeErrorPresentation
+            .ForRequest(exception);
+        var modal = AccountNameChangeModalPresenter.SendLimit(notice);
+
+        Assert.Equal("name_change_send_limit", exception.Code);
+        Assert.Equal(TimeSpan.FromHours(1), exception.RetryAfter);
+        Assert.Equal(
+            DateTimeOffset.Parse("2026-08-01T05:00:00Z"),
+            exception.NextAllowedAt);
+        Assert.Contains("1 ส.ค. 2569 · 12:00 น.", modal.Message);
+        Assert.DoesNotContain("3600 วินาที", modal.Message);
+    }
+
     private static MobileAuthenticationService CreateService(RecordingHandler handler)
     {
         var client = new HttpClient(handler)

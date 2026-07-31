@@ -80,6 +80,50 @@ public sealed class AccountNameChangeLayoutTests
     }
 
     [Fact]
+    public void Verification_primary_actions_are_bound_to_disjoint_view_model_states()
+    {
+        var page = LoadPage("VerifyNameChangePage.xaml");
+        var form = Assert.Single(page.Descendants(), element =>
+            element.Name.LocalName == "OtpVerificationFormView");
+        var newRequest = page.Descendants(Maui + "Button").Single(button =>
+            Attribute(button, "Command") ==
+            "{Binding StartNewRequestCommand}");
+        var accountReturn = page.Descendants(Maui + "Button").Single(button =>
+            Attribute(button, "Command") ==
+            "{Binding ReturnToAccountCommand}");
+
+        Assert.Equal(
+            "{Binding CanUseChallenge}",
+            Attribute(form, "IsConfirmVisible"));
+        Assert.Equal(
+            "{Binding RequiresNewRequest}",
+            Attribute(newRequest, "IsVisible"));
+        Assert.Equal(
+            "{Binding CanReturnToAccount}",
+            Attribute(accountReturn, "IsVisible"));
+    }
+
+    [Fact]
+    public void Name_pages_present_modal_notice_fields_and_release_reset_subscriptions_when_removed()
+    {
+        foreach (var file in new[]
+                 {
+                     "ChangeNamePage.xaml.cs",
+                     "VerifyNameChangePage.xaml.cs"
+                 })
+        {
+            var source = LoadUi("Pages", file);
+
+            Assert.Contains("DisplayAlertAsync(", source);
+            Assert.Contains("notice.Title", source);
+            Assert.Contains("notice.Message", source);
+            Assert.Contains("notice.AcceptText", source);
+            Assert.Contains("OnParentSet", source);
+            Assert.Contains("viewModel.Dispose();", source);
+        }
+    }
+
+    [Fact]
     public void Name_change_routes_services_lifetimes_and_accessibility_bridges_are_registered()
     {
         var shell = LoadUi("AppShell.xaml.cs");
@@ -92,6 +136,13 @@ public sealed class AccountNameChangeLayoutTests
         Assert.Contains("AddTransient<ChangeNamePage>()", program);
         Assert.Contains("AddTransient<VerifyNameChangePage>()", program);
         Assert.Contains("AccountNameChangeCompletionState", program);
+
+        var verificationPage = LoadUi(
+            "Pages",
+            "VerifyNameChangePage.xaml.cs");
+        Assert.Contains(
+            "await viewModel.LoadPendingAfterResetAsync();",
+            verificationPage);
 
         foreach (var file in new[]
                  {

@@ -277,11 +277,15 @@ public sealed class AccountNameChangeViewModelTests :
     public async Task Daily_send_limit_is_presented_only_as_an_action_modal()
     {
         var retryAt = DateTimeOffset.Parse("2026-08-01T12:00:00+07:00");
+        var problem = await ParsedApiProblemAsync(
+            "name_change_send_limit",
+            retryAt,
+            TimeSpan.FromHours(12));
         var authentication = new RecordingAuthentication
         {
             RequestName = (_, _) =>
                 Task.FromException<PendingAccountNameChange>(
-                    Problem("name_change_send_limit", retryAt))
+                    problem)
         };
         var viewModel = Change(
             authentication,

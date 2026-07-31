@@ -3,13 +3,14 @@ using Toklong.Mobile.Core;
 
 namespace Toklong.Mobile.ViewModels;
 
-public sealed class VerifyNameChangeViewModel : ObservableViewModel
+public sealed class VerifyNameChangeViewModel : ObservableViewModel, IDisposable
 {
     private static readonly TimeSpan LocalResendCooldown =
         TimeSpan.FromSeconds(1);
     private readonly IAuthenticationService authentication;
     private readonly IMobileAnalytics analytics;
     private readonly TimeProvider timeProvider;
+    private readonly AuthenticatedSessionBoundary session;
     private readonly EmailChangePageLifetime lifetime;
     private readonly AccountNameChangeCompletionState completion;
     private PendingAccountNameChange? pending;
@@ -26,6 +27,8 @@ public sealed class VerifyNameChangeViewModel : ObservableViewModel
     private bool requiresAccountReturn;
     private bool isVerified;
     private CancellationTokenSource? countdown;
+    private bool disposed;
+    private bool mustReloadPending;
 
     public VerifyNameChangeViewModel(
         IAuthenticationService authentication,
@@ -37,8 +40,10 @@ public sealed class VerifyNameChangeViewModel : ObservableViewModel
         this.authentication = authentication;
         this.analytics = analytics;
         this.timeProvider = timeProvider;
+        this.session = session;
         this.completion = completion;
         lifetime = new EmailChangePageLifetime(session);
+        session.ResetRequested += OnSessionResetRequested;
     }
 
     public event EventHandler<AccountNameChangeErrorNotice>?
@@ -195,6 +200,9 @@ public sealed class VerifyNameChangeViewModel : ObservableViewModel
 
     public void Apply(PendingAccountNameChange value)
     {
+        if (mustReloadPending)
+            return;
+
         pending = value;
         RemainingAttempts = value.RemainingAttempts;
         IsExpired = false;
@@ -233,12 +241,67 @@ public sealed class VerifyNameChangeViewModel : ObservableViewModel
         }
     }
 
+    public async Task LoadPendingAfterResetAsync()
+    {
+        if (!mustReloadPending)
+            return;
+
+        var operation = lifetime.Capture();
+        if (operation is null)
+            return;
+
+        try
+        {
+            var current = await authentication
+                .GetPendingAccountNameChangeAsync(operation.Value.Token);
+            if (!lifetime.IsCurrent(operation.Value))
+                return;
+
+            mustReloadPending = false;
+            if (current is not null)
+            {
+                Apply(current);
+                return;
+            }
+
+            SetRequiresAccountReturn(true);
+        }
+        catch (OperationCanceledException) when (
+            operation.Value.Token.IsCancellationRequested)
+        {
+        }
+        catch
+        {
+            if (!lifetime.IsCurrent(operation.Value))
+                return;
+
+            Message =
+                "โหลดคำขอเปลี่ยนชื่อไม่สำเร็จ กรุณากลับไปหน้าบัญชี";
+            SetRequiresAccountReturn(true);
+            PresentError(
+                AccountNameChangeErrorTarget.AccountReturnAction,
+                Message,
+                AccountNameChangeErrorKind.Network);
+        }
+    }
+
     public void Deactivate()
     {
         lifetime.Deactivate();
         isActive = false;
         StopCountdown();
         IsBusy = false;
+    }
+
+    public void Dispose()
+    {
+        if (disposed)
+            return;
+
+        disposed = true;
+        session.ResetRequested -= OnSessionResetRequested;
+        lifetime.Deactivate();
+        StopCountdown();
     }
 
     public async Task ConfirmAsync()
@@ -287,7 +350,8 @@ public sealed class VerifyNameChangeViewModel : ObservableViewModel
 
                 var error = AccountNameChangeErrorPresentation
                     .ForVerification(exception);
-                ApplyChallengeError(error);
+                if (!TryHandleAccountCooldown(error))
+                    ApplyChallengeError(error);
                 analytics.Track(AccountNameChangeAnalytics.Failed(
                     FailureReason(error.Kind)));
                 return;
@@ -387,17 +451,21 @@ public sealed class VerifyNameChangeViewModel : ObservableViewModel
 
                 var error = AccountNameChangeErrorPresentation
                     .ForResend(exception);
-                if (error.Kind is AccountNameChangeErrorKind.SendLimit or
-                    AccountNameChangeErrorKind.RateLimited)
+                if (!TryHandleAccountCooldown(error))
                 {
-                    Message = "";
-                    ActionBlocked?.Invoke(
-                        this,
-                        AccountNameChangeModalPresenter.SendLimit(error));
-                }
-                else
-                {
-                    ApplyChallengeError(error);
+                    if (error.Kind is
+                        AccountNameChangeErrorKind.SendLimit or
+                        AccountNameChangeErrorKind.RateLimited)
+                    {
+                        Message = "";
+                        ActionBlocked?.Invoke(
+                            this,
+                            AccountNameChangeModalPresenter.SendLimit(error));
+                    }
+                    else
+                    {
+                        ApplyChallengeError(error);
+                    }
                 }
                 analytics.Track(AccountNameChangeAnalytics.Failed(
                     FailureReason(error.Kind)));
@@ -417,8 +485,23 @@ public sealed class VerifyNameChangeViewModel : ObservableViewModel
             !lifetime.IsCurrent(operation.Value))
             return;
 
-        await Shell.Current.GoToAsync(
-            nameof(Pages.ChangeNamePage));
+        try
+        {
+            await Shell.Current.GoToAsync(
+                nameof(Pages.ChangeNamePage));
+        }
+        catch
+        {
+            if (!lifetime.IsCurrent(operation.Value))
+                return;
+
+            Message =
+                "เปิดหน้าแก้ไขชื่อไม่สำเร็จ กรุณาลองอีกครั้ง";
+            PresentError(
+                AccountNameChangeErrorTarget.NewRequestAction,
+                Message,
+                AccountNameChangeErrorKind.Network);
+        }
     }
 
     public async Task ReturnToAccountAsync()
@@ -557,6 +640,67 @@ public sealed class VerifyNameChangeViewModel : ObservableViewModel
             error.RetryAfter,
             error.RemainingAttempts,
             error.NextAllowedAt);
+    }
+
+    private bool TryHandleAccountCooldown(
+        AccountNameChangeErrorNotice error)
+    {
+        if (error.Kind != AccountNameChangeErrorKind.Cooldown ||
+            error.Target != AccountNameChangeErrorTarget.BlockedAction ||
+            error.NextAllowedAt is not { } nextAllowedAt)
+        {
+            return false;
+        }
+
+        StopCountdown();
+        pending = null;
+        Code = "";
+        Message = "";
+        ResendSecondsRemaining = 0;
+        ExpirySecondsRemaining = 0;
+        RemainingAttempts = 0;
+        IsExpired = false;
+        IsLocked = false;
+        SetRequiresFreshRequest(false);
+        SetVerified(false);
+        SetRequiresAccountReturn(true);
+        OnPropertyChanged(nameof(MaskedPhoneNumber));
+        OnPropertyChanged(nameof(MaskedPhoneSemanticDescription));
+        OnPropertyChanged(nameof(PendingDisplayName));
+        OnPropertyChanged(nameof(PendingNameSemanticDescription));
+        OnPropertyChanged(nameof(ExpiresText));
+        RaiseActionState();
+        ActionBlocked?.Invoke(
+            this,
+            AccountNameChangeModalPresenter.Cooldown(
+                new AccountNameChangeBlockedNotice(nextAllowedAt)));
+        return true;
+    }
+
+    private void OnSessionResetRequested(object? sender, EventArgs eventArgs)
+    {
+        lifetime.Deactivate();
+        isActive = false;
+        StopCountdown();
+        pending = null;
+        mustReloadPending = true;
+        Code = "";
+        Message = "";
+        ResendSecondsRemaining = 0;
+        ExpirySecondsRemaining = 0;
+        RemainingAttempts = 0;
+        IsBusy = false;
+        IsExpired = false;
+        IsLocked = false;
+        SetRequiresFreshRequest(false);
+        SetRequiresAccountReturn(false);
+        SetVerified(false);
+        OnPropertyChanged(nameof(MaskedPhoneNumber));
+        OnPropertyChanged(nameof(MaskedPhoneSemanticDescription));
+        OnPropertyChanged(nameof(PendingDisplayName));
+        OnPropertyChanged(nameof(PendingNameSemanticDescription));
+        OnPropertyChanged(nameof(ExpiresText));
+        RaiseActionState();
     }
 
     private void ApplyVerificationSuccess()

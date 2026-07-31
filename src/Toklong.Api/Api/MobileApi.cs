@@ -69,6 +69,21 @@ public static class MobileApi
                             retryAfter,
                             nextAllowedAt) =
                             NameChangeError(exception);
+                        if (string.Equals(
+                                code,
+                                "name_change_send_limit",
+                                StringComparison.Ordinal) &&
+                            retryAfter is { } dailyRetryAfter)
+                        {
+                            retryAfter = TimeSpan.FromSeconds(Math.Clamp(
+                                dailyRetryAfter.TotalSeconds,
+                                1,
+                                TimeSpan.FromDays(1).TotalSeconds));
+                            var timeProvider = context.RequestServices
+                                .GetRequiredService<TimeProvider>();
+                            nextAllowedAt =
+                                timeProvider.GetUtcNow() + retryAfter.Value;
+                        }
                         var remainingAttempts = exception is
                             AccountNameChangeVerificationException verification
                             ? verification.RemainingAttempts

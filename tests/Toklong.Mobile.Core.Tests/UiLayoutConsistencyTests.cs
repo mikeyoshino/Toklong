@@ -7,6 +7,32 @@ public sealed class UiLayoutConsistencyTests
     private static readonly XNamespace Maui = "http://schemas.microsoft.com/dotnet/2021/maui";
 
     [Fact]
+    public void Account_name_verification_keeps_shared_otp_and_modal_only_blocking_copy()
+    {
+        var page = Load("Ui", "Pages", "VerifyNameChangePage.xaml");
+        var account = Load("Ui", "Pages", "AccountPage.xaml");
+        var verificationSource = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "Ui",
+            "Pages",
+            "VerifyNameChangePage.xaml.cs"));
+
+        Assert.Single(page.Descendants(), element =>
+            element.Name.LocalName == "OtpVerificationFormView");
+        Assert.DoesNotContain(page.Descendants(), element =>
+            element.Name.LocalName == "OtpCodeInput");
+        Assert.DoesNotContain(
+            "เปลี่ยนได้อีกครั้ง",
+            string.Join(" ", account.Descendants()
+                .SelectMany(element => element.Attributes())
+                .Select(attribute => attribute.Value)));
+        Assert.Contains("DisplayAlertAsync(", verificationSource);
+        Assert.Contains("notice.Title", verificationSource);
+        Assert.Contains("notice.Message", verificationSource);
+        Assert.Contains("notice.AcceptText", verificationSource);
+    }
+
+    [Fact]
     public void Web_checkout_does_not_offer_the_legacy_physical_payment_form()
     {
         var page = File.ReadAllText(Path.Combine(

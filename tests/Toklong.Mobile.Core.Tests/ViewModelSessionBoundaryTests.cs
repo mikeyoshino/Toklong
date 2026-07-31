@@ -3,8 +3,129 @@ using Toklong.Mobile.ViewModels;
 
 namespace Toklong.Mobile.Core.Tests;
 
-public sealed class ViewModelSessionBoundaryTests
+public sealed class ViewModelSessionBoundaryTests :
+    AccountNameChangeViewModelTestBase
 {
+    [Fact]
+    public async Task Name_form_reset_immediately_clears_account_A_and_reactivation_loads_account_B()
+    {
+        Shell.Current = new Shell
+        {
+            Navigate = _ => Task.FromException(
+                new InvalidOperationException("private route detail"))
+        };
+        var session = new AuthenticatedSessionBoundary();
+        var authentication = new RecordingAuthentication
+        {
+            GetProfile = () => Task.FromResult(Profile("บัญชีเอ", "เดิม")),
+            RequestName = (_, _) => Task.FromResult(Pending())
+        };
+        var viewModel = new ChangeNameViewModel(
+            authentication,
+            new RecordingAnalytics(),
+            session);
+        viewModel.Activate();
+        await viewModel.LoadCurrentNameAsync();
+        viewModel.FirstName = "ชื่อใหม่เอ";
+        await viewModel.SubmitAsync();
+
+        session.Reset();
+
+        Assert.Equal("", viewModel.FirstName);
+        Assert.Equal("", viewModel.LastName);
+        Assert.False(viewModel.HasFirstNameError);
+        Assert.False(viewModel.HasLastNameError);
+        Assert.False(viewModel.HasMessage);
+        Assert.True(viewModel.CanEditName);
+        Assert.Equal("ส่งรหัสยืนยัน", viewModel.SubmitButtonText);
+
+        authentication.GetProfile = () =>
+            Task.FromResult(Profile("บัญชีบี", "ใหม่"));
+        viewModel.Activate();
+        await viewModel.LoadCurrentNameAsync();
+
+        Assert.Equal("บัญชีบี", viewModel.FirstName);
+        Assert.Equal("ใหม่", viewModel.LastName);
+        Assert.Equal(2, authentication.ProfileCalls);
+        Assert.IsAssignableFrom<IDisposable>(viewModel).Dispose();
+    }
+
+    [Fact]
+    public async Task Name_verification_reset_immediately_clears_account_A_challenge_presentation()
+    {
+        var session = new AuthenticatedSessionBoundary();
+        var authentication = new RecordingAuthentication
+        {
+            VerifyName = (_, _) =>
+                Task.FromException<VerifiedAccountNameChange>(
+                    Problem(
+                        "name_change_code_incorrect",
+                        remainingAttempts: 2))
+        };
+        var viewModel = new VerifyNameChangeViewModel(
+            authentication,
+            new RecordingAnalytics(),
+            new FixedTimeProvider(Now),
+            session,
+            new AccountNameChangeCompletionState(session));
+        viewModel.Activate();
+        viewModel.Apply(Pending(remainingAttempts: 3));
+        viewModel.Code = "123456";
+        await viewModel.ConfirmAsync();
+        Assert.True(viewModel.HasMessage);
+
+        session.Reset();
+
+        Assert.Equal("", viewModel.MaskedPhoneNumber);
+        Assert.Equal("", viewModel.PendingDisplayName);
+        Assert.Equal("", viewModel.Code);
+        Assert.Equal(0, viewModel.RemainingAttempts);
+        Assert.Equal(0, viewModel.ResendSecondsRemaining);
+        Assert.Equal(0, viewModel.ExpirySecondsRemaining);
+        Assert.False(viewModel.HasMessage);
+        Assert.False(viewModel.CanUseChallenge);
+        Assert.False(viewModel.RequiresNewRequest);
+        Assert.False(viewModel.RequiresAccountReturn);
+        Assert.IsAssignableFrom<IDisposable>(viewModel).Dispose();
+    }
+
+    [Fact]
+    public async Task Name_verification_reactivation_loads_only_account_B_pending_state()
+    {
+        var accountBPending = Pending(
+            challengeId: Guid.Parse(
+                "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")) with
+        {
+            MaskedPhoneNumber = "09x-xxx-9876",
+            FirstName = "บัญชีบี",
+            LastName = "ใหม่"
+        };
+        var session = new AuthenticatedSessionBoundary();
+        var authentication = new RecordingAuthentication
+        {
+            GetPendingName = () =>
+                Task.FromResult<PendingAccountNameChange?>(accountBPending)
+        };
+        var viewModel = new VerifyNameChangeViewModel(
+            authentication,
+            new RecordingAnalytics(),
+            new FixedTimeProvider(Now),
+            session,
+            new AccountNameChangeCompletionState(session));
+        viewModel.Activate();
+        viewModel.Apply(Pending());
+
+        session.Reset();
+        viewModel.Activate();
+        await viewModel.LoadPendingAfterResetAsync();
+
+        Assert.Equal("09x-xxx-9876", viewModel.MaskedPhoneNumber);
+        Assert.Equal("บัญชีบี ใหม่", viewModel.PendingDisplayName);
+        Assert.True(viewModel.CanUseChallenge);
+        Assert.Equal(1, authentication.PendingNameCalls);
+        Assert.IsAssignableFrom<IDisposable>(viewModel).Dispose();
+    }
+
     [Fact]
     public async Task Account_switch_failure_never_exposes_previous_account_workspace()
     {
@@ -161,7 +282,7 @@ public sealed class ViewModelSessionBoundaryTests
             CreatedAt:
                 DateTimeOffset.Parse("2026-07-28T14:00:00+07:00"));
 
-    private sealed class RecordingAnalytics : IMobileAnalytics
+    private new sealed class RecordingAnalytics : IMobileAnalytics
     {
         public List<MobileAnalyticsEvent> Events { get; } = [];
 

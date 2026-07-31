@@ -6,10 +6,11 @@ using Toklong.Mobile.Pages;
 
 namespace Toklong.Mobile.ViewModels;
 
-public sealed class ChangeNameViewModel : ObservableViewModel
+public sealed class ChangeNameViewModel : ObservableViewModel, IDisposable
 {
     private readonly IAuthenticationService authentication;
     private readonly IMobileAnalytics analytics;
+    private readonly AuthenticatedSessionBoundary session;
     private readonly EmailChangePageLifetime lifetime;
     private string currentFirstName = "";
     private string currentLastName = "";
@@ -21,6 +22,7 @@ public sealed class ChangeNameViewModel : ObservableViewModel
     private PendingAccountNameChange? acceptedPending;
     private bool isBusy;
     private bool hasCurrentName;
+    private bool disposed;
 
     public ChangeNameViewModel(
         IAuthenticationService authentication,
@@ -29,7 +31,9 @@ public sealed class ChangeNameViewModel : ObservableViewModel
     {
         this.authentication = authentication;
         this.analytics = analytics;
+        this.session = session;
         lifetime = new EmailChangePageLifetime(session);
+        session.ResetRequested += OnSessionResetRequested;
     }
 
     public event EventHandler<AccountNameChangeErrorNotice>?
@@ -179,6 +183,16 @@ public sealed class ChangeNameViewModel : ObservableViewModel
     {
         lifetime.Deactivate();
         IsBusy = false;
+    }
+
+    public void Dispose()
+    {
+        if (disposed)
+            return;
+
+        disposed = true;
+        session.ResetRequested -= OnSessionResetRequested;
+        lifetime.Deactivate();
     }
 
     public async Task SubmitAsync()
@@ -363,6 +377,24 @@ public sealed class ChangeNameViewModel : ObservableViewModel
     private void SetAcceptedPending(PendingAccountNameChange value)
     {
         acceptedPending = value;
+        OnPropertyChanged(nameof(CanEditName));
+        OnPropertyChanged(nameof(SubmitButtonText));
+        OnPropertyChanged(nameof(SubmitSemanticDescription));
+    }
+
+    private void OnSessionResetRequested(object? sender, EventArgs eventArgs)
+    {
+        lifetime.Deactivate();
+        currentFirstName = "";
+        currentLastName = "";
+        hasCurrentName = false;
+        acceptedPending = null;
+        FirstName = "";
+        LastName = "";
+        FirstNameError = "";
+        LastNameError = "";
+        Message = "";
+        IsBusy = false;
         OnPropertyChanged(nameof(CanEditName));
         OnPropertyChanged(nameof(SubmitButtonText));
         OnPropertyChanged(nameof(SubmitSemanticDescription));

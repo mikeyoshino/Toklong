@@ -6,6 +6,7 @@ namespace Toklong.Mobile.Pages;
 public partial class ChangeNamePage : ContentPage, IQueryAttributable
 {
     private readonly ChangeNameViewModel viewModel;
+    private bool wasParented;
 
     public ChangeNamePage(ChangeNameViewModel viewModel)
     {
@@ -42,6 +43,19 @@ public partial class ChangeNamePage : ContentPage, IQueryAttributable
         viewModel.ActionBlocked -= OnActionBlocked;
         viewModel.Deactivate();
         base.OnDisappearing();
+    }
+
+    protected override void OnParentSet()
+    {
+        base.OnParentSet();
+        if (Parent is not null)
+        {
+            wasParented = true;
+            return;
+        }
+
+        if (wasParented)
+            viewModel.Dispose();
     }
 
     private void OnNameChangeBlocked(

@@ -8,6 +8,7 @@ public partial class VerifyNameChangePage :
     IQueryAttributable
 {
     private readonly VerifyNameChangeViewModel viewModel;
+    private bool wasParented;
 
     public VerifyNameChangePage(VerifyNameChangeViewModel viewModel)
     {
@@ -24,12 +25,13 @@ public partial class VerifyNameChangePage :
         }
     }
 
-    protected override void OnAppearing()
+    protected override async void OnAppearing()
     {
         base.OnAppearing();
         viewModel.ErrorPresented += OnErrorPresented;
         viewModel.ActionBlocked += OnActionBlocked;
         viewModel.Activate();
+        await viewModel.LoadPendingAfterResetAsync();
         if (viewModel.CanUseChallenge)
         {
             Dispatcher.DispatchDelayed(
@@ -48,6 +50,19 @@ public partial class VerifyNameChangePage :
         viewModel.ActionBlocked -= OnActionBlocked;
         viewModel.Deactivate();
         base.OnDisappearing();
+    }
+
+    protected override void OnParentSet()
+    {
+        base.OnParentSet();
+        if (Parent is not null)
+        {
+            wasParented = true;
+            return;
+        }
+
+        if (wasParented)
+            viewModel.Dispose();
     }
 
     private void OnActionBlocked(

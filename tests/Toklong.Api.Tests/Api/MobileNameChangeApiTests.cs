@@ -506,10 +506,18 @@ public sealed class MobileNameChangeApiTests
     [Fact]
     public async Task Durable_five_per_day_send_limit_crosses_buyer_and_seller_api_scopes_for_the_same_phone()
     {
-        var sessions = await AuthenticatedRoleSessionsAsync(factory);
+        var apiNow = DateTimeOffset.UtcNow;
+        using var host = factory.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<TimeProvider>();
+                services.AddSingleton<TimeProvider>(
+                    new FixedTimeProvider(apiNow));
+            }));
+        var sessions = await AuthenticatedRoleSessionsAsync(host);
         using var buyer = sessions.Buyer;
         using var seller = sessions.Seller;
-        await using (var scope = factory.Services.CreateAsyncScope())
+        await using (var scope = host.Services.CreateAsyncScope())
         {
             var database = scope.ServiceProvider
                 .GetRequiredService<ToklongDbContext>();
@@ -549,6 +557,14 @@ public sealed class MobileNameChangeApiTests
         Assert.NotNull(problem);
         Assert.Equal("name_change_send_limit", problem.Code);
         Assert.NotNull(problem.RetryAfterSeconds);
+        Assert.NotNull(problem.NextAllowedAt);
+        Assert.Equal(
+            problem.RetryAfterSeconds,
+            (int)Math.Ceiling(
+                (problem.NextAllowedAt.Value - apiNow).TotalSeconds));
+        Assert.Equal(
+            problem.RetryAfterSeconds.Value,
+            (int)rejected.Headers.RetryAfter!.Delta!.Value.TotalSeconds);
     }
 
     [Fact]
@@ -1364,6 +1380,12 @@ public sealed class MobileNameChangeApiTests
         Throttled,
         InvalidResponse,
         OutcomeUnknown
+    }
+
+    private sealed class FixedTimeProvider(
+        DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
     }
 
     private sealed class ControlledOtpProvider

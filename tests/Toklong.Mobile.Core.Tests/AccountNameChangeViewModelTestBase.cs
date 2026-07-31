@@ -1,5 +1,8 @@
 using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using Toklong.Mobile.Core;
+using Toklong.Mobile.Services;
 using Toklong.Mobile.ViewModels;
 
 namespace Toklong.Mobile.Core.Tests;
@@ -201,4 +204,39 @@ public abstract class AccountNameChangeViewModelTestBase
             code,
             remainingAttempts: remainingAttempts,
             nextAllowedAt: nextAllowedAt);
+
+    protected static async Task<MobileApiRequestException>
+        ParsedApiProblemAsync(
+            string code,
+            DateTimeOffset nextAllowedAt,
+            TimeSpan? retryAfter = null,
+            HttpStatusCode status =
+                HttpStatusCode.TooManyRequests)
+    {
+        using var response = new HttpResponseMessage(
+            status)
+        {
+            Content = JsonContent.Create(new
+            {
+                title = "ทำรายการไม่สำเร็จ",
+                detail = "untrusted server detail",
+                code,
+                retryAfterSeconds = retryAfter.HasValue
+                    ? (int)Math.Ceiling(
+                        retryAfter.Value.TotalSeconds)
+                    : (int?)null,
+                nextAllowedAt
+            })
+        };
+        if (retryAfter.HasValue)
+        {
+            response.Headers.RetryAfter =
+                new RetryConditionHeaderValue(retryAfter.Value);
+        }
+
+        return await Assert.ThrowsAsync<MobileApiRequestException>(() =>
+            MobileApiClient.EnsureSuccessAsync(
+                response,
+                CancellationToken.None));
+    }
 }
