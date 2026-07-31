@@ -404,6 +404,42 @@ not for the normal reload performed when the page appears.
 **And** both buyer and seller modes order transactions by creation time from
 newest to oldest, including after refresh and within each status filter.
 
+### A0.0.7 — Account name changes require current-phone proof
+
+**Given** an authenticated account with separate first and last name fields
+**When** the user selects the always-visible `แก้ไข` action on `บัญชี`
+**Then** no cooldown date is shown before that action
+**And** the first successful change is eligible immediately
+**And** each later completion is eligible only after two Bangkok calendar
+months, preserving the prior local wall-clock time
+**And** a blocked action shows the exact next date and time only in a modal.
+
+**When** the user submits a different valid first and last name
+**Then** the existing shared six-digit input verifies control of the current
+registered phone
+**And** sends are at least 60 seconds apart and no more than five accepted sends
+occur for that normalized phone in a rolling 24 hours
+**And** the code expires after 10 minutes and locks after five incorrect tries
+**And** raw codes, names, phones, challenge IDs, and provider text do not enter
+analytics or normal logs.
+
+**When** verification succeeds
+**Then** buyer and seller roles and every active same-phone session receive one
+current name atomically
+**And** exactly one protected immutable account audit event is appended
+**And** exact replays return the same result while mismatched reuse is rejected
+**And** no transaction state or transaction audit event changes.
+
+**Given** an offer already copied the buyer name or an accepted offer copied
+the seller name
+**When** that account later changes its name
+**Then** the stored party names, snapshots, JSON, hashes, labels, evidence, and
+historical presentation remain byte/value unchanged
+**And** only later offers or acceptances capture the new current name.
+
+**And** product copy describes the SMS step only as proof of control of the
+existing account, never legal-name, identity, or KYC verification.
+
 ### A0.1 — Seller acceptance enables buyer checkout preparation
 
 **Given** a buyer-created offer in `AWAITING_SELLER_ACCEPTANCE`

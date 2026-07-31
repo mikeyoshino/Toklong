@@ -23,6 +23,31 @@ PromptPay is never collected before seller acceptance. The selected Stripe Promp
 
 The backend uses more detailed states for reliable payment, fulfillment, disputes, refunds, and payout.
 
+## Account-name maintenance
+
+Registration collects `ชื่อ` and `นามสกุล` separately after the phone proof.
+From the blue `บัญชี` profile card, the authenticated user can always select
+`แก้ไข`; the page does not show cooldown timing proactively. The server checks
+eligibility on that action. A blocked action shows an exact Bangkok date and
+time in a modal.
+
+The first successful account-name change may occur at any time after
+registration. Later successful changes are allowed at the exact instant two
+Bangkok calendar months after the previous completion, preserving its local
+wall-clock time. A challenge does not start this cooldown. The user enters the
+two name fields, then proves control of the current verified phone with the
+shared six-digit-code UI. Sends are separated by at least 60 seconds, limited
+to five provider-accepted sends per normalized phone in a rolling 24 hours,
+expire after 10 minutes, and lock after five incorrect submissions.
+
+Successful completion atomically updates buyer and seller roles plus every
+active mobile session for that phone and appends a protected account audit
+event. This lifecycle is separate from `TransactionState`. Buyer name freezes
+when the offer is sent; seller name freezes when the seller accepts. Later
+profile changes never rewrite those stored party names, agreement data, hashes,
+labels, evidence, or transaction history. Phone proof does not claim that the
+new name is legally or KYC verified.
+
 ## Buyer journey
 
 ### B1 — Create a private offer

@@ -165,6 +165,12 @@ Excluded until explicitly reviewed:
    acceptance, the buyer has one hour to complete provider-confirmed payment.
    Both screens show the exact deadline, and an unpaid expired offer does not
    authorize fulfillment.
+11. **Current account name, historical transaction name.** An authenticated
+   user may update separate first- and last-name fields only after proving
+   control of the existing verified phone. This proof is account control, not
+   legal-identity or KYC verification. Buyer and seller roles share one current
+   name, while names already copied into offers, agreements, and paid records
+   remain immutable historical facts.
 
 ## Suggested headline and copy
 

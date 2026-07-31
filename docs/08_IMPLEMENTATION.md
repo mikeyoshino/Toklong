@@ -379,6 +379,24 @@ Money inputs remain strings in the form and are parsed to integer satang at the 
   30-day refresh token stored in platform SecureStorage. The database stores
   only the SHA-256 refresh-token hash; refresh rotates once and replay fails.
   Logout revokes access immediately.
+- Account registration and maintenance store normalized first and last names.
+  Account-name change has purpose-bound send and verification operations,
+  durable idempotency/reconciliation, a 60-second resend interval, five
+  accepted sends per normalized phone per rolling 24 hours, ten-minute expiry,
+  and five incorrect attempts. The first completion is unrestricted; later
+  completions use Bangkok `AddMonths(2)`. PostgreSQL transaction-scoped phone
+  serialization keeps buyer, seller, and active-session names consistent.
+  Protected versioned audit evidence remains recoverable only through the
+  authorized audit seam; consumer analytics contains bounded event/reason
+  values only. ThaiBulkSMS remains authentication-only until a certified
+  account-name template, exact 600-second lifetime, send lookup, and keyed
+  verification lookup are available. Phone proof is not KYC.
+- Mobile exposes five authenticated `/api/mobile/me/name-change` contracts and
+  owns session-bound idempotency leases across uncertain retries. The account
+  UI uses separate name fields and the shared OTP control, never shows cooldown
+  proactively, and rejects stale session-generation route payloads. Name
+  completion has no `SaleTransaction` dependency: buyer names freeze when an
+  offer is sent and seller names when acceptance occurs.
 - The mobile API returns no buyer/seller transaction access tokens. Its
   authenticated transaction actions authorize the party ID before calling the
   domain transition service.

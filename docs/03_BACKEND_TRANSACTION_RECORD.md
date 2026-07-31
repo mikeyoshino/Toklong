@@ -136,6 +136,23 @@ replace it. Existing legacy accounts may add or update it from the authenticated
 account screen. Use a provider/customer reference where practical; do not store
 refund bank details.
 
+### Account name and party-name snapshots
+
+Buyer and seller account rows store structured `first_name`, `last_name`, and
+nullable `name_changed_at`, while compatibility display-name fields retain the
+canonical combined value. A successful verified change updates every role and
+active session for the normalized phone in one serialized database operation.
+The account-name audit stores authenticated, versioned protected evidence of
+the old buyer name, old seller name, and new normalized name. Raw verification
+codes never enter account, attempt, audit, analytics, or normal log fields.
+
+Account-name records do not mutate transaction records. The buyer display name
+is copied when the buyer sends the offer. The seller display name is copied
+when the seller accepts. Those stored values, agreement-core and terms JSON,
+hashes, labels, evidence, and transaction audit history remain unchanged after
+any later account update, whether or not payment has occurred. A later offer or
+acceptance captures the then-current name at its applicable freeze point.
+
 For physical offers, `proposed_item_price_satang` excludes shipping. Shipping
 is not buyer-authored: the intended seller selects a validated quote before
 acceptance, which freezes delivery facts only. The buyer-only optional

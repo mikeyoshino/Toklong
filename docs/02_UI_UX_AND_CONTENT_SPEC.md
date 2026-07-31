@@ -404,6 +404,33 @@ If the user requests another code during the resend cooldown, show the actual
 remaining wait in seconds. Do not describe a normal cooldown as a service
 outage.
 
+### Account name change
+
+The blue profile card on `บัญชี` always shows `แก้ไข` beside the current name.
+It never proactively displays the last change, remaining first-change
+entitlement, or next allowed date. Selecting `แก้ไข` asks the server. When
+blocked, remain on the current page and show:
+
+- title `ยังเปลี่ยนชื่อไม่ได้`;
+- `เพื่อความปลอดภัย ชื่อบัญชีเปลี่ยนได้ทุก 2 เดือน`;
+- `คุณจะเปลี่ยนได้อีกครั้งวันที่ {exact Bangkok date and time}`; and
+- one action, `เข้าใจแล้ว`.
+
+An eligible flow has two mobile-first pages. Step 1 shows separate required
+`ชื่อ` and `นามสกุล` fields, prefilled from the current profile, and one primary
+action `ส่งรหัสยืนยัน`. Step 2 shows the masked existing phone, pending name,
+and the existing `OtpVerificationFormView`; it must not add another
+`OtpCodeInput`. Resend, expiry, incorrect-attempt, paste, deletion, VoiceOver,
+and iOS one-time-code behavior remain shared. Cooldown and daily-send-limit
+outcomes use action modals rather than proactive account copy. Success returns
+to `บัญชี`, refreshes the authoritative profile, and says
+`เปลี่ยนชื่อเรียบร้อยแล้ว ชื่อใหม่จะใช้กับรายการใหม่` once.
+
+Sign-out or account switching immediately clears names, masked phone, pending
+challenge presentation, code, timers, errors, and route payloads. Navigation
+payloads are session-generation bound so a page created after a reset reloads
+the new account instead of rendering the previous account's data.
+
 ### Authenticated role home
 
 After registered-phone verification, show the centered TOKLONG brand,
