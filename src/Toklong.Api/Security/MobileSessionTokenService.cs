@@ -33,8 +33,7 @@ public sealed class MobileSessionTokenService(
     IDataProtectionProvider dataProtectionProvider,
     TimeProvider timeProvider,
     IMobileSessionRepository sessions,
-    IBuyerRepository buyers,
-    ISellerRepository sellers,
+    IMobileSessionAccountNameReader accountNames,
     IUnitOfWork unitOfWork,
     IAccountPhoneTransactionManager phoneTransactions)
 {
@@ -58,11 +57,15 @@ public sealed class MobileSessionTokenService(
             await phoneTransactions.BeginAsync(
                 phone,
                 cancellationToken);
-        var displayName = await ResolveCurrentDisplayNameAsync(
+        var currentNames = await ReadCurrentNamesAsync(
             profile.BuyerId,
             profile.SellerId,
-            phone,
             cancellationToken);
+        var displayName = SelectDisplayName(
+            profile.BuyerId,
+            profile.SellerId,
+            currentNames,
+            phone);
         var refreshToken = NewRefreshToken();
         var session = MobileSession.Create(
             profile.BuyerId,
@@ -135,9 +138,11 @@ public sealed class MobileSessionTokenService(
             cancellationToken);
         if (session is null || !session.IsActive(now))
             return null;
-        var currentSeller = await sellers.GetByIdAsync(
+        var currentNames = await ReadCurrentNamesAsync(
+            session.BuyerId,
             seller.Id,
             cancellationToken);
+        var currentSeller = currentNames.Seller;
         if (currentSeller is null ||
             !string.Equals(
                 ThaiMobilePhone.Normalize(
@@ -145,15 +150,15 @@ public sealed class MobileSessionTokenService(
                 phone,
                 StringComparison.Ordinal))
             return null;
-        var displayName = await ResolveCurrentDisplayNameAsync(
+        var displayName = SelectDisplayName(
             session.BuyerId,
-            currentSeller.Id,
-            phone,
-            cancellationToken);
+            currentSeller.AccountId,
+            currentNames,
+            phone);
 
         var replacement = NewRefreshToken();
         session.AttachSeller(
-            currentSeller.Id,
+            currentSeller.AccountId,
             currentSeller.PhoneNumber,
             displayName,
             now);
@@ -172,43 +177,67 @@ public sealed class MobileSessionTokenService(
         return Issue(session, replacement, now);
     }
 
-    private async Task<string> ResolveCurrentDisplayNameAsync(
+    private async Task<CurrentNames> ReadCurrentNamesAsync(
         Guid? buyerId,
         Guid? sellerId,
-        string normalizedPhone,
         CancellationToken cancellationToken)
     {
         if (!buyerId.HasValue && !sellerId.HasValue)
             throw new InvalidOperationException(
                 "Mobile session must reference an account.");
-        string? buyerName = null;
-        if (buyerId.HasValue)
-        {
-            var buyer = await buyers.GetByIdAsync(
-                    buyerId.Value,
-                    cancellationToken)
-                ?? throw new InvalidOperationException(
-                    "Buyer account is unavailable.");
-            EnsurePhone(
-                normalizedPhone,
-                buyer.PhoneNumber);
-            buyerName = buyer.FullName;
-        }
-        string? sellerName = null;
-        if (sellerId.HasValue)
-        {
-            var seller = await sellers.GetByIdAsync(
-                    sellerId.Value,
-                    cancellationToken)
-                ?? throw new InvalidOperationException(
-                    "Seller account is unavailable.");
-            EnsurePhone(
-                normalizedPhone,
-                seller.PhoneNumber);
-            sellerName = seller.DisplayName;
-        }
-        return buyerName ?? sellerName!;
+        var buyer = buyerId.HasValue
+            ? await accountNames.GetBuyerAsync(
+                buyerId.Value,
+                cancellationToken)
+            : null;
+        var seller = sellerId.HasValue
+            ? await accountNames.GetSellerAsync(
+                sellerId.Value,
+                cancellationToken)
+            : null;
+        return new CurrentNames(buyer, seller);
     }
+
+    private static string SelectDisplayName(
+        Guid? buyerId,
+        Guid? sellerId,
+        CurrentNames current,
+        string normalizedPhone)
+    {
+        if (buyerId.HasValue && current.Buyer is null)
+            throw new InvalidOperationException(
+                "Buyer account is unavailable.");
+        if (sellerId.HasValue && current.Seller is null)
+            throw new InvalidOperationException(
+                "Seller account is unavailable.");
+        if (current.Buyer is not null)
+            EnsurePhone(normalizedPhone, current.Buyer.PhoneNumber);
+        if (current.Seller is not null)
+            EnsurePhone(normalizedPhone, current.Seller.PhoneNumber);
+        if (current.Buyer is not null &&
+            current.Seller is not null &&
+            !NamesMatch(current.Buyer, current.Seller))
+            throw new InvalidOperationException(
+                "Account roles have inconsistent names.");
+        return current.Buyer?.DisplayName ??
+               current.Seller!.DisplayName;
+    }
+
+    private static bool NamesMatch(
+        MobileSessionAccountName buyer,
+        MobileSessionAccountName seller) =>
+        string.Equals(
+            buyer.FirstName,
+            seller.FirstName,
+            StringComparison.Ordinal) &&
+        string.Equals(
+            buyer.LastName,
+            seller.LastName,
+            StringComparison.Ordinal) &&
+        string.Equals(
+            buyer.DisplayName,
+            seller.DisplayName,
+            StringComparison.Ordinal);
 
     private static void EnsurePhone(
         string expected,
@@ -221,6 +250,10 @@ public sealed class MobileSessionTokenService(
             throw new InvalidOperationException(
                 "Account phone does not match the session.");
     }
+
+    private sealed record CurrentNames(
+        MobileSessionAccountName? Buyer,
+        MobileSessionAccountName? Seller);
 
     public async Task<ClaimsPrincipal?> ValidateAccessAsync(
         string token,

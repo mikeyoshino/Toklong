@@ -46,6 +46,9 @@ public static class DependencyInjection
         services.AddScoped<ISellerRepository, SellerRepository>();
         services.AddScoped<IMobileSessionRepository, MobileSessionRepository>();
         services.AddScoped<
+            IMobileSessionAccountNameReader,
+            MobileSessionAccountNameReader>();
+        services.AddScoped<
             IAccountPhoneTransactionManager,
             PostgresAccountPhoneTransactionManager>();
         services.AddScoped<

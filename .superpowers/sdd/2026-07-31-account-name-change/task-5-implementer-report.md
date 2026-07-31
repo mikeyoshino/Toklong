@@ -226,3 +226,93 @@ PostgreSQL advisory-lock and migration gates. The Domain command emitted only
 Connect the approved two-field account form to the hardened account-name
 endpoints, reuse the existing six-digit OTP component, and show cooldown timing
 only in the blocked-action error modal.
+
+---
+
+# Task 5 Implementer Report — Round 3 Authoritative Session Names
+
+## 1. What changed
+
+- Added a minimal `IMobileSessionAccountNameReader` that projects buyer and
+  seller account id, phone, structured first name, structured last name, and
+  display name without materializing account entities.
+- The infrastructure reader executes explicit `AsNoTracking` scalar queries,
+  so a role tracked by OTP verification before the phone lease cannot be
+  identity-resolved as the post-lock current name.
+- `MobileSessionTokenService.CreateAsync` now acquires or joins the phone lease
+  before invoking that reader and no longer resolves current names through
+  tracking buyer/seller repositories.
+- `AttachSellerAsync` uses the same authoritative reader for seller
+  authorization and both current role names after acquiring its phone lease.
+- When both roles exist, every role must match the normalized session phone and
+  structured first name, last name, and display name must agree. Buyer
+  precedence is retained only after that consistency check; divergence fails
+  before a session is created or mutated.
+
+## 2. Requirements and transitions implemented
+
+- OTP proof may still update and track account rows before session issuance,
+  but those tracked instances are not accepted as current-name authority.
+- Session creation serializes with account-name completion, then reads the
+  committed role values directly from the database under the same-phone lease.
+- Buyer-only and seller-only sign-in preserve their current role behavior.
+  Dual-role sign-in requires one current normalized name across both roles.
+- Seller attachment ignores the possibly stale `SellerProfile` name supplied
+  by the earlier onboarding step and uses post-lock authoritative values.
+- Existing session concurrency tokens continue to reject attachment races that
+  also changed the tracked session row.
+
+## 3. Tests added or updated
+
+- Added an actual OTP sign-in composition theory for buyer-only and seller-only
+  accounts. `VerifyMobileCodeHandler` and session issuance share one scoped
+  SQLite DbContext, the old role remains tracked, another context commits the
+  new name while issuance waits, and the persisted session must use the new
+  name without refreshing the stale tracked entity.
+- The test was observed RED in both cases against the tracking repository path:
+  expected `สมศักดิ์ ใจดี`, received `สมชาย ใจดี`.
+- Added a dual-role divergence test proving no session is issued. A mutation
+  run with the consistency guard disabled failed because no exception was
+  thrown; restoring the guard returned the test to green.
+- Added seller-attachment coverage where buyer and seller are tracked with the
+  old name before the lease and both committed names change before attachment
+  proceeds.
+- Updated registration composition and existing token tests to use the
+  production current-name reader boundary.
+
+Fresh verification:
+
+```text
+Focused API sign-in/session/registration: 17 passed, 0 failed
+Focused Application sign-in:              10 passed, 0 failed
+Application tests:                       451 passed, 0 failed, 8 skipped
+API tests:                                82 passed, 0 failed, 0 skipped
+EF pending model changes: none
+git diff --check: passed
+```
+
+The eight Application skips still require
+`TOKLONG_POSTGRES_MIGRATION_TEST_CONNECTION` and cover the environment-gated
+PostgreSQL migration/advisory-lock tests.
+
+## 4. Assumptions
+
+- Buyer and seller roles sharing one normalized phone are one identity and must
+  have the same structured/display name before a dual-role session is safe.
+- Seller-only legacy rows may continue to use their stored display fallback;
+  pairing such a divergent legacy row with a structured buyer fails safely
+  until account data is reconciled.
+- Scalar projection values are authoritative only because callers execute them
+  after acquiring or joining the normalized-phone transaction boundary.
+
+## 5. Open decisions or provider capabilities
+
+- No new OTP, payment, or carrier provider capability is required.
+- Connected CI still needs
+  `TOKLONG_POSTGRES_MIGRATION_TEST_CONNECTION` for the skipped PostgreSQL gates.
+
+## 6. Next smallest vertical slice
+
+Connect the approved two-field account form to the hardened account-name
+endpoints, reuse the existing six-digit OTP component, and show cooldown timing
+only in the blocked-action error modal.

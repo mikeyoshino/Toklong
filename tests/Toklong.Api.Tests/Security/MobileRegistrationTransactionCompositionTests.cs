@@ -113,8 +113,7 @@ public sealed class MobileRegistrationTransactionCompositionTests
             new EphemeralDataProtectionProvider(),
             TimeProvider.System,
             new MobileSessionRepository(database),
-            new BuyerRepository(database),
-            new SellerRepository(database),
+            new MobileSessionAccountNameReader(database),
             database,
             transactions);
 
