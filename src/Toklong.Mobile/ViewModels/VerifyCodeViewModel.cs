@@ -13,7 +13,8 @@ public sealed record VerificationRequest(
 public sealed class VerifyCodeViewModel(
     IAuthenticationService authentication,
     IDeepLinkCoordinator deepLinks,
-    IPushRegistrationService pushRegistration)
+    IPushRegistrationService pushRegistration,
+    IWorkspaceRolePreference workspaceRoles)
     : ObservableViewModel
 {
     private VerificationRequest? request;
@@ -121,7 +122,8 @@ public sealed class VerifyCodeViewModel(
                 case SessionVerificationResult:
                     await pushRegistration.InitializeAsync();
                     await Shell.Current.GoToAsync(
-                        AuthenticatedHomeRoutes.Home);
+                        AuthenticatedHomeRoutes.Root(
+                            workspaceRoles.GetPreferredRole()));
                     await deepLinks.ResumePendingAsync();
                     break;
                 case RegistrationRequiredVerificationResult:

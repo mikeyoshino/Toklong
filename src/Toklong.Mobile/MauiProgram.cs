@@ -109,6 +109,9 @@ public static class MauiProgram
             LoggingMobileAnalytics>();
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSingleton<AuthenticatedSessionBoundary>();
+        builder.Services.AddSingleton<
+            IWorkspaceRolePreference,
+            WorkspaceRolePreference>();
         builder.Services.AddSingleton<AccountNameChangeOperationState>();
         builder.Services.AddSingleton<AccountNameChangeCompletionState>();
         builder.Services.AddSingleton<
@@ -196,7 +199,7 @@ public static class MauiProgram
             ApiNotificationService>();
         builder.Services.AddSingleton<IStripePaymentSheetService, StripePaymentSheetService>();
 
-        builder.Services.AddSingleton<TransactionsViewModel>();
+        builder.Services.AddSingleton<TransactionWorkspaceViewModelFactory>();
         builder.Services.AddSingleton<AuthenticatedHomeViewModel>();
         builder.Services.AddSingleton<ActivityViewModel>();
         builder.Services.AddTransient<TransactionDetailViewModel>();
@@ -226,13 +229,14 @@ public static class MauiProgram
         builder.Services.AddTransient<VerifyEmailChangePage>();
         builder.Services.AddTransient<ChangeNamePage>();
         builder.Services.AddTransient<VerifyNameChangePage>();
-        builder.Services.AddSingleton<TransactionsPage>();
+        builder.Services.AddSingleton<BuyingTransactionsPage>();
+        builder.Services.AddSingleton<SellingTransactionsPage>();
         builder.Services.AddTransient<TransactionDetailPage>();
         builder.Services.AddTransient<ShippingLabelPage>();
         builder.Services.AddTransient<CreateOfferPage>();
         builder.Services.AddTransient<SellerOfferPage>();
         builder.Services.AddTransient<PayoutSettingsPage>();
-        builder.Services.AddSingleton<ActivityPage>();
+        builder.Services.AddTransient<ActivityPage>();
         builder.Services.AddSingleton<AccountPage>();
 
 #if DEBUG

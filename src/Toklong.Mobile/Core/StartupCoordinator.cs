@@ -13,7 +13,8 @@ public sealed record StartupResult(
 public sealed class StartupCoordinator(
     IAuthenticationService authentication,
     IPendingRegistrationStore pendingRegistrations,
-    IStartupMotionPreference motionPreference)
+    IStartupMotionPreference motionPreference,
+    IWorkspaceRolePreference workspaceRoles)
 {
     private readonly object gate = new();
     private Task<StartupResult>? startupTask;
@@ -52,7 +53,8 @@ public sealed class StartupCoordinator(
 
         return new StartupResult(
             session.HasSession
-                ? AuthenticatedHomeRoutes.Home
+                ? AuthenticatedHomeRoutes.Root(
+                    workspaceRoles.GetPreferredRole())
                 : pending.HasPending
                     ? AuthenticationRoutes
                         .CompleteRegistration

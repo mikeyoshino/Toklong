@@ -304,6 +304,8 @@ public sealed class ViewModelSessionBoundaryTests :
             session,
             new AccountEmailChangeCompletionState(
                 session));
+        var workspaceRoles = new WorkspaceRolePreference(session);
+        workspaceRoles.SavePreferredRole(TransactionRoleRoute.Selling);
 
         await account.SignOutAsync();
         await home.LoadAsync();
@@ -313,6 +315,9 @@ public sealed class ViewModelSessionBoundaryTests :
         await Task.WhenAll(oldHomeLoad, oldListLoad);
 
         Assert.Equal(["//welcome"], Shell.Current.Routes);
+        Assert.Equal(
+            TransactionRoleRoute.Buying,
+            workspaceRoles.GetPreferredRole());
         Assert.True(authentication.SignedOut);
         Assert.False(home.HasSellerSummary);
         Assert.False(home.HasNewOffers);

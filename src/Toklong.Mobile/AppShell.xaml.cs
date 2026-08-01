@@ -5,9 +5,10 @@ namespace Toklong.Mobile;
 
 public partial class AppShell : Shell
 {
-    public AppShell()
+    public AppShell(IWorkspaceRolePreference workspaceRoles)
     {
         InitializeComponent();
+        Routing.RegisterRoute(nameof(ActivityPage), typeof(ActivityPage));
         Routing.RegisterRoute(nameof(SignUpPage), typeof(SignUpPage));
         Routing.RegisterRoute(nameof(VerifyCodePage), typeof(VerifyCodePage));
         Routing.RegisterRoute(
@@ -32,5 +33,11 @@ public partial class AppShell : Shell
         Routing.RegisterRoute(
             nameof(VerifyNameChangePage),
             typeof(VerifyNameChangePage));
+        Navigated += (_, args) =>
+        {
+            var route = args.Current.Location.OriginalString;
+            if (AuthenticatedHomeRoutes.TryParseRoot(route, out var role))
+                workspaceRoles.SavePreferredRole(role);
+        };
     }
 }

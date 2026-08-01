@@ -23,24 +23,19 @@
         Shell.NavBarIsVisible="False"
         ContentTemplate="{DataTemplate pages:SignInPage}"
         Shell.FlyoutItemIsVisible="False" />
-    <ShellContent
-        Route="home"
-        Shell.NavBarIsVisible="False"
-        ContentTemplate="{DataTemplate pages:AuthenticatedHomePage}"
-        Shell.FlyoutItemIsVisible="False" />
     <TabBar Route="main">
         <ShellContent
-            Title="รายการ"
-            Icon="nav_transactions.png"
-            Route="transactions"
+            Title="ซื้อ"
+            Icon="nav_buy.png"
+            Route="buying"
             Shell.NavBarIsVisible="False"
-            ContentTemplate="{DataTemplate pages:TransactionsPage}" />
+            ContentTemplate="{DataTemplate pages:BuyingTransactionsPage}" />
         <ShellContent
-            Title="กิจกรรม"
-            Icon="nav_activity.png"
-            Route="activity"
+            Title="ขาย"
+            Icon="nav_sell.png"
+            Route="selling"
             Shell.NavBarIsVisible="False"
-            ContentTemplate="{DataTemplate pages:ActivityPage}" />
+            ContentTemplate="{DataTemplate pages:SellingTransactionsPage}" />
         <ShellContent
             Title="บัญชี"
             Icon="nav_account.png"

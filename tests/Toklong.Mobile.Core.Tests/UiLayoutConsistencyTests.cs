@@ -303,23 +303,32 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
-    public void Shell_RegistersAuthenticatedHomeOutsideTheMainTabBar()
+    public void Shell_exposes_buy_sell_account_and_pushes_activity()
     {
         var shell = Load("Ui", "AppShell.xaml");
-        var home = shell
-            .Descendants(Maui + "ShellContent")
-            .Single(element =>
-                AttributeValue(element, "Route") == "home");
+        var tabBar = shell.Descendants()
+            .Single(element => element.Name.LocalName == "TabBar");
+        var roots = tabBar.Elements()
+            .Where(element => element.Name.LocalName == "ShellContent")
+            .ToArray();
 
         Assert.Equal(
-            "{DataTemplate pages:AuthenticatedHomePage}",
-            AttributeValue(home, "ContentTemplate"));
+            ["ซื้อ", "ขาย", "บัญชี"],
+            roots.Select(root => AttributeValue(root, "Title")));
         Assert.Equal(
-            "False",
-            AttributeValue(home, "Shell.FlyoutItemIsVisible"));
+            ["buying", "selling", "account"],
+            roots.Select(root => AttributeValue(root, "Route")));
         Assert.DoesNotContain(
-            home.Ancestors(),
-            element => element.Name.LocalName == "TabBar");
+            roots,
+            root => AttributeValue(root, "Route") == "activity");
+
+        var shellCode = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "Ui",
+            "AppShell.xaml.cs"));
+        Assert.Contains(
+            "Routing.RegisterRoute(nameof(ActivityPage)",
+            shellCode);
     }
 
     [Fact]
@@ -2398,6 +2407,13 @@ public sealed class UiLayoutConsistencyTests
         Assert.Contains("AddSingleton<StartupLogoPage>()", program);
         Assert.Contains("new Window(startupPage)", app);
         Assert.Contains("window.Page = shell", app);
+        Assert.True(
+            app.IndexOf(
+                "await shell.GoToAsync(result.Route",
+                StringComparison.Ordinal) <
+            app.IndexOf(
+                "deepLinks.ResumePendingAsync",
+                StringComparison.Ordinal));
         Assert.DoesNotContain(
             "IAuthenticationService authentication",
             app);

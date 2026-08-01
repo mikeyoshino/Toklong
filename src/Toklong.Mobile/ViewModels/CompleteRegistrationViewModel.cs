@@ -8,7 +8,8 @@ public sealed class CompleteRegistrationViewModel(
     IAuthenticationService authentication,
     IPendingRegistrationStore pendingRegistrations,
     IPushRegistrationService pushRegistration,
-    IDeepLinkCoordinator deepLinks)
+    IDeepLinkCoordinator deepLinks,
+    IWorkspaceRolePreference workspaceRoles)
     : ObservableViewModel
 {
     private const string TermsVersion = "terms-mvp-v1";
@@ -135,7 +136,8 @@ public sealed class CompleteRegistrationViewModel(
                 TermsVersion);
             await pushRegistration.InitializeAsync();
             await Shell.Current.GoToAsync(
-                AuthenticatedHomeRoutes.Home);
+                AuthenticatedHomeRoutes.Root(
+                    workspaceRoles.GetPreferredRole()));
             await deepLinks.ResumePendingAsync();
         }
         catch (Exception exception)
