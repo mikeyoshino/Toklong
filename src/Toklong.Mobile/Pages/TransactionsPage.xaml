@@ -4,6 +4,7 @@
     x:Name="RootPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
     xmlns:core="clr-namespace:Toklong.Mobile.Core"
     xmlns:theme="clr-namespace:Toklong.Mobile.Theming"
     SafeAreaEdges="Container"
@@ -28,101 +29,24 @@
                 SelectionMode="None">
                 <CollectionView.Header>
                     <VerticalStackLayout Padding="20,18,20,12" Spacing="15">
-                        <VerticalStackLayout Spacing="8">
-                            <Label
-                                AutomationId="TransactionsPageTitle"
-                                FontAttributes="Bold"
-                                FontSize="29"
-                                LineHeight="1.02"
-                                Text="รายการของคุณ" />
-                            <Label
-                                FontSize="13"
-                                LineHeight="1.45"
-                                Text="แยกรายการซื้อและขายให้ดูง่ายในที่เดียว"
-                                TextColor="{StaticResource InkSoft}" />
-                        </VerticalStackLayout>
+                        <controls:RootPageHeaderView
+                            Title="{Binding ModeTitle}"
+                            Subtitle="{Binding ModeSubtitle}"
+                            AccentColor="{Binding WorkspaceAccentColor}" />
 
-                        <Border
-                            AutomationId="TransactionRoleModeSwitch"
-                            Padding="4"
-                            BackgroundColor="#EAF0F6"
-                            Stroke="#080F172A"
-                            StrokeShape="RoundRectangle 16">
-                            <Grid
-                                ColumnDefinitions="*,*"
-                                ColumnSpacing="4">
-                                <Button
-                                    MinimumHeightRequest="{StaticResource CompactControlMinimumHeight}"
-                                    BackgroundColor="Transparent"
-                                    Command="{Binding SelectBuyingCommand}"
-                                    CornerRadius="12"
-                                    FontAttributes="Bold"
-                                    FontSize="14"
-                                    SemanticProperties.Description="แสดงรายการที่คุณเป็นผู้ซื้อ"
-                                    Text="ซื้อ"
-                                    TextColor="{StaticResource Muted}">
-                                    <Button.Triggers>
-                                        <DataTrigger
-                                            TargetType="Button"
-                                            Binding="{Binding IsBuying}"
-                                            Value="True">
-                                            <Setter Property="BackgroundColor" Value="White" />
-                                            <Setter Property="TextColor" Value="#145FC7" />
-                                        </DataTrigger>
-                                    </Button.Triggers>
-                                </Button>
-                                <Button
-                                    Grid.Column="1"
-                                    MinimumHeightRequest="{StaticResource CompactControlMinimumHeight}"
-                                    BackgroundColor="Transparent"
-                                    Command="{Binding SelectSellingCommand}"
-                                    CornerRadius="12"
-                                    FontAttributes="Bold"
-                                    FontSize="14"
-                                    SemanticProperties.Description="แสดงรายการที่คุณเป็นผู้ขาย"
-                                    Text="ขาย"
-                                    TextColor="{StaticResource Muted}">
-                                    <Button.Triggers>
-                                        <DataTrigger
-                                            TargetType="Button"
-                                            Binding="{Binding IsSelling}"
-                                            Value="True">
-                                            <Setter Property="BackgroundColor" Value="White" />
-                                            <Setter Property="TextColor" Value="{x:Static theme:SellerColorPaletteColors.Role}" />
-                                        </DataTrigger>
-                                    </Button.Triggers>
-                                </Button>
-                            </Grid>
-                        </Border>
-
-                        <Grid
-                            ColumnDefinitions="*,Auto"
-                            ColumnSpacing="12">
-                            <VerticalStackLayout Spacing="3">
-                                <Label
-                                    FontAttributes="Bold"
-                                    FontSize="24"
-                                    Text="{Binding ModeTitle}" />
-                                <Label
-                                    FontSize="13"
-                                    Text="{Binding ModeSubtitle}"
-                                    TextColor="{StaticResource Muted}" />
-                            </VerticalStackLayout>
-                            <Button
-                                Grid.Column="1"
-                                IsVisible="{Binding IsBuying}"
-                                MinimumHeightRequest="{StaticResource CompactControlMinimumHeight}"
-                                Padding="14,0"
-                                VerticalOptions="Center"
-                                BackgroundColor="{StaticResource BrandBlue}"
-                                Command="{Binding CreateOfferCommand}"
-                                CornerRadius="14"
-                                FontAttributes="Bold"
-                                FontSize="12"
-                                SemanticProperties.Description="สร้างข้อตกลงซื้อขาย"
-                                Text="+ สร้างดีลซื้อ"
-                                TextColor="White" />
-                        </Grid>
+                        <Button
+                            HorizontalOptions="Fill"
+                            IsVisible="{Binding IsBuying}"
+                            MinimumHeightRequest="{StaticResource SecondaryButtonMinimumHeight}"
+                            Padding="16,0"
+                            BackgroundColor="{StaticResource BrandBlue}"
+                            Command="{Binding CreateOfferCommand}"
+                            CornerRadius="14"
+                            FontAttributes="Bold"
+                            FontSize="14"
+                            SemanticProperties.Description="สร้างข้อตกลงซื้อขาย"
+                            Text="+ สร้างดีลซื้อ"
+                            TextColor="White" />
 
                         <Border
                             IsVisible="{Binding HasError}"

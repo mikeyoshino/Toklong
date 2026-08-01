@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Toklong.Mobile.Controls.RootPageHeaderView"
+    x:Name="Root"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+        <VerticalStackLayout Spacing="3">
+            <Label
+                Style="{StaticResource Eyebrow}"
+                Text="{Binding Subtitle, Source={x:Reference Root}}" />
+            <Label
+                Style="{StaticResource PageTitle}"
+                Text="{Binding Title, Source={x:Reference Root}}" />
+        </VerticalStackLayout>
+        <Button
+            Grid.Column="1"
+            AutomationId="OpenActivityButton"
+            WidthRequest="44"
+            HeightRequest="44"
+            Padding="10"
+            BackgroundColor="White"
+            BorderColor="{Binding AccentColor, Source={x:Reference Root}}"
+            BorderWidth="1"
+            CornerRadius="14"
+            Clicked="OnActivityClicked"
+            ImageSource="nav_activity.png"
+            SemanticProperties.Description="กิจกรรม"
+            SemanticProperties.Hint="เปิดการอัปเดตจากรายการซื้อและขาย" />
+    </Grid>
+</ContentView>

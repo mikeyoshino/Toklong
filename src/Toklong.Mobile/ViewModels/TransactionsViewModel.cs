@@ -317,7 +317,9 @@ public sealed class TransactionsViewModel : ObservableViewModel
                 Transactions,
                 snapshot.RemainingTransactions);
             EmptyText = SpotlightTransaction is null
-                ? "ยังไม่มีรายการในสถานะนี้"
+                ? sellerState.SelectedCategory == SellerWorkCategory.All
+                    ? "ยังไม่มีรายการขาย"
+                    : "ยังไม่มีรายการในสถานะนี้"
                 : "ไม่มีรายการอื่นในสถานะนี้";
             OnPropertyChanged(
                 nameof(ShowTransactionCollectionEmptyState));
@@ -338,7 +340,9 @@ public sealed class TransactionsViewModel : ObservableViewModel
                 .ToArray());
 
         EmptyText = SpotlightTransaction is null
-            ? "ยังไม่มีรายการในสถานะนี้"
+            ? bucketFilter == BucketFilter.All
+                ? "ยังไม่มีรายการซื้อ"
+                : "ยังไม่มีรายการในสถานะนี้"
             : "ไม่มีรายการอื่นในสถานะนี้";
         OnPropertyChanged(
             nameof(ShowTransactionCollectionEmptyState));

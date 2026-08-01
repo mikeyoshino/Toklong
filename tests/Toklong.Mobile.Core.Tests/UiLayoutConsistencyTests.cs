@@ -409,60 +409,53 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
-    public void TransactionsUseTopLevelBuySellModes()
+    public void Fixed_role_workspace_has_header_and_no_role_switch()
     {
-        var transactions = Load(
-            "Ui",
-            "Pages",
-            "TransactionsPage.xaml");
-        var pageTitle = transactions
-            .Descendants(Maui + "Label")
-            .Single(label =>
-                AttributeValue(label, "AutomationId") ==
-                "TransactionsPageTitle");
-        var modeSwitch = transactions
-            .Descendants(Maui + "Border")
-            .Single(border =>
-                AttributeValue(border, "AutomationId") ==
-                "TransactionRoleModeSwitch");
-        var modeLabels = modeSwitch
-            .Descendants(Maui + "Button")
-            .Select(button => AttributeValue(button, "Text"))
-            .ToArray();
-        var buyerFilters = transactions
-            .Descendants(Maui + "ScrollView")
-            .Single(scroll =>
-                AttributeValue(scroll, "AutomationId") ==
-                "BuyerStatusFilters");
-        var sellerSummary = transactions
-            .Descendants(Maui + "Grid")
-            .Single(grid =>
-                AttributeValue(grid, "AutomationId") ==
-                "SellerWorkSummary");
+        var page = Load("Ui", "Pages", "TransactionsPage.xaml");
+        Assert.Contains(page.Descendants(), element =>
+            element.Name.LocalName == "RootPageHeaderView" &&
+            AttributeValue(element, "Title") == "{Binding ModeTitle}");
+        Assert.DoesNotContain(page.Descendants(), element =>
+            AttributeValue(element, "AutomationId") ==
+            "TransactionRoleModeSwitch");
 
-        Assert.Equal("รายการของคุณ", AttributeValue(pageTitle, "Text"));
-        Assert.DoesNotContain(
-            transactions.Descendants(Maui + "Label"),
-            label => AttributeValue(label, "Text") == "TOKLONG");
-        Assert.Equal(new[] { "ซื้อ", "ขาย" }, modeLabels);
+        var create = page.Descendants(Maui + "Button").Single(button =>
+            AttributeValue(button, "Command") ==
+            "{Binding CreateOfferCommand}");
         Assert.Equal(
             "{Binding IsBuying}",
-            AttributeValue(buyerFilters, "IsVisible"));
-        Assert.Equal(
-            "{Binding IsSelling}",
-            AttributeValue(sellerSummary, "IsVisible"));
+            AttributeValue(create, "IsVisible"));
+        Assert.Equal("Fill", AttributeValue(create, "HorizontalOptions"));
+
+        var spotlight = page.Descendants(Maui + "Border").Single(element =>
+            AttributeValue(element, "AutomationId") ==
+            "ActionSpotlightCard");
+        var sellerSummary = page.Descendants(Maui + "Grid").Single(element =>
+            AttributeValue(element, "AutomationId") ==
+            "SellerWorkSummary");
+        var order = page.Descendants().ToList();
+        Assert.True(order.IndexOf(create) < order.IndexOf(spotlight));
+        Assert.True(order.IndexOf(sellerSummary) < order.IndexOf(spotlight));
+    }
+
+    [Fact]
+    public void Root_header_opens_activity_without_fake_unread_state()
+    {
+        var header = Load("Ui", "Controls", "RootPageHeaderView.xaml");
+        Assert.Contains(header.Descendants(Maui + "Button"), button =>
+            AttributeValue(button, "AutomationId") ==
+            "OpenActivityButton");
+
+        var source = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "Ui",
+            "Controls",
+            "RootPageHeaderView.xaml.cs"));
         Assert.Contains(
-            transactions.Descendants(Maui + "Label"),
-            label =>
-                AttributeValue(label, "Text") ==
-                "{Binding ModeSectionTitle}");
-        Assert.Contains(
-            transactions.Descendants(Maui + "Button"),
-            button =>
-                AttributeValue(button, "Text") ==
-                    "+ สร้างดีลซื้อ" &&
-                AttributeValue(button, "IsVisible") ==
-                    "{Binding IsBuying}");
+            "Shell.Current.GoToAsync(nameof(ActivityPage))",
+            source);
+        Assert.DoesNotContain("Unread", source);
+        Assert.DoesNotContain("Badge", header.ToString());
     }
 
     [Fact]
@@ -646,14 +639,13 @@ public sealed class UiLayoutConsistencyTests
             "{StaticResource BrandBlue}",
             AttributeValue(buyerHome, "BackgroundColor"));
 
-        var sellerModeSetter = transactions
-            .Descendants(Maui + "Button")
-            .Single(button => AttributeValue(button, "Text") == "ขาย")
-            .Descendants(Maui + "Setter")
-            .Single(setter => AttributeValue(setter, "Property") == "TextColor");
+        var workspaceHeader = transactions
+            .Descendants()
+            .Single(element =>
+                element.Name.LocalName == "RootPageHeaderView");
         Assert.Equal(
-            "{x:Static theme:SellerColorPaletteColors.Role}",
-            AttributeValue(sellerModeSetter, "Value"));
+            "{Binding WorkspaceAccentColor}",
+            AttributeValue(workspaceHeader, "AccentColor"));
 
         var compactSeller = transactions.Descendants(Maui + "Border")
             .Single(element =>

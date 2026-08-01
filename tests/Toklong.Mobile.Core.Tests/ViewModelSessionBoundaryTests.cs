@@ -375,10 +375,14 @@ public sealed class ViewModelSessionBoundaryTests :
         await seller.LoadAsync();
 
         Assert.True(buyer.IsBuying);
+        Assert.Equal("#2B7FFF", buyer.WorkspaceAccentColor);
         Assert.All(
             buyer.Transactions.Append(buyer.SpotlightTransaction!),
             item => Assert.Equal(AppTransactionRole.Buyer, item.Role));
         Assert.True(seller.IsSelling);
+        Assert.Equal(
+            SellerColorPalette.Role,
+            seller.WorkspaceAccentColor);
         Assert.All(
             seller.Transactions.Append(seller.SpotlightTransaction!),
             item => Assert.Equal(AppTransactionRole.Seller, item.Role));
@@ -424,6 +428,33 @@ public sealed class ViewModelSessionBoundaryTests :
         Assert.All(
             seller.Transactions.Append(seller.SpotlightTransaction!),
             item => Assert.Equal(AppTransactionRole.Seller, item.Role));
+    }
+
+    [Fact]
+    public async Task Empty_root_workspaces_name_the_selected_role()
+    {
+        var session = new AuthenticatedSessionBoundary();
+        var service = new SequencedTransactionService();
+        service.EnqueueResult([]);
+        service.EnqueueResult([]);
+        var buyer = new TransactionsViewModel(
+            service,
+            new NoOpDeepLinks(),
+            new RecordingAnalytics(),
+            session,
+            RoleFilter.Buying);
+        var seller = new TransactionsViewModel(
+            service,
+            new NoOpDeepLinks(),
+            new RecordingAnalytics(),
+            session,
+            RoleFilter.Selling);
+
+        await buyer.LoadAsync();
+        await seller.LoadAsync();
+
+        Assert.Equal("ยังไม่มีรายการซื้อ", buyer.EmptyText);
+        Assert.Equal("ยังไม่มีรายการขาย", seller.EmptyText);
     }
 
     [Fact]
