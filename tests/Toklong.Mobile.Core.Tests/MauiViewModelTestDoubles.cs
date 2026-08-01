@@ -44,6 +44,8 @@ public sealed class PreferenceStore
     public void Set<T>(string key, T value) =>
         values[key] = value;
 
+    public void Remove(string key) => values.Remove(key);
+
     public void Clear() => values.Clear();
 }
 
