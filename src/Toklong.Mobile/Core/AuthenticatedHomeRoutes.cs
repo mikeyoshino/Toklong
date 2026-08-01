@@ -8,7 +8,6 @@ public enum TransactionRoleRoute
 
 public static class AuthenticatedHomeRoutes
 {
-    public const string Home = "//home";
     public const string Buying = "//main/buying";
     public const string Selling = "//main/selling";
 
@@ -44,35 +43,4 @@ public static class AuthenticatedHomeRoutes
     public static bool IsAuthenticatedRoot(string? route) =>
         TryParseRoot(route, out _);
 
-    public static string Transactions(TransactionRoleRoute role) =>
-        role switch
-        {
-            TransactionRoleRoute.Buying =>
-                "//transactions?role=buying",
-            TransactionRoleRoute.Selling =>
-                "//transactions?role=selling",
-            _ => throw new ArgumentOutOfRangeException(nameof(role))
-        };
-
-    public static bool TryParseRole(
-        string? value,
-        out TransactionRoleRoute role)
-    {
-        role = value switch
-        {
-            "buying" => TransactionRoleRoute.Buying,
-            "selling" => TransactionRoleRoute.Selling,
-            _ => default
-        };
-        return value is "buying" or "selling";
-    }
-
-    public static RoleFilter ToRoleFilter(
-        TransactionRoleRoute role) =>
-        role switch
-        {
-            TransactionRoleRoute.Buying => RoleFilter.Buying,
-            TransactionRoleRoute.Selling => RoleFilter.Selling,
-            _ => throw new ArgumentOutOfRangeException(nameof(role))
-        };
 }

@@ -932,7 +932,7 @@ public sealed class CreateOfferViewModel(
             wizard.Reset();
             RaiseWizardProperties();
             await Shell.Current.GoToAsync(
-                AuthenticatedHomeRoutes.Transactions(
+                AuthenticatedHomeRoutes.Root(
                     TransactionRoleRoute.Buying));
             await Shell.Current.GoToAsync(
                 nameof(TransactionDetailPage),

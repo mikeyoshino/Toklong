@@ -83,16 +83,15 @@ provider acknowledges delivery
 **And** opening it routes to the seller offer after phone authorization
 **And** the transaction screen has no clipboard-open control.
 
-### A0.0.0.3 — Buy and sell modes never mix lists
+### A0.0.0.3 — Native Buy and Sell roots never mix lists
 
 **Given** one account has both buyer and seller transactions
-**When** the user selects `ซื้อ`
+**When** the user opens the native `ซื้อ` root
 **Then** spotlight, filters, empty state, and list contain buyer transactions only
-**And** `+ สร้างดีลซื้อ` is visible.
-**And** the page starts with `รายการของคุณ` without a redundant TOKLONG badge
-above the title.
+**And** `+ สร้างดีลซื้อ` is visible
+**And** no in-page Buy/Sell switch or authenticated chooser is present.
 
-**When** the user selects `ขาย`
+**When** the user opens the native `ขาย` root
 **Then** spotlight, filters, empty state, and list contain seller transactions only
 **And** `ต้องตอบ`, `ต้องส่ง`, `รอรับเงิน`, and `เสร็จแล้ว` are available
 **And** no create, copy-link, or clipboard-open action is visible.
@@ -248,14 +247,25 @@ after another review action.
 **And** the form shows a retryable message
 **And** advancing again starts a fresh request.
 
-### A0.0.4.4 — Authenticated home routes by chosen transaction role
+### A0.0.4.4 — Authenticated roots remember only Buy or Sell
 
-**Given** an authenticated account has both buyer and seller transactions
-**When** the user taps `ซื้อ` on the authenticated home
-**Then** the existing transaction root opens with buying selected
-**When** the user returns home and taps `ขาย`
-**Then** the same root opens with selling selected
-**And** ordinary transaction-root navigation still uses the remembered mode
+**Given** an authenticated account has not selected a transaction root before
+**When** authenticated navigation starts
+**Then** the native `ซื้อ` root opens first.
+
+**When** the user explicitly selects `ขาย`, later visits `บัญชี`, and relaunches
+**Then** `ขาย` opens again because Account does not replace the preference.
+
+**When** the user opens `กิจกรรม` from `ซื้อ`, `ขาย`, or `บัญชี`
+**Then** Activity opens as a pushed page and Back returns to the originating root.
+
+**When** the user explicitly logs out
+**Then** the preferred root is cleared and the next first authenticated use opens
+`ซื้อ`.
+
+**When** an authorized transaction deep link arrives
+**Then** the exact destination opens without overwriting the preferred Buy/Sell
+root
 **And** no seller-created link action is shown.
 
 ### A0.0.4.5 — Buyer offer wizard creates only on final submit
@@ -375,7 +385,8 @@ registration-proof hash.
 
 **Given** the app starts after interruption
 **When** startup state is resolved
-**Then** a valid authenticated session always routes to `//home`
+**Then** a valid authenticated session routes to the preferred native `ซื้อ` or
+`ขาย` root, defaulting to `ซื้อ`
 **And** without a session, a valid pending registration routes to profile
 completion
 **And** without either, the app routes to Welcome
@@ -392,8 +403,8 @@ AutoFill support.
 
 ### A0.0.6 — Returning to the transaction list preserves its layout
 
-**Given** the buyer opens create-offer or transaction detail from the native
-transaction list
+**Given** the user opens create-offer or transaction detail from the selected
+native `ซื้อ` or `ขาย` root
 **When** the buyer navigates back without completing an action
 **Then** the root navigation bar remains hidden and the bottom tabs remain visible
 **And** the transaction list preserves its previous scroll offset
@@ -401,7 +412,7 @@ transaction list
 transaction card or hide the list header
 **And** the pull-to-refresh indicator is shown only for an explicit pull refresh,
 not for the normal reload performed when the page appears.
-**And** both buyer and seller modes order transactions by creation time from
+**And** both native roots order transactions by creation time from
 newest to oldest, including after refresh and within each status filter.
 
 ### A0.0.7 — Account name changes require current-phone proof

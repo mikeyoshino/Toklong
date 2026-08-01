@@ -200,7 +200,6 @@ public static class MauiProgram
         builder.Services.AddSingleton<IStripePaymentSheetService, StripePaymentSheetService>();
 
         builder.Services.AddSingleton<TransactionWorkspaceViewModelFactory>();
-        builder.Services.AddSingleton<AuthenticatedHomeViewModel>();
         builder.Services.AddSingleton<ActivityViewModel>();
         builder.Services.AddTransient<TransactionDetailViewModel>();
         builder.Services.AddTransient<ShippingLabelViewModel>();
@@ -219,7 +218,6 @@ public static class MauiProgram
         builder.Services.AddSingleton<AccountViewModel>();
 
         builder.Services.AddSingleton<WelcomePage>();
-        builder.Services.AddSingleton<AuthenticatedHomePage>();
         builder.Services.AddTransient<SignInPage>();
         builder.Services.AddTransient<SignUpPage>();
         builder.Services.AddTransient<VerifyCodePage>();

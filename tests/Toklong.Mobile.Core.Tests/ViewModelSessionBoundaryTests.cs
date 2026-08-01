@@ -257,47 +257,51 @@ public sealed class ViewModelSessionBoundaryTests :
                 "00000000-0000-0000-0000-000000000812",
                 "สินค้าของบัญชี A ที่กำลังส่ง",
                 "ผู้ซื้อบัญชี A สอง",
-                "InTransit")
+                "InTransit"),
+            BuyerItem(
+                "00000000-0000-0000-0000-000000000813")
         };
         transactions.EnqueueResult(accountA);
         transactions.EnqueueResult(accountA);
-        var lateHome = transactions.EnqueuePending();
-        var lateList = transactions.EnqueuePending();
+        var lateBuyer = transactions.EnqueuePending();
+        var lateSeller = transactions.EnqueuePending();
         transactions.EnqueueFailure();
         transactions.EnqueueFailure();
-        var home = new AuthenticatedHomeViewModel(
+        var buyer = new TransactionsViewModel(
             transactions,
+            new NoOpDeepLinks(),
             new RecordingAnalytics(),
-            session);
-        var list = new TransactionsViewModel(
+            session,
+            RoleFilter.Buying);
+        var seller = new TransactionsViewModel(
             transactions,
             new NoOpDeepLinks(),
             new RecordingAnalytics(),
             session,
             RoleFilter.Selling);
-        await home.LoadAsync();
-        await list.LoadAsync();
-        Assert.True(home.HasNewOffers);
-        Assert.Equal("1 ข้อเสนอใหม่", home.NewOfferBadgeText);
+        await buyer.LoadAsync();
+        await seller.LoadAsync();
+        Assert.Equal(
+            "รายการซื้อ",
+            buyer.SpotlightTransaction?.ProductName);
         Assert.Equal(
             "สินค้าของบัญชี A ที่ต้องตอบ",
-            list.SpotlightTransaction?.ProductName);
+            seller.SpotlightTransaction?.ProductName);
         Assert.Contains(
-            list.Transactions,
+            seller.Transactions,
             item =>
                 item.ProductName == "สินค้าของบัญชี A ที่กำลังส่ง" &&
                 item.CounterpartyName == "ผู้ซื้อบัญชี A สอง");
 
-        var oldHomeLoad = home.LoadAsync();
-        var oldListLoad = list.LoadAsync();
+        var oldBuyerLoad = buyer.LoadAsync();
+        var oldSellerLoad = seller.LoadAsync();
         var authentication = new SignOutAuthentication(() =>
         {
-            Assert.False(home.HasSellerSummary);
-            Assert.Empty(list.Transactions);
-            Assert.Null(list.SpotlightTransaction);
-            Assert.False(list.HasSellerSummary);
-            Assert.False(list.HasError);
-            Assert.False(list.ShowTransactionCollectionEmptyState);
+            Assert.Empty(buyer.Transactions);
+            Assert.Null(buyer.SpotlightTransaction);
+            Assert.Empty(seller.Transactions);
+            Assert.Null(seller.SpotlightTransaction);
+            Assert.False(seller.HasSellerSummary);
         });
         var account = new AccountViewModel(
             authentication,
@@ -308,33 +312,31 @@ public sealed class ViewModelSessionBoundaryTests :
         workspaceRoles.SavePreferredRole(TransactionRoleRoute.Selling);
 
         await account.SignOutAsync();
-        await home.LoadAsync();
-        await list.LoadAsync();
-        lateHome.SetResult(accountA);
-        lateList.SetResult(accountA);
-        await Task.WhenAll(oldHomeLoad, oldListLoad);
+        await buyer.LoadAsync();
+        await seller.LoadAsync();
+        lateBuyer.SetResult(accountA);
+        lateSeller.SetResult(accountA);
+        await Task.WhenAll(oldBuyerLoad, oldSellerLoad);
 
         Assert.Equal(["//welcome"], Shell.Current.Routes);
         Assert.Equal(
             TransactionRoleRoute.Buying,
             workspaceRoles.GetPreferredRole());
         Assert.True(authentication.SignedOut);
-        Assert.False(home.HasSellerSummary);
-        Assert.False(home.HasNewOffers);
-        Assert.True(home.HasLoadError);
-        Assert.Equal(
-            "โหลดรายการไม่สำเร็จ · ลองอีกครั้ง",
-            home.LoadErrorText);
-        Assert.Empty(list.Transactions);
-        Assert.Null(list.SpotlightTransaction);
-        Assert.False(list.HasSellerSummary);
-        Assert.True(list.HasError);
-        Assert.False(list.ShowTransactionCollectionEmptyState);
+        Assert.Empty(buyer.Transactions);
+        Assert.Null(buyer.SpotlightTransaction);
+        Assert.True(buyer.HasError);
+        Assert.Empty(seller.Transactions);
+        Assert.Null(seller.SpotlightTransaction);
+        Assert.False(seller.HasSellerSummary);
+        Assert.True(seller.HasError);
         Assert.DoesNotContain(
             "บัญชี A",
             string.Join(
                 " ",
-                list.Transactions.SelectMany(
+                buyer.Transactions
+                    .Concat(seller.Transactions)
+                    .SelectMany(
                     item => new[]
                     {
                         item.ProductName,

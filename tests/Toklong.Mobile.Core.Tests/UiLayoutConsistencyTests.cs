@@ -156,116 +156,6 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
-    public void AuthenticatedHome_UsesCenteredBrandAndBuyerFirstActions()
-    {
-        var home = Load(
-            "Ui",
-            "Pages",
-            "AuthenticatedHomePage.xaml");
-        var labels = home
-            .Descendants(Maui + "Label")
-            .Select(label => AttributeValue(label, "Text"))
-            .ToArray();
-        var buttons = home.Descendants(Maui + "Button").ToArray();
-        var offerBadge = home.Descendants(Maui + "Border")
-            .Single(element =>
-                AttributeValue(element, "AutomationId") ==
-                "SellerNewOfferBadge");
-        var actionableLine = home
-            .Descendants(Maui + "Grid")
-            .Single(element =>
-                AttributeValue(element, "AutomationId") ==
-                "SellerActionableLine");
-        var actionableLabel = actionableLine
-            .Descendants(Maui + "Label")
-            .Single(label =>
-                AttributeValue(label, "Text") ==
-                "{Binding ActionableSellerWorkText}");
-        var sellerButton = buttons.Single(button =>
-            AttributeValue(button, "AutomationId") ==
-            "OpenSellingHomeButton");
-        var loadError = home.Descendants(Maui + "Label")
-            .Single(label =>
-                AttributeValue(label, "AutomationId") ==
-                "SellerSummaryLoadError");
-        var retryButton = buttons.Single(button =>
-            AttributeValue(button, "AutomationId") ==
-            "RetrySellerSummaryButton");
-
-        Assert.Contains(
-            home.Descendants(),
-            element =>
-                element.Name.LocalName ==
-                "CenteredAuthBrandView");
-        Assert.Contains("เริ่มดีลอย่างมั่นใจ", labels);
-        Assert.Contains(
-            "สร้างข้อเสนอซื้อ หรือจัดการรายการขาย",
-            labels);
-        Assert.Contains(
-            buttons,
-            button =>
-                AttributeValue(button, "AutomationId") ==
-                    "OpenBuyingHomeButton" &&
-                AttributeValue(
-                    button,
-                    "SemanticProperties.Description") ==
-                    "ซื้อ สร้างข้อเสนอ ตรวจรายละเอียด และติดตามรายการ");
-        Assert.Contains(
-            buttons,
-            button =>
-                AttributeValue(button, "AutomationId") ==
-                    "OpenSellingHomeButton" &&
-                AttributeValue(
-                    button,
-                    "SemanticProperties.Description") ==
-                    "{Binding SellerCardSemanticText}");
-        Assert.Equal(
-            "{Binding HasNewOffers}",
-            AttributeValue(offerBadge, "IsVisible"));
-        Assert.Contains(
-            offerBadge.Descendants(Maui + "Label"),
-            label =>
-                AttributeValue(label, "Text") ==
-                "{Binding NewOfferBadgeText}");
-        Assert.Equal(
-            "{Binding HasActionableSellerWork}",
-            AttributeValue(actionableLine, "IsVisible"));
-        Assert.Equal(
-            "Auto,*",
-            AttributeValue(actionableLine, "ColumnDefinitions"));
-        Assert.Equal(
-            "1",
-            AttributeValue(actionableLabel, "Grid.Column"));
-        Assert.Equal(
-            "WordWrap",
-            AttributeValue(actionableLabel, "LineBreakMode"));
-        Assert.Equal(
-            "Fill",
-            AttributeValue(actionableLabel, "HorizontalOptions"));
-        Assert.Equal(
-            "{Binding SellerCardSemanticText}",
-            AttributeValue(
-                sellerButton,
-                "SemanticProperties.Description"));
-        Assert.Equal(
-            "{Binding LoadErrorText}",
-            AttributeValue(loadError, "Text"));
-        Assert.Equal(
-            "{Binding RetryCommand}",
-            AttributeValue(retryButton, "Command"));
-        Assert.Contains(
-            buttons,
-            button =>
-                AttributeValue(button, "AutomationId") ==
-                    "OpenAllTransactionsButton" &&
-                AttributeValue(button, "Text") ==
-                    "รายการของฉัน");
-        Assert.DoesNotContain("เข้าสู่ระบบ", labels);
-        Assert.DoesNotContain("สมัครสมาชิก", labels);
-        Assert.DoesNotContain("สร้างลิงก์ขาย", labels);
-    }
-
-    [Fact]
     public void Account_ShowsConfirmedEmailWithVerifiedChangeEntry()
     {
         var account = Load("Ui", "Pages", "AccountPage.xaml");
@@ -329,6 +219,21 @@ public sealed class UiLayoutConsistencyTests
         Assert.Contains(
             "Routing.RegisterRoute(nameof(ActivityPage)",
             shellCode);
+    }
+
+    [Fact]
+    public void Authenticated_navigation_has_no_second_role_chooser()
+    {
+        var shell = Load("Ui", "AppShell.xaml");
+        var program = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "Ui",
+            "MauiProgram.cs"));
+
+        Assert.DoesNotContain(shell.Descendants(), element =>
+            AttributeValue(element, "Route") == "home");
+        Assert.DoesNotContain("AuthenticatedHomePage", program);
+        Assert.DoesNotContain("AuthenticatedHomeViewModel", program);
     }
 
     [Fact]
@@ -639,32 +544,9 @@ public sealed class UiLayoutConsistencyTests
     [Fact]
     public void Seller_surfaces_use_graphite_palette_without_changing_buyer()
     {
-        var home = Load("Ui", "Pages", "AuthenticatedHomePage.xaml");
         var transactions = Load("Ui", "Pages", "TransactionsPage.xaml");
         var detail = Load("Ui", "Pages", "TransactionDetailPage.xaml");
         var label = Load("Ui", "Pages", "ShippingLabelPage.xaml");
-
-        var sellerHome = home.Descendants(Maui + "Border")
-            .Single(element =>
-                AttributeValue(element, "AutomationId") ==
-                "SellerHomeCard");
-        Assert.Equal(
-            new[]
-            {
-                "{x:Static theme:SellerColorPaletteColors.HeaderStart}",
-                "{x:Static theme:SellerColorPaletteColors.HeaderMiddle}",
-                "{x:Static theme:SellerColorPaletteColors.HeaderEnd}"
-            },
-            sellerHome.Descendants(Maui + "GradientStop")
-                .Select(stop => AttributeValue(stop, "Color")));
-
-        var buyerHome = home.Descendants(Maui + "Border")
-            .Single(element =>
-                AttributeValue(element, "AutomationId") ==
-                "BuyerHomeCard");
-        Assert.Equal(
-            "{StaticResource BrandBlue}",
-            AttributeValue(buyerHome, "BackgroundColor"));
 
         var workspaceHeader = transactions
             .Descendants()

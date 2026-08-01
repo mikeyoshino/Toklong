@@ -436,18 +436,16 @@ challenge presentation, code, timers, errors, and route payloads. Navigation
 payloads are session-generation bound so a page created after a reset reloads
 the new account instead of rendering the previous account's data.
 
-### Authenticated role home
+### Authenticated root navigation
 
-After registered-phone verification, show the centered TOKLONG brand,
-`เริ่มดีลอย่างมั่นใจ`, and
-`สร้างข้อเสนอซื้อ หรือจัดการรายการขาย`.
-`ซื้อ` opens the existing transaction root in buying mode. `ขาย` opens it in
-selling mode. These are navigation choices, not permanent account roles. Do
-not show login/register actions or a seller-created-link action on this page.
+The native bottom bar contains `ซื้อ`, `ขาย`, and `บัญชี` in that order.
+`กิจกรรม` is a top-right action on all three roots and opens as a pushed page
+with Back navigation. The transaction roots do not render another `ซื้อ | ขาย`
+switch.
 
-Each role card is one focusable action with a visible role label and a complete
-semantic description. Nested decorative labels are not separate accessibility
-targets. Role is never communicated by color alone.
+First authenticated use opens `ซื้อ`. Later ordinary launches restore the last
+explicitly selected Buy/Sell root. `บัญชี` does not replace that preference,
+explicit logout clears it, and deep links take precedence without overwriting it.
 
 ### Three-step buyer offer creation
 
@@ -499,22 +497,19 @@ root does not expose a generic clipboard-open action.
 After seller acceptance, buyer copy says
 `จ่ายภายใน [exact date/time] ไม่เช่นนั้นรายการจะปิด`.
 
-### Transaction list modes
+### Buy and Sell workspaces
 
-The root `รายการ` screen uses one top-level `ซื้อ | ขาย` switch and does not
-mix both roles in an `ทั้งหมด` view. It remembers the last selected mode.
-Choosing `ซื้อ` or `ขาย` on the authenticated home explicitly overrides that
-remembered mode for the next navigation.
-Notification/deep-link navigation still opens the exact transaction directly.
-The content starts directly with `รายการของคุณ`; do not place a redundant
-TOKLONG brand badge above the title.
+The `ซื้อ` and `ขาย` roots are independent workspaces and never mix roles in
+an `ทั้งหมด` view. Notification and deep-link navigation still opens the exact
+authorized transaction directly. Each root starts with its role title and the
+global Activity action; there is no second role chooser.
 
 - `ซื้อ`: buyer-only spotlight/list, `+ สร้างดีลซื้อ`, and buyer status
   filters.
 - `ขาย`: seller-only spotlight/list with `ต้องตอบ`, `ต้องส่ง`, `รอรับเงิน`,
   and `เสร็จแล้ว` filters. It has no create or clipboard-link action.
-- Blue and purple communicate the role, but visible `ซื้อ` and `ขาย` labels
-  remain required.
+- Buyer Blue and Seller Graphite/Navy support the visible `ซื้อ` and `ขาย`
+  labels; role is never communicated by color alone.
 - Within every buyer or seller filter, order transactions by creation time from
   newest to oldest. Status bucket and action deadline must not move an older
   transaction above a newer one.
