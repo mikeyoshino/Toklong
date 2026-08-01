@@ -684,6 +684,97 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
         Assert.True(viewModel.IsParcelProtectionIncludedSelected);
     }
 
+    [Fact]
+    public async Task Initial_load_uses_neutral_loading_then_reveals_the_role()
+    {
+        var transaction = Transaction(state: "InTransit");
+        var response = new TaskCompletionSource<AppTransaction?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var service = new ParcelProtectionService
+        {
+            Transaction = transaction,
+            Protection = ChoiceProtection(),
+            TransactionResponse = response
+        };
+        var viewModel = ViewModel(service);
+
+        var loading = viewModel.LoadAsync(transaction.Id);
+
+        Assert.True(viewModel.IsBusy);
+        Assert.True(viewModel.ShowInitialLoading);
+        Assert.False(viewModel.HasTransaction);
+        Assert.Equal("รายการ", viewModel.DetailHeadline);
+
+        response.SetResult(transaction);
+        await loading;
+
+        Assert.False(viewModel.ShowInitialLoading);
+        Assert.True(viewModel.HasTransaction);
+        Assert.Equal("รายการซื้อ", viewModel.DetailHeadline);
+        Assert.True(viewModel.IsBuyerDetail);
+        Assert.False(viewModel.IsSellerDetail);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Initial_missing_or_failed_load_shows_message_without_stale_content(
+        bool fail)
+    {
+        var service = new ParcelProtectionService
+        {
+            Transaction = Transaction(state: "InTransit"),
+            Protection = ChoiceProtection(),
+            ReturnMissingTransaction = !fail,
+            TransactionFailure = fail
+                ? new InvalidOperationException("โหลดรายการไม่สำเร็จ")
+                : null
+        };
+        var viewModel = ViewModel(service);
+
+        await viewModel.LoadAsync(service.Transaction.Id);
+
+        Assert.False(viewModel.IsBusy);
+        Assert.False(viewModel.HasTransaction);
+        Assert.False(viewModel.ShowInitialLoading);
+        Assert.True(viewModel.ShowInitialMessage);
+        Assert.Equal(
+            fail ? "โหลดรายการไม่สำเร็จ" : "ไม่พบรายการนี้",
+            viewModel.Message);
+        Assert.Equal("รายการ", viewModel.DetailHeadline);
+    }
+
+    [Theory]
+    [InlineData("InTransit", true, false, true)]
+    [InlineData("InTransit", false, true, true)]
+    [InlineData("InTransit", false, false, false)]
+    [InlineData("PaidAwaitingShipment", false, true, false)]
+    public async Task Shipping_status_details_require_view_status_and_a_resource(
+        string state,
+        bool hasTracking,
+        bool hasLabel,
+        bool expected)
+    {
+        var transaction = Transaction(state: state) with
+        {
+            Role = hasLabel
+                ? AppTransactionRole.Seller
+                : AppTransactionRole.Buyer,
+            TrackingNumber = hasTracking ? "TH123456789" : null,
+            ShippingLabelAvailable = hasLabel
+        };
+        var service = new ParcelProtectionService
+        {
+            Transaction = transaction,
+            Protection = ChoiceProtection()
+        };
+        var viewModel = ViewModel(service);
+
+        await viewModel.LoadAsync(transaction.Id);
+
+        Assert.Equal(expected, viewModel.ShowShippingStatusDetails);
+    }
+
     private static TransactionDetailViewModel ViewModel(
         ParcelProtectionService service,
         IStripePaymentSheetService? sheet = null,
@@ -807,6 +898,9 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
         public Queue<Exception> ChooseFailures { get; } = [];
         public Queue<Exception> PrepareFailures { get; } = [];
         public Queue<string> ChooseStatuses { get; } = [];
+        public TaskCompletionSource<AppTransaction?>? TransactionResponse { get; init; }
+        public Exception? TransactionFailure { get; init; }
+        public bool ReturnMissingTransaction { get; init; }
         public List<bool> Choices { get; } = [];
         public List<string> ChooseKeys { get; } = [];
         public int GetProtectionCalls { get; private set; }
@@ -818,6 +912,12 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
             CancellationToken cancellationToken = default)
         {
             GetTransactionCalls++;
+            if (TransactionFailure is not null)
+                throw TransactionFailure;
+            if (TransactionResponse is not null)
+                return TransactionResponse.Task;
+            if (ReturnMissingTransaction)
+                return Task.FromResult<AppTransaction?>(null);
             return Task.FromResult<AppTransaction?>(
                 UpdatedTransaction is not null && ChooseCalls > 0
                     ? UpdatedTransaction

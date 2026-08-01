@@ -183,6 +183,123 @@ public sealed class TransactionPresentationTests
     }
 
     [Theory]
+    [InlineData("AwaitingSellerAcceptance", AppTransactionRole.Buyer, "ผู้ขายตอบได้ถึง ")]
+    [InlineData("AwaitingSellerAcceptance", AppTransactionRole.Seller, "ตอบภายใน ")]
+    [InlineData("SellerAcceptedAwaitingPayment", AppTransactionRole.Buyer, "จ่ายภายใน ")]
+    [InlineData("SellerAcceptedAwaitingPayment", AppTransactionRole.Seller, "รอผู้ซื้อจ่ายถึง ")]
+    [InlineData("CheckoutStarted", AppTransactionRole.Buyer, "จ่ายภายใน ")]
+    [InlineData("CheckoutStarted", AppTransactionRole.Seller, "รอผู้ซื้อจ่ายถึง ")]
+    [InlineData("PaymentPending", AppTransactionRole.Buyer, "จ่ายภายใน ")]
+    [InlineData("PaymentPending", AppTransactionRole.Seller, "รอผู้ซื้อจ่ายถึง ")]
+    [InlineData("PaidAwaitingShipment", AppTransactionRole.Seller, "ส่งภายใน ")]
+    [InlineData("PaidAwaitingShipment", AppTransactionRole.Buyer, "ผู้ขายต้องส่งภายใน ")]
+    [InlineData("TrackingSubmitted", AppTransactionRole.Seller, "ส่งภายใน ")]
+    [InlineData("TrackingSubmitted", AppTransactionRole.Buyer, "ผู้ขายต้องส่งภายใน ")]
+    [InlineData("DeliveredDisputeWindow", AppTransactionRole.Buyer, "แจ้งปัญหาได้ถึง ")]
+    [InlineData("DeliveredDisputeWindow", AppTransactionRole.Seller, "คาดว่าจะเริ่มจ่ายหลัง ")]
+    public void DeadlineNamesTheActionInsteadOfOnlySayingWithin(
+        string state,
+        AppTransactionRole role,
+        string expectedPrefix)
+    {
+        var item = new AppTransaction(
+            Guid.NewGuid(),
+            "สินค้า",
+            10000,
+            "THB",
+            role,
+            AppFulfillmentType.Physical,
+            state,
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.Parse("2026-07-25T10:26:00+07:00"),
+            "คู่รายการ");
+
+        Assert.StartsWith(expectedPrefix, item.DeadlineText);
+    }
+
+    [Fact]
+    public void ListSemanticDescriptionCombinesRoleStateMoneyDeadlineAndAction()
+    {
+        var item = new AppTransaction(
+            Guid.NewGuid(),
+            "กล้อง",
+            100000,
+            "THB",
+            AppTransactionRole.Buyer,
+            AppFulfillmentType.Physical,
+            "SellerAcceptedAwaitingPayment",
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.Parse("2026-07-25T10:26:00+07:00"),
+            "สมชาย");
+
+        Assert.Contains("ซื้อ กล้อง", item.ListSemanticDescription);
+        Assert.Contains("ผู้ขาย · สมชาย", item.ListSemanticDescription);
+        Assert.Contains(item.StatusLabel, item.ListSemanticDescription);
+        Assert.Contains(item.RoleAmountText, item.ListSemanticDescription);
+        Assert.Contains(item.DeadlineText, item.ListSemanticDescription);
+        Assert.Contains(item.PrimaryActionLabel, item.ListSemanticDescription);
+    }
+
+    [Fact]
+    public void SellerListSemanticDescriptionUsesExpectedNetInsteadOfBuyerTotal()
+    {
+        var item = new AppTransaction(
+            Guid.NewGuid(),
+            "กล้อง",
+            110000,
+            "THB",
+            AppTransactionRole.Seller,
+            AppFulfillmentType.Physical,
+            "PaidAwaitingShipment",
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.Parse("2026-07-25T10:26:00+07:00"),
+            "สมชาย",
+            SellerExpectedNetSatang: 90000);
+
+        Assert.Contains("ยอดที่จะได้รับ", item.ListSemanticDescription);
+        Assert.Contains(item.SellerNetText, item.ListSemanticDescription);
+        Assert.DoesNotContain(item.FormattedAmount, item.ListSemanticDescription);
+    }
+
+    [Fact]
+    public void PaymentAndDigitalGuidanceStayPlainAndFulfillmentSpecific()
+    {
+        var pending = CreateItem(null) with { State = "PaymentPending" };
+        var digitalSeller = CreateItem(null) with
+        {
+            Role = AppTransactionRole.Seller,
+            FulfillmentType = AppFulfillmentType.Digital,
+            State = "PaidAwaitingDigitalDelivery"
+        };
+        var digitalBuyerReview = CreateItem(null) with
+        {
+            FulfillmentType = AppFulfillmentType.Digital,
+            State = "DigitalDeliverySubmitted"
+        };
+        var physicalSeller = CreateItem(null) with
+        {
+            Role = AppTransactionRole.Seller,
+            State = "PaidAwaitingShipment"
+        };
+        var physicalBuyer = CreateItem(null) with
+        {
+            State = "PaidAwaitingShipment"
+        };
+        var digitalSellerReview = digitalBuyerReview with
+        {
+            Role = AppTransactionRole.Seller
+        };
+
+        Assert.Contains("กำลังตรวจสอบยอดชำระ", pending.StatusGuidance);
+        Assert.DoesNotContain("Stripe", pending.StatusGuidance);
+        Assert.Contains("ส่งมอบผ่านช่องทางที่ตกลง", digitalSeller.StatusGuidance);
+        Assert.Contains("ไม่มีการจ่ายอัตโนมัติจากเวลา", digitalBuyerReview.StatusGuidance);
+        Assert.Contains("ส่งสินค้าและเพิ่มเลขพัสดุ", physicalSeller.StatusGuidance);
+        Assert.Contains("รอผู้ขายส่งสินค้า", physicalBuyer.StatusGuidance);
+        Assert.Contains("ไม่มีการจ่ายอัตโนมัติจากเวลา", digitalSellerReview.StatusGuidance);
+    }
+
+    [Theory]
     [InlineData("AwaitingSellerAcceptance", 1, 0)]
     [InlineData("SellerAcceptedAwaitingPayment", 1, 2)]
     [InlineData("PaidAwaitingShipment", 2, 3)]
@@ -496,7 +613,7 @@ public sealed class TransactionPresentationTests
 
         Assert.Contains("ภายใน", item.StatusGuidance);
         Assert.StartsWith(
-            "ภายใน ",
+            "ส่งภายใน ",
             item.DeadlineText);
         Assert.Equal(
             TransactionAction.ViewStatus,

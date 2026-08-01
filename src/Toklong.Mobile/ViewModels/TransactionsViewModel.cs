@@ -185,7 +185,7 @@ public sealed class TransactionsViewModel : ObservableViewModel
             IsSellerFulfillmentSelected);
     public string InProgressSemanticText =>
         SellerSemanticText(
-            "กำลังไปต่อ",
+            "กำลังดำเนินการ",
             InProgressCountText,
             IsSellerInProgressSelected);
     public bool HasSellerProblems =>

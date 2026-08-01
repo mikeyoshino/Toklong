@@ -111,7 +111,7 @@
                         TextColor="{StaticResource Ink}" />
                     <Label
                         Style="{StaticResource RefinedHelperText}"
-                        Text="ระบุสิ่งที่ตกลงกับผู้ขาย" />
+                        Text="ข้อเสนอส่วนตัวสำหรับผู้ขายที่คุณตกลงกันไว้แล้ว ไม่ใช่ประกาศขายสาธารณะ" />
                 </VerticalStackLayout>
 
                 <VerticalStackLayout
@@ -191,6 +191,10 @@
                     <Label
                         Style="{StaticResource RefinedHelperText}"
                         Text="ราคาสินค้าตั้งแต่ 1,000 ถึง 30,000 บาท" />
+                    <Label
+                        Style="{StaticResource RefinedHelperText}"
+                        Text="ใส่เฉพาะราคาสินค้า หากต้องจัดส่ง ผู้ขายจะเลือกค่าจัดส่งภายหลัง ไม่ต้องรวมในราคานี้"
+                        TextColor="{StaticResource BrandBlueDeep}" />
                 </VerticalStackLayout>
 
                 <Button
@@ -233,20 +237,33 @@
                     BackgroundColor="White"
                     Stroke="{StaticResource Line}"
                     StrokeShape="RoundRectangle 16">
-                    <Border.GestureRecognizers>
-                        <TapGestureRecognizer
-                            Command="{Binding ToggleOptionalDetailsCommand}" />
-                    </Border.GestureRecognizers>
                     <VerticalStackLayout Spacing="8">
-                        <Grid ColumnDefinitions="*,Auto">
+                        <Grid
+                            ColumnDefinitions="*,Auto"
+                            MinimumHeightRequest="{StaticResource CompactControlMinimumHeight}">
                             <Label
+                                AutomationProperties.IsInAccessibleTree="False"
+                                InputTransparent="True"
+                                VerticalOptions="Center"
                                 FontFamily="NotoSansThaiMedium"
                                 Text="{Binding OptionalDetailsLabel}"
                                 TextColor="{StaticResource Ink}" />
                             <Label
                                 Grid.Column="1"
+                                AutomationProperties.IsInAccessibleTree="False"
+                                InputTransparent="True"
+                                VerticalOptions="Center"
                                 Text="{Binding OptionalDetailsChevron}"
                                 TextColor="{StaticResource Muted}" />
+                            <Button
+                                Grid.ColumnSpan="2"
+                                MinimumHeightRequest="{StaticResource CompactControlMinimumHeight}"
+                                Padding="0"
+                                BackgroundColor="Transparent"
+                                BorderWidth="0"
+                                Command="{Binding ToggleOptionalDetailsCommand}"
+                                SemanticProperties.Description="{Binding OptionalDetailsLabel}"
+                                Text="" />
                         </Grid>
                         <Label
                             Style="{StaticResource RefinedHelperText}"
@@ -585,8 +602,10 @@
                         Text="สภาพสินค้า" />
                     <Grid
                         x:Name="ConditionPickerAnchor"
-                        ColumnDefinitions="*,*,*"
-                        ColumnSpacing="{StaticResource SpacingSm}">
+                        ColumnDefinitions="*,*"
+                        RowDefinitions="Auto,Auto"
+                        ColumnSpacing="{StaticResource SpacingSm}"
+                        RowSpacing="{StaticResource SpacingSm}">
                         <Button
                             x:Name="NewConditionButton"
                             Style="{StaticResource RefinedSegmentButton}"
@@ -622,7 +641,8 @@
                             </Button.Triggers>
                         </Button>
                         <Button
-                            Grid.Column="2"
+                            Grid.Row="1"
+                            Grid.ColumnSpan="2"
                             Style="{StaticResource RefinedSegmentButton}"
                             Command="{Binding SelectUsedDefectConditionCommand}"
                             FontSize="12"

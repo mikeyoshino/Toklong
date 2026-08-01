@@ -74,7 +74,12 @@ public sealed class TransactionDetailViewModel(
                 OnPropertyChanged(nameof(IsBuyerConfirmationAction));
                 OnPropertyChanged(nameof(ProblemFormToggleText));
                 OnPropertyChanged(nameof(IsStatusOnly));
+                OnPropertyChanged(nameof(HasTransaction));
+                OnPropertyChanged(nameof(ShowInitialLoading));
+                OnPropertyChanged(nameof(ShowInitialMessage));
+                OnPropertyChanged(nameof(ShowShippingStatusDetails));
                 OnPropertyChanged(nameof(DetailHeadline));
+                OnPropertyChanged(nameof(IsBuyerDetail));
                 OnPropertyChanged(nameof(CanDownloadAgreementEvidence));
                 OnPropertyChanged(nameof(CanDownloadShippingLabel));
                 OnPropertyChanged(
@@ -97,7 +102,11 @@ public sealed class TransactionDetailViewModel(
         private set
         {
             if (SetProperty(ref message, value))
+            {
                 OnPropertyChanged(nameof(HasMessage));
+                OnPropertyChanged(nameof(ShowInitialLoading));
+                OnPropertyChanged(nameof(ShowInitialMessage));
+            }
         }
     }
 
@@ -128,6 +137,8 @@ public sealed class TransactionDetailViewModel(
                 OnPropertyChanged(nameof(CanToggleParcelProtection));
                 OnPropertyChanged(nameof(CanConfirmParcelProtection));
                 OnPropertyChanged(nameof(CanCancelParcelProtection));
+                OnPropertyChanged(nameof(ShowInitialLoading));
+                OnPropertyChanged(nameof(ShowInitialMessage));
             }
         }
     }
@@ -413,12 +424,31 @@ public sealed class TransactionDetailViewModel(
     public bool IsStatusOnly =>
         Transaction?.Presentation.PrimaryAction == TransactionAction.ViewStatus;
 
-    public string DetailHeadline => Transaction?.Role == AppTransactionRole.Buyer
-        ? "รายการซื้อ"
-        : "รายการขาย";
+    public bool HasTransaction => Transaction is not null;
+
+    public bool ShowInitialLoading =>
+        !HasTransaction && IsBusy && !HasMessage;
+
+    public bool ShowInitialMessage =>
+        !HasTransaction && !IsBusy && HasMessage;
+
+    public bool ShowShippingStatusDetails =>
+        IsStatusOnly &&
+        (CanDownloadShippingLabel ||
+         Transaction?.HasTrackingNumber == true);
+
+    public string DetailHeadline => Transaction?.Role switch
+    {
+        AppTransactionRole.Buyer => "รายการซื้อ",
+        AppTransactionRole.Seller => "รายการขาย",
+        _ => "รายการ"
+    };
 
     public bool IsSellerDetail =>
         Transaction?.Role == AppTransactionRole.Seller;
+
+    public bool IsBuyerDetail =>
+        Transaction?.Role == AppTransactionRole.Buyer;
 
     public bool IsAgreementDetailsExpanded
     {
@@ -645,7 +675,11 @@ public sealed class TransactionDetailViewModel(
         if (IsBusy)
             return;
         if (showBusy)
+        {
             IsBusy = true;
+            Transaction = null;
+            Message = "";
+        }
         try
         {
             Transaction = await transactionService.GetTransactionAsync(transactionId);

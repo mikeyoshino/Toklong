@@ -17,6 +17,48 @@
                     TextColor="{StaticResource InkSoft}" />
             </VerticalStackLayout>
 
+            <Border
+                AutomationId="SellerOfferFlowNotice"
+                Padding="16"
+                BackgroundColor="{StaticResource SurfaceBlue}"
+                Stroke="#CFE5FF"
+                StrokeShape="RoundRectangle 18">
+                <Grid
+                    ColumnDefinitions="42,*"
+                    ColumnSpacing="12">
+                    <Border
+                        WidthRequest="42"
+                        HeightRequest="42"
+                        VerticalOptions="Start"
+                        BackgroundColor="White"
+                        StrokeThickness="0"
+                        StrokeShape="RoundRectangle 13">
+                        <Image
+                            Margin="9"
+                            AutomationProperties.IsInAccessibleTree="False"
+                            Source="ui_clock.png" />
+                    </Border>
+                    <VerticalStackLayout
+                        Grid.Column="1"
+                        Spacing="3">
+                        <Label
+                            FontAttributes="Bold"
+                            FontSize="16"
+                            Text="ยืนยันก่อน ผู้ซื้อจึงจะจ่ายได้"
+                            TextColor="{StaticResource BrandBlueDeep}" />
+                        <Label
+                            Style="{StaticResource RefinedHelperText}"
+                            Text="ยังไม่ต้องส่งสินค้า จนกว่าระบบจะแจ้งว่ายืนยันยอดชำระแล้ว" />
+                        <Label
+                            FontAttributes="Bold"
+                            FontSize="13"
+                            LineBreakMode="WordWrap"
+                            Text="{Binding DeadlineText}"
+                            TextColor="{StaticResource BrandBlueDeep}" />
+                    </VerticalStackLayout>
+                </Grid>
+            </Border>
+
             <Border Style="{StaticResource SurfaceCard}" Padding="17">
                 <Grid ColumnDefinitions="76,*" ColumnSpacing="14">
                     <Border
@@ -38,10 +80,6 @@
                             FontSize="23"
                             Text="{Binding ItemPriceText}"
                             TextColor="{StaticResource BrandBlueDeep}" />
-                        <Label
-                            FontSize="12"
-                            Text="{Binding DeadlineText}"
-                            TextColor="{StaticResource Muted}" />
                     </VerticalStackLayout>
                 </Grid>
             </Border>
@@ -54,9 +92,43 @@
                         LineHeight="1.45"
                         Text="{Binding AgreementDetails}"
                         TextColor="{StaticResource InkSoft}" />
+                    <BoxView HeightRequest="1" Color="{StaticResource Line}" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Label
+                            Text="สภาพสินค้า"
+                            TextColor="{StaticResource Muted}" />
+                        <Label
+                            Grid.Column="1"
+                            FontAttributes="Bold"
+                            HorizontalTextAlignment="End"
+                            Text="{Binding Transaction.ConditionLabel}" />
+                    </Grid>
+                    <VerticalStackLayout
+                        IsVisible="{Binding Transaction.HasKnownDefects}"
+                        Spacing="3">
+                        <Label
+                            FontSize="12"
+                            Text="ตำหนิที่ผู้ซื้อแจ้ง"
+                            TextColor="{StaticResource Muted}" />
+                        <Label
+                            LineHeight="1.4"
+                            Text="{Binding Transaction.KnownDefects}"
+                            TextColor="{StaticResource InkSoft}" />
+                    </VerticalStackLayout>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Label
+                            Text="วิธีส่งมอบ"
+                            TextColor="{StaticResource Muted}" />
+                        <Label
+                            Grid.Column="1"
+                            FontAttributes="Bold"
+                            HorizontalTextAlignment="End"
+                            Text="{Binding Transaction.FulfillmentConsumerLabel}" />
+                    </Grid>
                     <Grid
                         IsVisible="{Binding HasDeliveryRegion}"
-                        ColumnDefinitions="*,Auto">
+                        ColumnDefinitions="*,Auto"
+                        ColumnSpacing="12">
                         <Label
                             Text="พื้นที่จัดส่ง"
                             TextColor="{StaticResource Muted}" />
@@ -65,6 +137,32 @@
                             FontAttributes="Bold"
                             Text="{Binding DeliveryRegionText}" />
                     </Grid>
+                    <Label
+                        IsVisible="{Binding IsPhysical}"
+                        Style="{StaticResource RefinedHelperText}"
+                        Text="ส่งพัสดุภายใน 3 วันหลังระบบยืนยันยอดชำระ ขนส่งยืนยันว่าส่งถึงแล้วจึงเริ่มช่วงตรวจสินค้า 72 ชั่วโมง" />
+                    <Label
+                        IsVisible="False"
+                        Style="{StaticResource RefinedHelperText}"
+                        Text="ส่งมอบผ่านช่องทางที่ตกลงหลังระบบยืนยันยอดชำระ ไม่มีการจ่ายเงินอัตโนมัติจากเวลาหรือคำยืนยันของผู้ขาย">
+                        <Label.Triggers>
+                            <DataTrigger
+                                TargetType="Label"
+                                Binding="{Binding IsPhysical}"
+                                Value="False">
+                                <Setter Property="IsVisible" Value="True" />
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
+                    <Border
+                        Padding="12"
+                        BackgroundColor="{StaticResource SurfaceSoft}"
+                        Stroke="{StaticResource Line}"
+                        StrokeShape="RoundRectangle 14">
+                        <Label
+                            Style="{StaticResource RefinedHelperText}"
+                            Text="เงินจะเริ่มจ่ายเมื่อครบเงื่อนไขและไม่มีปัญหาเปิดอยู่ ผู้ซื้อสามารถยืนยันหลังตรวจรับเพื่อเริ่มจ่ายเร็วขึ้น" />
+                    </Border>
                     <Grid ColumnDefinitions="*,Auto">
                         <Label FontAttributes="Bold" Text="ยอดที่คาดว่าจะได้รับ" />
                         <Label
@@ -180,6 +278,7 @@
                                 Keyboard="Numeric"
                                 MaxLength="5"
                                 Placeholder="เช่น 1200 กรัม"
+                                SemanticProperties.Hint="กรอกน้ำหนักเป็นกรัม"
                                 Text="{Binding WeightGrams}" />
                         </Border>
                     </VerticalStackLayout>
@@ -188,13 +287,18 @@
                         <controls:FormLabelView
                             IsRequired="True"
                             Text="ขนาดพัสดุ (ซม.)" />
-                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                        <Grid
+                            ColumnDefinitions="*,*"
+                            RowDefinitions="Auto,Auto"
+                            ColumnSpacing="8"
+                            RowSpacing="8">
                             <Border Style="{StaticResource RefinedInputBorder}">
                                 <Entry
                                     Style="{StaticResource RefinedEntry}"
                                     Keyboard="Numeric"
                                     MaxLength="3"
                                     Placeholder="กว้าง"
+                                    SemanticProperties.Hint="กรอกความกว้างเป็นเซนติเมตร"
                                     Text="{Binding WidthCentimeters}" />
                             </Border>
                             <Border
@@ -205,16 +309,19 @@
                                     Keyboard="Numeric"
                                     MaxLength="3"
                                     Placeholder="ยาว"
+                                    SemanticProperties.Hint="กรอกความยาวเป็นเซนติเมตร"
                                     Text="{Binding LengthCentimeters}" />
                             </Border>
                             <Border
-                                Grid.Column="2"
+                                Grid.Row="1"
+                                Grid.ColumnSpan="2"
                                 Style="{StaticResource RefinedInputBorder}">
                                 <Entry
                                     Style="{StaticResource RefinedEntry}"
                                     Keyboard="Numeric"
                                     MaxLength="3"
                                     Placeholder="สูง"
+                                    SemanticProperties.Hint="กรอกความสูงเป็นเซนติเมตร"
                                     Text="{Binding HeightCentimeters}" />
                             </Border>
                         </Grid>
@@ -314,36 +421,63 @@
                 </VerticalStackLayout>
             </Border>
 
-            <VerticalStackLayout Spacing="{StaticResource SpacingSm}">
-                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                    <CheckBox
-                        MinimumWidthRequest="44"
-                        MinimumHeightRequest="44"
-                        IsChecked="{Binding TransferRightsAttested}" />
-                    <Label
-                        Grid.Column="1"
-                        VerticalOptions="Center"
-                        Text="ฉันครอบครอง มีสิทธิ์โอน และรายการนี้ไม่ใช่สินค้าต้องห้าม" />
-                </Grid>
-                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                    <CheckBox
-                        MinimumWidthRequest="44"
-                        MinimumHeightRequest="44"
-                        IsChecked="{Binding AcceptedTerms}" />
-                    <Label
-                        Grid.Column="1"
-                        VerticalOptions="Center"
-                        Text="ฉันยอมรับข้อตกลงทางอิเล็กทรอนิกส์ รายละเอียด ต้นทาง ขนาดพัสดุ ค่าจัดส่ง ค่าบริการ และกำหนดส่งแล้ว" />
-                </Grid>
-            </VerticalStackLayout>
+            <Border
+                AutomationId="SellerOfferConfirmations"
+                Style="{StaticResource RefinedFormCard}">
+                <VerticalStackLayout Spacing="{StaticResource SpacingMd}">
+                    <VerticalStackLayout Spacing="3">
+                        <Label
+                            Style="{StaticResource SectionTitle}"
+                            Text="ยืนยันก่อนตอบรับ" />
+                        <Label
+                            Style="{StaticResource RefinedHelperText}"
+                            Text="ตรวจให้ครบ เพราะหลังผู้ซื้อชำระ รายละเอียดที่ตกลงแล้วจะแก้ไขไม่ได้" />
+                    </VerticalStackLayout>
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                        <CheckBox
+                            MinimumWidthRequest="44"
+                            MinimumHeightRequest="44"
+                            IsChecked="{Binding TransferRightsAttested}"
+                            SemanticProperties.Description="ฉันครอบครอง มีสิทธิ์โอน และรายการนี้ไม่ใช่สินค้าต้องห้าม" />
+                        <Label
+                            Grid.Column="1"
+                            VerticalOptions="Center"
+                            AutomationProperties.IsInAccessibleTree="False"
+                            LineBreakMode="WordWrap"
+                            Text="ฉันครอบครอง มีสิทธิ์โอน และรายการนี้ไม่ใช่สินค้าต้องห้าม" />
+                    </Grid>
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                        <CheckBox
+                            MinimumWidthRequest="44"
+                            MinimumHeightRequest="44"
+                            IsChecked="{Binding AcceptedTerms}"
+                            SemanticProperties.Description="ฉันยอมรับข้อตกลงทางอิเล็กทรอนิกส์ รายละเอียด ต้นทาง ขนาดพัสดุ ค่าจัดส่ง ค่าบริการ และกำหนดส่งแล้ว" />
+                        <Label
+                            Grid.Column="1"
+                            VerticalOptions="Center"
+                            AutomationProperties.IsInAccessibleTree="False"
+                            LineBreakMode="WordWrap"
+                            Text="ฉันยอมรับข้อตกลงทางอิเล็กทรอนิกส์ รายละเอียด ต้นทาง ขนาดพัสดุ ค่าจัดส่ง ค่าบริการ และกำหนดส่งแล้ว" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <Label
+                HorizontalTextAlignment="Center"
+                Style="{StaticResource RefinedHelperText}"
+                Text="หากรายละเอียดไม่ถูกต้อง ให้ปฏิเสธและขอให้ผู้ซื้อสร้างข้อเสนอใหม่" />
 
             <Button
+                AutomationId="AcceptSellerOfferButton"
                 Style="{StaticResource RefinedPrimaryButton}"
                 Command="{Binding AcceptCommand}"
+                SemanticProperties.Description="ยืนยันข้อเสนอและอนุญาตให้ผู้ซื้อชำระเงิน"
                 Text="ยืนยันข้อเสนอ" />
             <Button
+                AutomationId="DeclineSellerOfferButton"
                 Style="{StaticResource RefinedSecondaryActionButton}"
                 Command="{Binding DeclineCommand}"
+                SemanticProperties.Description="ปฏิเสธข้อเสนอนี้"
                 Text="ปฏิเสธข้อเสนอ" />
 
             <Border

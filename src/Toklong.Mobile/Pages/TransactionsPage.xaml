@@ -362,7 +362,7 @@
                                                 HorizontalTextAlignment="Center"
                                                 FontAttributes="Bold"
                                                 FontSize="12"
-                                                Text="กำลังไปต่อ"
+                                                Text="กำลังดำเนินการ"
                                                 TextColor="#145FC7" />
                                         </VerticalStackLayout>
                                     </Border>
@@ -688,16 +688,14 @@
                                         Opacity="0.12"
                                         Radius="18" />
                                 </Border.Shadow>
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer
-                                        Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.OpenTransactionCommand}"
-                                        CommandParameter="{Binding .}" />
-                                </Border.GestureRecognizers>
-                                <Grid
-                                    ColumnDefinitions="64,*,Auto"
-                                    RowDefinitions="Auto,Auto"
-                                    ColumnSpacing="13"
-                                    RowSpacing="11">
+                                <Grid>
+                                    <Grid
+                                        AutomationProperties.ExcludedWithChildren="True"
+                                        InputTransparent="True"
+                                        ColumnDefinitions="64,*,Auto"
+                                        RowDefinitions="Auto,Auto"
+                                        ColumnSpacing="13"
+                                        RowSpacing="11">
                                     <Border
                                         Grid.RowSpan="2"
                                         WidthRequest="64"
@@ -782,6 +780,21 @@
                                             Text="{Binding DeadlineText}"
                                             TextColor="{StaticResource Muted}" />
                                     </Grid>
+                                    </Grid>
+                                    <Button
+                                        AutomationId="OpenBuyerTransactionButton"
+                                        Grid.RowSpan="2"
+                                        Grid.ColumnSpan="3"
+                                        MinimumHeightRequest="{StaticResource CompactControlMinimumHeight}"
+                                        Padding="0"
+                                        BackgroundColor="Transparent"
+                                        BorderWidth="0"
+                                        Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.OpenTransactionCommand}"
+                                        CommandParameter="{Binding .}"
+                                        CornerRadius="20"
+                                        SemanticProperties.Description="{Binding ListSemanticDescription}"
+                                        SemanticProperties.Hint="แตะสองครั้งเพื่อเปิดรายละเอียด"
+                                        Text="" />
                                 </Grid>
                             </Border>
 
@@ -800,16 +813,14 @@
                                         Opacity="0.08"
                                         Radius="18" />
                                 </Border.Shadow>
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer
-                                        Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.OpenTransactionCommand}"
-                                        CommandParameter="{Binding .}" />
-                                </Border.GestureRecognizers>
-                                <Grid
-                                    ColumnDefinitions="64,*,Auto"
-                                    RowDefinitions="Auto,Auto"
-                                    ColumnSpacing="13"
-                                    RowSpacing="11">
+                                <Grid>
+                                    <Grid
+                                        AutomationProperties.ExcludedWithChildren="True"
+                                        InputTransparent="True"
+                                        ColumnDefinitions="64,*,Auto"
+                                        RowDefinitions="Auto,Auto"
+                                        ColumnSpacing="13"
+                                        RowSpacing="11">
                                     <Border
                                         Grid.RowSpan="2"
                                         WidthRequest="64"
@@ -894,6 +905,21 @@
                                             Text="{Binding DeadlineText}"
                                             TextColor="{StaticResource Muted}" />
                                     </Grid>
+                                    </Grid>
+                                    <Button
+                                        AutomationId="OpenSellerTransactionButton"
+                                        Grid.RowSpan="2"
+                                        Grid.ColumnSpan="3"
+                                        MinimumHeightRequest="{StaticResource CompactControlMinimumHeight}"
+                                        Padding="0"
+                                        BackgroundColor="Transparent"
+                                        BorderWidth="0"
+                                        Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.OpenTransactionCommand}"
+                                        CommandParameter="{Binding .}"
+                                        CornerRadius="20"
+                                        SemanticProperties.Description="{Binding ListSemanticDescription}"
+                                        SemanticProperties.Hint="แตะสองครั้งเพื่อเปิดรายละเอียด"
+                                        Text="" />
                                 </Grid>
                             </Border>
                         </Grid>

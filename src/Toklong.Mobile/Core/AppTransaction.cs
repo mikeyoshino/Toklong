@@ -258,6 +258,11 @@ public sealed record AppTransaction(
 
     public string PrimaryActionLabel => Presentation.PrimaryActionLabel;
 
+    public string ListSemanticDescription =>
+        $"{RoleLabel} {ProductName}. {CounterpartyLabel}. " +
+        $"{StatusLabel}. {RoleAmountLabel} {RoleAmountText}. " +
+        $"{DeadlineText}. {PrimaryActionLabel}";
+
     public string FormattedAmount => MoneyFormatter.Format(AmountSatang, Currency);
 
     public string RoleAmountLabel =>
@@ -329,11 +334,46 @@ public sealed record AppTransaction(
             ? $"ผู้ขาย · {CounterpartyName}"
             : $"ผู้ซื้อ · {CounterpartyName}";
 
-    public string DeadlineText => ActionDeadline is null
-        ? $"อัปเดต {UpdatedAt.ToLocalTime().ToString("d MMM · HH:mm", ThaiCulture)}"
-        : State == "Expired"
-            ? $"หมดเวลา {ActionDeadline.Value.ToLocalTime().ToString("d MMM yyyy · HH:mm", ThaiCulture)}"
-            : $"ภายใน {ActionDeadline.Value.ToLocalTime().ToString("d MMM yyyy · HH:mm", ThaiCulture)}";
+    public string DeadlineText
+    {
+        get
+        {
+            if (ActionDeadline is null)
+                return $"อัปเดต {UpdatedAt.ToLocalTime().ToString("d MMM · HH:mm", ThaiCulture)}";
+
+            var deadline = ActionDeadline.Value.ToLocalTime()
+                .ToString("d MMM yyyy · HH:mm", ThaiCulture);
+            if (State == "Expired")
+                return $"หมดเวลา {deadline}";
+
+            return State switch
+            {
+                "AwaitingSellerAcceptance" when IsBuyerRole =>
+                    $"ผู้ขายตอบได้ถึง {deadline}",
+                "AwaitingSellerAcceptance" =>
+                    $"ตอบภายใน {deadline}",
+                "SellerAcceptedAwaitingPayment" or
+                    "CheckoutStarted" or
+                    "PaymentPending" when IsBuyerRole =>
+                        $"จ่ายภายใน {deadline}",
+                "SellerAcceptedAwaitingPayment" or
+                    "CheckoutStarted" or
+                    "PaymentPending" =>
+                        $"รอผู้ซื้อจ่ายถึง {deadline}",
+                "PaidAwaitingShipment" or
+                    "TrackingSubmitted" when IsSellerRole =>
+                        $"ส่งภายใน {deadline}",
+                "PaidAwaitingShipment" or
+                    "TrackingSubmitted" =>
+                        $"ผู้ขายต้องส่งภายใน {deadline}",
+                "DeliveredDisputeWindow" when IsBuyerRole =>
+                    $"แจ้งปัญหาได้ถึง {deadline}",
+                "DeliveredDisputeWindow" =>
+                    $"คาดว่าจะเริ่มจ่ายหลัง {deadline}",
+                _ => $"ภายใน {deadline}"
+            };
+        }
+    }
 
     public string DisplayAgreementDetails =>
         string.IsNullOrWhiteSpace(AgreementDetails)
@@ -418,10 +458,22 @@ public sealed record AppTransaction(
         "SellerAcceptedAwaitingPayment" =>
             $"รอผู้ซื้อจ่ายถึง {ExactDeadline()} ยังไม่ต้องส่งสินค้า",
         "CheckoutStarted" or "PaymentPending" =>
-            "กำลังเช็กว่าผู้ซื้อจ่ายสำเร็จหรือไม่ ผู้ขายจะส่งของได้เมื่อ Stripe ยืนยันแล้ว",
+            "กำลังตรวจสอบยอดชำระ ผู้ขายจะส่งของได้เมื่อระบบยืนยันยอดแล้ว",
         "PaidAwaitingShipment" when
             ShippingManagedByProvider =>
-            "ชำระสำเร็จแล้ว ระบบกำลังยืนยันค่าจัดส่งและออกเลขพัสดุให้อัตโนมัติ",
+            "ระบบยืนยันยอดชำระแล้ว กำลังยืนยันการจัดส่งและออกเลขพัสดุให้อัตโนมัติ",
+        "PaidAwaitingShipment" when Role == AppTransactionRole.Seller =>
+            $"ผู้ซื้อจ่ายแล้ว ส่งสินค้าและเพิ่มเลขพัสดุภายใน {ExactDeadline()}",
+        "PaidAwaitingShipment" =>
+            $"ระบบยืนยันยอดชำระแล้ว รอผู้ขายส่งสินค้าภายใน {ExactDeadline()}",
+        "PaidAwaitingDigitalDelivery" when Role == AppTransactionRole.Seller =>
+            "ผู้ซื้อจ่ายแล้ว ส่งมอบผ่านช่องทางที่ตกลง แล้วบันทึกเฉพาะช่องทางและเวลา",
+        "PaidAwaitingDigitalDelivery" =>
+            "ระบบยืนยันยอดชำระแล้ว รอผู้ขายส่งมอบผ่านช่องทางที่ตกลง",
+        "DigitalDeliverySubmitted" when Role == AppTransactionRole.Buyer =>
+            "ผู้ขายแจ้งว่าส่งมอบแล้ว ตรวจรายการก่อนยืนยันหรือแจ้งปัญหา ไม่มีการจ่ายอัตโนมัติจากเวลา",
+        "DigitalDeliverySubmitted" =>
+            "คุณแจ้งการส่งมอบแล้ว รอผู้ซื้อตรวจและยืนยัน ไม่มีการจ่ายอัตโนมัติจากเวลา",
         "TrackingSubmitted" when
             ShippingManagedByProvider =>
             $"ออกเลขพัสดุแล้ว เปิดใบปะหน้าและส่งให้ขนส่งภายใน {ExactDeadline()}",
@@ -499,8 +551,18 @@ public sealed record AppTransaction(
 
     public string StatusGuidanceIcon => State switch
     {
-        "InTransit" or "TrackingSubmitted" or "TrackingUnverified" =>
+        "AwaitingSellerAcceptance" =>
+            "ui_offer.png",
+        "SellerAcceptedAwaitingPayment" or "CheckoutStarted" or
+            "PaymentPending" =>
+                "ui_money.png",
+        "PaidAwaitingShipment" or "InTransit" or "TrackingSubmitted" or
+            "TrackingUnverified" =>
             "ui_truck.png",
+        "PaidAwaitingDigitalDelivery" =>
+            "ui_offer.png",
+        "DigitalDeliverySubmitted" or "DeliveredDisputeWindow" =>
+            "ui_receipt_check.png",
         "PaidOut" or "Refunded" =>
             "ui_check_money.png",
         "PayoutEligible" or "PayoutPending" or "BuyerConfirmedReceipt"

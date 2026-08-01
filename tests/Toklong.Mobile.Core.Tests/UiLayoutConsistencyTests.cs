@@ -598,7 +598,7 @@ public sealed class UiLayoutConsistencyTests
         Assert.Contains("{Binding SellerProblemText}", visibleLabels);
         Assert.Contains("รอตอบ", visibleLabels);
         Assert.Contains("ต้องส่ง", visibleLabels);
-        Assert.Contains("กำลังไปต่อ", visibleLabels);
+        Assert.Contains("กำลังดำเนินการ", visibleLabels);
         Assert.Contains(
             "{Binding SpotlightTransaction.RoleLabel}",
             visibleLabels);
@@ -814,6 +814,49 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
+    public void TransactionCards_ExposeOneFocusableSemanticAction()
+    {
+        var page = Load("Ui", "Pages", "TransactionsPage.xaml");
+        var expected = new[]
+        {
+            (Card: "CompactBuyerTransactionCard", Button: "OpenBuyerTransactionButton"),
+            (Card: "CompactSellerTransactionCard", Button: "OpenSellerTransactionButton")
+        };
+
+        foreach (var item in expected)
+        {
+            var card = page.Descendants(Maui + "Border")
+                .Single(element =>
+                    AttributeValue(element, "AutomationId") == item.Card);
+            var button = card.Descendants(Maui + "Button")
+                .Single(element =>
+                    AttributeValue(element, "AutomationId") == item.Button);
+
+            Assert.Empty(card.Descendants(Maui + "TapGestureRecognizer"));
+            Assert.Equal(
+                "{Binding Source={x:Reference RootPage}, Path=BindingContext.OpenTransactionCommand}",
+                AttributeValue(button, "Command"));
+            Assert.Equal("{Binding .}", AttributeValue(button, "CommandParameter"));
+            Assert.Equal(
+                "{Binding ListSemanticDescription}",
+                AttributeValue(button, "SemanticProperties.Description"));
+            Assert.Equal(
+                "แตะสองครั้งเพื่อเปิดรายละเอียด",
+                AttributeValue(button, "SemanticProperties.Hint"));
+            Assert.Equal(
+                "{StaticResource CompactControlMinimumHeight}",
+                AttributeValue(button, "MinimumHeightRequest"));
+            Assert.Equal(
+                "True",
+                AttributeValue(
+                    card.Descendants(Maui + "Grid")
+                        .First(grid =>
+                            AttributeValue(grid, "InputTransparent") == "True"),
+                    "AutomationProperties.ExcludedWithChildren"));
+        }
+    }
+
+    [Fact]
     public void CreateOffer_UsesThreeFullPageStepsAndProgressText()
     {
         var create = Load("Ui", "Pages", "CreateOfferPage.xaml");
@@ -989,6 +1032,46 @@ public sealed class UiLayoutConsistencyTests
         Assert.Contains("{Binding IsNewCondition}", selectedBindings);
         Assert.Contains("{Binding IsUsedGoodCondition}", selectedBindings);
         Assert.Contains("{Binding IsUsedDefectCondition}", selectedBindings);
+    }
+
+    [Fact]
+    public void CreateOffer_ExplainsPrivateDealAndUsesNarrowScreenSafeChoices()
+    {
+        var create = Load("Ui", "Pages", "CreateOfferPage.xaml");
+        var labels = create.Descendants(Maui + "Label")
+            .Select(label => AttributeValue(label, "Text"))
+            .ToArray();
+        var conditionGrid = create.Descendants(Maui + "Grid")
+            .Single(grid =>
+                AttributeValue(grid, "Name") == "ConditionPickerAnchor");
+        var defectButton = conditionGrid.Descendants(Maui + "Button")
+            .Single(button => AttributeValue(button, "Text") == "มีตำหนิ");
+        var optionalDisclosure = create.Descendants(Maui + "Border")
+            .Single(border =>
+                AttributeValue(border, "AutomationId") ==
+                    "OptionalDealDetailsDisclosure");
+
+        Assert.Contains(
+            "ข้อเสนอส่วนตัวสำหรับผู้ขายที่คุณตกลงกันไว้แล้ว ไม่ใช่ประกาศขายสาธารณะ",
+            labels);
+        Assert.Contains(
+            "ใส่เฉพาะราคาสินค้า หากต้องจัดส่ง ผู้ขายจะเลือกค่าจัดส่งภายหลัง ไม่ต้องรวมในราคานี้",
+            labels);
+        Assert.Equal("*,*", AttributeValue(conditionGrid, "ColumnDefinitions"));
+        Assert.Equal("Auto,Auto", AttributeValue(conditionGrid, "RowDefinitions"));
+        Assert.Equal("1", AttributeValue(defectButton, "Grid.Row"));
+        Assert.Equal("2", AttributeValue(defectButton, "Grid.ColumnSpan"));
+        Assert.Empty(
+            optionalDisclosure.Descendants(Maui + "TapGestureRecognizer"));
+        Assert.Contains(
+            optionalDisclosure.Descendants(Maui + "Button"),
+            button =>
+                AttributeValue(button, "Command") ==
+                    "{Binding ToggleOptionalDetailsCommand}" &&
+                AttributeValue(
+                    button,
+                    "SemanticProperties.Description") ==
+                    "{Binding OptionalDetailsLabel}");
     }
 
     [Fact]
@@ -1180,10 +1263,14 @@ public sealed class UiLayoutConsistencyTests
                 "SellerAgreementDetailsDisclosure");
 
         Assert.Contains(
-            agreementDisclosure.Descendants(Maui + "TapGestureRecognizer"),
-            gesture =>
-                AttributeValue(gesture, "Command") ==
-                "{Binding ToggleAgreementDetailsCommand}");
+            agreementDisclosure.Descendants(Maui + "Button"),
+            button =>
+                AttributeValue(button, "Command") ==
+                    "{Binding ToggleAgreementDetailsCommand}" &&
+                AttributeValue(
+                    button,
+                    "SemanticProperties.Description") ==
+                    "เปิดหรือปิดรายละเอียดสินค้า");
         Assert.Contains(
             detail.Descendants(Maui + "VerticalStackLayout"),
             stack =>
@@ -1315,6 +1402,85 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
+    public void SellerOffer_ExplainsAcceptanceAndShowsMaterialReadOnlyTerms()
+    {
+        var page = Load("Ui", "Pages", "SellerOfferPage.xaml");
+        var labels = page.Descendants(Maui + "Label")
+            .Select(label => AttributeValue(label, "Text"))
+            .ToArray();
+        var notice = page.Descendants(Maui + "Border")
+            .Single(border =>
+                AttributeValue(border, "AutomationId") ==
+                    "SellerOfferFlowNotice");
+        var confirmations = page.Descendants(Maui + "Border")
+            .Single(border =>
+                AttributeValue(border, "AutomationId") ==
+                    "SellerOfferConfirmations");
+        var accept = page.Descendants(Maui + "Button")
+            .Single(button =>
+                AttributeValue(button, "AutomationId") ==
+                    "AcceptSellerOfferButton");
+        var dimensions = page.Descendants(Maui + "Grid")
+            .Single(grid => grid.Descendants(Maui + "Entry")
+                .Any(entry =>
+                    AttributeValue(entry, "Text") ==
+                        "{Binding WidthCentimeters}"));
+
+        Assert.Contains(
+            notice.Descendants(Maui + "Label"),
+            label => AttributeValue(label, "Text") ==
+                "{Binding DeadlineText}");
+        Assert.Null(AttributeValue(
+            notice,
+            "SemanticProperties.Description"));
+        Assert.Contains(
+            "ยังไม่ต้องส่งสินค้า จนกว่าระบบจะแจ้งว่ายืนยันยอดชำระแล้ว",
+            labels);
+        Assert.Contains("{Binding Transaction.ConditionLabel}", labels);
+        Assert.Contains("{Binding Transaction.KnownDefects}", labels);
+        Assert.Contains("{Binding Transaction.FulfillmentConsumerLabel}", labels);
+        Assert.Contains(
+            "หากรายละเอียดไม่ถูกต้อง ให้ปฏิเสธและขอให้ผู้ซื้อสร้างข้อเสนอใหม่",
+            labels);
+        Assert.All(
+            confirmations.Descendants(Maui + "CheckBox"),
+            checkBox => Assert.False(string.IsNullOrWhiteSpace(
+                AttributeValue(
+                    checkBox,
+                    "SemanticProperties.Description"))));
+        Assert.Equal(
+            "ยืนยันข้อเสนอและอนุญาตให้ผู้ซื้อชำระเงิน",
+            AttributeValue(accept, "SemanticProperties.Description"));
+        Assert.Equal("*,*", AttributeValue(dimensions, "ColumnDefinitions"));
+        Assert.Equal("Auto,Auto", AttributeValue(dimensions, "RowDefinitions"));
+        var height = dimensions.Descendants(Maui + "Entry")
+            .Single(entry => AttributeValue(entry, "Text") ==
+                "{Binding HeightCentimeters}");
+        var heightBorder = height.Parent!;
+        Assert.Equal("1", AttributeValue(heightBorder, "Grid.Row"));
+        Assert.Equal("2", AttributeValue(heightBorder, "Grid.ColumnSpan"));
+        var parcelEntries = page.Descendants(Maui + "Entry")
+            .Where(entry => new[]
+            {
+                "{Binding WeightGrams}",
+                "{Binding WidthCentimeters}",
+                "{Binding LengthCentimeters}",
+                "{Binding HeightCentimeters}"
+            }.Contains(AttributeValue(entry, "Text")))
+            .ToArray();
+        Assert.Equal(4, parcelEntries.Length);
+        Assert.All(parcelEntries, entry =>
+        {
+            Assert.Null(AttributeValue(
+                entry,
+                "SemanticProperties.Description"));
+            Assert.False(string.IsNullOrWhiteSpace(AttributeValue(
+                entry,
+                "SemanticProperties.Hint")));
+        });
+    }
+
+    [Fact]
     public void TransactionHeaderUsesRoleSpecificAmount()
     {
         var detail = Load(
@@ -1332,6 +1498,59 @@ public sealed class UiLayoutConsistencyTests
             label =>
                 AttributeValue(label, "Text") ==
                     "{Binding Transaction.RoleAmountText}");
+    }
+
+    [Fact]
+    public void TransactionDetail_LeadsWithCurrentStateAndNeutralLoading()
+    {
+        var detail = Load("Ui", "Pages", "TransactionDetailPage.xaml");
+        var scroll = detail.Descendants(Maui + "ScrollView").First();
+        var state = detail.Descendants(Maui + "Border")
+            .Single(border =>
+                AttributeValue(border, "AutomationId") ==
+                    "TransactionCurrentStateCard");
+        var agreement = detail.Descendants(Maui + "Grid")
+            .Single(grid =>
+                AttributeValue(grid, "AutomationId") ==
+                    "SellerAgreementDetailsDisclosure");
+        var loading = detail.Descendants(Maui + "VerticalStackLayout")
+            .Single(stack =>
+                AttributeValue(stack, "AutomationId") ==
+                    "TransactionInitialLoading");
+        var initialMessage = detail.Descendants(Maui + "Border")
+            .Single(border =>
+                AttributeValue(border, "AutomationId") ==
+                    "TransactionInitialMessage");
+        var documentOrder = detail.Descendants().ToList();
+
+        Assert.Equal("{Binding HasTransaction}", AttributeValue(scroll, "IsVisible"));
+        Assert.True(documentOrder.IndexOf(state) < documentOrder.IndexOf(agreement));
+        Assert.Contains(
+            state.Descendants(Maui + "Label"),
+            label => AttributeValue(label, "Text") ==
+                "{Binding Transaction.StatusGuidance}");
+        Assert.Null(AttributeValue(state, "SemanticProperties.Description"));
+        Assert.Contains(
+            state.Descendants(Maui + "Label"),
+            label => AttributeValue(label, "Text") ==
+                "{Binding Transaction.StatusLabel}");
+        Assert.Contains(
+            agreement.Descendants(Maui + "Label"),
+            label =>
+                AttributeValue(label, "Text") == "รายละเอียดสินค้า" &&
+                AttributeValue(
+                    label,
+                    "AutomationProperties.IsInAccessibleTree") ==
+                    "{Binding IsBuyerDetail}");
+        Assert.Equal(
+            "{Binding ShowInitialLoading}",
+            AttributeValue(loading, "IsVisible"));
+        Assert.Equal(
+            "{Binding ShowInitialMessage}",
+            AttributeValue(initialMessage, "IsVisible"));
+        Assert.Contains(
+            loading.Descendants(Maui + "Label"),
+            label => AttributeValue(label, "Text") == "กำลังโหลดรายการ…");
     }
 
     [Fact]
