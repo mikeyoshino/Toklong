@@ -23,17 +23,40 @@ public static class AuthenticatedHomeRoutes
         string? route,
         out TransactionRoleRoute role)
     {
-        var value = route?.TrimEnd('/');
-        if (value?.Contains("/selling", StringComparison.Ordinal) == true)
+        var value = route?.Trim();
+        if (!string.IsNullOrEmpty(value))
         {
-            role = TransactionRoleRoute.Selling;
-            return true;
-        }
+            var suffixIndex = value.IndexOfAny(['?', '#']);
+            var path = suffixIndex < 0
+                ? value
+                : value[..suffixIndex];
+            var segments = path.Split(
+                '/',
+                StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length >= 2 &&
+                string.Equals(
+                    segments[0],
+                    "main",
+                    StringComparison.Ordinal))
+            {
+                if (string.Equals(
+                        segments[1],
+                        "selling",
+                        StringComparison.Ordinal))
+                {
+                    role = TransactionRoleRoute.Selling;
+                    return true;
+                }
 
-        if (value?.Contains("/buying", StringComparison.Ordinal) == true)
-        {
-            role = TransactionRoleRoute.Buying;
-            return true;
+                if (string.Equals(
+                        segments[1],
+                        "buying",
+                        StringComparison.Ordinal))
+                {
+                    role = TransactionRoleRoute.Buying;
+                    return true;
+                }
+            }
         }
 
         role = default;

@@ -352,7 +352,7 @@ public sealed class SellerOfferViewModel(
                 IsPhysical
                     ? BuildShippingSelection()
                     : null);
-            await Shell.Current.GoToAsync("//transactions");
+            await Shell.Current.GoToAsync("..");
             await Shell.Current.GoToAsync(
                 nameof(Pages.TransactionDetailPage),
                 new Dictionary<string, object>
@@ -532,7 +532,7 @@ public sealed class SellerOfferViewModel(
         await RunAsync(async () =>
         {
             await sellerOffers.DeclineAsync(publicToken);
-            await Shell.Current.GoToAsync("//transactions");
+            await Shell.Current.GoToAsync("..");
         });
 
     private async Task RunAsync(Func<Task> action)

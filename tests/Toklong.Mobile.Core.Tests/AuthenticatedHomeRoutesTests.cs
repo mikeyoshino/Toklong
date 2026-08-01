@@ -27,6 +27,10 @@ public sealed class AuthenticatedHomeRoutesTests
     [Theory]
     [InlineData("//main/account")]
     [InlineData("ActivityPage")]
+    [InlineData("//main/account/ActivityPage?next=/selling")]
+    [InlineData("//main/buying-tools")]
+    [InlineData("//main/reselling")]
+    [InlineData("//main/account#return=/buying")]
     [InlineData(null)]
     public void TryParseRoot_ignores_non_role_destinations(string? route) =>
         Assert.False(AuthenticatedHomeRoutes.TryParseRoot(route, out _));

@@ -42,6 +42,8 @@
              Link="MobileViewModels/VerifyNameChangeViewModel.cs" />
     <Compile Include="../../src/Toklong.Mobile/ViewModels/CompleteRegistrationViewModel.cs"
              Link="MobileViewModels/CompleteRegistrationViewModel.cs" />
+    <Compile Include="../../src/Toklong.Mobile/ViewModels/SellerOfferViewModel.cs"
+             Link="MobileViewModels/SellerOfferViewModel.cs" />
     <Compile Include="../../src/Toklong.Mobile/ViewModels/TransactionsViewModel.cs"
              Link="MobileViewModels/TransactionsViewModel.cs" />
     <Compile Include="../../src/Toklong.Mobile/ViewModels/TransactionDetailViewModel.cs"
