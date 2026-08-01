@@ -78,7 +78,8 @@ order:
 Each destination uses an icon plus a visible Thai label. Selected state is
 communicated by native tab state and text rather than color alone. The native
 tab bar may retain the existing Brand Blue selected color on both platforms;
-the workspace content carries the stronger blue or purple role identity.
+the workspace content carries the stronger Buyer Blue or Seller Graphite/Navy
+role identity.
 
 `กิจกรรม` is removed from the bottom bar. The existing Account destination
 remains the third tab.
@@ -126,8 +127,8 @@ Buy, Sell, and Account use one shared root-header pattern:
 - a minimum 44 by 44 point/dp bell target; and
 - semantic label `กิจกรรม` with a hint that it opens transaction updates.
 
-The header preserves the current theme. Buy uses Buyer Blue, Sell uses Seller
-Purple, and Account remains neutral.
+The header preserves the current theme. Buy uses Buyer Blue, Sell uses the
+existing Seller Graphite/Navy palette, and Account remains neutral.
 
 No unread badge is required in this slice because the current activity model
 does not expose authoritative unread state. A badge or dot may be added only
@@ -303,8 +304,8 @@ Navigation analytics may record a non-sensitive `workspace_opened` event with:
 ## Accessibility and responsive behavior
 
 - Use native tab semantics and selected-state announcements.
-- Every tab has a visible label; role is not conveyed only through blue or
-  purple.
+- Every tab has a visible label; role is not conveyed only through Buyer Blue
+  or Seller Graphite/Navy.
 - The Activity bell is one focusable control with a 44 by 44 minimum target.
 - Decorative header icons are excluded from the accessibility tree.
 - Thai titles, status labels, counters, and deadlines support large text and
