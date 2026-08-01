@@ -273,10 +273,10 @@ public sealed class ViewModelSessionBoundaryTests :
             transactions,
             new NoOpDeepLinks(),
             new RecordingAnalytics(),
-            session);
+            session,
+            RoleFilter.Selling);
         await home.LoadAsync();
         await list.LoadAsync();
-        list.ApplyRoleNavigation(TransactionRoleRoute.Selling);
         Assert.True(home.HasNewOffers);
         Assert.Equal("1 ข้อเสนอใหม่", home.NewOfferBadgeText);
         Assert.Equal(
@@ -338,6 +338,90 @@ public sealed class ViewModelSessionBoundaryTests :
     }
 
     [Fact]
+    public async Task Fixed_role_workspaces_never_share_records_or_filters()
+    {
+        Preferences.Default.Clear();
+        var session = new AuthenticatedSessionBoundary();
+        var service = new SequencedTransactionService();
+        var buyerItem = BuyerItem(
+            "00000000-0000-0000-0000-000000000901");
+        var sellerItem = Item(
+            "00000000-0000-0000-0000-000000000902",
+            "กล้องของผู้ขาย",
+            "ผู้ซื้อ",
+            "AwaitingSellerAcceptance");
+        service.EnqueueResult(buyerItem, sellerItem);
+        service.EnqueueResult(buyerItem, sellerItem);
+
+        var buyer = new TransactionsViewModel(
+            service,
+            new NoOpDeepLinks(),
+            new RecordingAnalytics(),
+            session,
+            RoleFilter.Buying);
+        var seller = new TransactionsViewModel(
+            service,
+            new NoOpDeepLinks(),
+            new RecordingAnalytics(),
+            session,
+            RoleFilter.Selling);
+
+        await buyer.LoadAsync();
+        await seller.LoadAsync();
+
+        Assert.True(buyer.IsBuying);
+        Assert.All(
+            buyer.Transactions.Append(buyer.SpotlightTransaction!),
+            item => Assert.Equal(AppTransactionRole.Buyer, item.Role));
+        Assert.True(seller.IsSelling);
+        Assert.All(
+            seller.Transactions.Append(seller.SpotlightTransaction!),
+            item => Assert.Equal(AppTransactionRole.Seller, item.Role));
+    }
+
+    [Fact]
+    public async Task Late_buyer_response_never_replaces_seller_workspace()
+    {
+        var session = new AuthenticatedSessionBoundary();
+        var service = new SequencedTransactionService();
+        var buyerPending = service.EnqueuePending();
+        var sellerPending = service.EnqueuePending();
+        var buyer = new TransactionsViewModel(
+            service,
+            new NoOpDeepLinks(),
+            new RecordingAnalytics(),
+            session,
+            RoleFilter.Buying);
+        var seller = new TransactionsViewModel(
+            service,
+            new NoOpDeepLinks(),
+            new RecordingAnalytics(),
+            session,
+            RoleFilter.Selling);
+
+        var buyerLoad = buyer.LoadAsync();
+        var sellerLoad = seller.LoadAsync();
+        var sellerItem = Item(
+            "00000000-0000-0000-0000-000000000903",
+            "รายการขาย",
+            "ผู้ซื้อ",
+            "AwaitingSellerAcceptance");
+        sellerPending.SetResult([sellerItem]);
+        await sellerLoad;
+        buyerPending.SetResult([
+            BuyerItem("00000000-0000-0000-0000-000000000904")
+        ]);
+        await buyerLoad;
+
+        Assert.Equal(
+            "รายการขาย",
+            seller.SpotlightTransaction?.ProductName);
+        Assert.All(
+            seller.Transactions.Append(seller.SpotlightTransaction!),
+            item => Assert.Equal(AppTransactionRole.Seller, item.Role));
+    }
+
+    [Fact]
     public async Task Collection_empty_state_requires_a_successful_load()
     {
         Preferences.Default.Clear();
@@ -350,7 +434,8 @@ public sealed class ViewModelSessionBoundaryTests :
             transactions,
             new NoOpDeepLinks(),
             new RecordingAnalytics(),
-            session);
+            session,
+            RoleFilter.Buying);
 
         Assert.False(viewModel.ShowTransactionCollectionEmptyState);
 
@@ -394,6 +479,19 @@ public sealed class ViewModelSessionBoundaryTests :
             ItemPriceSatang: 1_000_00,
             CreatedAt:
                 DateTimeOffset.Parse("2026-07-28T14:00:00+07:00"));
+
+    private static AppTransaction BuyerItem(string id) =>
+        new(
+            Guid.Parse(id),
+            "รายการซื้อ",
+            2_500_00,
+            "THB",
+            AppTransactionRole.Buyer,
+            AppFulfillmentType.Physical,
+            "SellerAcceptedAwaitingPayment",
+            DateTimeOffset.Parse("2026-08-01T10:00:00+07:00"),
+            DateTimeOffset.Parse("2026-08-02T10:00:00+07:00"),
+            "ผู้ขาย");
 
     private new sealed class RecordingAnalytics : IMobileAnalytics
     {

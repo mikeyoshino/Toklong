@@ -15,7 +15,7 @@ public sealed class TransactionsViewModel : ObservableViewModel
     private readonly SpotlightEmptyStatePresentation spotlightEmptyState;
     private IReadOnlyList<AppTransaction> allTransactions = [];
     private bool hasSuccessfulLoad;
-    private RoleFilter roleFilter;
+    private readonly RoleFilter roleFilter;
     private BucketFilter bucketFilter;
     private bool isBusy;
     private bool isRefreshing;
@@ -27,29 +27,25 @@ public sealed class TransactionsViewModel : ObservableViewModel
         ITransactionService transactionService,
         IDeepLinkCoordinator deepLinks,
         IMobileAnalytics analytics,
-        AuthenticatedSessionBoundary session)
+        AuthenticatedSessionBoundary session,
+        RoleFilter role)
     {
+        if (role is not (RoleFilter.Buying or RoleFilter.Selling))
+            throw new ArgumentOutOfRangeException(nameof(role));
+
         this.transactionService = transactionService;
         this.deepLinks = deepLinks;
         this.analytics = analytics;
         this.session = session;
         session.ResetRequested +=
             (_, _) => ResetForSessionBoundary();
-        roleFilter =
-            Preferences.Default.Get(
-                "transactions.last-role",
-                nameof(RoleFilter.Buying)) ==
-            nameof(RoleFilter.Selling)
-                ? RoleFilter.Selling
-                : RoleFilter.Buying;
+        roleFilter = role;
         spotlightEmptyState = new(
             roleFilter,
             hasSpotlight: false);
         spotlightEmptyState.PropertyChanged +=
             (_, eventArgs) =>
                 OnPropertyChanged(eventArgs.PropertyName);
-        SelectBuyingCommand = new Command(() => SelectRole(RoleFilter.Buying));
-        SelectSellingCommand = new Command(() => SelectRole(RoleFilter.Selling));
         SelectAllBucketsCommand = new Command(() => SelectBucket(BucketFilter.All));
         SelectActionCommand = new Command(() => SelectBucket(BucketFilter.ActionRequired));
         SelectProgressCommand = new Command(() => SelectBucket(BucketFilter.InProgress));
@@ -79,8 +75,6 @@ public sealed class TransactionsViewModel : ObservableViewModel
 
     public ObservableCollection<AppTransaction> Transactions { get; } = [];
 
-    public ICommand SelectBuyingCommand { get; }
-    public ICommand SelectSellingCommand { get; }
     public ICommand SelectAllBucketsCommand { get; }
     public ICommand SelectActionCommand { get; }
     public ICommand SelectProgressCommand { get; }
@@ -152,6 +146,10 @@ public sealed class TransactionsViewModel : ObservableViewModel
 
     public bool IsBuying => roleFilter == RoleFilter.Buying;
     public bool IsSelling => roleFilter == RoleFilter.Selling;
+    public RoleFilter Role => roleFilter;
+    public string WorkspaceAccentColor => IsBuying
+        ? "#2B7FFF"
+        : SellerColorPalette.Role;
     public bool IsAllBuckets => bucketFilter == BucketFilter.All;
     public bool IsActionRequired => bucketFilter == BucketFilter.ActionRequired;
     public bool IsInProgress => bucketFilter == BucketFilter.InProgress;
@@ -276,9 +274,6 @@ public sealed class TransactionsViewModel : ObservableViewModel
         }
     }
 
-    public void ApplyRoleNavigation(TransactionRoleRoute role) =>
-        SelectRole(AuthenticatedHomeRoutes.ToRoleFilter(role));
-
     private async Task RefreshAsync()
     {
         var generation = session.Capture();
@@ -292,27 +287,6 @@ public sealed class TransactionsViewModel : ObservableViewModel
             if (session.IsCurrent(generation))
                 IsRefreshing = false;
         }
-    }
-
-    private void SelectRole(RoleFilter value)
-    {
-        if (value is not
-            (RoleFilter.Buying or RoleFilter.Selling))
-            return;
-        roleFilter = value;
-        spotlightEmptyState.SetRole(value);
-        bucketFilter = BucketFilter.All;
-        sellerState.Select(SellerWorkCategory.All);
-        Preferences.Default.Set(
-            "transactions.last-role",
-            value.ToString());
-        RaiseFilterProperties();
-        ApplyFilter();
-        OnPropertyChanged(nameof(ModeTitle));
-        OnPropertyChanged(nameof(ModeSubtitle));
-        OnPropertyChanged(nameof(ModeSectionTitle));
-        OnPropertyChanged(nameof(ActionRequiredCount));
-        OnPropertyChanged(nameof(ActionSummary));
     }
 
     private void SelectBucket(BucketFilter value)

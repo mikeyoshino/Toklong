@@ -3,9 +3,7 @@ using Toklong.Mobile.ViewModels;
 
 namespace Toklong.Mobile.Pages;
 
-public partial class TransactionsPage :
-    ContentPage,
-    IQueryAttributable
+public partial class TransactionsPage : ContentPage
 {
     private readonly TransactionsViewModel viewModel;
     private readonly RefreshLoopLifecycle refreshLoop = new();
@@ -14,18 +12,6 @@ public partial class TransactionsPage :
     {
         InitializeComponent();
         BindingContext = this.viewModel = viewModel;
-    }
-
-    public void ApplyQueryAttributes(
-        IDictionary<string, object> query)
-    {
-        if (query.TryGetValue("role", out var raw) &&
-            AuthenticatedHomeRoutes.TryParseRole(
-                raw?.ToString(),
-                out var role))
-        {
-            viewModel.ApplyRoleNavigation(role);
-        }
     }
 
     protected override async void OnAppearing()
