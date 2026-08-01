@@ -3,6 +3,7 @@
     x:Class="Toklong.Mobile.Pages.AccountPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
     SafeAreaEdges="Container"
     Shell.NavBarIsVisible="False">
     <ContentPage.Background>
@@ -16,24 +17,10 @@
     <ScrollView>
         <VerticalStackLayout
             Style="{StaticResource RefinedScreenContent}">
-            <Border
-                HorizontalOptions="Start"
-                Padding="11,6"
-                BackgroundColor="#DFFFFFFF"
-                Stroke="#292B7FFF"
-                StrokeShape="RoundRectangle 99">
-                <HorizontalStackLayout Spacing="8">
-                    <BoxView
-                        WidthRequest="7"
-                        HeightRequest="7"
-                        VerticalOptions="Center"
-                        Color="{StaticResource BrandBlue}"
-                        CornerRadius="4" />
-                    <Label Style="{StaticResource Eyebrow}" Text="ข้อมูลของคุณ" />
-                </HorizontalStackLayout>
-            </Border>
-
-            <Label Style="{StaticResource PageTitle}" Text="บัญชี" />
+            <controls:RootPageHeaderView
+                Title="บัญชี"
+                Subtitle="ข้อมูลของคุณ"
+                AccentColor="{StaticResource BrandBlue}" />
 
             <Border
                 Padding="18"

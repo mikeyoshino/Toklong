@@ -3,8 +3,10 @@
     x:Class="Toklong.Mobile.Pages.ActivityPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="กิจกรรม"
     SafeAreaEdges="Container"
-    Shell.NavBarIsVisible="False">
+    Shell.NavBarIsVisible="True"
+    Shell.TabBarIsVisible="False">
     <ContentPage.Background>
         <RadialGradientBrush Center="0.88,0.02" Radius="0.95">
             <GradientStop Color="#DCEFFF" Offset="0" />
@@ -39,9 +41,6 @@
                                 Text="อัปเดตจากทุกรายการ" />
                         </HorizontalStackLayout>
                     </Border>
-                    <Label
-                        Style="{StaticResource PageTitle}"
-                        Text="การแจ้งเตือน" />
                     <Border
                         IsVisible="{Binding HasMessage}"
                         Style="{StaticResource RefinedValidationBorder}">

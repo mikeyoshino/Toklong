@@ -459,6 +459,33 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
+    public void Account_exposes_global_activity_header()
+    {
+        var account = Load("Ui", "Pages", "AccountPage.xaml");
+        Assert.Contains(account.Descendants(), element =>
+            element.Name.LocalName == "RootPageHeaderView" &&
+            AttributeValue(element, "Title") == "บัญชี");
+    }
+
+    [Fact]
+    public void Activity_is_a_pushed_page_with_back_chrome_and_no_tab_bar()
+    {
+        var activity = Load("Ui", "Pages", "ActivityPage.xaml");
+        Assert.Equal("กิจกรรม", AttributeValue(activity.Root!, "Title"));
+        Assert.Equal(
+            "True",
+            AttributeValue(activity.Root!, "Shell.NavBarIsVisible"));
+        Assert.Equal(
+            "False",
+            AttributeValue(activity.Root!, "Shell.TabBarIsVisible"));
+        Assert.Equal(
+            "{Binding Items}",
+            AttributeValue(
+                activity.Descendants(Maui + "CollectionView").Single(),
+                "ItemsSource"));
+    }
+
+    [Fact]
     public void SellerWorkspace_ShowsSummaryProblemAndPriorityContracts()
     {
         var page = Load("Ui", "Pages", "TransactionsPage.xaml");
