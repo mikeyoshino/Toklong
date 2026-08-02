@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-02
 
-**Status:** Approved in brainstorming; awaiting written-spec review
+**Status:** Approved
 
 **Scope:** Provider-managed physical shipments only
 
