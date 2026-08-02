@@ -182,26 +182,31 @@ image is never promoted to an optional product-evidence photo without the
 buyer's separate selection. Existing buyer-entered values are never overwritten
 by applying an AI draft.
 
-### Scene 2 — Seller reviews and responds
+### Scene 2 — Seller prepares the sale
 
 Show:
 
-- Shell title `ข้อเสนอขาย`.
+- Shell title and page heading `เตรียมขาย`.
 - Use the current neutral white/blue `SellerOfferPage` presentation. Do not
   apply the purple transaction-detail theme to this screen.
-- Current heading `ตรวจข้อเสนอจากผู้ซื้อ`.
+- Supporting copy `ตรวจรายละเอียดและเตรียมข้อมูลให้ครบก่อนเปิดให้ผู้ซื้อชำระ`.
 - The same offer as read-only, its exact response deadline, item price,
   destination province/postal code, fixed fulfillment rule, applicable
   shipping charge, and expected seller net. Do not show the Buyer Protection
   amount, parcel-protection choice/price/limit, provider option, or buyer total
   to the seller.
-- For a physical offer, one `เตรียมค่าจัดส่ง` section before acceptance:
+- For a physical offer, one `เตรียมการจัดส่ง` section before readiness confirmation:
   saved-origin summary or complete origin editor, `จำต้นทางนี้ไว้`, parcel
   weight and width/length/height, `ดูค่าจัดส่ง`, selectable quote rows, and the
   item-price/shipping breakdown. Changing origin or measurements clears the
   selected quote.
-- Primary action `ยืนยันข้อเสนอ`.
-- Secondary action `ปฏิเสธข้อเสนอ`, placed below the full-width primary action
+- For a digital offer, show `เตรียมส่งมอบไอดีเกม`, keep all shipping inputs
+  absent, and warn never to enter passwords, OTPs, recovery codes, login QR
+  data, or other reusable secrets in TOKLONG.
+- Primary action `ยืนยันพร้อมขาย`. This user action records the existing
+  seller acceptance evidence and moves the unchanged internal state to
+  `SELLER_ACCEPTED_AWAITING_PAYMENT`.
+- Secondary action `ปฏิเสธรายการ`, placed below the full-width primary action
   as in the app.
 - If anything is incorrect, instruct the seller to reject it and ask the buyer
   to create a new offer. Do not imply the seller can edit buyer-entered terms.
@@ -211,7 +216,7 @@ Show:
 Show:
 
 - Shell title `รายการซื้อ` and the current blue buyer transaction header.
-- The seller-confirmed product snapshot and a clear statement that paid details
+- The seller-ready product snapshot and a clear statement that paid details
   cannot be edited.
 - Allowed seller identity signals, the amount breakdown, and the exact payment
   deadline.
@@ -235,10 +240,12 @@ Show:
   buyer accepted a paid add-on. Omit that row for declined, unavailable,
   included-within-limit, and no-add-on outcomes. The accepted combined price
   remains visible in this summary; the maximum is not repeated outside the
-  choice or details surface. Place the required confirmation and exact-total
-  payment button directly below it.
+  choice or details surface. Place the passive consent sentence and exact-total
+  payment button directly below it; do not add a standalone buyer acceptance
+  checkbox.
 - Plain-language payout condition.
-- Primary action `ชำระ <ยอดทั้งหมด>`.
+- Primary action `ยืนยันและชำระ <ยอดทั้งหมด>`. Activating this authenticated
+  action records buyer acceptance and starts provider checkout together.
 
 ### Scene 4 — Seller fulfills and tracks payout
 
@@ -291,7 +298,8 @@ Primary elements:
 
 Suggested state cards:
 
-- `ข้อเสนอใหม่ · รอการตอบรับ`
+- `มีรายการรอเตรียมขาย`
+- `ผู้ขายพร้อมขายแล้ว · รอผู้ซื้อชำระ`
 - `รอผู้ซื้อจ่ายถึง 18:00`
 - `ผู้ซื้อไม่ได้จ่าย · รายการปิดแล้ว`
 - `จ่ายแล้ว · ส่งภายใน 18 ก.ค. 18:00`
@@ -301,7 +309,7 @@ Suggested state cards:
 - `หยุดจ่ายเงินชั่วคราว`
 - `โอนเงินแล้ว`
 
-### Seller offer acceptance
+### Seller prepare-sale screen
 
 The unguessable invitation requires seller phone authentication. Show:
 
@@ -324,9 +332,14 @@ When no photo was supplied, use
 the normal item-type placeholder without implying an error. Show the
 system-fixed rule `ส่งภายใน 3 วันหลังยืนยันยอดชำระ`; neither party can edit it.
 Require an owned payout account, transfer-rights/prohibited-goods attestation,
-and seller terms. Primary action: `ยอมรับข้อเสนอ`. Secondary action:
-`ปฏิเสธ`. If anything is incorrect, instruct the seller to decline and ask the
+and seller terms. Primary action: `ยืนยันพร้อมขาย`. Secondary action:
+`ปฏิเสธรายการ`. If anything is incorrect, instruct the seller to decline and ask the
 buyer to create a new offer.
+
+`ยืนยันพร้อมขาย` combines consumer-facing readiness and acceptance; it does
+not remove seller consent evidence, the agreement hash, authorization, audit,
+or the internal acceptance transition. The seller still sees no fulfillment
+action until provider-confirmed payment.
 
 The origin selector mirrors the buyer's saved-address behavior but stores only
 one seller origin: use it by default, allow `เปลี่ยนต้นทาง`, and replace it only
@@ -339,7 +352,7 @@ Digital copy must explicitly say there is no tracking or time-based automatic pa
 
 Primary action depends on state:
 
-- Buyer-created offer awaiting seller: `ยอมรับข้อเสนอ`.
+- Buyer-created offer awaiting seller: `เตรียมขาย`.
 - Paid: `แจ้งส่งสินค้า`.
 - Digital paid: `แจ้งว่าส่งมอบแล้ว`.
 - Tracking issue: `แก้ไข Tracking`.
@@ -531,7 +544,7 @@ Must show before payment:
 
 - A physical offer requires province, district, and sub-district before it can
   be sent to the seller. The seller review shows the resolved destination
-  province and postal code before `ยอมรับข้อเสนอ`; it never shows the full
+  province and postal code before `ยืนยันพร้อมขาย`; it never shows the full
   street address at this stage.
 - Delivery address is shown only for physical agreements and separates address line, province, district, and sub-district.
 - Province, district, sub-district, and postal-code options come from the versioned dataset bundled with the server application and loaded once at startup; do not make the buyer's browser download the nationwide dataset.
@@ -556,10 +569,12 @@ Must show before payment:
   unlocks fulfillment. Before that, seller surfaces show province and postal
   code only.
 - Contact verification.
-- Terms acceptance.
+- Passive consent copy immediately above the payment action:
+  `เมื่อกดชำระ คุณยืนยันว่าได้ตรวจรายละเอียดและยอมรับข้อตกลงแล้ว`.
 - Approved provider checkout.
 - No hidden fee added after the final review screen.
-- For buyer-created offers, checkout is unavailable until the seller has accepted the final terms.
+- For buyer-created offers, checkout is unavailable until the seller has
+  confirmed readiness, which preserves the existing seller acceptance record.
 - For physical offers, PaymentIntent creation is also unavailable until the
   buyer election is recorded and the payment action has synchronously committed
   the exact unconfirmed booking. While that request is active, show
@@ -569,9 +584,10 @@ Must show before payment:
   election. A changed price, limit, expiry, or terms
   requires fresh buyer confirmation, while the original payment deadline stays
   unchanged.
-- The final buyer action is `ยอมรับข้อตกลงและไปชำระเงิน`. It records electronic
+- The final buyer action is `ยืนยันและชำระ <ยอดทั้งหมด>`. It records electronic
   acceptance of the same agreement-core hash already accepted by the seller;
-  do not label it as a certificate-backed digital signature.
+  do not show a separate acceptance checkbox and do not label it as a
+  certificate-backed digital signature.
 - PromptPay checkout uses the email already saved on the authenticated buyer
   profile for receipts and refund instructions.
 - Checkout has no editable email field. Existing pre-migration accounts without
@@ -677,9 +693,13 @@ Body:
 The in-app detail may explain that the buyer pays only after seller acceptance;
 keep the lock-screen notification compact and free of sensitive data.
 
-### Seller accepted — buyer
+### Seller ready — buyer
 
-> ผู้ขายยืนยันข้อเสนอแล้ว กรุณาตรวจรายละเอียดและจ่ายภายใน [exact date/time]
+Title: `ผู้ขายพร้อมขายแล้ว`
+
+Body:
+
+> [ชื่อสินค้า] · ตรวจยอดและชำระภายใน [exact date/time]
 
 ### Seller response expired — buyer
 

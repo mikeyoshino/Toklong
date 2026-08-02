@@ -56,7 +56,7 @@ unguessable link
 **When** the buyer creates the offer
 **Then** the in-app activity feed shows `ได้รับข้อเสนอซื้อ`
 **And** the seller transaction list shows the targeted pending offer as
-`ตรวจข้อเสนอ` before the seller ID is bound
+`เตรียมขาย` before the seller ID is bound
 **And** while that list is visible it refreshes and shows the offer without
 requiring an OS push or manual app restart
 **And** its body contains the product name and integer-satang formatted total
@@ -69,7 +69,7 @@ provider acknowledges delivery
 
 **Given** an active offer is waiting for seller acceptance
 **When** the buyer closes the creation result and later opens that transaction
-**Then** the detail screen shows `รอผู้ขายตอบ` and the exact deadline
+**Then** the detail screen shows `รอผู้ขายเตรียมขาย` and the exact deadline
 **And** the same optional URL can be copied or shared again
 **And** another phone account opening that URL remains forbidden
 **And** the transaction-list root has no generic clipboard-open action
@@ -79,7 +79,7 @@ provider acknowledges delivery
 
 **Given** the buyer targeted the seller's verified phone
 **When** the seller opens the app or taps the owned notification
-**Then** `ขาย` mode shows the pending offer as `ตรวจข้อเสนอ`
+**Then** `ขาย` mode shows the pending offer as `เตรียมขาย`
 **And** opening it routes to the seller offer after phone authorization
 **And** the transaction screen has no clipboard-open control.
 
@@ -560,6 +560,28 @@ changes after seller acceptance and before payment
 **And** both parties see its exact date and time
 **And** the seller is told not to fulfill before confirmed payment.
 
+### A0.2.2.1 — Readiness and payment use one primary action each
+
+**Given** a buyer-created offer awaits the intended seller
+**When** the seller opens the offer
+**Then** the page is titled `เตรียมขาย`
+**And** the applicable `เตรียมการจัดส่ง` or `เตรียมส่งมอบไอดีเกม` section is shown
+**And** the only primary action is `ยืนยันพร้อมขาย`
+**And** the secondary action is `ปฏิเสธรายการ`.
+
+**When** the intended seller confirms readiness
+**Then** the existing seller acceptance evidence, immutable agreement hash,
+authorization check, audit event, and state transition are preserved
+**And** the buyer sees `ผู้ขายพร้อมขายแล้ว`
+**And** the exact one-hour payment deadline is visible
+**And** neither physical nor digital fulfillment is available yet.
+
+**When** the buyer reviews every material term
+**Then** no standalone acceptance checkbox is shown
+**And** passive copy states that pressing the payment action records acceptance
+**And** `ยืนยันและชำระ ฿[ยอดทั้งหมด]` records consent and starts payment
+**And** no fulfillment action appears before provider-confirmed payment.
+
 ### A0.2.3 — Buyer payment window expires safely
 
 **Given** an accepted offer has no provider-confirmed payment
@@ -660,7 +682,7 @@ length, and height in centimeters
 only provider quote options matching those inputs
 **And** no client-computed shipping fee is trusted.
 
-**When** the seller selects `จำต้นทางนี้ไว้` and accepts with a still-valid quote
+**When** the seller selects `จำต้นทางนี้ไว้` and presses `ยืนยันพร้อมขาย` with a still-valid quote
 **Then** the seller profile contains exactly one saved origin
 **And** a later save replaces that profile origin
 **And** the accepted transaction retains its own origin, package, quote,
