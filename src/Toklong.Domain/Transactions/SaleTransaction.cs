@@ -3720,6 +3720,10 @@ public sealed class SaleTransaction
                 BuyerNotice("refund_confirmed"),
             _ => []
         };
+        var actionDeadline =
+            eventName == "buyer_offer.seller_accepted"
+                ? BuyerPaymentDeadlineAt
+                : null;
         foreach (var message in messages)
             _notifications.Add(NotificationOutboxMessage.Create(
                 Id,
@@ -3727,7 +3731,8 @@ public sealed class SaleTransaction
                 message.Recipient,
                 message.Template,
                 occurredAt,
-                occurredAt));
+                occurredAt,
+                actionDeadlineAt: actionDeadline));
 
         if (eventName == "carrier.delivered" &&
             DisputeWindowEndsAt is { } deadline)

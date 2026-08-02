@@ -282,8 +282,8 @@ public sealed record TransactionView(
         TransactionExpirationReason? expirationReason) => state switch
     {
         TransactionState.BuyerOfferDraft => "กำลังสร้างข้อเสนอ",
-        TransactionState.AwaitingSellerAcceptance => "รอผู้ขายยืนยัน",
-        TransactionState.SellerAcceptedAwaitingPayment => "ผู้ขายยืนยันแล้ว · รอผู้ซื้อชำระ",
+        TransactionState.AwaitingSellerAcceptance => "รอผู้ขายเตรียมขาย",
+        TransactionState.SellerAcceptedAwaitingPayment => "ผู้ขายพร้อมขายแล้ว · รอผู้ซื้อชำระ",
         TransactionState.LinkActive => "รอผู้ซื้อชำระ",
         TransactionState.CheckoutStarted or TransactionState.PaymentPending => "กำลังตรวจสอบการชำระ",
         TransactionState.PaidAwaitingShipment => "ชำระแล้ว · ส่งสินค้าได้",

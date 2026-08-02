@@ -6,6 +6,29 @@ namespace Toklong.Application.Tests.Notifications;
 public sealed class NotificationContentTests
 {
     [Fact]
+    public void Seller_ready_notification_contains_exact_bangkok_deadline()
+    {
+        var deadline = new DateTimeOffset(
+            2026, 8, 2, 10, 0, 0, TimeSpan.Zero);
+        var notification = NotificationContent.From(
+            new NotificationInboxRecord(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                "seller_accepted",
+                "ไอดีเกม Mythic Arena",
+                7_200_00,
+                "THB",
+                "public-token",
+                deadline.AddMinutes(-5),
+                ActionDeadlineAt: deadline));
+
+        Assert.Equal("ผู้ขายพร้อมขายแล้ว", notification.Title);
+        Assert.Equal(
+            "ไอดีเกม Mythic Arena · ตรวจยอดและชำระภายใน 2 ส.ค. 2569 17:00 น.",
+            notification.Body);
+    }
+
+    [Fact]
     public void Buyer_offer_notification_contains_product_and_exact_amount()
     {
         var transactionId = Guid.NewGuid();

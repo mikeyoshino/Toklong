@@ -452,9 +452,9 @@ public sealed record AppTransaction(
     public string StatusGuidance => State switch
     {
         "AwaitingSellerAcceptance" =>
-            $"รอผู้ขายตอบรับหรือปฏิเสธถึง {ExactDeadline()} ยังไม่มีการเก็บเงิน",
+            $"รอผู้ขายตรวจสอบและเตรียมขายถึง {ExactDeadline()} ยังไม่มีการเก็บเงิน",
         "SellerAcceptedAwaitingPayment" when Role == AppTransactionRole.Buyer =>
-            $"ผู้ขายยืนยันแล้ว จ่ายภายใน {ExactDeadline()}",
+            $"ผู้ขายพร้อมขายแล้ว ชำระภายใน {ExactDeadline()}",
         "SellerAcceptedAwaitingPayment" =>
             $"รอผู้ซื้อจ่ายถึง {ExactDeadline()} ยังไม่ต้องส่งสินค้า",
         "CheckoutStarted" or "PaymentPending" =>

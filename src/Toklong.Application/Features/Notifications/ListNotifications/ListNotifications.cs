@@ -59,8 +59,8 @@ public static class NotificationContent
                 $"{record.ProductName} · {amount}",
                 $"toklong://offer/{record.PublicToken}"),
             "seller_accepted" => (
-                "ผู้ขายตอบรับแล้ว",
-                $"{record.ProductName} · ตรวจรายละเอียดและจ่ายเงิน",
+                "ผู้ขายพร้อมขายแล้ว",
+                SellerReadyBody(record),
                 $"toklong://transaction/{record.TransactionId:N}"),
             "payment_confirmed" => (
                 "ผู้ซื้อจ่ายเงินแล้ว",
@@ -156,11 +156,25 @@ public static class NotificationContent
             : record.Detail.Trim();
         if (!record.ActionDeadlineAt.HasValue)
             return detail;
+        return $"{detail} · ส่งภายใน {FormatBangkokDateTime(record.ActionDeadlineAt.Value)} น.";
+    }
+
+    private static string SellerReadyBody(
+        NotificationInboxRecord record) =>
+        record.ActionDeadlineAt.HasValue
+            ? $"{record.ProductName} · ตรวจยอดและชำระภายใน {FormatBangkokDateTime(record.ActionDeadlineAt.Value)} น."
+            : $"{record.ProductName} · ตรวจยอดและชำระเงิน";
+
+    private static string FormatBangkokDateTime(
+        DateTimeOffset value)
+    {
         var bangkok = TimeZoneInfo.ConvertTime(
-            record.ActionDeadlineAt.Value,
+            value,
             TimeZoneInfo.FindSystemTimeZoneById(
                 "Asia/Bangkok"));
-        return $"{detail} · ส่งภายใน {bangkok.ToString("d MMM yyyy HH:mm", ThaiCulture)} น.";
+        return bangkok.ToString(
+            "d MMM yyyy HH:mm",
+            ThaiCulture);
     }
 
     private static string RefundActionRequiredBody(

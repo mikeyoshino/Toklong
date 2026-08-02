@@ -27,14 +27,17 @@ public static class TransactionStatePresenter
                 Action("ยังไม่ได้ส่งให้ผู้ขาย", "ส่งให้ผู้ขาย", TransactionAction.ShareWithSeller),
             "AwaitingSellerAcceptance" when
                 role == AppTransactionRole.Buyer =>
-                Progress("รอผู้ขายตอบ"),
+                Progress("รอผู้ขายเตรียมขาย"),
             "AwaitingSellerAcceptance" =>
                 Action(
-                    "มีข้อเสนอรอคุณตอบ",
-                    "ตรวจข้อเสนอ",
+                    "มีรายการรอเตรียมขาย",
+                    "เตรียมขาย",
                     TransactionAction.ReviewSellerOffer),
             "SellerAcceptedAwaitingPayment" when role == AppTransactionRole.Buyer =>
-                Action("จ่ายเงินได้", "ดูรายละเอียดแล้วจ่าย", TransactionAction.ReviewAndPay),
+                Action(
+                    "ผู้ขายพร้อมขายแล้ว",
+                    "ตรวจยอดและชำระ",
+                    TransactionAction.ReviewAndPay),
             "SellerAcceptedAwaitingPayment" =>
                 Progress("รอผู้ซื้อจ่ายเงิน"),
             "PaymentPending" when role == AppTransactionRole.Buyer =>

@@ -225,6 +225,12 @@ public sealed class SaleTransactionTests
             transaction.SellerAcceptedAt!.Value.AddHours(
                 SaleTransaction.BuyerPaymentWindowHours),
             transaction.BuyerPaymentDeadlineAt);
+        var readyNotice = Assert.Single(
+            transaction.Notifications,
+            item => item.Template == "seller_accepted");
+        Assert.Equal(
+            transaction.BuyerPaymentDeadlineAt,
+            readyNotice.ActionDeadlineAt);
         Assert.Throws<DomainException>(() =>
             transaction.BeginCheckout(
                 "ผู้ซื้อ",

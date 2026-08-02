@@ -14,8 +14,8 @@ public sealed class TransactionPresentationTests
 
         Assert.Equal(TransactionBucket.ActionRequired, presentation.Bucket);
         Assert.Equal(TransactionAction.ReviewAndPay, presentation.PrimaryAction);
-        Assert.Equal("จ่ายเงินได้", presentation.StatusLabel);
-        Assert.Equal("ดูรายละเอียดแล้วจ่าย", presentation.PrimaryActionLabel);
+        Assert.Equal("ผู้ขายพร้อมขายแล้ว", presentation.StatusLabel);
+        Assert.Equal("ตรวจยอดและชำระ", presentation.PrimaryActionLabel);
     }
 
     [Fact]
@@ -32,7 +32,7 @@ public sealed class TransactionPresentationTests
         Assert.Equal(
             TransactionAction.ViewStatus,
             presentation.PrimaryAction);
-        Assert.Equal("รอผู้ขายตอบ", presentation.StatusLabel);
+        Assert.Equal("รอผู้ขายเตรียมขาย", presentation.StatusLabel);
     }
 
     [Fact]
@@ -50,8 +50,9 @@ public sealed class TransactionPresentationTests
             TransactionAction.ReviewSellerOffer,
             presentation.PrimaryAction);
         Assert.Equal(
-            "ตรวจข้อเสนอ",
+            "เตรียมขาย",
             presentation.PrimaryActionLabel);
+        Assert.Equal("มีรายการรอเตรียมขาย", presentation.StatusLabel);
     }
 
     [Theory]
@@ -180,6 +181,30 @@ public sealed class TransactionPresentationTests
 
         Assert.Contains("ก.ค.", item.DeadlineText);
         Assert.Contains("2569", item.DeadlineText);
+    }
+
+    [Fact]
+    public void Readiness_guidance_keeps_the_exact_deadline_visible()
+    {
+        var deadline = DateTimeOffset.Parse(
+            "2026-08-02T17:00:00+07:00");
+        var awaiting = new AppTransaction(
+            Guid.NewGuid(), "สินค้า", 10000, "THB",
+            AppTransactionRole.Buyer,
+            AppFulfillmentType.Physical,
+            "AwaitingSellerAcceptance",
+            deadline.AddHours(-1), deadline, "ผู้ขาย");
+        var ready = awaiting with
+        {
+            State = "SellerAcceptedAwaitingPayment"
+        };
+
+        Assert.Contains(
+            "รอผู้ขายตรวจสอบและเตรียมขาย",
+            awaiting.StatusGuidance);
+        Assert.Contains("2 ส.ค. 2569 · 17:00", awaiting.StatusGuidance);
+        Assert.Contains("ผู้ขายพร้อมขายแล้ว", ready.StatusGuidance);
+        Assert.Contains("2 ส.ค. 2569 · 17:00", ready.StatusGuidance);
     }
 
     [Theory]
