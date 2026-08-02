@@ -178,15 +178,22 @@ notification is created.
 ### A0.0.4.2 — Buyer offer creation uses three full-page steps
 
 **Given** an authenticated buyer opens offer creation
-**Then** the header shows `สร้างข้อเสนอ`, the current step, and a three-segment
-progress indicator
-**And** `ข้อมูลดีล` contains seller phone, product name, item price, and
-optional AI/photo/details
-**And** `การรับสินค้า` contains physical/digital choice and the applicable
-address
-**And** physical fulfillment is selected by default
-**And** Digital hides address and shipping content
-**And** `ตรวจและส่ง` is a full page rather than a bottom sheet
+**Then** an icon-first page with only a Back action shows the two large
+navigation cards `สินค้าที่จัดส่ง` and `ไอดีเกม`
+**And** its header is transparent without a separate white band
+**And** Back uses the shared circular control with a fixed-size vector icon
+**And** both cards remain content-sized instead of stretching to screen height
+**And** choosing either card opens the header `สร้างดีลซื้อ`, the current step,
+and a three-segment progress indicator
+**And** `รายละเอียดที่ตกลงกัน` contains the selected-type context, seller
+phone, type-aware product/game name, item price, a `สภาพสินค้า` dropdown,
+conditional defect text, and optional AI/photo/details
+**And** step 2 contains the applicable physical address or game-account handoff
+guidance without rendering a second physical/digital selector
+**And** the game-account flow hides address and shipping content
+**And** the game-account copy forbids usernames, passwords, recovery codes,
+private keys, and other reusable secrets
+**And** `ตรวจและส่งให้ผู้ขาย` is a full page rather than a bottom sheet
 **And** every step has one primary forward action.
 
 **When** the buyer leaves the product photo empty and submits otherwise valid
@@ -203,11 +210,12 @@ evidence represent the photo as absent without failing hash validation.
 **Then** only that step is validated
 **And** each error appears beside its field
 **And** focus moves to the first invalid field
-**When** the buyer reaches `ตรวจและส่ง`
+**And** leaving `รายละเอียดที่ตกลงกัน` requires selecting `ใหม่`,
+`มือสอง สภาพดี`, or `มีตำหนิ` from the dropdown
+**And** the defect input is shown and required only for `มีตำหนิ`
+**When** the buyer reaches `ตรวจและส่งให้ผู้ขาย`
 **Then** the page shows the exact offer summary and server-priced cost breakdown
 **And** no separate shipment-deadline card is shown
-**And** the buyer must select `ใหม่`, `มือสอง สภาพดี`, or `มีตำหนิ`
-**And** the defect input is shown and required only for `มีตำหนิ`
 **And** only `ส่งข้อเสนอให้ผู้ขาย` creates the offer.
 
 **When** optional description is blank and the buyer submits a valid new or
@@ -220,63 +228,64 @@ used-good offer
 
 **Given** an authenticated buyer enters a valid item price between 1,000 and
 30,000 THB with no more than two decimal places
-**When** the buyer advances from `การรับสินค้า`
+**When** the buyer advances from the applicable fulfillment step
 **And** the fresh pricing request for the exact current price succeeds
 **Then** the server applies the active versioned Buyer Protection policy using
 integer satang
-**And** `ตรวจและส่ง` opens only after that exact matching response
-**And** `ตรวจและส่ง` is the only price-breakdown surface
+**And** `ตรวจและส่งให้ผู้ขาย` opens only after that exact matching response
+**And** `ตรวจและส่งให้ผู้ขาย` is the only price-breakdown surface
 **And** a physical item labels the amount `ยอดก่อนค่าจัดส่ง` and the shipping
 row `รอผู้ขายเลือก`
 **And** a digital item labels the amount `ยอดเมื่อผู้ขายตอบรับ` and the
 shipping row `ไม่มีค่าจัดส่ง`
 **And** the review states `ยังไม่ตัดเงินในขั้นตอนนี้`
 **And** it separates item price, Buyer Protection fee, shipping, and total
-while keeping condition and final actions reachable
+while keeping the condition summary and final actions reachable
 **And** no sticky total bar, separate pricing sheet, or shipment-deadline card
 is present.
 
-**When** the buyer edits the price or fulfillment type, leaves the review, or
-leaves the page before an older request returns
-**Then** the older response cannot open or replace `ตรวจและส่ง`
+**When** the buyer edits the price, leaves the review, returns to choose another
+type, or leaves the page before an older request returns
+**Then** the older response cannot open or replace `ตรวจและส่งให้ผู้ขาย`
 **And** no preview is shown until a valid matching server response arrives
 after another review action.
 
 **When** pricing fails
-**Then** the wizard remains before `ตรวจและส่ง`
+**Then** the wizard remains before `ตรวจและส่งให้ผู้ขาย`
 **And** the form shows a retryable message
 **And** advancing again starts a fresh request.
 
-### A0.0.4.4 — Authenticated roots remember only Buy or Sell
+### A0.0.4.4 — Authenticated entry always starts in Buy
 
-**Given** an authenticated account has not selected a transaction root before
-**When** authenticated navigation starts
+**Given** an authenticated account
+**When** sign-in, registration completion, or ordinary authenticated startup
+finishes
 **Then** the native `ซื้อ` root opens first.
 
-**When** the user explicitly selects `ขาย`, later visits `บัญชี`, and relaunches
-**Then** `ขาย` opens again because Account does not replace the preference.
+**When** the user needs seller work
+**Then** `ขาย` remains available from the native bottom bar without passing
+through a Buy/Sell chooser.
 
 **When** the user opens `กิจกรรม` from `ซื้อ`, `ขาย`, or `บัญชี`
 **Then** Activity opens as a pushed page and Back returns to the originating root.
 
 **When** the user explicitly logs out
-**Then** the preferred root is cleared and the next first authenticated use opens
-`ซื้อ`.
+**Then** a later authenticated entry opens `ซื้อ`.
 
 **When** an authorized transaction deep link arrives
-**Then** the exact destination opens without overwriting the preferred Buy/Sell
-root
+**Then** the exact authorized destination opens directly
 **And** no seller-created link action is shown.
 
 ### A0.0.4.5 — Buyer offer wizard creates only on final submit
 
-**Given** an authenticated buyer opens `สร้างข้อเสนอ`
-**When** the buyer completes `ข้อมูลดีล` and `การรับสินค้า`
+**Given** an authenticated buyer opens `สร้างดีลซื้อ`
+**When** the buyer completes `รายละเอียดที่ตกลงกัน` and the applicable
+fulfillment step
 **Then** no transaction, snapshot, notification, payment, or audit transition
 exists
 **When** preview fails
 **Then** entered values remain and retry is available
-**When** the buyer reaches `ตรวจและส่ง` and taps
+**When** the buyer reaches `ตรวจและส่งให้ผู้ขาย` and taps
 `ส่งข้อเสนอให้ผู้ขาย`
 **Then** exactly one buyer-created offer is created.
 
@@ -628,10 +637,11 @@ are read-only
 
 **Given** the buyer creates an offer
 
-**When** `สินค้าที่จับต้องได้` is selected
+**When** `สินค้าที่จัดส่ง` is selected on the icon-first type page
 **Then** ship-by copy, address, tracking, and carrier rules apply
-**When** `สินค้าดิจิทัล` is selected
-**Then** address/tracking are omitted, and the no-auto-release rule is visible.
+**When** `ไอดีเกม` is selected on the icon-first type page
+**Then** address/tracking are omitted, the no-auto-release rule is visible, and
+the ordinary offer form never stores reusable credentials or other secrets.
 
 ### A2 — Unsupported item is blocked
 

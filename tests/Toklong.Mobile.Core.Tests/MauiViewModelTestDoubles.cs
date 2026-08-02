@@ -109,6 +109,7 @@ namespace Toklong.Mobile.Pages
     public sealed class ChangeNamePage;
     public sealed class ChangeEmailPage;
     public sealed class CreateOfferPage;
+    public sealed class ProductTypeSelectionPage;
     public sealed class PayoutSettingsPage;
     public sealed class TransactionDetailPage;
     public sealed class VerifyNameChangePage;

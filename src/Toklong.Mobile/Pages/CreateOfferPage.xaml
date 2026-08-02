@@ -4,7 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
-    Title="สร้างข้อเสนอ"
+    Title="สร้างดีลซื้อ"
     SafeAreaEdges="Container"
     Shell.NavBarIsVisible="False"
     Shell.TabBarIsVisible="False"
@@ -23,17 +23,11 @@
                     ColumnSpacing="16">
                     <Button
                         AutomationId="CreateOfferBackButton"
-                        WidthRequest="48"
-                        HeightRequest="48"
-                        Padding="0"
-                        BackgroundColor="{StaticResource SurfaceBlue}"
+                        Style="{StaticResource RefinedBackButton}"
                         Clicked="OnBackClicked"
-                        CornerRadius="14"
-                        FontAttributes="Bold"
-                        FontSize="28"
+                        ImageSource="ui_back.png"
                         SemanticProperties.Description="ย้อนกลับ"
-                        Text="‹"
-                        TextColor="{StaticResource BrandBlueDeep}" />
+                        SemanticProperties.Hint="แตะสองครั้งเพื่อย้อนกลับ" />
                     <VerticalStackLayout
                         Grid.Column="1"
                         VerticalOptions="Center"
@@ -41,7 +35,7 @@
                         <Label
                             FontAttributes="Bold"
                             FontSize="26"
-                            Text="สร้างข้อเสนอ"
+                            Text="สร้างดีลซื้อ"
                             TextColor="{StaticResource Ink}" />
                         <Label
                             Style="{StaticResource RefinedHelperText}"
@@ -103,15 +97,63 @@
                 MaximumWidthRequest="720"
                 Padding="20,24,20,124"
                 Spacing="24">
+                <Border
+                    AutomationId="SelectedProductTypeContext"
+                    Padding="14"
+                    BackgroundColor="{StaticResource SurfaceBlue}"
+                    Stroke="#CFE2F8"
+                    StrokeShape="RoundRectangle 18">
+                    <Border.Triggers>
+                        <DataTrigger
+                            TargetType="Border"
+                            Binding="{Binding IsDigital}"
+                            Value="True">
+                            <Setter Property="BackgroundColor" Value="#F3F1FF" />
+                            <Setter Property="Stroke" Value="#D5D0FF" />
+                        </DataTrigger>
+                    </Border.Triggers>
+                    <Grid ColumnDefinitions="56,*,Auto" ColumnSpacing="12">
+                        <Border
+                            WidthRequest="56"
+                            HeightRequest="56"
+                            BackgroundColor="White"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 16">
+                            <Image
+                                Margin="7"
+                                Source="{Binding FulfillmentTypeIcon}" />
+                        </Border>
+                        <VerticalStackLayout
+                            Grid.Column="1"
+                            VerticalOptions="Center"
+                            Spacing="2">
+                            <Label
+                                Style="{StaticResource RefinedHelperText}"
+                                Text="สิ่งที่ตกลงซื้อ" />
+                            <Label
+                                FontAttributes="Bold"
+                                FontSize="16"
+                                Text="{Binding FulfillmentTypeLabel}" />
+                        </VerticalStackLayout>
+                        <Button
+                            Grid.Column="2"
+                            VerticalOptions="Center"
+                            Style="{StaticResource RefinedInlineButton}"
+                            Clicked="OnBackClicked"
+                            SemanticProperties.Description="กลับไปเปลี่ยนประเภทสินค้า"
+                            Text="เปลี่ยน" />
+                    </Grid>
+                </Border>
+
                 <VerticalStackLayout Spacing="4">
                     <Label
                         FontAttributes="Bold"
                         FontSize="24"
-                        Text="ข้อมูลดีล"
+                        Text="รายละเอียดที่ตกลงกัน"
                         TextColor="{StaticResource Ink}" />
                     <Label
                         Style="{StaticResource RefinedHelperText}"
-                        Text="ข้อเสนอส่วนตัวสำหรับผู้ขายที่คุณตกลงกันไว้แล้ว ไม่ใช่ประกาศขายสาธารณะ" />
+                        Text="กรอกเป็นร่างจากสิ่งที่คุยกัน ผู้ขายต้องตรวจและยืนยันก่อนคุณจึงชำระได้" />
                 </VerticalStackLayout>
 
                 <VerticalStackLayout
@@ -142,14 +184,14 @@
                     Style="{StaticResource RefinedFormSection}">
                     <controls:FormLabelView
                         IsRequired="True"
-                        Text="ชื่อสินค้า" />
+                        Text="{Binding ProductNameLabel}" />
                     <Border Style="{StaticResource RefinedInputBorder}">
                         <Entry
                             x:Name="ProductNameEntry"
                             Style="{StaticResource RefinedEntry}"
                             MaxLength="180"
-                            Placeholder="เช่น กล้อง Fujifilm X-T30 II"
-                            SemanticProperties.Description="ชื่อสินค้า"
+                            Placeholder="{Binding ProductNamePlaceholder}"
+                            SemanticProperties.Description="{Binding ProductNameLabel}"
                             Text="{Binding ProductName}" />
                     </Border>
                     <Label
@@ -163,7 +205,7 @@
                     Style="{StaticResource RefinedFormSection}">
                     <controls:FormLabelView
                         IsRequired="True"
-                        Text="ราคาสินค้า" />
+                        Text="ราคาที่ตกลง" />
                     <Border Style="{StaticResource RefinedAmountBorder}">
                         <Grid
                             ColumnDefinitions="Auto,*"
@@ -190,11 +232,52 @@
                         Text="{Binding AmountError}" />
                     <Label
                         Style="{StaticResource RefinedHelperText}"
-                        Text="ราคาสินค้าตั้งแต่ 1,000 ถึง 30,000 บาท" />
+                        Text="ใส่เฉพาะราคาที่คุยกับผู้ขาย ตั้งแต่ 1,000 ถึง 30,000 บาท ยังไม่มีการเรียกเก็บเงิน" />
                     <Label
                         Style="{StaticResource RefinedHelperText}"
                         Text="ใส่เฉพาะราคาสินค้า หากต้องจัดส่ง ผู้ขายจะเลือกค่าจัดส่งภายหลัง ไม่ต้องรวมในราคานี้"
                         TextColor="{StaticResource BrandBlueDeep}" />
+                </VerticalStackLayout>
+
+                <VerticalStackLayout
+                    AutomationId="ProductConditionSection"
+                    Style="{StaticResource RefinedFormSection}">
+                    <controls:FormLabelView
+                        IsRequired="True"
+                        Text="สภาพสินค้า" />
+                    <Border Style="{StaticResource RefinedInputBorder}">
+                        <Picker
+                            x:Name="ConditionPickerAnchor"
+                            Style="{StaticResource RefinedPicker}"
+                            ItemsSource="{Binding ConditionOptions}"
+                            SelectedIndex="{Binding SelectedConditionIndex}"
+                            SemanticProperties.Description="เลือกสภาพสินค้า"
+                            Title="เลือกสภาพสินค้า" />
+                    </Border>
+                    <Label
+                        IsVisible="{Binding HasConditionError}"
+                        Style="{StaticResource RefinedValidationText}"
+                        Text="{Binding ConditionError}" />
+                    <VerticalStackLayout
+                        IsVisible="{Binding HasDefectCondition}"
+                        Spacing="{StaticResource SpacingSm}">
+                        <controls:FormLabelView
+                            IsRequired="True"
+                            Text="ระบุตำหนิที่ผู้ขายควรรู้" />
+                        <Border Style="{StaticResource RefinedEditorBorder}">
+                            <Editor
+                                x:Name="KnownDefectsEditor"
+                                Style="{StaticResource RefinedEditor}"
+                                AutoSize="TextChanges"
+                                MaxLength="1000"
+                                Placeholder="เช่น มีรอยมุมขวาตามรูป แต่ใช้งานปกติ"
+                                Text="{Binding KnownDefects}" />
+                        </Border>
+                        <Label
+                            IsVisible="{Binding HasKnownDefectsError}"
+                            Style="{StaticResource RefinedValidationText}"
+                            Text="{Binding KnownDefectsError}" />
+                    </VerticalStackLayout>
                 </VerticalStackLayout>
 
                 <Button
@@ -294,7 +377,7 @@
                     AutomationId="ContinueFromDealButton"
                     Style="{StaticResource RefinedPrimaryButton}"
                     Command="{Binding ContinueFromDealCommand}"
-                    Text="ถัดไป: การรับสินค้า  →" />
+                    Text="{Binding ContinueFromDealLabel}" />
             </VerticalStackLayout>
         </ScrollView>
 
@@ -312,57 +395,11 @@
                     <Label
                         FontAttributes="Bold"
                         FontSize="24"
-                        Text="การรับสินค้า"
+                        Text="{Binding FulfillmentStepTitle}"
                         TextColor="{StaticResource Ink}" />
                     <Label
                         Style="{StaticResource RefinedHelperText}"
-                        Text="เลือกวิธีส่งมอบที่ใช้กับสินค้านี้" />
-                </VerticalStackLayout>
-
-                <VerticalStackLayout
-                    AutomationId="FulfillmentTypeSection"
-                    Spacing="{StaticResource SpacingSm}">
-                    <controls:FormLabelView
-                        IsRequired="True"
-                        Text="ประเภทสินค้า" />
-                    <Grid
-                        ColumnDefinitions="*,*"
-                        ColumnSpacing="{StaticResource SpacingSm}">
-                        <Button
-                            Style="{StaticResource RefinedSegmentButton}"
-                            Command="{Binding SelectPhysicalCommand}"
-                            Text="สินค้าที่จัดส่ง">
-                            <Button.Triggers>
-                                <DataTrigger
-                                    TargetType="Button"
-                                    Binding="{Binding IsPhysical}"
-                                    Value="True">
-                                    <Setter Property="BackgroundColor" Value="#EAF4FF" />
-                                    <Setter Property="TextColor" Value="#145FC7" />
-                                    <Setter Property="BorderColor" Value="#9CC9FF" />
-                                </DataTrigger>
-                            </Button.Triggers>
-                        </Button>
-                        <Button
-                            Grid.Column="1"
-                            Style="{StaticResource RefinedSegmentButton}"
-                            Command="{Binding SelectDigitalCommand}"
-                            Text="ดิจิทัล">
-                            <Button.Triggers>
-                                <DataTrigger
-                                    TargetType="Button"
-                                    Binding="{Binding IsDigital}"
-                                    Value="True">
-                                    <Setter Property="BackgroundColor" Value="#EDEBFF" />
-                                    <Setter Property="TextColor" Value="#5144BF" />
-                                    <Setter Property="BorderColor" Value="#BDB6FF" />
-                                </DataTrigger>
-                            </Button.Triggers>
-                        </Button>
-                    </Grid>
-                    <Label
-                        Style="{StaticResource RefinedHelperText}"
-                        Text="สินค้าดิจิทัลต้องเป็นรายการที่โอนได้และอยู่ในประเภทที่รองรับ" />
+                        Text="{Binding FulfillmentStepDescription}" />
                 </VerticalStackLayout>
 
                 <VerticalStackLayout
@@ -466,10 +503,16 @@
                     BackgroundColor="#F3F1FF"
                     Stroke="#D5D0FF"
                     StrokeShape="RoundRectangle 16">
-                    <Label
-                        Style="{StaticResource RefinedBodyText}"
-                        Text="ผู้ขายจะส่งมอบสิทธิ์ดิจิทัลหลังระบบยืนยันยอดชำระ และคุณต้องยืนยันว่าได้รับแล้ว"
-                        TextColor="{StaticResource Ink}" />
+                    <VerticalStackLayout Spacing="6">
+                        <Label
+                            FontAttributes="Bold"
+                            Text="ส่งมอบไอดีเกมหลังยืนยันยอดชำระ"
+                            TextColor="#5144BF" />
+                        <Label
+                            Style="{StaticResource RefinedBodyText}"
+                            Text="ตรวจการเข้าถึงให้ครบก่อนยืนยันรับ ห้ามกรอกชื่อผู้ใช้ รหัสผ่าน รหัสกู้คืน คีย์ส่วนตัว หรือข้อมูลลับใน TOKLONG"
+                            TextColor="{StaticResource Ink}" />
+                    </VerticalStackLayout>
                 </Border>
 
                 <Border
@@ -498,7 +541,7 @@
                     AutomationId="ContinueFromFulfillmentButton"
                     Style="{StaticResource RefinedPrimaryButton}"
                     Command="{Binding ContinueFromFulfillmentCommand}"
-                    Text="ถัดไป: ตรวจข้อมูล  →">
+                    Text="ถัดไป: ตรวจและส่ง  →">
                     <Button.Triggers>
                         <DataTrigger
                             TargetType="Button"
@@ -512,7 +555,7 @@
                 <Button
                     Style="{StaticResource RefinedInlineButton}"
                     Command="{Binding PreviousStepCommand}"
-                    Text="ย้อนกลับ: ข้อมูลดีล" />
+                    Text="ย้อนกลับ: รายละเอียดที่ตกลงกัน" />
             </VerticalStackLayout>
         </ScrollView>
 
@@ -530,11 +573,11 @@
                     <Label
                         FontAttributes="Bold"
                         FontSize="24"
-                        Text="ตรวจและส่ง"
+                        Text="ตรวจและส่งให้ผู้ขาย"
                         TextColor="{StaticResource Ink}" />
                     <Label
                         Style="{StaticResource RefinedHelperText}"
-                        Text="ตรวจรายละเอียดก่อนส่งให้ผู้ขายตอบรับ" />
+                        Text="ตรวจร่างให้ตรงกับสิ่งที่คุยกันก่อนส่งให้ผู้ขาย" />
                 </VerticalStackLayout>
 
                 <Border
@@ -596,95 +639,6 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <VerticalStackLayout Spacing="{StaticResource SpacingSm}">
-                    <controls:FormLabelView
-                        IsRequired="True"
-                        Text="สภาพสินค้า" />
-                    <Grid
-                        x:Name="ConditionPickerAnchor"
-                        ColumnDefinitions="*,*"
-                        RowDefinitions="Auto,Auto"
-                        ColumnSpacing="{StaticResource SpacingSm}"
-                        RowSpacing="{StaticResource SpacingSm}">
-                        <Button
-                            x:Name="NewConditionButton"
-                            Style="{StaticResource RefinedSegmentButton}"
-                            Command="{Binding SelectNewConditionCommand}"
-                            FontSize="12"
-                            Text="ใหม่">
-                            <Button.Triggers>
-                                <DataTrigger
-                                    TargetType="Button"
-                                    Binding="{Binding IsNewCondition}"
-                                    Value="True">
-                                    <Setter Property="BackgroundColor" Value="#EAF4FF" />
-                                    <Setter Property="TextColor" Value="#145FC7" />
-                                    <Setter Property="BorderColor" Value="#9CC9FF" />
-                                </DataTrigger>
-                            </Button.Triggers>
-                        </Button>
-                        <Button
-                            Grid.Column="1"
-                            Style="{StaticResource RefinedSegmentButton}"
-                            Command="{Binding SelectUsedGoodConditionCommand}"
-                            FontSize="12"
-                            Text="มือสอง สภาพดี">
-                            <Button.Triggers>
-                                <DataTrigger
-                                    TargetType="Button"
-                                    Binding="{Binding IsUsedGoodCondition}"
-                                    Value="True">
-                                    <Setter Property="BackgroundColor" Value="#EAF4FF" />
-                                    <Setter Property="TextColor" Value="#145FC7" />
-                                    <Setter Property="BorderColor" Value="#9CC9FF" />
-                                </DataTrigger>
-                            </Button.Triggers>
-                        </Button>
-                        <Button
-                            Grid.Row="1"
-                            Grid.ColumnSpan="2"
-                            Style="{StaticResource RefinedSegmentButton}"
-                            Command="{Binding SelectUsedDefectConditionCommand}"
-                            FontSize="12"
-                            Text="มีตำหนิ">
-                            <Button.Triggers>
-                                <DataTrigger
-                                    TargetType="Button"
-                                    Binding="{Binding IsUsedDefectCondition}"
-                                    Value="True">
-                                    <Setter Property="BackgroundColor" Value="#FFF1E8" />
-                                    <Setter Property="TextColor" Value="#A94E16" />
-                                    <Setter Property="BorderColor" Value="#F3C6A8" />
-                                </DataTrigger>
-                            </Button.Triggers>
-                        </Button>
-                    </Grid>
-                    <Label
-                        IsVisible="{Binding HasConditionError}"
-                        Style="{StaticResource RefinedValidationText}"
-                        Text="{Binding ConditionError}" />
-                    <VerticalStackLayout
-                        IsVisible="{Binding HasDefectCondition}"
-                        Spacing="{StaticResource SpacingSm}">
-                        <controls:FormLabelView
-                            IsRequired="True"
-                            Text="ระบุตำหนิที่ผู้ขายควรรู้" />
-                        <Border Style="{StaticResource RefinedEditorBorder}">
-                            <Editor
-                                x:Name="KnownDefectsEditor"
-                                Style="{StaticResource RefinedEditor}"
-                                AutoSize="TextChanges"
-                                MaxLength="1000"
-                                Placeholder="เช่น มีรอยมุมขวาตามรูป แต่ใช้งานปกติ"
-                                Text="{Binding KnownDefects}" />
-                        </Border>
-                        <Label
-                            IsVisible="{Binding HasKnownDefectsError}"
-                            Style="{StaticResource RefinedValidationText}"
-                            Text="{Binding KnownDefectsError}" />
-                    </VerticalStackLayout>
-                </VerticalStackLayout>
-
                 <Border
                     IsVisible="{Binding HasMessage}"
                     Style="{StaticResource RefinedValidationBorder}">
@@ -713,7 +667,7 @@
                 <Button
                     Style="{StaticResource RefinedInlineButton}"
                     Command="{Binding PreviousStepCommand}"
-                    Text="ย้อนกลับ: การรับสินค้า" />
+                    Text="{Binding PreviousFromReviewLabel}" />
             </VerticalStackLayout>
         </ScrollView>
 

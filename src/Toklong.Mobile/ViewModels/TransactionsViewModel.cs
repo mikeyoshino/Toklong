@@ -69,7 +69,7 @@ public sealed class TransactionsViewModel : ObservableViewModel
         OpenTransactionCommand = new Command<AppTransaction>(
             async item => await OpenTransactionAsync(item));
         CreateOfferCommand = new Command(
-            async () => await Shell.Current.GoToAsync(nameof(CreateOfferPage)));
+            async () => await OpenProductTypeSelectionAsync());
         RefreshCommand = new AsyncCommand(RefreshAsync);
     }
 
@@ -437,6 +437,13 @@ public sealed class TransactionsViewModel : ObservableViewModel
             {
                 ["TransactionId"] = item.Id
             });
+    }
+
+    private async Task OpenProductTypeSelectionAsync()
+    {
+        analytics.Track(CreateOfferAnalytics.TypeSelectionOpened());
+        await Shell.Current.GoToAsync(
+            nameof(ProductTypeSelectionPage));
     }
 
 }

@@ -4,6 +4,12 @@ namespace Toklong.Mobile.Core.Tests;
 
 public sealed class AuthenticatedHomeRoutesTests
 {
+    [Fact]
+    public void Default_opens_buyer_workspace() =>
+        Assert.Equal(
+            AuthenticatedHomeRoutes.Buying,
+            AuthenticatedHomeRoutes.Default);
+
     [Theory]
     [InlineData(TransactionRoleRoute.Buying, "//main/buying")]
     [InlineData(TransactionRoleRoute.Selling, "//main/selling")]

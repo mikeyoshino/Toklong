@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Toklong.Mobile.Pages.ProductTypeSelectionPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="เลือกประเภทสินค้า"
+    SafeAreaEdges="Container"
+    Shell.NavBarIsVisible="False"
+    Shell.TabBarIsVisible="False">
+    <ContentPage.Background>
+        <RadialGradientBrush Center="0.86,0.02" Radius="0.94">
+            <GradientStop Color="#DCEFFF" Offset="0" />
+            <GradientStop Color="#F6FAFF" Offset="0.34" />
+            <GradientStop Color="#F7FAFF" Offset="0.82" />
+        </RadialGradientBrush>
+    </ContentPage.Background>
+
+    <Grid RowDefinitions="Auto,*">
+        <Border
+            Grid.Row="0"
+            AutomationId="ProductTypeSelectionHeader"
+            Padding="20,10,20,6"
+            BackgroundColor="Transparent"
+            StrokeThickness="0">
+            <Button
+                AutomationId="ProductTypeSelectionBackButton"
+                HorizontalOptions="Start"
+                Style="{StaticResource RefinedBackButton}"
+                Clicked="OnBackClicked"
+                ImageSource="ui_back.png"
+                SemanticProperties.Description="กลับไปหน้ารายการซื้อ"
+                SemanticProperties.Hint="แตะสองครั้งเพื่อย้อนกลับ" />
+        </Border>
+
+        <ScrollView Grid.Row="1">
+            <Grid
+                MaximumWidthRequest="520"
+                Padding="20,18,20,32"
+                ColumnDefinitions="*,*"
+                RowDefinitions="Auto"
+                ColumnSpacing="12"
+                HorizontalOptions="Fill"
+                VerticalOptions="Start"
+                SemanticProperties.Description="เลือกประเภทสินค้าสำหรับสร้างดีลซื้อ">
+                <Border
+                    AutomationId="PhysicalProductTypeCard"
+                    MinimumHeightRequest="274"
+                    MaximumHeightRequest="300"
+                    Padding="12,22"
+                    VerticalOptions="Start"
+                    BackgroundColor="#F7FFFFFF"
+                    Stroke="{StaticResource Line}"
+                    StrokeShape="RoundRectangle 20">
+                    <Border.Shadow>
+                        <Shadow
+                            Brush="#145FC7"
+                            Offset="0,7"
+                            Opacity="0.07"
+                            Radius="18" />
+                    </Border.Shadow>
+                    <Grid>
+                        <VerticalStackLayout
+                            VerticalOptions="Center"
+                            HorizontalOptions="Center"
+                            Spacing="12">
+                            <Image
+                                WidthRequest="112"
+                                HeightRequest="112"
+                                Source="product_physical.png" />
+                            <Label
+                                HorizontalTextAlignment="Center"
+                                FontAttributes="Bold"
+                                FontSize="17"
+                                Text="สินค้าที่จัดส่ง" />
+                            <Label
+                                HorizontalTextAlignment="Center"
+                                FontSize="12"
+                                LineHeight="1.35"
+                                Text="สินค้าที่ส่งผ่านบริษัทขนส่ง"
+                                TextColor="{StaticResource Muted}" />
+                        </VerticalStackLayout>
+                        <Border
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            HorizontalOptions="End"
+                            VerticalOptions="Start"
+                            BackgroundColor="{StaticResource SurfaceBlue}"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 12">
+                            <Label
+                                HorizontalTextAlignment="Center"
+                                VerticalTextAlignment="Center"
+                                FontAttributes="Bold"
+                                FontSize="24"
+                                Text="›"
+                                TextColor="{StaticResource BrandBlue}" />
+                        </Border>
+                        <Button
+                            AutomationId="SelectPhysicalProductTypeButton"
+                            MinimumHeightRequest="{StaticResource CompactControlMinimumHeight}"
+                            HorizontalOptions="Fill"
+                            VerticalOptions="Fill"
+                            Padding="0"
+                            BackgroundColor="Transparent"
+                            BorderWidth="0"
+                            Clicked="OnPhysicalClicked"
+                            SemanticProperties.Description="สินค้าที่จัดส่ง"
+                            SemanticProperties.Hint="แตะสองครั้งเพื่อกรอกรายละเอียดดีล"
+                            Text="" />
+                    </Grid>
+                </Border>
+
+                <Border
+                    Grid.Column="1"
+                    AutomationId="GameAccountProductTypeCard"
+                    MinimumHeightRequest="274"
+                    MaximumHeightRequest="300"
+                    Padding="12,22"
+                    VerticalOptions="Start"
+                    BackgroundColor="#F7FFFFFF"
+                    Stroke="{StaticResource Line}"
+                    StrokeShape="RoundRectangle 20">
+                    <Border.Shadow>
+                        <Shadow
+                            Brush="#5144BF"
+                            Offset="0,7"
+                            Opacity="0.07"
+                            Radius="18" />
+                    </Border.Shadow>
+                    <Grid>
+                        <VerticalStackLayout
+                            VerticalOptions="Center"
+                            HorizontalOptions="Center"
+                            Spacing="12">
+                            <Image
+                                WidthRequest="112"
+                                HeightRequest="112"
+                                Source="product_digital.png" />
+                            <Label
+                                HorizontalTextAlignment="Center"
+                                FontAttributes="Bold"
+                                FontSize="17"
+                                Text="ไอดีเกม" />
+                            <Label
+                                HorizontalTextAlignment="Center"
+                                FontSize="12"
+                                LineHeight="1.35"
+                                Text="บัญชีเกมที่ TOKLONG รองรับและโอนได้"
+                                TextColor="{StaticResource Muted}" />
+                        </VerticalStackLayout>
+                        <Border
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            HorizontalOptions="End"
+                            VerticalOptions="Start"
+                            BackgroundColor="#F3F1FF"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 12">
+                            <Label
+                                HorizontalTextAlignment="Center"
+                                VerticalTextAlignment="Center"
+                                FontAttributes="Bold"
+                                FontSize="24"
+                                Text="›"
+                                TextColor="#5144BF" />
+                        </Border>
+                        <Button
+                            AutomationId="SelectGameAccountProductTypeButton"
+                            MinimumHeightRequest="{StaticResource CompactControlMinimumHeight}"
+                            HorizontalOptions="Fill"
+                            VerticalOptions="Fill"
+                            Padding="0"
+                            BackgroundColor="Transparent"
+                            BorderWidth="0"
+                            Clicked="OnGameAccountClicked"
+                            SemanticProperties.Description="ไอดีเกม"
+                            SemanticProperties.Hint="แตะสองครั้งเพื่อกรอกรายละเอียดดีล"
+                            Text="" />
+                    </Grid>
+                </Border>
+            </Grid>
+        </ScrollView>
+    </Grid>
+</ContentPage>

@@ -534,7 +534,7 @@ public sealed class UiLayoutConsistencyTests
         Assert.Contains("ต้องส่ง", visibleLabels);
         Assert.Contains("กำลังดำเนินการ", visibleLabels);
         Assert.Contains(
-            "{Binding SpotlightTransaction.RoleLabel}",
+            "{Binding SpotlightTransaction.RoleAndProductTypeLabel}",
             visibleLabels);
         Assert.Contains(
             "{Binding SpotlightTransaction.StatusLabel}",
@@ -788,10 +788,10 @@ public sealed class UiLayoutConsistencyTests
                     "CreateOfferReviewStep")
             .ToArray();
 
-        Assert.Contains("สร้างข้อเสนอ", labels);
-        Assert.Contains("ข้อมูลดีล", labels);
-        Assert.Contains("การรับสินค้า", labels);
-        Assert.Contains("ตรวจและส่ง", labels);
+        Assert.Contains("สร้างดีลซื้อ", labels);
+        Assert.Contains("รายละเอียดที่ตกลงกัน", labels);
+        Assert.Contains("{Binding FulfillmentStepTitle}", labels);
+        Assert.Contains("ตรวจและส่งให้ผู้ขาย", labels);
         Assert.Contains("{Binding ProgressText}", labels);
         Assert.Equal(3, progress.Elements(Maui + "BoxView").Count());
         Assert.Equal(3, steps.Length);
@@ -820,11 +820,11 @@ public sealed class UiLayoutConsistencyTests
             (
                 Step: "CreateOfferDealStep",
                 Command: "{Binding ContinueFromDealCommand}",
-                Text: "ถัดไป: การรับสินค้า  →"),
+                Text: "{Binding ContinueFromDealLabel}"),
             (
                 Step: "CreateOfferFulfillmentStep",
                 Command: "{Binding ContinueFromFulfillmentCommand}",
-                Text: "ถัดไป: ตรวจข้อมูล  →"),
+                Text: "ถัดไป: ตรวจและส่ง  →"),
             (
                 Step: "CreateOfferReviewStep",
                 Command: "{Binding SubmitCommand}",
@@ -846,6 +846,117 @@ public sealed class UiLayoutConsistencyTests
 
             Assert.Equal(item.Text, AttributeValue(primary, "Text"));
         }
+    }
+
+    [Fact]
+    public void ProductTypeSelection_UsesIconOnlyHeaderAndTwoLargeChoices()
+    {
+        var resources = Load("Ui", "App.xaml");
+        var page = Load(
+            "Ui",
+            "Pages",
+            "ProductTypeSelectionPage.xaml");
+        var header = page.Descendants(Maui + "Border")
+            .Single(element =>
+                AttributeValue(element, "AutomationId") ==
+                    "ProductTypeSelectionHeader");
+        var backButton = header.Descendants(Maui + "Button").Single();
+        var choiceGrid = page.Descendants(Maui + "Grid")
+            .Single(grid =>
+                AttributeValue(
+                    grid,
+                    "SemanticProperties.Description") ==
+                    "เลือกประเภทสินค้าสำหรับสร้างดีลซื้อ");
+        var labels = page.Descendants(Maui + "Label")
+            .Select(label => AttributeValue(label, "Text"))
+            .ToArray();
+        var images = page.Descendants(Maui + "Image")
+            .Select(image => AttributeValue(image, "Source"))
+            .ToArray();
+        var choiceButtons = page.Descendants(Maui + "Button")
+            .Where(button =>
+                AttributeValue(button, "AutomationId") is
+                    "SelectPhysicalProductTypeButton" or
+                    "SelectGameAccountProductTypeButton")
+            .ToArray();
+        var choiceCards = page.Descendants(Maui + "Border")
+            .Where(border =>
+                AttributeValue(border, "AutomationId") is
+                    "PhysicalProductTypeCard" or
+                    "GameAccountProductTypeCard")
+            .ToArray();
+
+        Assert.Single(header.Descendants(Maui + "Button"));
+        Assert.Empty(header.Descendants(Maui + "Label"));
+        Assert.Equal(
+            "Transparent",
+            AttributeValue(header, "BackgroundColor"));
+        Assert.Equal(
+            "{StaticResource RefinedBackButton}",
+            AttributeValue(backButton, "Style"));
+        Assert.Equal(
+            "ui_back.png",
+            AttributeValue(backButton, "ImageSource"));
+        Assert.Null(AttributeValue(backButton, "Text"));
+        Assert.Equal(
+            "44",
+            StyleSetterValue(resources, "RefinedBackButton", "WidthRequest"));
+        Assert.Equal(
+            "44",
+            StyleSetterValue(resources, "RefinedBackButton", "HeightRequest"));
+        Assert.Equal(
+            "22",
+            StyleSetterValue(resources, "RefinedBackButton", "CornerRadius"));
+        Assert.Equal(
+            "{StaticResource SurfaceBlue}",
+            StyleSetterValue(resources, "RefinedBackButton", "BackgroundColor"));
+        Assert.Equal("Auto", AttributeValue(choiceGrid, "RowDefinitions"));
+        Assert.Equal("Start", AttributeValue(choiceGrid, "VerticalOptions"));
+        Assert.Contains("สินค้าที่จัดส่ง", labels);
+        Assert.Contains("ไอดีเกม", labels);
+        Assert.Contains("product_physical.png", images);
+        Assert.Contains("product_digital.png", images);
+        Assert.Equal(2, choiceButtons.Length);
+        Assert.Equal(2, choiceCards.Length);
+        Assert.All(
+            choiceCards,
+            card =>
+            {
+                Assert.Equal(
+                    "274",
+                    AttributeValue(card, "MinimumHeightRequest"));
+                Assert.Equal(
+                    "300",
+                    AttributeValue(card, "MaximumHeightRequest"));
+                Assert.Equal(
+                    "Start",
+                    AttributeValue(card, "VerticalOptions"));
+            });
+        Assert.All(
+            choiceButtons,
+            button => Assert.Equal(
+                "{StaticResource CompactControlMinimumHeight}",
+                AttributeValue(button, "MinimumHeightRequest")));
+    }
+
+    [Fact]
+    public void CreateOffer_ShowsSelectedTypeWithoutASecondTypeSwitch()
+    {
+        var create = Load("Ui", "Pages", "CreateOfferPage.xaml");
+
+        Assert.Contains(
+            create.Descendants(Maui + "Border"),
+            border => AttributeValue(border, "AutomationId") ==
+                "SelectedProductTypeContext");
+        Assert.DoesNotContain(
+            create.Descendants(),
+            element => AttributeValue(element, "AutomationId") ==
+                "FulfillmentTypeSection");
+        Assert.DoesNotContain(
+            create.Descendants(Maui + "Button"),
+            button => AttributeValue(button, "Command") is
+                "{Binding SelectPhysicalCommand}" or
+                "{Binding SelectDigitalCommand}");
     }
 
     [Fact]
@@ -923,25 +1034,64 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
-    public void CreateOffer_ConditionChoicesExposeTheirSelectedState()
+    public void CreateOffer_ConditionUsesDropdownOnFirstStep()
     {
         var create = Load("Ui", "Pages", "CreateOfferPage.xaml");
+        var deal = create
+            .Descendants(Maui + "ScrollView")
+            .Single(element =>
+                AttributeValue(element, "AutomationId") ==
+                    "CreateOfferDealStep");
         var review = create
             .Descendants(Maui + "ScrollView")
             .Single(element =>
                 AttributeValue(element, "AutomationId") ==
                     "CreateOfferReviewStep");
-        var selectedBindings = review
-            .Descendants(Maui + "Button")
-            .SelectMany(button =>
-                button.Descendants(Maui + "DataTrigger"))
-            .Select(trigger =>
-                AttributeValue(trigger, "Binding"))
+        var conditionPicker = deal
+            .Descendants(Maui + "Picker")
+            .Single(picker =>
+                AttributeValue(picker, "Name") ==
+                    "ConditionPickerAnchor");
+        var formSections = deal
+            .Descendants(Maui + "VerticalStackLayout")
+            .Select(section => AttributeValue(section, "AutomationId"))
+            .Where(id => id is not null)
             .ToArray();
+        var productNameIndex = Array.IndexOf(
+            formSections,
+            "ProductNameSection");
+        var itemPriceIndex = Array.IndexOf(
+            formSections,
+            "ItemPriceSection");
+        var conditionIndex = Array.IndexOf(
+            formSections,
+            "ProductConditionSection");
 
-        Assert.Contains("{Binding IsNewCondition}", selectedBindings);
-        Assert.Contains("{Binding IsUsedGoodCondition}", selectedBindings);
-        Assert.Contains("{Binding IsUsedDefectCondition}", selectedBindings);
+        Assert.Equal(
+            "{Binding ConditionOptions}",
+            AttributeValue(conditionPicker, "ItemsSource"));
+        Assert.Equal(
+            "{Binding SelectedConditionIndex}",
+            AttributeValue(conditionPicker, "SelectedIndex"));
+        Assert.Equal(
+            "{StaticResource RefinedPicker}",
+            AttributeValue(conditionPicker, "Style"));
+        Assert.Equal(
+            "เลือกสภาพสินค้า",
+            AttributeValue(conditionPicker, "Title"));
+        Assert.True(productNameIndex < itemPriceIndex);
+        Assert.True(itemPriceIndex < conditionIndex);
+        Assert.Contains(
+            deal.Descendants(Maui + "Editor"),
+            editor =>
+                AttributeValue(editor, "Name") ==
+                    "KnownDefectsEditor");
+        Assert.DoesNotContain(
+            review.Descendants(),
+            element =>
+                AttributeValue(element, "Name") is
+                    "ConditionPickerAnchor" or
+                    "KnownDefectsEditor");
     }
 
     [Fact]
@@ -951,26 +1101,17 @@ public sealed class UiLayoutConsistencyTests
         var labels = create.Descendants(Maui + "Label")
             .Select(label => AttributeValue(label, "Text"))
             .ToArray();
-        var conditionGrid = create.Descendants(Maui + "Grid")
-            .Single(grid =>
-                AttributeValue(grid, "Name") == "ConditionPickerAnchor");
-        var defectButton = conditionGrid.Descendants(Maui + "Button")
-            .Single(button => AttributeValue(button, "Text") == "มีตำหนิ");
         var optionalDisclosure = create.Descendants(Maui + "Border")
             .Single(border =>
                 AttributeValue(border, "AutomationId") ==
                     "OptionalDealDetailsDisclosure");
 
         Assert.Contains(
-            "ข้อเสนอส่วนตัวสำหรับผู้ขายที่คุณตกลงกันไว้แล้ว ไม่ใช่ประกาศขายสาธารณะ",
+            "กรอกเป็นร่างจากสิ่งที่คุยกัน ผู้ขายต้องตรวจและยืนยันก่อนคุณจึงชำระได้",
             labels);
         Assert.Contains(
             "ใส่เฉพาะราคาสินค้า หากต้องจัดส่ง ผู้ขายจะเลือกค่าจัดส่งภายหลัง ไม่ต้องรวมในราคานี้",
             labels);
-        Assert.Equal("*,*", AttributeValue(conditionGrid, "ColumnDefinitions"));
-        Assert.Equal("Auto,Auto", AttributeValue(conditionGrid, "RowDefinitions"));
-        Assert.Equal("1", AttributeValue(defectButton, "Grid.Row"));
-        Assert.Equal("2", AttributeValue(defectButton, "Grid.ColumnSpan"));
         Assert.Empty(
             optionalDisclosure.Descendants(Maui + "TapGestureRecognizer"));
         Assert.Contains(

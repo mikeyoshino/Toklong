@@ -132,7 +132,7 @@ role colors, and current consumer copy from those XAML screens.
 
 Show:
 
-- Shell title and heading `สร้างข้อเสนอ`.
+- Shell title and heading `สร้างดีลซื้อ`.
 - Show the current step name and `ขั้นที่ N จาก 3` with a three-segment
   progress indicator.
 - Start directly with that heading without the redundant
@@ -143,21 +143,23 @@ Show:
   the buyer reviews again before payment or that fulfillment is due in three
   days; those rules remain visible in the review and transaction states where
   they are actionable.
-- Step `ข้อมูลดีล` contains seller phone, product name, item price, optional
-  product photo, optional details, and the optional AI helper. Label the photo
-  `รูปสินค้า (ไม่บังคับ)`.
-- Step `การรับสินค้า` contains the physical/digital selection and the
-  applicable delivery address. Physical remains the default.
+- Before `รายละเอียดที่ตกลงกัน`, show the icon-first `สินค้าที่จัดส่ง` and `ไอดีเกม`
+  navigation cards with an icon-only Back header.
+- Step `รายละเอียดที่ตกลงกัน` contains the selected-type context, seller phone,
+  type-aware product/game name, item price, a `สภาพสินค้า` dropdown, conditional
+  defect text, optional product photo, optional details, and the optional AI
+  helper. Label the photo `รูปสินค้า (ไม่บังคับ)`.
+- Step 2 contains only the applicable fulfillment inputs for the type already
+  chosen; do not render a second physical/digital selector inside the wizard.
 - Under the physical item-price field, say that shipping will be calculated
   from the seller's origin and parcel size before the buyer pays. Do not ask the
   buyer to guess or include shipping in the item price.
 - Keep description and included items behind one optional-details disclosure.
   AI remains independent from this disclosure and is never required to finish
   the ordinary form.
-- Step `ตรวจและส่ง` is a full page, not a sheet or contract-signing step. It
-  shows the entered summary and server-priced cost preview, asks for condition
-  with three compact choices, reveals a defect description only when
-  `มีตำหนิ` is selected, and contains the only create action
+- Step `ตรวจและส่งให้ผู้ขาย` is a full page, not a sheet or contract-signing
+  step. It shows the entered summary and server-priced cost preview and
+  contains the only create action
   `ส่งข้อเสนอให้ผู้ขาย`.
 - When no optional description is supplied, the transaction record uses the
   product name as its explicit description. `ใหม่` and `มือสอง สภาพดี` record
@@ -456,19 +458,31 @@ The native bottom bar contains `ซื้อ`, `ขาย`, and `บัญชี
 with Back navigation. The transaction roots do not render another `ซื้อ | ขาย`
 switch.
 
-First authenticated use opens `ซื้อ`. Later ordinary launches restore the last
-explicitly selected Buy/Sell root. `บัญชี` does not replace that preference,
-explicit logout clears it, and deep links take precedence without overwriting it.
+Every ordinary authenticated start opens `ซื้อ`; the user does not pass through
+an authenticated Buy/Sell chooser and does not resume on `ขาย`. `ขาย` remains
+one tap away in the native bottom bar. Authorized deep links still take
+precedence and open the exact transaction without changing this default.
 
 ### Three-step buyer offer creation
 
-1. `ข้อมูลดีล`: required intended-seller Thai phone, product name, agreed item
-   price, and optional AI/photo/details.
-2. `การรับสินค้า`: physical/digital choice and the applicable delivery
-   address. Physical is the default. A saved address is compact with one
-   `เปลี่ยน` action; Digital hides address and shipping content.
-3. `ตรวจและส่ง`: masked seller phone, offer summary, condition, conditional
-   defect text, server cost preview, and the only create action
+Before the wizard, an icon-first page with only a Back action asks the buyer to
+choose `สินค้าที่จัดส่ง` or `ไอดีเกม`. Each choice is one large navigation card,
+not a checkbox or selected-state tile. The selected type is fixed for that
+wizard instance; Back returns to the type page when it must be changed.
+The icon-only header is transparent over the page background, uses the shared
+44-point circular Back control with a fixed-size vector icon, and does not add a
+white header band. The two choice cards size to their content and must not
+stretch to fill the remaining screen height.
+
+1. `รายละเอียดที่ตกลงกัน`: required intended-seller Thai phone, product name,
+   agreed item price, a compact selected-type context, a condition dropdown,
+   conditional defect text, and optional AI/photo/details.
+2. `ข้อมูลการจัดส่ง` or `ข้อมูลส่งมอบไอดีเกม`: the existing applicable
+   fulfillment inputs. A saved physical address is compact with one `เปลี่ยน`
+   action; a game-account flow hides address and shipping content and warns the
+   buyer not to enter reusable credentials or other secrets.
+3. `ตรวจและส่งให้ผู้ขาย`: masked seller phone, offer summary, server cost
+   preview, and the only create action
    `ส่งข้อเสนอให้ผู้ขาย`.
 
 The three steps live in one `CreateOfferViewModel`. Current-step validation is

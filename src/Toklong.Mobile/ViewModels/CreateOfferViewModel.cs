@@ -113,9 +113,6 @@ public sealed class CreateOfferViewModel(
             if (SetProperty(ref selectedConditionIndex, value))
             {
                 OnPropertyChanged(nameof(HasDefectCondition));
-                OnPropertyChanged(nameof(IsNewCondition));
-                OnPropertyChanged(nameof(IsUsedGoodCondition));
-                OnPropertyChanged(nameof(IsUsedDefectCondition));
                 OnPropertyChanged(nameof(ReviewSummary));
                 ConditionError = "";
                 if (!HasDefectCondition)
@@ -214,9 +211,9 @@ public sealed class CreateOfferViewModel(
     public bool IsWizardDirty => wizard.IsDirty;
     public string ProgressText => CurrentStep switch
     {
-        CreateOfferStep.Deal => "ขั้นที่ 1 จาก 3",
-        CreateOfferStep.Fulfillment => "ขั้นที่ 2 จาก 3",
-        _ => "ขั้นที่ 3 จาก 3"
+        CreateOfferStep.Deal => "รายละเอียดที่ตกลงกัน · ขั้นที่ 1 จาก 3",
+        CreateOfferStep.Fulfillment => $"{FulfillmentStepTitle} · ขั้นที่ 2 จาก 3",
+        _ => "ตรวจและส่งให้ผู้ขาย · ขั้นที่ 3 จาก 3"
     };
 
     public string SellerPhoneError
@@ -306,11 +303,29 @@ public sealed class CreateOfferViewModel(
     public bool IsPhysical => fulfillmentType == AppFulfillmentType.Physical;
     public bool IsDigital => fulfillmentType == AppFulfillmentType.Digital;
     public string FulfillmentTypeLabel =>
-        IsPhysical ? "สินค้าที่จับต้องได้" : "สินค้าดิจิทัล";
-    public string FulfillmentToggleLabel =>
+        IsPhysical ? "สินค้าที่จัดส่ง" : "ไอดีเกม";
+    public string FulfillmentTypeIcon =>
+        IsPhysical ? "product_physical.png" : "product_digital.png";
+    public string ProductNameLabel =>
+        IsPhysical ? "ชื่อสินค้า" : "ชื่อเกม";
+    public string ProductNamePlaceholder =>
         IsPhysical
-            ? "เปลี่ยนเป็นสินค้าดิจิทัล"
-            : "เปลี่ยนเป็นสินค้าที่จับต้องได้";
+            ? "เช่น กล้อง Fujifilm X-T30 II"
+            : "กรอกชื่อเกมที่ตกลงกัน";
+    public string FulfillmentStepTitle =>
+        IsPhysical ? "ข้อมูลการจัดส่ง" : "ข้อมูลส่งมอบไอดีเกม";
+    public string FulfillmentStepDescription =>
+        IsPhysical
+            ? "ระบุที่อยู่สำหรับรายการนี้ตามขั้นตอนเดิม"
+            : "ตรวจเงื่อนไขการส่งมอบโดยไม่กรอกข้อมูลลับ";
+    public string ContinueFromDealLabel =>
+        IsPhysical
+            ? "ถัดไป: ข้อมูลการจัดส่ง  →"
+            : "ถัดไป: ข้อมูลส่งมอบ  →";
+    public string PreviousFromReviewLabel =>
+        IsPhysical
+            ? "ย้อนกลับ: ข้อมูลการจัดส่ง"
+            : "ย้อนกลับ: ข้อมูลส่งมอบ";
 
     public bool HasSavedAddress
     {
@@ -579,12 +594,6 @@ public sealed class CreateOfferViewModel(
 
     public bool HasDefectCondition =>
         SelectedConditionIndex == 2;
-    public bool IsNewCondition =>
-        SelectedConditionIndex == 0;
-    public bool IsUsedGoodCondition =>
-        SelectedConditionIndex == 1;
-    public bool IsUsedDefectCondition =>
-        SelectedConditionIndex == 2;
 
     public string ReviewSummary
     {
@@ -645,17 +654,6 @@ public sealed class CreateOfferViewModel(
         private set => SetProperty(ref isBusy, value);
     }
 
-    public ICommand SelectPhysicalCommand =>
-        new Command(() => SelectFulfillment(AppFulfillmentType.Physical));
-
-    public ICommand SelectDigitalCommand =>
-        new Command(() => SelectFulfillment(AppFulfillmentType.Digital));
-
-    public ICommand ToggleFulfillmentCommand =>
-        new Command(() => SelectFulfillment(
-            IsPhysical
-                ? AppFulfillmentType.Digital
-                : AppFulfillmentType.Physical));
     public ICommand ToggleOptionalDetailsCommand =>
         new Command(() =>
             ShowOptionalDetails = !ShowOptionalDetails);
@@ -671,12 +669,6 @@ public sealed class CreateOfferViewModel(
         new Command(MoveToPreviousStep);
     public ICommand RetryAddressCommand =>
         new AsyncCommand(LoadAsync);
-    public ICommand SelectNewConditionCommand =>
-        new Command(() => SelectedConditionIndex = 0);
-    public ICommand SelectUsedGoodConditionCommand =>
-        new Command(() => SelectedConditionIndex = 1);
-    public ICommand SelectUsedDefectConditionCommand =>
-        new Command(() => SelectedConditionIndex = 2);
     public ICommand SubmitCommand => new AsyncCommand(SubmitAsync);
 
     public ICommand PickPhotoCommand => new AsyncCommand(PickPhotoAsync);
@@ -700,6 +692,12 @@ public sealed class CreateOfferViewModel(
         AddressLoadError = "";
         try
         {
+            if (IsDigital)
+            {
+                addressDataLoaded = true;
+                return;
+            }
+
             var profile =
                 await authentication.GetProfileAsync();
             SavedAddress =
@@ -727,6 +725,26 @@ public sealed class CreateOfferViewModel(
         }
     }
 
+    public void InitializeFulfillmentType(AppFulfillmentType value)
+    {
+        if (value is not (
+                AppFulfillmentType.Physical or
+                AppFulfillmentType.Digital))
+            throw new ArgumentOutOfRangeException(nameof(value));
+        if (wizard.IsDirty)
+            return;
+
+        isInitializing = true;
+        try
+        {
+            SelectFulfillment(value);
+        }
+        finally
+        {
+            isInitializing = false;
+        }
+    }
+
     private void SelectFulfillment(AppFulfillmentType value)
     {
         if (fulfillmentType == value)
@@ -739,7 +757,13 @@ public sealed class CreateOfferViewModel(
         OnPropertyChanged(nameof(IsPhysical));
         OnPropertyChanged(nameof(IsDigital));
         OnPropertyChanged(nameof(FulfillmentTypeLabel));
-        OnPropertyChanged(nameof(FulfillmentToggleLabel));
+        OnPropertyChanged(nameof(FulfillmentTypeIcon));
+        OnPropertyChanged(nameof(ProductNameLabel));
+        OnPropertyChanged(nameof(ProductNamePlaceholder));
+        OnPropertyChanged(nameof(FulfillmentStepTitle));
+        OnPropertyChanged(nameof(FulfillmentStepDescription));
+        OnPropertyChanged(nameof(ContinueFromDealLabel));
+        OnPropertyChanged(nameof(PreviousFromReviewLabel));
         OnPropertyChanged(nameof(ShowAddressEditor));
         OnPropertyChanged(nameof(ShowSavedAddressSummary));
         OnPropertyChanged(nameof(ReviewSummary));
@@ -765,7 +789,8 @@ public sealed class CreateOfferViewModel(
     private void ContinueFromDeal()
     {
         Message = "";
-        if (!ValidateDealStep(out _, out _))
+        if (!ValidateDealStep(out _, out _) ||
+            !ValidateReviewStep())
             return;
 
         if (wizard.MoveNext())

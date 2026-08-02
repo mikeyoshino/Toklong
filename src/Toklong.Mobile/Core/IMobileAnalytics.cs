@@ -9,6 +9,33 @@ public interface IMobileAnalytics
     void Track(MobileAnalyticsEvent value);
 }
 
+public static class CreateOfferAnalytics
+{
+    public static MobileAnalyticsEvent TypeSelectionOpened() =>
+        Event("buyer_offer_type_selection_opened");
+
+    public static MobileAnalyticsEvent TypeSelected(
+        AppFulfillmentType type) =>
+        Event(
+            "buyer_offer_type_selected",
+            ("type", type switch
+            {
+                AppFulfillmentType.Physical => "physical",
+                AppFulfillmentType.Digital => "game_account",
+                _ => throw new ArgumentOutOfRangeException(nameof(type))
+            }));
+
+    private static MobileAnalyticsEvent Event(
+        string name,
+        params (string Key, string Value)[] properties) =>
+        new(
+            name,
+            properties.ToDictionary(
+                property => property.Key,
+                property => property.Value,
+                StringComparer.Ordinal));
+}
+
 public enum AccountEmailChangeFailureReason
 {
     Invalid,

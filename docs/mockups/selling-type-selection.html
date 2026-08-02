@@ -1,0 +1,2581 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#ffffff" />
+  <meta
+    name="description"
+    content="Interactive TOKLONG mobile reference for buyer transaction lists and private deals for shipped goods and game accounts." />
+  <title>TOKLONG — รายการซื้อและสร้างดีล</title>
+  <style>
+    @font-face {
+      font-family: "Noto Sans Thai";
+      src: url("../../src/Toklong.Mobile/Resources/Fonts/NotoSansThai.ttf") format("truetype");
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: "Noto Sans Thai";
+      src: url("../../src/Toklong.Mobile/Resources/Fonts/NotoSansThai-Medium.ttf") format("truetype");
+      font-style: normal;
+      font-weight: 500;
+      font-display: swap;
+    }
+
+    :root {
+      color-scheme: light;
+      --ink: #101828;
+      --ink-soft: #475467;
+      --muted: #667085;
+      --placeholder: #98a2b3;
+      --line: #e4eaf1;
+      --page: #fbfdff;
+      --surface: #ffffff;
+      --brand-blue: #2b7fff;
+      --brand-blue-deep: #145fc7;
+      --surface-blue: #eef7ff;
+      --physical-selected: #eaf4ff;
+      --physical-border: #9cc9ff;
+      --digital: #5144bf;
+      --digital-selected: #edebff;
+      --digital-border: #bdb6ff;
+      --digital-surface: #f3f1ff;
+      --danger: #c52f4d;
+      --success: #087c68;
+      --seller: #3b5266;
+    }
+
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+
+    .sr-only {
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      position: absolute;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    html, body { min-height: 100%; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 50% 8%, #dcefff 0, #f1f7fc 28rem, #e9eef4 50rem);
+      font-family: "Noto Sans Thai", -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    button, input, select, textarea { font: inherit; }
+    button { -webkit-tap-highlight-color: transparent; }
+
+    .reference-stage {
+      min-height: 100svh;
+      padding: 34px 20px;
+      display: grid;
+      place-items: center;
+    }
+
+    .device {
+      width: min(100%, 390px);
+      height: 844px;
+      position: relative;
+      overflow: hidden;
+      border: 8px solid #172631;
+      border-radius: 46px;
+      background: var(--page);
+      box-shadow: 0 32px 80px rgba(35, 62, 91, 0.22);
+    }
+
+    .device::before {
+      width: 122px;
+      height: 29px;
+      position: absolute;
+      z-index: 30;
+      top: 7px;
+      left: 50%;
+      border-radius: 999px;
+      background: #172631;
+      content: "";
+      transform: translateX(-50%);
+    }
+
+    .device::after {
+      width: 132px;
+      height: 5px;
+      position: absolute;
+      z-index: 30;
+      bottom: 8px;
+      left: 50%;
+      border-radius: 999px;
+      background: rgba(16, 24, 40, 0.88);
+      content: "";
+      transform: translateX(-50%);
+    }
+
+    .system-bar {
+      height: 42px;
+      padding: 13px 18px 0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      color: #263744;
+      background: white;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .system-icons {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .signal {
+      width: 14px;
+      height: 9px;
+      display: flex;
+      align-items: end;
+      gap: 1px;
+    }
+
+    .signal i {
+      width: 2px;
+      border-radius: 2px;
+      background: currentColor;
+    }
+
+    .signal i:nth-child(1) { height: 3px; }
+    .signal i:nth-child(2) { height: 5px; }
+    .signal i:nth-child(3) { height: 7px; }
+    .signal i:nth-child(4) { height: 9px; }
+
+    .battery {
+      width: 19px;
+      height: 9px;
+      position: relative;
+      border: 1px solid currentColor;
+      border-radius: 3px;
+    }
+
+    .battery::before {
+      position: absolute;
+      inset: 1px 3px 1px 1px;
+      border-radius: 1px;
+      background: currentColor;
+      content: "";
+    }
+
+    .battery::after {
+      width: 2px;
+      height: 4px;
+      position: absolute;
+      top: 1.5px;
+      right: -3px;
+      border-radius: 0 2px 2px 0;
+      background: currentColor;
+      content: "";
+    }
+
+    .app-viewport {
+      height: 786px;
+      position: relative;
+      overflow: hidden;
+      background: var(--page);
+    }
+
+    .screen {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background: var(--page);
+      animation: screen-in 180ms ease both;
+    }
+
+    .screen[hidden] { display: none; }
+
+    @keyframes screen-in {
+      from { opacity: 0; transform: translateX(7px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .simple-header,
+    .wizard-header {
+      position: relative;
+      z-index: 3;
+      flex: 0 0 auto;
+      border-bottom: 1px solid rgba(228, 234, 241, 0.55);
+      background: white;
+    }
+
+    .simple-header { padding: 12px 20px 18px; }
+    .wizard-header { padding: 12px 20px 18px; }
+
+    .icon-only-header .header-main { grid-template-columns: 48px; }
+
+    .header-main {
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr);
+      gap: 16px;
+      align-items: center;
+    }
+
+    .back-button {
+      width: 48px;
+      height: 48px;
+      padding: 0 0 3px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 14px;
+      color: var(--brand-blue-deep);
+      background: var(--surface-blue);
+      font-size: 30px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .page-title {
+      margin: 0;
+      color: var(--ink);
+      font-size: 26px;
+      font-weight: 700;
+      line-height: 1.25;
+      letter-spacing: -0.02em;
+      white-space: normal;
+    }
+
+    .page-title:focus { outline: none; }
+
+    .progress-label {
+      margin: 1px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .progress-track {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .progress-track span {
+      height: 4px;
+      border-radius: 2px;
+      background: #dce8f5;
+    }
+
+    .progress-track span.active { background: var(--brand-blue); }
+
+    .screen-body {
+      width: 100%;
+      max-width: 720px;
+      min-height: 0;
+      margin-inline: auto;
+      padding: 22px 20px 28px;
+      flex: 1;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-color: #c8d4dc transparent;
+      scrollbar-width: thin;
+    }
+
+    .type-screen-body { padding-top: 28px; }
+
+    .choice-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .choice-card {
+      width: 100%;
+      min-height: 274px;
+      padding: 24px 12px 20px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      color: var(--ink);
+      text-align: center;
+      background: rgba(255, 255, 255, 0.97);
+      box-shadow: 0 5px 18px rgba(15, 23, 42, 0.04);
+      cursor: pointer;
+      transition: transform 160ms ease, border-color 160ms ease,
+        background 160ms ease, box-shadow 160ms ease;
+    }
+
+    .choice-card:hover { transform: translateY(-2px); }
+
+    .choice-card[data-type="physical"]:hover {
+      border-color: var(--physical-border);
+      box-shadow: 0 8px 24px rgba(43, 127, 255, 0.1);
+    }
+
+    .choice-card[data-type="game"]:hover {
+      border-color: var(--digital-border);
+      box-shadow: 0 8px 24px rgba(81, 68, 191, 0.1);
+    }
+
+    .choice-card[data-type="physical"]:active {
+      border-color: var(--physical-border);
+      background: var(--physical-selected);
+      transform: scale(0.98);
+    }
+
+    .choice-card[data-type="game"]:active {
+      border-color: var(--digital-border);
+      background: var(--digital-selected);
+      transform: scale(0.98);
+    }
+
+    .product-icon {
+      width: 118px;
+      height: 118px;
+      display: block;
+      object-fit: contain;
+      transition: transform 160ms ease;
+    }
+
+    .choice-card:hover .product-icon { transform: scale(1.035); }
+    .choice-copy { margin-top: 18px; }
+
+    .choice-name {
+      display: block;
+      color: var(--ink);
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .choice-description {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .navigation-mark {
+      width: 34px;
+      height: 34px;
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      font-size: 24px;
+      font-weight: 700;
+      line-height: 1;
+      transition: transform 160ms ease;
+    }
+
+    .choice-card[data-type="physical"] .navigation-mark {
+      color: var(--brand-blue-deep);
+      background: var(--surface-blue);
+    }
+
+    .choice-card[data-type="game"] .navigation-mark {
+      color: var(--digital);
+      background: var(--digital-surface);
+    }
+
+    .choice-card:hover .navigation-mark { transform: translateX(2px); }
+
+    .section-heading { margin-bottom: 20px; }
+
+    .section-heading h2 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 24px;
+      font-weight: 700;
+      line-height: 1.3;
+      letter-spacing: -0.015em;
+    }
+
+    .section-heading p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .type-context {
+      min-height: 64px;
+      margin-bottom: 24px;
+      padding: 8px 12px;
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr) auto;
+      gap: 11px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: white;
+    }
+
+    .type-context[data-theme="physical"] {
+      border-color: #cfe2f8;
+      background: #f5faff;
+    }
+
+    .type-context[data-theme="digital"] {
+      border-color: #d5d0ff;
+      background: #faf9ff;
+    }
+
+    .type-context img {
+      width: 48px;
+      height: 48px;
+      display: block;
+    }
+
+    .context-eyebrow {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .context-name {
+      display: block;
+      margin-top: 1px;
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .text-action {
+      min-width: 44px;
+      min-height: 44px;
+      padding: 8px;
+      border: 0;
+      color: var(--brand-blue-deep);
+      background: transparent;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .form-stack { display: grid; gap: 20px; }
+    .form-section { display: grid; gap: 8px; }
+
+    .field-label {
+      display: flex;
+      align-items: baseline;
+      gap: 3px;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .required { color: var(--danger); font-weight: 700; }
+
+    .field-shell {
+      min-height: 52px;
+      padding: 0 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: white;
+      transition: border-color 160ms ease, box-shadow 160ms ease;
+    }
+
+    .field-shell:focus-within {
+      border-color: #9cc9ff;
+      box-shadow: 0 0 0 3px rgba(43, 127, 255, 0.1);
+    }
+
+    .field-shell input,
+    .field-shell select {
+      width: 100%;
+      min-width: 0;
+      height: 50px;
+      padding: 0;
+      border: 0;
+      outline: 0;
+      color: var(--ink);
+      background: transparent;
+      font-size: 15px;
+    }
+
+    .field-shell input::placeholder { color: var(--placeholder); }
+
+    .field-shell select {
+      appearance: none;
+      cursor: pointer;
+    }
+
+    .select-shell { position: relative; padding-right: 38px; }
+
+    .select-shell::after {
+      position: absolute;
+      right: 15px;
+      color: var(--muted);
+      content: "⌄";
+      font-size: 17px;
+      pointer-events: none;
+    }
+
+    .currency-mark {
+      color: var(--brand-blue-deep);
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .helper-text {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .helper-text.blue { color: var(--brand-blue-deep); }
+
+    .secondary-action,
+    .primary-action {
+      width: 100%;
+      min-height: 52px;
+      padding: 12px 18px;
+      border-radius: 16px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 150ms ease, transform 150ms ease;
+    }
+
+    .secondary-action {
+      border: 1px solid #b8d9ff;
+      color: var(--brand-blue-deep);
+      background: var(--surface-blue);
+    }
+
+    .primary-action {
+      border: 0;
+      color: white;
+      background: var(--brand-blue);
+      box-shadow: 0 10px 22px rgba(43, 127, 255, 0.2);
+    }
+
+    .secondary-action:active,
+    .primary-action:active { opacity: 0.86; transform: scale(0.99); }
+
+    .disclosure {
+      width: 100%;
+      min-height: 48px;
+      padding: 0 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      color: var(--ink);
+      background: white;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .disclosure span:last-child { color: var(--muted); font-size: 18px; }
+
+    .editor-shell {
+      min-height: 112px;
+      padding: 12px 15px;
+      align-items: flex-start;
+    }
+
+    .editor-shell textarea {
+      width: 100%;
+      min-height: 86px;
+      padding: 0;
+      resize: vertical;
+      border: 0;
+      outline: 0;
+      color: var(--ink);
+      background: transparent;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .editor-shell textarea::placeholder { color: var(--placeholder); }
+
+    .photo-status {
+      margin: 0;
+      color: var(--success);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .check-row {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .check-row input {
+      width: 22px;
+      height: 22px;
+      margin: 0;
+      accent-color: var(--brand-blue);
+    }
+
+    .notice-card {
+      padding: 16px;
+      border: 1px solid #d5d0ff;
+      border-radius: 18px;
+      background: var(--digital-surface);
+    }
+
+    .notice-card h3 {
+      margin: 0;
+      color: var(--digital);
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .notice-card p {
+      margin: 7px 0 0;
+      color: var(--ink-soft);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .safety-list {
+      margin: 14px 0 0;
+      padding: 0;
+      display: grid;
+      gap: 10px;
+      list-style: none;
+    }
+
+    .safety-list li {
+      display: grid;
+      grid-template-columns: 8px 1fr;
+      gap: 9px;
+      align-items: start;
+      color: var(--ink-soft);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .safety-list li::before {
+      width: 7px;
+      height: 7px;
+      margin-top: 6px;
+      border-radius: 50%;
+      background: var(--digital);
+      content: "";
+    }
+
+    .inline-back {
+      min-height: 44px;
+      border: 0;
+      color: var(--brand-blue-deep);
+      background: transparent;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .mobile-action-bar {
+      position: relative;
+      z-index: 5;
+      padding: 10px 20px max(16px, env(safe-area-inset-bottom));
+      flex: 0 0 auto;
+      border-top: 1px solid rgba(228, 234, 241, 0.88);
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 -10px 24px rgba(15, 23, 42, 0.06);
+      backdrop-filter: blur(14px);
+    }
+
+    .optional-tools {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .tool-action {
+      min-height: 76px;
+      padding: 10px 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      border: 1px solid #b8d9ff;
+      border-radius: 16px;
+      color: var(--brand-blue-deep);
+      background: var(--surface-blue);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .tool-action img { width: 24px; height: 24px; }
+
+    .optional-section {
+      display: grid;
+      gap: 10px;
+    }
+
+    .optional-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .optional-heading strong {
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .optional-heading span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .saved-address-card {
+      padding: 15px;
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr) auto;
+      gap: 11px;
+      align-items: start;
+      border: 1px solid #cfe2f8;
+      border-radius: 18px;
+      background: white;
+    }
+
+    .address-icon {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      color: var(--brand-blue-deep);
+      background: var(--surface-blue);
+      font-size: 20px;
+    }
+
+    .address-copy strong {
+      display: block;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .address-copy span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .address-editor {
+      padding: 16px;
+      display: grid;
+      gap: 18px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: white;
+    }
+
+    .address-editor-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .address-editor-header strong {
+      color: var(--ink);
+      font-size: 14px;
+    }
+
+    .derived-field {
+      min-height: 52px;
+      padding: 0 15px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 14px;
+      color: var(--muted);
+      background: #f8fafc;
+      font-size: 13px;
+    }
+
+    .derived-field strong { color: var(--ink); font-weight: 500; }
+
+    .flow-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .flow-row {
+      padding: 13px;
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 11px;
+      align-items: start;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: white;
+    }
+
+    .flow-number {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      color: white;
+      background: var(--digital);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .flow-copy strong {
+      display: block;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .flow-copy span {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .review-group {
+      display: grid;
+      gap: 9px;
+    }
+
+    .review-group-title {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .digital-rule-card {
+      padding: 15px;
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 11px;
+      border: 1px solid #d5d0ff;
+      border-radius: 18px;
+      color: var(--ink-soft);
+      background: var(--digital-surface);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .digital-rule-card .rule-mark {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      color: var(--digital);
+      background: white;
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    .digital-rule-card strong {
+      display: block;
+      margin-bottom: 2px;
+      color: var(--digital);
+      font-size: 13px;
+    }
+
+    .draft-note {
+      margin-bottom: 20px;
+      padding: 13px 14px;
+      display: grid;
+      grid-template-columns: 30px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      border: 1px solid #cfe2f8;
+      border-radius: 16px;
+      color: var(--ink-soft);
+      background: #f3f8ff;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .draft-note .note-mark {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      color: var(--brand-blue-deep);
+      background: white;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .draft-note strong {
+      display: block;
+      margin-bottom: 2px;
+      color: var(--ink);
+      font-size: 13px;
+    }
+
+    .invitation-card {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+      border: 1px solid #cfe2f8;
+      border-radius: 18px;
+      background: white;
+    }
+
+    .invitation-card h3 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .invitation-card > p {
+      margin: -6px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .phone-lock-button {
+      width: 100%;
+      min-height: 48px;
+      padding: 0 13px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      color: var(--brand-blue-deep);
+      background: var(--surface-blue);
+      font-size: 13px;
+      font-weight: 700;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .phone-lock-panel {
+      padding-top: 2px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .next-action-card {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: white;
+    }
+
+    .next-action-card h3 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .mini-timeline {
+      display: grid;
+      gap: 11px;
+    }
+
+    .mini-step {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .mini-step > span:first-child {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      color: var(--brand-blue-deep);
+      background: var(--surface-blue);
+      font-weight: 700;
+    }
+
+    .mini-step strong {
+      display: block;
+      color: var(--ink);
+      font-size: 13px;
+    }
+
+    .success-state {
+      padding-top: 18px;
+      display: grid;
+      gap: 20px;
+      text-align: center;
+    }
+
+    .success-icon {
+      width: 84px;
+      height: 84px;
+      margin-inline: auto;
+      display: grid;
+      place-items: center;
+      border-radius: 28px;
+      color: var(--brand-blue-deep);
+      background: var(--surface-blue);
+      font-size: 38px;
+      font-weight: 700;
+    }
+
+    .success-copy h2 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 25px;
+      line-height: 1.3;
+    }
+
+    .success-copy p {
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .success-state .next-action-card { text-align: left; }
+
+    .home-screen {
+      background:
+        radial-gradient(circle at 86% 2%, #dcefff 0, #f6faff 34%, #ffffff 82%);
+    }
+
+    .home-body { padding-top: 18px; }
+
+    .root-page-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 44px;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .root-eyebrow {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .root-title {
+      margin: 2px 0 0;
+      color: var(--ink);
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .root-title:focus { outline: none; }
+
+    .activity-button {
+      width: 44px;
+      height: 44px;
+      padding: 10px;
+      border: 1px solid var(--brand-blue);
+      border-radius: 14px;
+      background: white;
+      cursor: pointer;
+    }
+
+    .activity-button img {
+      width: 22px;
+      height: 22px;
+      display: block;
+    }
+
+    .create-deal-button {
+      width: 100%;
+      min-height: 52px;
+      margin-top: 16px;
+      padding: 12px 16px;
+      border: 0;
+      border-radius: 14px;
+      color: white;
+      background: var(--brand-blue);
+      box-shadow: 0 9px 20px rgba(43, 127, 255, 0.18);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .home-section { margin-top: 18px; }
+
+    .spotlight-card {
+      min-height: 236px;
+      padding: 18px;
+      display: grid;
+      gap: 11px;
+      border-radius: 24px;
+      color: white;
+      background: linear-gradient(135deg, #3c8af1, #236dce 64%, #185cb9);
+      box-shadow: 0 10px 24px rgba(43, 127, 255, 0.18);
+    }
+
+    .spotlight-top,
+    .spotlight-product,
+    .spotlight-summary,
+    .list-heading,
+    .transaction-top,
+    .transaction-status {
+      display: flex;
+      align-items: center;
+    }
+
+    .spotlight-top { justify-content: space-between; gap: 12px; }
+
+    .spotlight-kicker {
+      color: rgba(255, 255, 255, 0.88);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .spotlight-kicker::before {
+      margin-right: 7px;
+      color: #9cebd9;
+      content: "●";
+    }
+
+    .role-pill {
+      padding: 5px 9px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 999px;
+      color: white;
+      background: rgba(255, 255, 255, 0.14);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .spotlight-product { gap: 12px; }
+
+    .spotlight-icon {
+      width: 54px;
+      height: 54px;
+      padding: 8px;
+      flex: 0 0 54px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.9);
+    }
+
+    .spotlight-icon img { width: 100%; height: 100%; display: block; }
+
+    .spotlight-product strong {
+      display: block;
+      color: white;
+      font-size: 17px;
+      line-height: 1.35;
+    }
+
+    .spotlight-product span {
+      display: block;
+      margin-top: 2px;
+      color: #cfe1ff;
+      font-size: 12px;
+    }
+
+    .spotlight-summary {
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .spotlight-status {
+      color: #cfe1ff;
+      font-size: 12px;
+    }
+
+    .spotlight-amount {
+      margin-top: 1px;
+      color: white;
+      font-size: 25px;
+      font-weight: 700;
+    }
+
+    .spotlight-deadline {
+      margin-top: 2px;
+      color: #d8e7ff;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .spotlight-action {
+      width: 100%;
+      min-height: 48px;
+      padding: 10px 14px;
+      border: 0;
+      border-radius: 14px;
+      color: var(--brand-blue-deep);
+      background: white;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .filter-strip {
+      margin: 18px -20px 0;
+      padding: 0 20px 4px;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .filter-strip::-webkit-scrollbar { display: none; }
+
+    .filter-chip {
+      min-height: 44px;
+      padding: 8px 14px;
+      flex: 0 0 auto;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: white;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .filter-chip.active {
+      border-color: var(--brand-blue);
+      color: white;
+      background: var(--brand-blue);
+    }
+
+    .list-heading {
+      margin: 16px 0 10px;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .list-heading h2 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 18px;
+    }
+
+    .list-heading span { color: var(--muted); font-size: 12px; }
+
+    .transaction-list { display: grid; gap: 12px; }
+
+    .transaction-card {
+      width: 100%;
+      padding: 15px;
+      display: grid;
+      grid-template-columns: 64px minmax(0, 1fr) auto;
+      gap: 13px;
+      border: 1px solid rgba(15, 23, 42, 0.07);
+      border-radius: 20px;
+      color: var(--ink);
+      text-align: left;
+      background: rgba(255, 255, 255, 0.97);
+      box-shadow: 0 7px 18px rgba(71, 111, 157, 0.1);
+      cursor: pointer;
+    }
+
+    .transaction-icon {
+      width: 64px;
+      height: 64px;
+      padding: 8px;
+      grid-row: 1 / span 2;
+      border-radius: 17px;
+      background: #eef6ff;
+    }
+
+    .transaction-card.game .transaction-icon { background: var(--digital-surface); }
+    .transaction-icon img { width: 100%; height: 100%; display: block; }
+
+    .transaction-main { min-width: 0; }
+
+    .transaction-top { gap: 6px; flex-wrap: wrap; }
+
+    .role-marker {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--brand-blue-deep);
+    }
+
+    .role-text {
+      color: var(--brand-blue-deep);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .type-badge {
+      padding: 2px 7px;
+      border-radius: 999px;
+      color: var(--brand-blue-deep);
+      background: var(--surface-blue);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .transaction-card.game .type-badge {
+      color: var(--digital);
+      background: var(--digital-surface);
+    }
+
+    .transaction-name {
+      margin-top: 3px;
+      display: -webkit-box;
+      overflow: hidden;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.4;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+    }
+
+    .transaction-counterparty {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .transaction-price {
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: 700;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .transaction-chevron {
+      margin-top: 1px;
+      color: #8ba0b8;
+      font-size: 17px;
+      text-align: right;
+    }
+
+    .transaction-bottom {
+      min-width: 0;
+      grid-column: 2 / 4;
+    }
+
+    .transaction-status {
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .status-copy {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #8a5100;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .status-copy .status-dot {
+      width: 6px;
+      height: 6px;
+      flex: 0 0 6px;
+      border-radius: 50%;
+      background: #d98600;
+    }
+
+    .card-action {
+      flex: 0 0 auto;
+      color: var(--brand-blue-deep);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .transaction-deadline {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .root-tabbar {
+      position: relative;
+      z-index: 6;
+      padding: 7px 18px max(10px, env(safe-area-inset-bottom));
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      flex: 0 0 auto;
+      border-top: 1px solid rgba(228, 234, 241, 0.9);
+      background: rgba(255, 255, 255, 0.98);
+      box-shadow: 0 -8px 20px rgba(15, 23, 42, 0.04);
+    }
+
+    .tab-action {
+      min-height: 51px;
+      padding: 3px 6px;
+      display: grid;
+      place-items: center;
+      gap: 1px;
+      border: 0;
+      color: var(--muted);
+      background: transparent;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .tab-action img { width: 23px; height: 23px; display: block; opacity: 0.72; }
+    .tab-action.active { color: var(--brand-blue); }
+    .tab-action.active img { opacity: 1; }
+
+    .share-card {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+      border: 1px solid #cfe2f8;
+      border-radius: 18px;
+      text-align: left;
+      background: white;
+    }
+
+    .share-link {
+      min-height: 48px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border-radius: 13px;
+      color: var(--brand-blue-deep);
+      background: var(--surface-blue);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .utility-action {
+      min-width: 44px;
+      min-height: 44px;
+      padding: 8px 10px;
+      border: 0;
+      border-radius: 12px;
+      color: var(--brand-blue-deep);
+      background: white;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .compact-info-card {
+      padding: 13px 14px;
+      border: 1px solid #cfe2f8;
+      border-radius: 16px;
+      color: var(--ink-soft);
+      background: #f3f8ff;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .compact-info-card.digital {
+      border-color: #d5d0ff;
+      background: var(--digital-surface);
+    }
+
+    .review-card,
+    .cost-card {
+      padding: 16px;
+      border-radius: 18px;
+    }
+
+    .review-card {
+      display: grid;
+      gap: 11px;
+      border: 1px solid var(--line);
+      background: white;
+    }
+
+    .review-row,
+    .cost-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: start;
+      font-size: 13px;
+    }
+
+    .review-row span:first-child,
+    .cost-row span:first-child { color: var(--muted); }
+
+    .review-row strong,
+    .cost-row strong {
+      max-width: 185px;
+      color: var(--ink);
+      text-align: right;
+      font-weight: 500;
+      overflow-wrap: anywhere;
+    }
+
+    .cost-card {
+      display: grid;
+      gap: 10px;
+      border: 1px solid #cfe2f8;
+      background: #f3f8ff;
+    }
+
+    .cost-divider { height: 1px; background: var(--line); }
+    .cost-total span, .cost-total strong { color: var(--ink); font-weight: 700; }
+
+    .toast {
+      position: absolute;
+      z-index: 40;
+      right: 18px;
+      bottom: 92px;
+      left: 18px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      color: white;
+      text-align: center;
+      background: rgba(36, 55, 70, 0.96);
+      box-shadow: 0 14px 35px rgba(16, 24, 40, 0.22);
+      font-size: 12px;
+      font-weight: 500;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(12px);
+      transition: opacity 180ms ease, transform 180ms ease;
+    }
+
+    .toast.visible { opacity: 1; transform: translateY(0); }
+
+    .back-button:focus-visible,
+    .choice-card:focus-visible,
+    .text-action:focus-visible,
+    .secondary-action:focus-visible,
+    .primary-action:focus-visible,
+    .tool-action:focus-visible,
+    .disclosure:focus-visible,
+    .phone-lock-button:focus-visible,
+    .utility-action:focus-visible,
+    .activity-button:focus-visible,
+    .create-deal-button:focus-visible,
+    .spotlight-action:focus-visible,
+    .transaction-card:focus-visible,
+    .tab-action:focus-visible,
+    .inline-back:focus-visible {
+      outline: 4px solid rgba(43, 127, 255, 0.2);
+      outline-offset: 2px;
+    }
+
+    @media (max-width: 430px) {
+      body { background: var(--page); }
+
+      .reference-stage {
+        min-height: 100svh;
+        padding: 0;
+        display: block;
+      }
+
+      .device {
+        width: 100%;
+        height: 100svh;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+      }
+
+      .device::before,
+      .device::after,
+      .system-bar { display: none; }
+
+      .app-viewport {
+        height: 100svh;
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: 0;
+      }
+
+      .screen[data-screen="type"] .screen-body {
+        padding-bottom: max(28px, env(safe-area-inset-bottom));
+      }
+    }
+
+    @media (max-width: 350px) {
+      .simple-header,
+      .wizard-header { padding-inline: 16px; }
+      .header-main { gap: 12px; }
+      .page-title { font-size: 24px; }
+      .screen-body { padding-inline: 16px; }
+      .choice-list {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+
+      .choice-card {
+        min-height: 215px;
+        padding: 18px 12px;
+      }
+
+      .product-icon { width: 100px; height: 100px; }
+      .choice-name { font-size: 16px; }
+      .choice-description { font-size: 12px; }
+      .type-context { grid-template-columns: 44px minmax(0, 1fr) auto; }
+      .type-context img { width: 44px; height: 44px; }
+
+      .review-row,
+      .cost-row { grid-template-columns: 1fr; gap: 2px; }
+
+      .review-row strong,
+      .cost-row strong { max-width: none; text-align: left; }
+
+      .transaction-card {
+        grid-template-columns: 56px minmax(0, 1fr);
+        gap: 10px;
+      }
+
+      .transaction-icon {
+        width: 56px;
+        height: 56px;
+        grid-row: 1;
+      }
+
+      .transaction-card > span:nth-child(3),
+      .transaction-bottom { grid-column: 1 / 3; }
+
+      .transaction-card > span:nth-child(3) {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 7px;
+      }
+
+      .transaction-status {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 2px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.001ms !important;
+        transition-duration: 0.001ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="reference-stage">
+    <section class="device" aria-label="TOKLONG interactive mobile UI reference">
+      <div class="system-bar" aria-hidden="true">
+        <span>09:41</span>
+        <span class="system-icons">
+          <span class="signal"><i></i><i></i><i></i><i></i></span>
+          <span>5G</span>
+          <span class="battery"></span>
+        </span>
+      </div>
+
+      <div class="app-viewport">
+        <section class="screen home-screen" data-screen="list">
+          <div class="screen-body home-body">
+            <header class="root-page-header">
+              <div>
+                <p class="root-eyebrow">ดีลที่คุณเป็นผู้ซื้อ</p>
+                <h1 class="root-title" tabindex="-1">รายการซื้อ</h1>
+              </div>
+              <button
+                class="activity-button"
+                type="button"
+                data-action="open-activity"
+                aria-label="ดูกิจกรรม">
+                <img
+                  src="../../src/Toklong.Mobile/Resources/Images/nav_activity.svg"
+                  alt=""
+                  aria-hidden="true" />
+              </button>
+            </header>
+
+            <button class="create-deal-button" type="button" data-nav="type">
+              + สร้างดีลซื้อ
+            </button>
+
+            <section class="home-section" aria-labelledby="action-now-title">
+              <article class="spotlight-card">
+                <div class="spotlight-top">
+                  <span class="spotlight-kicker" id="action-now-title">ต้องทำตอนนี้</span>
+                  <span class="role-pill">ซื้อ · ไอดีเกม</span>
+                </div>
+
+                <div class="spotlight-product">
+                  <span class="spotlight-icon">
+                    <img
+                      src="../../src/Toklong.Mobile/Resources/Images/product_digital.svg"
+                      alt=""
+                      aria-hidden="true" />
+                  </span>
+                  <span>
+                    <strong>Arcadia Legends · เซิร์ฟเวอร์ไทย</strong>
+                    <span>ผู้ขาย · คุณเมย์</span>
+                  </span>
+                </div>
+
+                <div class="spotlight-summary">
+                  <div>
+                    <div class="spotlight-status">เช็กของที่ได้รับ</div>
+                    <div class="spotlight-amount">฿4,500</div>
+                  </div>
+                </div>
+                <div class="spotlight-deadline">
+                  ตรวจรายการก่อนยืนยันหรือแจ้งปัญหา · ไม่มีการจ่ายอัตโนมัติจากเวลา
+                </div>
+                <button
+                  class="spotlight-action"
+                  type="button"
+                  data-action="open-transaction"
+                  data-kind="ไอดีเกม">
+                  ตรวจแล้ว / มีปัญหา →
+                </button>
+              </article>
+            </section>
+
+            <div class="filter-strip" aria-label="กรองสถานะรายการซื้อ">
+              <button class="filter-chip active" type="button" data-filter="ทุกสถานะ">ทุกสถานะ</button>
+              <button class="filter-chip" type="button" data-filter="ต้องทำ">ต้องทำ</button>
+              <button class="filter-chip" type="button" data-filter="กำลังดำเนินการ">กำลังดำเนินการ</button>
+              <button class="filter-chip" type="button" data-filter="เสร็จแล้ว">เสร็จแล้ว</button>
+            </div>
+
+            <div class="list-heading">
+              <h2>รายการซื้อทั้งหมด</h2>
+              <span>ใหม่สุดก่อน</span>
+            </div>
+
+            <div
+              class="transaction-list"
+              id="transaction-list"
+              aria-label="ตัวอย่างรายการซื้อแยกตามประเภทสินค้า">
+              <button
+                class="transaction-card physical"
+                type="button"
+                data-action="open-transaction"
+                data-kind="สินค้าที่จัดส่ง"
+                aria-label="สินค้าที่จัดส่ง กล้อง Fujifilm X-T30 II ราคา 18,900 บาท รอผู้ขายตอบ ดูรายละเอียด">
+                <span class="transaction-icon">
+                  <img
+                    src="../../src/Toklong.Mobile/Resources/Images/product_physical.svg"
+                    alt=""
+                    aria-hidden="true" />
+                </span>
+                <span class="transaction-main">
+                  <span class="transaction-top">
+                    <span class="role-marker" aria-hidden="true"></span>
+                    <span class="role-text">ซื้อ</span>
+                    <span class="type-badge">สินค้าที่จัดส่ง</span>
+                  </span>
+                  <span class="transaction-name">กล้อง Fujifilm X-T30 II</span>
+                  <span class="transaction-counterparty">ผู้ขาย · คุณนนท์</span>
+                </span>
+                <span>
+                  <span class="transaction-price">฿18,900</span>
+                  <span class="transaction-chevron" aria-hidden="true">›</span>
+                </span>
+                <span class="transaction-bottom">
+                  <span class="transaction-status">
+                    <span class="status-copy">
+                      <span class="status-dot" aria-hidden="true"></span>
+                      รอผู้ขายตอบ
+                    </span>
+                    <span class="card-action">ดูรายละเอียด</span>
+                  </span>
+                  <span class="transaction-deadline">ผู้ขายตอบได้ถึง 3 ส.ค. 2569 · 18:00 น.</span>
+                </span>
+              </button>
+
+              <button
+                class="transaction-card game"
+                type="button"
+                data-action="open-transaction"
+                data-kind="ไอดีเกม"
+                aria-label="ไอดีเกม Mythic Arena เซิร์ฟเวอร์เอเชีย ราคา 7,200 บาท จ่ายเงินได้ ดูรายละเอียดแล้วจ่าย">
+                <span class="transaction-icon">
+                  <img
+                    src="../../src/Toklong.Mobile/Resources/Images/product_digital.svg"
+                    alt=""
+                    aria-hidden="true" />
+                </span>
+                <span class="transaction-main">
+                  <span class="transaction-top">
+                    <span class="role-marker" aria-hidden="true"></span>
+                    <span class="role-text">ซื้อ</span>
+                    <span class="type-badge">ไอดีเกม</span>
+                  </span>
+                  <span class="transaction-name">Mythic Arena · เซิร์ฟเวอร์เอเชีย</span>
+                  <span class="transaction-counterparty">ผู้ขาย · คุณบีม</span>
+                </span>
+                <span>
+                  <span class="transaction-price">฿7,200</span>
+                  <span class="transaction-chevron" aria-hidden="true">›</span>
+                </span>
+                <span class="transaction-bottom">
+                  <span class="transaction-status">
+                    <span class="status-copy">
+                      <span class="status-dot" aria-hidden="true"></span>
+                      จ่ายเงินได้
+                    </span>
+                    <span class="card-action">ดูรายละเอียดแล้วจ่าย</span>
+                  </span>
+                  <span class="transaction-deadline">ชำระได้ถึง 4 ส.ค. 2569 · 20:30 น.</span>
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <nav class="root-tabbar" aria-label="เมนูหลัก">
+            <button class="tab-action active" type="button" data-action="buy-tab" aria-current="page">
+              <img src="../../src/Toklong.Mobile/Resources/Images/nav_buy.svg" alt="" aria-hidden="true" />
+              <span>ซื้อ</span>
+            </button>
+            <button class="tab-action" type="button" data-action="sell-tab">
+              <img src="../../src/Toklong.Mobile/Resources/Images/nav_sell.svg" alt="" aria-hidden="true" />
+              <span>ขาย</span>
+            </button>
+            <button class="tab-action" type="button" data-action="account-tab">
+              <img src="../../src/Toklong.Mobile/Resources/Images/nav_account.svg" alt="" aria-hidden="true" />
+              <span>บัญชี</span>
+            </button>
+          </nav>
+        </section>
+
+        <section class="screen" data-screen="type" hidden>
+          <header class="simple-header icon-only-header">
+            <div class="header-main">
+              <button
+                class="back-button"
+                type="button"
+                data-nav="list"
+                aria-label="กลับไปหน้าซื้อ">‹</button>
+              <h1 class="sr-only" tabindex="-1">เลือกประเภทสินค้า</h1>
+            </div>
+          </header>
+
+          <div class="screen-body type-screen-body">
+            <nav class="choice-list" aria-label="เลือกสิ่งที่ตกลงซื้อเพื่อสร้างดีล">
+              <button
+                class="choice-card"
+                type="button"
+                aria-label="สินค้าที่จัดส่ง ไปหน้าข้อมูลดีล"
+                data-type="physical">
+                <span class="navigation-mark" aria-hidden="true">›</span>
+                <img
+                  class="product-icon"
+                  src="../../src/Toklong.Mobile/Resources/Images/product_physical.svg"
+                  alt=""
+                  aria-hidden="true" />
+                <span class="choice-copy">
+                  <strong class="choice-name">สินค้าที่จัดส่ง</strong>
+                  <span class="choice-description">สินค้าที่ส่งผ่านบริษัทขนส่ง</span>
+                </span>
+              </button>
+
+              <button
+                class="choice-card"
+                type="button"
+                aria-label="ไอดีเกม ไปหน้ารายละเอียดที่ตกลงกัน"
+                data-type="game">
+                <span class="navigation-mark" aria-hidden="true">›</span>
+                <img
+                  class="product-icon"
+                  src="../../src/Toklong.Mobile/Resources/Images/product_digital.svg"
+                  alt=""
+                  aria-hidden="true" />
+                <span class="choice-copy">
+                  <strong class="choice-name">ไอดีเกม</strong>
+                  <span class="choice-description">บัญชีเกมที่ TOKLONG รองรับและโอนได้</span>
+                </span>
+              </button>
+            </nav>
+          </div>
+        </section>
+
+        <section class="screen" data-screen="deal" hidden>
+          <header class="wizard-header">
+            <div class="header-main">
+              <button
+                class="back-button"
+                type="button"
+                data-nav="type"
+                aria-label="กลับไปเลือกประเภท">‹</button>
+              <div>
+                <h1 class="page-title" tabindex="-1">สร้างดีลซื้อ</h1>
+                <p class="progress-label">รายละเอียดที่ตกลงกัน · ขั้นที่ 1 จาก 2</p>
+              </div>
+            </div>
+            <div class="progress-track" aria-label="ขั้นที่ 1 จาก 2">
+              <span class="active" aria-current="step"></span><span></span>
+            </div>
+          </header>
+
+          <div class="screen-body">
+            <div class="type-context" data-type-context>
+              <img data-type-icon alt="" aria-hidden="true" />
+              <span>
+                <span class="context-eyebrow">สิ่งที่ตกลงซื้อ</span>
+                <strong class="context-name" data-type-name></strong>
+              </span>
+              <button class="text-action" type="button" data-nav="type">เปลี่ยน</button>
+            </div>
+
+            <div class="section-heading">
+              <h2>รายละเอียดที่ตกลงกัน</h2>
+              <p>กรอกเป็นร่างจากสิ่งที่คุยกัน ผู้ขายต้องตรวจและยืนยันก่อนคุณจึงชำระได้</p>
+            </div>
+
+            <div class="draft-note">
+              <span class="note-mark" aria-hidden="true">i</span>
+              <span>
+                <strong>นี่เป็นร่างจากสิ่งที่คุณเข้าใจ</strong>
+                ยังไม่ถือว่าผู้ขายรับรองว่าสินค้าหรือข้อมูลทั้งหมดถูกต้อง
+              </span>
+            </div>
+
+            <div class="form-stack">
+              <div class="form-section">
+                <label class="field-label" for="product-name"><span data-item-name-label>ชื่อสินค้า</span> <span class="required">*</span></label>
+                <div class="field-shell">
+                  <input id="product-name" maxlength="180" />
+                </div>
+                <p class="helper-text" data-item-name-helper></p>
+              </div>
+
+              <div data-game-fields hidden>
+                <div class="form-stack">
+                  <div class="form-section">
+                    <label class="field-label" for="game-platform">แพลตฟอร์ม <span class="required">*</span></label>
+                    <div class="field-shell select-shell">
+                      <select id="game-platform">
+                        <option value="">เลือกแพลตฟอร์ม</option>
+                        <option value="มือถือ">มือถือ</option>
+                        <option value="PC">PC</option>
+                        <option value="คอนโซล">คอนโซล</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="form-section">
+                    <label class="field-label" for="game-region">เซิร์ฟเวอร์หรือ Region <span class="required">*</span></label>
+                    <div class="field-shell">
+                      <input id="game-region" maxlength="120" placeholder="เช่น เซิร์ฟเวอร์ไทย" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-section">
+                <label class="field-label" for="item-price">ราคาที่ตกลง <span class="required">*</span></label>
+                <div class="field-shell">
+                  <span class="currency-mark" aria-hidden="true">฿</span>
+                  <input
+                    id="item-price"
+                    type="text"
+                    inputmode="decimal"
+                    value="4,500"
+                    placeholder="0.00" />
+                </div>
+                <p class="helper-text">ใส่เฉพาะราคาที่คุยกับผู้ขาย ยังไม่มีการเรียกเก็บเงิน</p>
+              </div>
+
+              <div data-physical-condition>
+                <div class="form-stack">
+                  <div class="form-section">
+                    <label class="field-label" for="condition-select">สภาพตามที่ผู้ขายแจ้ง <span class="required">*</span></label>
+                    <div class="field-shell select-shell">
+                      <select id="condition-select" required>
+                        <option value="">เลือกสภาพสินค้า</option>
+                        <option value="new">ใหม่</option>
+                        <option value="used">มือสอง สภาพดี</option>
+                        <option value="defect">มีตำหนิ</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="form-section" data-defect-panel hidden>
+                    <label class="field-label" for="known-defects">ตำหนิที่รับทราบ <span class="required">*</span></label>
+                    <div class="field-shell editor-shell">
+                      <textarea
+                        id="known-defects"
+                        maxlength="1000"
+                        placeholder="เช่น มีรอยมุมขวาตามรูป แต่ใช้งานปกติ"></textarea>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-section">
+                <label class="field-label" for="agreement-details">
+                  <span data-details-label>สิ่งที่ควรได้รับและหมายเหตุ</span>
+                  <span>(ไม่บังคับ)</span>
+                </label>
+                <div class="field-shell editor-shell">
+                  <textarea
+                    id="agreement-details"
+                    maxlength="2000"
+                    data-details-input></textarea>
+                </div>
+                <p class="helper-text" data-details-helper></p>
+              </div>
+
+              <div class="optional-section">
+                <div class="optional-heading">
+                  <strong>รูปหรือ Screenshot ประกอบ</strong>
+                  <span>ไม่บังคับ</span>
+                </div>
+                <div class="optional-tools">
+                  <button class="tool-action" type="button" data-action="ai-helper">
+                    <img src="../../src/Toklong.Mobile/Resources/Images/ui_ai_assist.svg" alt="" aria-hidden="true" />
+                    <span>ช่วยสรุปจากแชต</span>
+                  </button>
+                  <button class="tool-action" type="button" data-action="photo">
+                    <img src="../../src/Toklong.Mobile/Resources/Images/ui_camera.svg" alt="" aria-hidden="true" />
+                    <span>เพิ่มรูปประกอบ</span>
+                  </button>
+                </div>
+                <p class="helper-text" data-photo-helper></p>
+                <p class="photo-status" data-photo-status hidden>เลือกแล้ว · reference-image.jpg</p>
+              </div>
+
+              <div class="notice-card" data-game-safety hidden>
+                <h3>อย่าแนบข้อมูลที่ใช้เข้าสู่ระบบ</h3>
+                <p>ห้ามแนบอีเมล ชื่อผู้ใช้ รหัสผ่าน รหัสยืนยัน รหัสกู้คืน QR หรือข้อมูลลับในข้อเสนอนี้</p>
+              </div>
+
+              <div class="invitation-card">
+                <h3>แชร์ลิงก์กลับไปในแชต</h3>
+                <p>หลังส่งข้อเสนอ คุณจะได้ลิงก์สำหรับส่งให้ผู้ขายเปิดและยืนยันรายละเอียด</p>
+                <button
+                  class="phone-lock-button"
+                  type="button"
+                  data-action="phone-lock"
+                  aria-expanded="false">
+                  <span>ล็อกให้เฉพาะผู้ขายคนนี้ (ไม่บังคับ)</span>
+                  <span aria-hidden="true">⌄</span>
+                </button>
+                <div class="phone-lock-panel" data-phone-lock-panel hidden>
+                  <label class="field-label" for="seller-phone">เบอร์มือถือผู้ขาย</label>
+                  <div class="field-shell">
+                    <input
+                      id="seller-phone"
+                      type="tel"
+                      inputmode="numeric"
+                      autocomplete="tel"
+                      maxlength="12"
+                      placeholder="เช่น 081-234-5678" />
+                  </div>
+                  <p class="helper-text">เมื่อระบุ เฉพาะบัญชีที่ยืนยันด้วยเบอร์นี้จึงเปิดและตอบรับได้</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <footer class="mobile-action-bar">
+            <button class="primary-action" type="button" data-nav="review">ถัดไป: ตรวจและส่ง</button>
+          </footer>
+        </section>
+
+        <section class="screen" data-screen="review" hidden>
+          <header class="wizard-header">
+            <div class="header-main">
+              <button
+                class="back-button"
+                type="button"
+                data-nav="deal"
+                aria-label="กลับไปรายละเอียดที่ตกลงกัน">‹</button>
+              <div>
+                <h1 class="page-title" tabindex="-1">สร้างดีลซื้อ</h1>
+                <p class="progress-label">ตรวจและส่งให้ผู้ขาย · ขั้นที่ 2 จาก 2</p>
+              </div>
+            </div>
+            <div class="progress-track" aria-label="ขั้นที่ 2 จาก 2">
+              <span class="active"></span><span class="active" aria-current="step"></span>
+            </div>
+          </header>
+
+          <div class="screen-body">
+            <div class="section-heading">
+              <h2>ตรวจและส่งให้ผู้ขาย</h2>
+              <p>ตรวจร่างให้ตรงกับสิ่งที่คุยกันก่อนสร้างดีล</p>
+            </div>
+
+            <div class="draft-note">
+              <span class="note-mark" aria-hidden="true">i</span>
+              <span>
+                <strong>ผู้ขายยังไม่ได้รับรองข้อมูลนี้</strong>
+                ผู้ขายต้องเปิดลิงก์ ตรวจรายละเอียด และตอบรับก่อนคุณจึงชำระได้
+              </span>
+            </div>
+
+            <div class="form-stack">
+              <div class="review-group">
+                <p class="review-group-title">รายละเอียดข้อเสนอ</p>
+                <div class="review-card" aria-label="สรุปร่างข้อเสนอ">
+                  <div class="review-row"><span>ประเภท</span><strong data-review-type></strong></div>
+                  <div class="review-row"><span data-review-item-label>สินค้า</span><strong data-review-product></strong></div>
+                  <div class="review-row" data-review-platform-row hidden><span>แพลตฟอร์ม</span><strong data-review-platform></strong></div>
+                  <div class="review-row" data-review-region-row hidden><span>เซิร์ฟเวอร์หรือ Region</span><strong data-review-region></strong></div>
+                  <div class="review-row" data-review-condition-row><span>สภาพตามที่ผู้ขายแจ้ง</span><strong data-review-condition></strong></div>
+                  <div class="review-row" data-review-defects-row hidden><span>ตำหนิที่รับทราบ</span><strong data-review-defects></strong></div>
+                  <div class="review-row"><span>ราคาที่ตกลง</span><strong data-review-price></strong></div>
+                  <div class="review-row"><span data-review-details-label>สิ่งที่ควรได้รับ</span><strong data-review-details></strong></div>
+                  <div class="review-row"><span>รูปประกอบ</span><strong data-review-photo></strong></div>
+                  <div class="review-row"><span>วิธีเชิญผู้ขาย</span><strong data-review-invitation></strong></div>
+                </div>
+              </div>
+
+              <div class="next-action-card">
+                <h3>หลังส่งข้อเสนอ ผู้ขายต้องทำอะไร?</h3>
+                <div class="mini-timeline" data-physical-next>
+                  <div class="mini-step">
+                    <span>1</span>
+                    <span><strong>ยืนยันหรือเสนอแก้ไข</strong>ผู้ขายตรวจสภาพ ตำหนิ สิ่งที่รวม และเพิ่มข้อมูลสินค้าจริง</span>
+                  </div>
+                  <div class="mini-step">
+                    <span>2</span>
+                    <span><strong>ระบุข้อมูลพัสดุ</strong>เพิ่มต้นทาง น้ำหนัก และขนาดเพื่อคำนวณค่าจัดส่ง</span>
+                  </div>
+                  <div class="mini-step">
+                    <span>3</span>
+                    <span><strong>คุณยืนยันเงื่อนไขสุดท้าย</strong>ตรวจการแก้ไข เลือกที่อยู่และขนส่ง แล้วจึงชำระผ่านผู้ให้บริการ</span>
+                  </div>
+                </div>
+                <div class="mini-timeline" data-game-next hidden>
+                  <div class="mini-step">
+                    <span>1</span>
+                    <span><strong>ยืนยันหรือเสนอแก้ไข</strong>ผู้ขายยืนยันว่าควบคุมบัญชีได้ครบ (Full Access) มีสิทธิ์โอน พร้อมแจ้งบัญชีที่เชื่อมและข้อจำกัด</span>
+                  </div>
+                  <div class="mini-step">
+                    <span>2</span>
+                    <span><strong>คุณยืนยันเงื่อนไขสุดท้าย</strong>ตรวจการแก้ไขและชำระได้หลังผู้ขายยืนยันข้อมูลครบเท่านั้น</span>
+                  </div>
+                  <div class="mini-step">
+                    <span>3</span>
+                    <span><strong>เริ่มห้องส่งมอบของ TOKLONG</strong>ผู้ซื้อทำ Checklist ว่าเปลี่ยนอีเมล รหัสผ่าน และ 2FA แล้ว โดยไม่ส่งค่าลับเข้า TOKLONG</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="digital-rule-card" data-game-review-rule hidden>
+                <span class="rule-mark" aria-hidden="true">!</span>
+                <span>
+                  <strong>ไม่มีการจ่ายเงินอัตโนมัติจากเวลา</strong>
+                  ผู้ขายแจ้งส่งมอบเพียงอย่างเดียวไม่ทำให้เริ่มจ่ายเงิน ผู้ซื้อต้องยืนยันหลังตรวจรับ หรือเจ้าหน้าที่อนุมัติ และต้องไม่มีการแจ้งปัญหา
+                </span>
+              </div>
+
+              <div class="review-group" id="review-costs">
+                <p class="review-group-title">ค่าใช้จ่ายก่อนสร้างดีล</p>
+                <div class="cost-card" aria-label="ค่าใช้จ่ายก่อนสร้างดีล">
+                  <div class="cost-row"><span>ราคาที่ตกลง</span><strong data-cost-item></strong></div>
+                  <div class="cost-row" data-review-protection-cost><span>ค่าคุ้มครองผู้ซื้อ</span><strong>คำนวณหลังผู้ขายยืนยัน</strong></div>
+                  <div class="cost-row" data-review-shipping-cost><span>ค่าจัดส่ง</span><strong>คำนวณหลังผู้ขายระบุพัสดุ</strong></div>
+                  <div class="compact-info-card">
+                    <strong>ยังไม่มีการเรียกเก็บเงิน</strong><br />
+                    <span data-review-payment-note>ผู้ขายต้องยืนยันรายละเอียดและระบุข้อมูลพัสดุก่อน คุณจึงเห็นยอดรวมจริงและชำระได้</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <footer class="mobile-action-bar">
+            <button class="primary-action" type="button" data-action="submit">ส่งข้อเสนอให้ผู้ขาย</button>
+          </footer>
+        </section>
+
+        <section class="screen" data-screen="sent" hidden>
+          <header class="simple-header">
+            <div class="header-main">
+              <button
+                class="back-button"
+                type="button"
+                data-nav="list"
+                aria-label="กลับไปหน้าซื้อ">‹</button>
+              <h1 class="page-title" tabindex="-1">ส่งข้อเสนอแล้ว</h1>
+            </div>
+          </header>
+
+          <div class="screen-body">
+            <div class="success-state">
+              <div class="success-icon" aria-hidden="true">✓</div>
+              <div class="success-copy">
+                <h2>รอผู้ขายเปิดข้อเสนอ</h2>
+                <p data-sent-copy>แชร์ลิงก์กลับไปในแชต เพื่อให้ผู้ขายตรวจและตอบรับรายละเอียด</p>
+              </div>
+
+              <div class="share-card">
+                <div>
+                  <strong>ลิงก์สำหรับผู้ขาย</strong>
+                  <p class="helper-text" data-sent-lock-copy>ผู้ขายต้องเข้าสู่ระบบก่อนตอบรับข้อเสนอ</p>
+                </div>
+                <div class="share-link">
+                  <span>toklong.app/deal/TKL-8F4K2</span>
+                  <button class="utility-action" type="button" data-action="copy-link">คัดลอก</button>
+                </div>
+              </div>
+
+              <div class="next-action-card">
+                <h3>ขั้นตอนถัดไป</h3>
+                <div class="mini-timeline" data-sent-physical>
+                  <div class="mini-step"><span>1</span><span><strong>ผู้ขายตรวจข้อเสนอ</strong>ยืนยันตามเดิม เสนอแก้ไข หรือปฏิเสธดีล</span></div>
+                  <div class="mini-step"><span>2</span><span><strong>คุณตรวจยอดและชำระ</strong>เลือกที่อยู่และขนส่งเมื่อข้อมูลพร้อม</span></div>
+                  <div class="mini-step"><span>3</span><span><strong>จัดส่งและตรวจรับ</strong>ตรวจสินค้า 72 ชั่วโมงหลังขนส่งยืนยันว่าส่งถึง</span></div>
+                </div>
+                <div class="mini-timeline" data-sent-game hidden>
+                  <div class="mini-step"><span>1</span><span><strong>ผู้ขายตรวจข้อเสนอ</strong>ยืนยันสิทธิ์ เสนอแก้ไข หรือปฏิเสธดีล</span></div>
+                  <div class="mini-step"><span>2</span><span><strong>คุณตรวจและชำระ</strong>ชำระผ่านผู้ให้บริการหลังเงื่อนไขครบ</span></div>
+                  <div class="mini-step"><span>3</span><span><strong>ห้องส่งมอบและตรวจรับ</strong>ยืนยัน Checklist การเปลี่ยนสิทธิ์ โดยไม่บันทึกรหัสผ่านหรือข้อมูลลับ</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <footer class="mobile-action-bar">
+            <button class="primary-action" type="button" data-action="share-link">แชร์ลิงก์ให้ผู้ขาย</button>
+          </footer>
+        </section>
+      </div>
+
+      <div class="toast" role="status" aria-live="polite" data-toast></div>
+    </section>
+  </main>
+
+  <script>
+    const assetRoot = "../../src/Toklong.Mobile/Resources/Images/";
+    const typeContent = {
+      physical: {
+        name: "สินค้าที่จัดส่ง",
+        icon: assetRoot + "product_physical.svg",
+        exampleName: "กล้อง Fujifilm X-T30 II",
+        itemLabel: "ชื่อสินค้า",
+        itemPlaceholder: "เช่น กล้อง Fujifilm X-T30 II",
+        itemHelper: "ใช้ชื่อเดียวกับที่คุยกับผู้ขาย",
+        detailsLabel: "สิ่งที่ควรได้รับและหมายเหตุ",
+        detailsPlaceholder: "เช่น รุ่น สี อุปกรณ์ที่รวม และรายละเอียดจากข้อตกลง",
+        detailsHelper: "ผู้ขายต้องตรวจและยืนยันสิ่งที่รวมอีกครั้ง",
+        photoHelper: "แนบรูปสินค้า รูปโพสต์ หรือ Screenshot ได้ ผู้ขายต้องเพิ่มรูปสินค้าจริงภายหลัง"
+      },
+      game: {
+        name: "ไอดีเกม",
+        icon: assetRoot + "product_digital.svg",
+        exampleName: "ชื่อเกมที่ตกลงกัน",
+        itemLabel: "ชื่อเกม",
+        itemPlaceholder: "กรอกชื่อเกมที่ตกลงกัน",
+        itemHelper: "รายการต้องอยู่ในรายชื่อเกมที่ TOKLONG อนุมัติให้รองรับ",
+        detailsLabel: "รายละเอียดที่ตกลงกัน",
+        detailsPlaceholder: "ระบุ Rank, Level, ตัวละคร ไอเทมสำคัญ สิ่งที่รวม และข้อจำกัดที่ผู้ขายกล่าวอ้าง",
+        detailsHelper: "ข้อมูลนี้เป็นร่าง ผู้ขายต้องยืนยันสิทธิ์และรายละเอียดบัญชีภายหลัง",
+        photoHelper: "แนบ Screenshot ที่ไม่เห็นอีเมล ชื่อผู้ใช้สำหรับเข้าสู่ระบบ QR หรือข้อมูลลับ"
+      }
+    };
+
+    const screens = [...document.querySelectorAll("[data-screen]")];
+    const toast = document.querySelector("[data-toast]");
+    const productName = document.querySelector("#product-name");
+    const sellerPhone = document.querySelector("#seller-phone");
+    const itemPrice = document.querySelector("#item-price");
+    const conditionSelect = document.querySelector("#condition-select");
+    const knownDefects = document.querySelector("#known-defects");
+    const detailsInput = document.querySelector("[data-details-input]");
+    const gamePlatform = document.querySelector("#game-platform");
+    const gameRegion = document.querySelector("#game-region");
+    const gameFields = document.querySelector("[data-game-fields]");
+    const physicalCondition = document.querySelector("[data-physical-condition]");
+    const defectPanel = document.querySelector("[data-defect-panel]");
+    const photoStatus = document.querySelector("[data-photo-status]");
+    const phoneLockButton = document.querySelector("[data-action='phone-lock']");
+    const phoneLockPanel = document.querySelector("[data-phone-lock-panel]");
+    let selectedType = "physical";
+    let hasPhoto = false;
+    let toastTimer;
+
+    function showToast(message) {
+      window.clearTimeout(toastTimer);
+      toast.textContent = message;
+      toast.classList.add("visible");
+      toastTimer = window.setTimeout(() => toast.classList.remove("visible"), 2300);
+    }
+
+    function formatPrice(value) {
+      const normalized = String(value).replace(/,/g, "").trim();
+      const parts = normalized.match(/^(\d+)(?:\.(\d{1,2}))?$/);
+      if (!parts || /^0+$/.test(parts[1])) return "ยังไม่ได้กรอก";
+      const baht = BigInt(parts[1]).toLocaleString("th-TH");
+      const satang = (parts[2] ?? "").padEnd(2, "0");
+      return satang && satang !== "00" ? "฿" + baht + "." + satang : "฿" + baht;
+    }
+
+    function maskPhone(value) {
+      const digits = String(value).replace(/\D/g, "");
+      if (digits.length !== 10) return "";
+      return digits.slice(0, 3) + "-***-" + digits.slice(-4);
+    }
+
+    function updateTypeUI() {
+      const content = typeContent[selectedType];
+      const isGame = selectedType === "game";
+
+      document.querySelectorAll("[data-type-context]").forEach((context) => {
+        context.dataset.theme = isGame ? "digital" : "physical";
+      });
+      document.querySelectorAll("[data-type-icon]").forEach((icon) => {
+        icon.src = content.icon;
+      });
+      document.querySelectorAll("[data-type-name]").forEach((name) => {
+        name.textContent = content.name;
+      });
+
+      productName.placeholder = content.itemPlaceholder;
+      document.querySelector("[data-item-name-label]").textContent = content.itemLabel;
+      document.querySelector("[data-item-name-helper]").textContent = content.itemHelper;
+      document.querySelector("[data-details-label]").textContent = content.detailsLabel;
+      detailsInput.placeholder = content.detailsPlaceholder;
+      document.querySelector("[data-details-helper]").textContent = content.detailsHelper;
+      document.querySelector("[data-photo-helper]").textContent = content.photoHelper;
+      photoStatus.textContent = isGame
+        ? "เลือกแล้ว · game-reference.jpg"
+        : "เลือกแล้ว · product-reference.jpg";
+
+      gameFields.hidden = !isGame;
+      physicalCondition.hidden = isGame;
+      document.querySelector("[data-game-safety]").hidden = !isGame;
+    }
+
+    function updateReview() {
+      const content = typeContent[selectedType];
+      const isGame = selectedType === "game";
+      const lockedPhone = maskPhone(sellerPhone.value);
+
+      document.querySelector("[data-review-type]").textContent = content.name;
+      document.querySelector("[data-review-item-label]").textContent =
+        isGame ? "ชื่อเกม" : "สินค้า";
+      document.querySelector("[data-review-product]").textContent =
+        productName.value.trim() || "ยังไม่ได้กรอก";
+      document.querySelector("[data-review-price]").textContent = formatPrice(itemPrice.value);
+      document.querySelector("[data-cost-item]").textContent = formatPrice(itemPrice.value);
+      document.querySelector("[data-review-details-label]").textContent =
+        isGame ? "รายละเอียดที่ตกลงกัน" : "สิ่งที่ควรได้รับ";
+      document.querySelector("[data-review-details]").textContent =
+        detailsInput.value.trim() || "ไม่ได้ระบุ (ไม่บังคับ)";
+      document.querySelector("[data-review-photo]").textContent =
+        hasPhoto ? "เพิ่มแล้ว" : "ไม่ได้เพิ่ม (ไม่บังคับ)";
+      document.querySelector("[data-review-invitation]").textContent = lockedPhone
+        ? "แชร์ลิงก์และล็อกสำหรับ " + lockedPhone
+        : "แชร์ลิงก์ในแชตหลังสร้างดีล";
+
+      document.querySelector("[data-review-platform-row]").hidden = !isGame;
+      document.querySelector("[data-review-region-row]").hidden = !isGame;
+      document.querySelector("[data-review-platform]").textContent =
+        gamePlatform.value || "ยังไม่ได้เลือก";
+      document.querySelector("[data-review-region]").textContent =
+        gameRegion.value.trim() || "ยังไม่ได้กรอก";
+
+      const conditionRow = document.querySelector("[data-review-condition-row]");
+      const defectsRow = document.querySelector("[data-review-defects-row]");
+      conditionRow.hidden = isGame;
+      defectsRow.hidden = isGame || conditionSelect.value !== "defect";
+      const conditionLabels = {
+        new: "ใหม่",
+        used: "มือสอง สภาพดี",
+        defect: "มีตำหนิ"
+      };
+      document.querySelector("[data-review-condition]").textContent =
+        conditionLabels[conditionSelect.value] ?? "ยังไม่ได้เลือก";
+      document.querySelector("[data-review-defects]").textContent =
+        knownDefects.value.trim() || "ยังไม่ได้ระบุ";
+
+      document.querySelector("[data-physical-next]").hidden = isGame;
+      document.querySelector("[data-game-next]").hidden = !isGame;
+      document.querySelector("[data-game-review-rule]").hidden = !isGame;
+      document.querySelector("[data-review-protection-cost]").hidden = isGame;
+      document.querySelector("[data-review-shipping-cost]").hidden = isGame;
+      document.querySelector("[data-review-payment-note]").textContent = isGame
+        ? "ผู้ขายต้องยืนยันสิทธิ์และรายละเอียดบัญชีก่อน คุณจึงตรวจเงื่อนไขสุดท้ายและชำระได้"
+        : "ผู้ขายต้องยืนยันรายละเอียดและระบุข้อมูลพัสดุก่อน คุณจึงเห็นยอดรวมจริงและชำระได้";
+    }
+
+    function updateSent() {
+      const isGame = selectedType === "game";
+      const lockedPhone = maskPhone(sellerPhone.value);
+      document.querySelector("[data-sent-lock-copy]").textContent = lockedPhone
+        ? "ลิงก์นี้ล็อกให้บัญชีที่ยืนยันด้วยเบอร์ " + lockedPhone
+        : "ผู้ขายต้องเข้าสู่ระบบก่อนตอบรับข้อเสนอ";
+      document.querySelector("[data-sent-physical]").hidden = isGame;
+      document.querySelector("[data-sent-game]").hidden = !isGame;
+    }
+
+    function navigate(screenName) {
+      if (screenName === "review") updateReview();
+      if (screenName === "sent") updateSent();
+      screens.forEach((screen) => {
+        screen.hidden = screen.dataset.screen !== screenName;
+      });
+      const current = screens.find((screen) => screen.dataset.screen === screenName);
+      current.querySelector(".screen-body")?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      window.setTimeout(() => current.querySelector("h1")?.focus(), 0);
+    }
+
+    document.querySelectorAll(".choice-card").forEach((card) => {
+      card.addEventListener("click", () => {
+        const nextType = card.dataset.type;
+        const examples = Object.values(typeContent).map((type) => type.exampleName);
+        if (!productName.value.trim() || examples.includes(productName.value.trim())) {
+          productName.value = typeContent[nextType].exampleName;
+        }
+        if (nextType !== selectedType) {
+          conditionSelect.value = "";
+          knownDefects.value = "";
+          defectPanel.hidden = true;
+        }
+        selectedType = nextType;
+        if (selectedType === "game") {
+          if (!gamePlatform.value) gamePlatform.value = "มือถือ";
+          if (!gameRegion.value) gameRegion.value = "เซิร์ฟเวอร์ไทย";
+        }
+        updateTypeUI();
+        navigate("deal");
+      });
+    });
+
+    document.querySelectorAll("[data-nav]").forEach((button) => {
+      button.addEventListener("click", () => navigate(button.dataset.nav));
+    });
+
+    document.querySelectorAll("[data-action='exit']").forEach((button) => {
+      button.addEventListener("click", () => {
+        showToast("Mockup: กลับไปหน้าซื้อ");
+      });
+    });
+
+    document.querySelector("[data-action='open-activity']").addEventListener("click", () => {
+      showToast("Mockup: เปิดหน้ากิจกรรม");
+    });
+
+    document.querySelectorAll("[data-action='open-transaction']").forEach((button) => {
+      button.addEventListener("click", () => {
+        showToast("Mockup: เปิดรายละเอียด " + button.dataset.kind);
+      });
+    });
+
+    document.querySelectorAll("[data-filter]").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll("[data-filter]").forEach((chip) => {
+          chip.classList.toggle("active", chip === button);
+        });
+        showToast("ตัวอย่างตัวกรอง: " + button.dataset.filter);
+      });
+    });
+
+    document.querySelector("[data-action='buy-tab']").addEventListener("click", () => {
+      showToast("อยู่ที่รายการซื้อแล้ว");
+    });
+
+    document.querySelector("[data-action='sell-tab']").addEventListener("click", () => {
+      showToast("Mockup นี้เน้นตัวอย่างรายการซื้อ");
+    });
+
+    document.querySelector("[data-action='account-tab']").addEventListener("click", () => {
+      showToast("Mockup: เปิดหน้าบัญชี");
+    });
+
+    phoneLockButton.addEventListener("click", () => {
+      const expanded = phoneLockButton.getAttribute("aria-expanded") === "true";
+      phoneLockButton.setAttribute("aria-expanded", String(!expanded));
+      phoneLockButton.lastElementChild.textContent = expanded ? "⌄" : "⌃";
+      phoneLockPanel.hidden = expanded;
+      if (expanded) sellerPhone.value = "";
+      if (!expanded) window.setTimeout(() => sellerPhone.focus(), 0);
+    });
+
+    document.querySelector("[data-action='photo']").addEventListener("click", () => {
+      hasPhoto = !hasPhoto;
+      photoStatus.hidden = !hasPhoto;
+      showToast(hasPhoto ? "เพิ่มรูปตัวอย่างแล้ว" : "นำรูปตัวอย่างออกแล้ว");
+    });
+
+    document.querySelector("[data-action='ai-helper']").addEventListener("click", () => {
+      showToast("Mockup: เปิดตัวช่วยสรุปร่างจากแชต");
+    });
+
+    conditionSelect.addEventListener("change", () => {
+      defectPanel.hidden = conditionSelect.value !== "defect";
+    });
+
+    document.querySelector("[data-action='submit']").addEventListener("click", () => {
+      navigate("sent");
+      showToast("Mockup: แสดงสถานะหลังสร้างดีล");
+    });
+
+    document.querySelector("[data-action='copy-link']").addEventListener("click", () => {
+      showToast("คัดลอกลิงก์ตัวอย่างแล้ว");
+    });
+
+    document.querySelector("[data-action='share-link']").addEventListener("click", () => {
+      showToast("Mockup: เปิด Share Sheet ของโทรศัพท์");
+    });
+
+    const previewParams = new URLSearchParams(window.location.search);
+    const requestedType = previewParams.get("type");
+    const previewType = requestedType === "digital" ? "game" : requestedType;
+    const previewScreen = previewParams.get("screen");
+    if (previewType && typeContent[previewType]) {
+      selectedType = previewType;
+      productName.value = typeContent[selectedType].exampleName;
+      if (selectedType === "game") {
+        gamePlatform.value = "มือถือ";
+        gameRegion.value = "เซิร์ฟเวอร์ไทย";
+      }
+    }
+    updateTypeUI();
+    if (["list", "type", "deal", "review", "sent"].includes(previewScreen)) {
+      navigate(previewScreen);
+    }
+  </script>
+</body>
+</html>

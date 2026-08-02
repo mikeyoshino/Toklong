@@ -265,6 +265,42 @@ public sealed class TransactionPresentationTests
         Assert.Contains(item.PrimaryActionLabel, item.ListSemanticDescription);
     }
 
+    [Theory]
+    [InlineData(
+        AppFulfillmentType.Physical,
+        "สินค้าที่จัดส่ง",
+        "#145FC7",
+        "#EEF7FF")]
+    [InlineData(
+        AppFulfillmentType.Digital,
+        "ไอดีเกม",
+        "#5144BF",
+        "#F3F1FF")]
+    public void ListCardsExposePlainLanguageProductTypeWithoutSecrets(
+        AppFulfillmentType type,
+        string label,
+        string color,
+        string background)
+    {
+        var item = new AppTransaction(
+            Guid.NewGuid(),
+            "รายการตัวอย่าง",
+            100000,
+            "THB",
+            AppTransactionRole.Buyer,
+            type,
+            "AwaitingSellerAcceptance",
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow.AddHours(1),
+            "ผู้ขาย");
+
+        Assert.Equal(label, item.ProductTypeLabel);
+        Assert.Equal($"ซื้อ · {label}", item.RoleAndProductTypeLabel);
+        Assert.Equal(color, item.ProductTypeColor);
+        Assert.Equal(background, item.ProductTypeBackground);
+        Assert.Contains($"ประเภท {label}", item.ListSemanticDescription);
+    }
+
     [Fact]
     public void SellerListSemanticDescriptionUsesExpectedNetInsteadOfBuyerTotal()
     {

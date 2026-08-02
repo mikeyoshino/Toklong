@@ -5,7 +5,7 @@ namespace Toklong.Mobile;
 
 public partial class AppShell : Shell
 {
-    public AppShell(IWorkspaceRolePreference workspaceRoles)
+    public AppShell()
     {
         InitializeComponent();
         Routing.RegisterRoute(nameof(ActivityPage), typeof(ActivityPage));
@@ -16,6 +16,9 @@ public partial class AppShell : Shell
             typeof(CompleteRegistrationPage));
         Routing.RegisterRoute(nameof(TransactionDetailPage), typeof(TransactionDetailPage));
         Routing.RegisterRoute(nameof(ShippingLabelPage), typeof(ShippingLabelPage));
+        Routing.RegisterRoute(
+            nameof(ProductTypeSelectionPage),
+            typeof(ProductTypeSelectionPage));
         Routing.RegisterRoute(nameof(CreateOfferPage), typeof(CreateOfferPage));
         Routing.RegisterRoute(nameof(SellerOfferPage), typeof(SellerOfferPage));
         Routing.RegisterRoute(
@@ -33,11 +36,5 @@ public partial class AppShell : Shell
         Routing.RegisterRoute(
             nameof(VerifyNameChangePage),
             typeof(VerifyNameChangePage));
-        Navigated += (_, args) =>
-        {
-            var route = args.Current.Location.OriginalString;
-            if (AuthenticatedHomeRoutes.TryParseRoot(route, out var role))
-                workspaceRoles.SavePreferredRole(role);
-        };
     }
 }

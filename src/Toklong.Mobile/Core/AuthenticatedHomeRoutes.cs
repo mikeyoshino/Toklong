@@ -10,6 +10,7 @@ public static class AuthenticatedHomeRoutes
 {
     public const string Buying = "//main/buying";
     public const string Selling = "//main/selling";
+    public const string Default = Buying;
 
     public static string Root(TransactionRoleRoute role) =>
         role switch

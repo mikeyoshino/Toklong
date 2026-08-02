@@ -178,6 +178,24 @@ public sealed record AppTransaction(
 
     public string RoleLabel => Role == AppTransactionRole.Buyer ? "ซื้อ" : "ขาย";
 
+    public string ProductTypeLabel =>
+        FulfillmentType == AppFulfillmentType.Physical
+            ? "สินค้าที่จัดส่ง"
+            : "ไอดีเกม";
+
+    public string RoleAndProductTypeLabel =>
+        $"{RoleLabel} · {ProductTypeLabel}";
+
+    public string ProductTypeColor =>
+        FulfillmentType == AppFulfillmentType.Physical
+            ? "#145FC7"
+            : "#5144BF";
+
+    public string ProductTypeBackground =>
+        FulfillmentType == AppFulfillmentType.Physical
+            ? "#EEF7FF"
+            : "#F3F1FF";
+
     public bool ShowShippingProgress =>
         FulfillmentType == AppFulfillmentType.Physical &&
         (ShippingManagedByProvider ||
@@ -259,7 +277,8 @@ public sealed record AppTransaction(
     public string PrimaryActionLabel => Presentation.PrimaryActionLabel;
 
     public string ListSemanticDescription =>
-        $"{RoleLabel} {ProductName}. {CounterpartyLabel}. " +
+        $"{RoleLabel} {ProductName}. ประเภท {ProductTypeLabel}. " +
+        $"{CounterpartyLabel}. " +
         $"{StatusLabel}. {RoleAmountLabel} {RoleAmountText}. " +
         $"{DeadlineText}. {PrimaryActionLabel}";
 

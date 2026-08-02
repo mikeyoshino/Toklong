@@ -406,7 +406,7 @@
                                         <Label
                                             FontAttributes="Bold"
                                             FontSize="12"
-                                            Text="{Binding SpotlightTransaction.RoleLabel}"
+                                            Text="{Binding SpotlightTransaction.RoleAndProductTypeLabel}"
                                             TextColor="White" />
                                     </Border>
                                 </Grid>
@@ -643,6 +643,17 @@
                                                 FontSize="12"
                                                 Text="{Binding RoleLabel}"
                                                 TextColor="{Binding RoleColor}" />
+                                            <Border
+                                                Padding="7,2"
+                                                BackgroundColor="{Binding ProductTypeBackground}"
+                                                StrokeThickness="0"
+                                                StrokeShape="RoundRectangle 99">
+                                                <Label
+                                                    FontAttributes="Bold"
+                                                    FontSize="10"
+                                                    Text="{Binding ProductTypeLabel}"
+                                                    TextColor="{Binding ProductTypeColor}" />
+                                            </Border>
                                         </HorizontalStackLayout>
                                         <Label
                                             FontAttributes="Bold"
@@ -768,6 +779,17 @@
                                                 FontSize="12"
                                                 Text="{Binding RoleLabel}"
                                                 TextColor="{Binding RoleColor}" />
+                                            <Border
+                                                Padding="7,2"
+                                                BackgroundColor="{Binding ProductTypeBackground}"
+                                                StrokeThickness="0"
+                                                StrokeShape="RoundRectangle 99">
+                                                <Label
+                                                    FontAttributes="Bold"
+                                                    FontSize="10"
+                                                    Text="{Binding ProductTypeLabel}"
+                                                    TextColor="{Binding ProductTypeColor}" />
+                                            </Border>
                                         </HorizontalStackLayout>
                                         <Label
                                             FontAttributes="Bold"

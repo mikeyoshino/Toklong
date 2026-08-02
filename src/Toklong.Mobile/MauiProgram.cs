@@ -109,9 +109,6 @@ public static class MauiProgram
             LoggingMobileAnalytics>();
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSingleton<AuthenticatedSessionBoundary>();
-        builder.Services.AddSingleton<
-            IWorkspaceRolePreference,
-            WorkspaceRolePreference>();
         builder.Services.AddSingleton<AccountNameChangeOperationState>();
         builder.Services.AddSingleton<AccountNameChangeCompletionState>();
         builder.Services.AddSingleton<
@@ -231,6 +228,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<SellingTransactionsPage>();
         builder.Services.AddTransient<TransactionDetailPage>();
         builder.Services.AddTransient<ShippingLabelPage>();
+        builder.Services.AddTransient<ProductTypeSelectionPage>();
         builder.Services.AddTransient<CreateOfferPage>();
         builder.Services.AddTransient<SellerOfferPage>();
         builder.Services.AddTransient<PayoutSettingsPage>();

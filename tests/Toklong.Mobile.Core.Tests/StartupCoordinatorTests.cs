@@ -11,8 +11,7 @@ public sealed class StartupCoordinatorTests
         var coordinator = new StartupCoordinator(
             authentication,
             new PendingRegistrationStoreStub(false),
-            new MotionPreferenceStub(false),
-            new WorkspacePreferenceStub(TransactionRoleRoute.Buying));
+            new MotionPreferenceStub(false));
         var plays = 0;
 
         var result = await coordinator.StartAsync(_ =>
@@ -32,8 +31,7 @@ public sealed class StartupCoordinatorTests
         var coordinator = new StartupCoordinator(
             new AuthenticationStub(() => Task.FromResult(false)),
             new PendingRegistrationStoreStub(false),
-            new MotionPreferenceStub(true),
-            new WorkspacePreferenceStub(TransactionRoleRoute.Buying));
+            new MotionPreferenceStub(true));
 
         var result = await coordinator.StartAsync(
             _ => throw new InvalidOperationException("must not run"));
@@ -49,8 +47,7 @@ public sealed class StartupCoordinatorTests
         var coordinator = new StartupCoordinator(
             new AuthenticationStub(() => Task.FromException<bool>(failure)),
             new PendingRegistrationStoreStub(false),
-            new MotionPreferenceStub(false),
-            new WorkspacePreferenceStub(TransactionRoleRoute.Buying));
+            new MotionPreferenceStub(false));
 
         var result = await coordinator.StartAsync(_ => Task.CompletedTask);
 
@@ -69,8 +66,7 @@ public sealed class StartupCoordinatorTests
         var coordinator = new StartupCoordinator(
             authentication,
             new PendingRegistrationStoreStub(false),
-            new MotionPreferenceStub(false),
-            new WorkspacePreferenceStub(TransactionRoleRoute.Buying));
+            new MotionPreferenceStub(false));
 
         var startup = coordinator.StartAsync(
             _ => animationGate.Task);
@@ -90,8 +86,7 @@ public sealed class StartupCoordinatorTests
         var coordinator = new StartupCoordinator(
             authentication,
             new PendingRegistrationStoreStub(false),
-            new MotionPreferenceStub(false),
-            new WorkspacePreferenceStub(TransactionRoleRoute.Buying));
+            new MotionPreferenceStub(false));
         var plays = 0;
 
         var first = coordinator.StartAsync(_ =>
@@ -118,8 +113,7 @@ public sealed class StartupCoordinatorTests
             new AuthenticationStub(
                 () => Task.FromResult(false)),
             new PendingRegistrationStoreStub(true),
-            new MotionPreferenceStub(false),
-            new WorkspacePreferenceStub(TransactionRoleRoute.Buying));
+            new MotionPreferenceStub(false));
 
         var result = await coordinator.StartAsync(
             _ => Task.CompletedTask);
@@ -136,8 +130,7 @@ public sealed class StartupCoordinatorTests
             new AuthenticationStub(
                 () => Task.FromResult(true)),
             new PendingRegistrationStoreStub(true),
-            new MotionPreferenceStub(false),
-            new WorkspacePreferenceStub(TransactionRoleRoute.Buying));
+            new MotionPreferenceStub(false));
 
         var result = await coordinator.StartAsync(
             _ => Task.CompletedTask);
@@ -145,39 +138,23 @@ public sealed class StartupCoordinatorTests
         Assert.Equal(AuthenticatedHomeRoutes.Buying, result.Route);
     }
 
-    [Theory]
-    [InlineData(TransactionRoleRoute.Buying, "//main/buying")]
-    [InlineData(TransactionRoleRoute.Selling, "//main/selling")]
-    public async Task Session_routes_to_preferred_workspace(
-        TransactionRoleRoute role,
-        string expected)
+    [Fact]
+    public async Task Session_always_routes_to_buyer_workspace()
     {
         var coordinator = new StartupCoordinator(
             new AuthenticationStub(() => Task.FromResult(true)),
             new PendingRegistrationStoreStub(false),
-            new MotionPreferenceStub(true),
-            new WorkspacePreferenceStub(role));
+            new MotionPreferenceStub(true));
 
         var result = await coordinator.StartAsync(_ => Task.CompletedTask);
 
-        Assert.Equal(expected, result.Route);
+        Assert.Equal(AuthenticatedHomeRoutes.Buying, result.Route);
     }
 
     private sealed class MotionPreferenceStub(bool reduced)
         : IStartupMotionPreference
     {
         public bool IsReducedMotionEnabled { get; } = reduced;
-    }
-
-    private sealed class WorkspacePreferenceStub(TransactionRoleRoute role)
-        : IWorkspaceRolePreference
-    {
-        public TransactionRoleRoute GetPreferredRole() => role;
-
-        public void SavePreferredRole(TransactionRoleRoute value) =>
-            throw new NotSupportedException();
-
-        public void Clear() => throw new NotSupportedException();
     }
 
     private sealed class PendingRegistrationStoreStub(bool valid)

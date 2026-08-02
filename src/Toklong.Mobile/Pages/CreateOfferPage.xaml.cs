@@ -3,8 +3,10 @@ using Toklong.Mobile.ViewModels;
 
 namespace Toklong.Mobile.Pages;
 
-public partial class CreateOfferPage : ContentPage
+public partial class CreateOfferPage : ContentPage, IQueryAttributable
 {
+    public const string FulfillmentTypeQueryKey = "FulfillmentType";
+
     private readonly CreateOfferViewModel viewModel;
     private bool isHandlingBack;
 
@@ -13,6 +15,25 @@ public partial class CreateOfferPage : ContentPage
         InitializeComponent();
         this.viewModel = viewModel;
         BindingContext = viewModel;
+    }
+
+    public void ApplyQueryAttributes(IDictionary<string, object> query)
+    {
+        if (!query.TryGetValue(
+                FulfillmentTypeQueryKey,
+                out var rawType))
+            return;
+
+        var type = rawType switch
+        {
+            AppFulfillmentType value => value,
+            string value when Enum.TryParse<AppFulfillmentType>(
+                value,
+                true,
+                out var parsed) => parsed,
+            _ => AppFulfillmentType.Physical
+        };
+        viewModel.InitializeFulfillmentType(type);
     }
 
     protected override async void OnAppearing()
@@ -113,10 +134,10 @@ public partial class CreateOfferPage : ContentPage
                 (FulfillmentStepScroll, (VisualElement)AddressLineEntry,
                     viewModel.DeliveryAddressError),
             CreateOfferValidationTarget.Condition =>
-                (ReviewStepScroll, (VisualElement)NewConditionButton,
+                (DealStepScroll, (VisualElement)ConditionPickerAnchor,
                     viewModel.ConditionError),
             CreateOfferValidationTarget.KnownDefects =>
-                (ReviewStepScroll, (VisualElement)KnownDefectsEditor,
+                (DealStepScroll, (VisualElement)KnownDefectsEditor,
                     viewModel.KnownDefectsError),
             _ =>
                 (ReviewStepScroll, (VisualElement)SubmitReviewedOfferButton,
