@@ -202,6 +202,10 @@ Show:
   weight and width/length/height, `ดูค่าจัดส่ง`, selectable quote rows, and the
   item-price/shipping breakdown. Changing origin or measurements clears the
   selected quote.
+- `ดูค่าจัดส่ง` disables repeat submission while loading and shows
+  `กำลังดูค่าจัดส่ง…` immediately below the action. The same location shows
+  empty or consumer-safe retry feedback; quote failures are never deferred to
+  the bottom of the page or replaced by a simulated price.
 - For a digital offer, show `เตรียมส่งมอบไอดีเกม`, keep all shipping inputs
   absent, and warn never to enter passwords, OTPs, recovery codes, login QR
   data, or other reusable secrets in TOKLONG.
@@ -318,6 +322,10 @@ The unguessable invitation requires seller phone authentication. Show:
 - Proposed product and item price.
 - For physical goods, seller origin, parcel weight/dimensions, selected carrier
   service, shipping charge, and expected seller net.
+- `ดูค่าจัดส่ง` disables repeat submission while loading and shows
+  `กำลังดูค่าจัดส่ง…` immediately below the action. The same location shows
+  empty or consumer-safe retry feedback; quote failures are never deferred to
+  the bottom of the page or replaced by a simulated price.
 - Do not show Buyer Protection or parcel-protection values, coverage limits,
   provider option details, or buyer total to the seller. For
   `buyer-protection-v2`, seller platform fee is zero and exact seller net is the

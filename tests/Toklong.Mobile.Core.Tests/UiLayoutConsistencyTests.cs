@@ -1543,6 +1543,52 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
+    public void SellerOffer_ShowsAccessibleQuoteFeedbackBesideQuoteAction()
+    {
+        var page = Load("Ui", "Pages", "SellerOfferPage.xaml");
+        var elements = page.Descendants().ToList();
+        var button = elements.Single(element =>
+            AttributeValue(element, "AutomationId") ==
+                "LoadShippingQuotesButton");
+        var loading = elements.Single(element =>
+            AttributeValue(element, "AutomationId") ==
+                "ShippingQuoteLoadingStatus");
+        var message = elements.Single(element =>
+            AttributeValue(element, "AutomationId") ==
+                "ShippingQuoteMessage");
+        var picker = page.Descendants(Maui + "Picker")
+            .Single(element =>
+                AttributeValue(element, "ItemsSource") ==
+                    "{Binding ShippingQuotes}");
+
+        Assert.Equal(
+            "{Binding LoadShippingQuotesCommand}",
+            AttributeValue(button, "Command"));
+        Assert.Equal(
+            "{Binding CanLoadShippingQuotes}",
+            AttributeValue(button, "IsEnabled"));
+        Assert.False(string.IsNullOrWhiteSpace(
+            AttributeValue(button, "SemanticProperties.Description")));
+        Assert.Equal(
+            "{Binding IsLoadingShippingQuotes}",
+            AttributeValue(loading, "IsVisible"));
+        Assert.Contains(
+            loading.Descendants(Maui + "Label"),
+            label => AttributeValue(label, "Text") ==
+                "กำลังดูค่าจัดส่ง…");
+        Assert.Equal(
+            "{Binding HasShippingQuoteMessage}",
+            AttributeValue(message, "IsVisible"));
+        Assert.Contains(
+            message.Descendants(Maui + "Label"),
+            label => AttributeValue(label, "Text") ==
+                "{Binding ShippingQuoteMessage}");
+        Assert.True(elements.IndexOf(button) < elements.IndexOf(loading));
+        Assert.True(elements.IndexOf(loading) < elements.IndexOf(message));
+        Assert.True(elements.IndexOf(message) < elements.IndexOf(picker));
+    }
+
+    [Fact]
     public void TransactionHeaderUsesRoleSpecificAmount()
     {
         var detail = Load(

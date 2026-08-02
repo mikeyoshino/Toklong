@@ -328,9 +328,37 @@
                     </VerticalStackLayout>
 
                     <Button
+                        AutomationId="LoadShippingQuotesButton"
                         Style="{StaticResource RefinedSecondaryActionButton}"
                         Command="{Binding LoadShippingQuotesCommand}"
+                        IsEnabled="{Binding CanLoadShippingQuotes}"
+                        SemanticProperties.Description="ตรวจสอบค่าจัดส่งจากต้นทางและขนาดพัสดุ"
                         Text="ดูค่าจัดส่ง" />
+
+                    <HorizontalStackLayout
+                        AutomationId="ShippingQuoteLoadingStatus"
+                        IsVisible="{Binding IsLoadingShippingQuotes}"
+                        Spacing="{StaticResource SpacingXs}">
+                        <ActivityIndicator
+                            AutomationProperties.IsInAccessibleTree="False"
+                            Color="{StaticResource BrandBlue}"
+                            HeightRequest="18"
+                            IsRunning="{Binding IsLoadingShippingQuotes}"
+                            WidthRequest="18" />
+                        <Label
+                            Style="{StaticResource RefinedHelperText}"
+                            Text="กำลังดูค่าจัดส่ง…"
+                            VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+
+                    <Border
+                        AutomationId="ShippingQuoteMessage"
+                        IsVisible="{Binding HasShippingQuoteMessage}"
+                        Style="{StaticResource RefinedValidationBorder}">
+                        <Label
+                            Style="{StaticResource RefinedValidationText}"
+                            Text="{Binding ShippingQuoteMessage}" />
+                    </Border>
 
                     <VerticalStackLayout
                         IsVisible="{Binding HasShippingQuotes}"
