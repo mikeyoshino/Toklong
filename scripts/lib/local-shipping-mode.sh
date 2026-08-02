@@ -92,8 +92,8 @@ toklong_apply_local_shipping_mode() {
     export ShippingQuotes__Provider=Shippop
     export DevelopmentDemoSimulation__Enabled=false
     export DataProtection__KeysPath="${keys_path}"
-    export Shippop__BaseUrl=http://mkpservice.shippop.dev
-    export Shippop__AllowInsecureHttp=true
+    export Shippop__BaseUrl=https://mkpservice.shippop.dev
+    export Shippop__AllowInsecureHttp=false
     export Shippop__ApiKey="${api_key}"
     export Shippop__AccountEmail="${account_email}"
     export Shippop__QuoteSigningSecret="${quote_signing_secret}"

@@ -168,8 +168,10 @@ test_sandbox_projects_only_the_selected_service() {
     [[ "${DataProtection__KeysPath}" == "${keys_path}" ]]
     [[ -d "${keys_path}" ]]
     [[ "$(stat -f '%Lp' "${keys_path}" 2>/dev/null || stat -c '%a' "${keys_path}")" == "700" ]]
-    [[ "${Shippop__BaseUrl}" == "http://mkpservice.shippop.dev" ]]
-    [[ "${Shippop__AllowInsecureHttp}" == "true" ]]
+    if [[ "${Shippop__BaseUrl}" != "https://mkpservice.shippop.dev" ||
+          "${Shippop__AllowInsecureHttp}" != "false" ]]; then
+        return 1
+    fi
     [[ "${Shippop__ApiKey}" == "test-api-key" ]]
     [[ "${Shippop__AccountEmail}" == "tester@example.invalid" ]]
     [[ "${Shippop__QuoteSigningSecret}" == "12345678901234567890123456789012" ]]
@@ -324,7 +326,9 @@ test_backend_launcher_applies_sandbox_to_api_and_worker() {
             "${environment_path}"
         grep -Fxq "DevelopmentDemoSimulation__Enabled=false" \
             "${environment_path}"
-        grep -Fxq "Shippop__BaseUrl=http://mkpservice.shippop.dev" \
+        grep -Fxq "Shippop__BaseUrl=https://mkpservice.shippop.dev" \
+            "${environment_path}"
+        grep -Fxq "Shippop__AllowInsecureHttp=false" \
             "${environment_path}"
         grep -Fxq "Shippop__ApiKey=test-api-key" \
             "${environment_path}"
