@@ -4,6 +4,25 @@ set -euo pipefail
 umask 077
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "${repo_root}/scripts/lib/local-shipping-mode.sh"
+toklong_validate_local_shipping_mode
+
+shipping_mode="${TOKLONG_SHIPPING_MODE:-Development}"
+shippop_api_key=""
+shippop_account_email=""
+shippop_service_code=""
+shippop_quote_signing_secret=""
+if [[ "${shipping_mode}" == "ShippopSandbox" ]]; then
+    shippop_api_key="${SHIPPOP_API_KEY}"
+    shippop_account_email="${SHIPPOP_ACCOUNT_EMAIL}"
+    shippop_service_code="${SHIPPOP_SERVICE_CODE}"
+    shippop_quote_signing_secret="${SHIPPOP_QUOTE_SIGNING_SECRET}"
+fi
+unset SHIPPOP_API_KEY SHIPPOP_ACCOUNT_EMAIL \
+    SHIPPOP_SERVICE_CODE SHIPPOP_QUOTE_SIGNING_SECRET \
+    Shippop__ApiKey Shippop__AccountEmail \
+    Shippop__QuoteSigningSecret
+
 api_port="${TOKLONG_STRIPE_TEST_PORT:-5181}"
 api_base_url="http://127.0.0.1:${api_port}"
 stripe_config_path="${STRIPE_CONFIG_PATH:-${HOME}/.config/stripe/config.toml}"
@@ -120,6 +139,21 @@ stripe listen \
 listener_pid="$!"
 write_runtime_pid stripe-listener "${listener_pid}"
 
+data_protection_keys_path="${TOKLONG_BACKEND_RUNTIME_DIR:-${temporary_directory}}/data-protection-keys"
+toklong_apply_local_shipping_mode \
+    "${data_protection_keys_path}" \
+    "${shippop_api_key}" \
+    "${shippop_account_email}" \
+    "${shippop_service_code}" \
+    "${shippop_quote_signing_secret}"
+if [[ "${shipping_mode}" == "ShippopSandbox" ]]; then
+    echo "Shipping: SHIPPOP Sandbox (${shippop_service_code})"
+else
+    echo "Shipping: deterministic Development provider"
+fi
+unset shippop_api_key shippop_account_email \
+    shippop_quote_signing_secret
+
 DOTNET_ENVIRONMENT=Development \
 Stripe__Enabled=true \
 Stripe__LiveMode=false \
@@ -129,7 +163,6 @@ Stripe__SecretKey="${stripe_secret_key}" \
 Stripe__WebhookSecret="${stripe_webhook_secret}" \
 BuyerProtectionFee__Enabled=true \
 BuyerProtectionFee__PolicyVersion=buyer-protection-v2 \
-ShippingQuotes__Provider=Development \
 BankPayout__Provider=Manual \
 Reconciliation__SigningSecret=local-development-only-not-for-production \
 dotnet run \
@@ -154,10 +187,8 @@ Stripe__SecretKey="${stripe_secret_key}" \
 Stripe__WebhookSecret="${stripe_webhook_secret}" \
 BuyerProtectionFee__Enabled=true \
 BuyerProtectionFee__PolicyVersion=buyer-protection-v2 \
-ShippingQuotes__Provider=Development \
 PublicUrls__WebBaseUrl=https://toklong.co.th \
 BankPayout__Provider=Manual \
-DevelopmentDemoSimulation__Enabled=true \
 DevelopmentDemoSimulation__StepIntervalSeconds=3 \
 Reconciliation__SigningSecret=local-development-only-not-for-production \
 dotnet run \
