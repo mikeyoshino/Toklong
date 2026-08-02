@@ -26,6 +26,10 @@
     <ProjectReference Include="..\..\src\Toklong.Infrastructure\Toklong.Infrastructure.csproj" />
     <Compile Include="..\TestSupport\TestTransactionFactory.cs"
              Link="TestSupport\TestTransactionFactory.cs" />
+    <Compile Include="..\TestSupport\CounterQrTestTransactionFactory.cs"
+             Link="TestSupport\CounterQrTestTransactionFactory.cs" />
+    <Compile Include="..\TestSupport\CounterQrTestPng.cs"
+             Link="TestSupport\CounterQrTestPng.cs" />
   </ItemGroup>
 
 </Project>

@@ -724,6 +724,7 @@ public sealed class ProcessNextShippingOperationHandler(
             confirmation.ProviderStatus,
             confirmation.ConfirmedAt);
         if (shipment.Direction == ShipmentDirection.Outbound)
+        {
             transaction.ConfirmProviderManagedShipment(
                 shipment.Provider,
                 confirmation.ProviderTrackingCode,
@@ -732,6 +733,11 @@ public sealed class ProcessNextShippingOperationHandler(
                 confirmation.ProviderStatus,
                 confirmation.ConfirmedAt,
                 transitions);
+            transaction.QueueShipmentCounterQr(
+                shipment.Id,
+                "shipping-worker",
+                clock.UtcNow);
+        }
         operation.Succeed(
             workerId,
             shipment.PurchaseReference,

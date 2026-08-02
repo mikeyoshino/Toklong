@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using Toklong.Application.Features.Shipping.ProcessShippingOperations;
 using Toklong.Application.Features.Shipping.ProcessProviderShipments;
 using Toklong.Domain.Transactions;
+using Toklong.Application.Features.Shipping.ProcessCounterQrResources;
 
 namespace Toklong.Worker;
 
@@ -79,12 +80,30 @@ public sealed class ShippingOperationsWorker(
                         options.LeaseSeconds,
                         options.MaximumAttempts),
                     stoppingToken);
+                var counterQrQueued = await sender.Send(
+                    new QueueEligibleCounterQrResourcesCommand(),
+                    stoppingToken);
+                var counterQrProcessed =
+                    await sender.Send(
+                        new ProcessCounterQrResourceBatchCommand(
+                            Environment.MachineName,
+                            Math.Clamp(
+                                options.OtherMutationBatchSize,
+                                1,
+                                100),
+                            options.LeaseSeconds,
+                            options.MaximumAttempts),
+                        stoppingToken);
                 if (confirmationsProcessed > 0 ||
-                    otherProcessed > 0)
+                    otherProcessed > 0 ||
+                    counterQrQueued > 0 ||
+                    counterQrProcessed > 0)
                     logger.LogInformation(
-                        "Processed {ConfirmationCount} confirmation and {OtherCount} other durable shipping operations",
+                        "Processed {ConfirmationCount} confirmation, {OtherCount} other shipping operations, queued {CounterQrQueuedCount} Counter QR resources, and completed {CounterQrCount} Counter QR reads",
                         confirmationsProcessed,
-                        otherProcessed);
+                        otherProcessed,
+                        counterQrQueued,
+                        counterQrProcessed);
                 batchWasFull =
                     confirmationsProcessed >=
                         Math.Clamp(
@@ -96,6 +115,11 @@ public sealed class ShippingOperationsWorker(
                         Math.Clamp(
                             options
                                 .OtherMutationBatchSize,
+                            1,
+                            100) ||
+                    counterQrProcessed >=
+                        Math.Clamp(
+                            options.OtherMutationBatchSize,
                             1,
                             100);
 

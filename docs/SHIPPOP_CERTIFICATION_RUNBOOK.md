@@ -174,6 +174,45 @@ support assertion. Do not add payload fields until those provider facts are
 documented and the live certification passes. Included-only checkout remains
 the only permitted path.
 
+## Counter QR contract observation
+
+คำสั่งนี้สร้าง booking, ยืนยัน และยกเลิก shipment สังเคราะห์หนึ่งรายการใน
+SHIPPOP Dev เพื่อดูเฉพาะโครงสร้าง field ของ response จาก `booking/` และ
+`confirm/` ห้ามรันพร้อมกันหลาย service และห้ามรันซ้ำหาก cleanup ไม่สำเร็จ:
+
+```bash
+mkdir -p /private/tmp/shippop-counter-qr-evidence
+chmod 700 /private/tmp/shippop-counter-qr-evidence
+
+SHIPPOP_BASE_URL=http://mkpservice.shippop.dev \
+SHIPPOP_ALLOW_INSECURE_HTTP=1 \
+SHIPPOP_API_KEY="$SHIPPOP_API_KEY" \
+SHIPPOP_ACCOUNT_EMAIL="$SHIPPOP_ACCOUNT_EMAIL" \
+SHIPPOP_SERVICE_CODE=EMST \
+SHIPPOP_SYNTHETIC_ADDRESS_JSON="$SHIPPOP_SYNTHETIC_ADDRESS_JSON" \
+SHIPPOP_EVIDENCE_DIRECTORY=/private/tmp/shippop-counter-qr-evidence \
+SHIPPOP_CERTIFY_MUTATIONS=1 \
+./scripts/shippop-certify.sh counter-qr-observe
+```
+
+รายงานถูกเขียนนอก repository ด้วย permission เฉพาะผู้ใช้ และมีเพียง path,
+JSON kind, ช่วงความยาว และผลที่ sanitize แล้ว ไม่มี QR, tracking, purchase,
+ที่อยู่, เบอร์โทร หรือ provider response จริง รายงานจึงนำไปสแกนไม่ได้
+
+- `candidate_observed`: พบชื่อ field ที่อาจเกี่ยวข้อง เป็น discovery เท่านั้น
+  ยังห้ามเปิด service
+- `not_observed`: response ปัจจุบันไม่มี candidate ต้องขอ authenticated
+  read endpoint/field จาก SHIPPOP
+- `cleanup_failed`: หยุด service นั้นและแก้ shipment สังเคราะห์ก่อน mutation
+  ครั้งถัดไป
+- `execution_blocked`: configuration, provider response หรือ mutation outcome
+  ทำให้สังเกตอย่างปลอดภัยไม่ได้
+
+แม้ได้ `candidate_observed` ยังต้องมีเอกสารจาก SHIPPOP ว่า artifact นั้นใช้ที่
+เคาน์เตอร์, รูปแบบ/วันหมดอายุ, วิธีอ่านซ้ำหลัง confirmation โดยไม่สร้างรายการ
+ใหม่ และผล controlled counter scan ของ account/service เดียวกันก่อนเปิดใช้
+Production
+
 ## Enablement
 
 After every required row passes for one service, retain the sanitized report

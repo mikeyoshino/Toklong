@@ -200,6 +200,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<ActivityViewModel>();
         builder.Services.AddTransient<TransactionDetailViewModel>();
         builder.Services.AddTransient<ShippingLabelViewModel>();
+        builder.Services.AddTransient<CounterQrViewModel>();
         builder.Services.AddTransient<CreateOfferViewModel>();
         builder.Services.AddTransient<SellerOfferViewModel>();
         builder.Services.AddTransient<PayoutSettingsViewModel>();
@@ -228,6 +229,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<SellingTransactionsPage>();
         builder.Services.AddTransient<TransactionDetailPage>();
         builder.Services.AddTransient<ShippingLabelPage>();
+        builder.Services.AddTransient<CounterQrPage>();
         builder.Services.AddTransient<ProductTypeSelectionPage>();
         builder.Services.AddTransient<CreateOfferPage>();
         builder.Services.AddTransient<SellerOfferPage>();

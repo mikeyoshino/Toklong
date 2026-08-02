@@ -136,16 +136,25 @@ list remain available through the API.
 For physical fulfillment, the seller selects a SHIPPOP quote before accepting
 the offer. After provider-confirmed payment, the mobile transaction response
 contains `ShippingManagedByProvider=true`, the read-only carrier tracking
-number, and whether the label is available. The app shows
-one compact `ใบปะหน้า 4 × 6 นิ้ว` preview and
-`แตะเพื่อดูใบปะหน้าเต็มจอ`; it does not render the manual tracking form or
-permit carrier replacement for that transaction. The dedicated viewer allows
-pinch zoom, keeps the screen awake, disables scripts and external top-level
-navigation, and exposes native `บันทึกลงเครื่อง` and `แชร์หรือพิมพ์` actions.
-The authenticated label endpoint is seller-only, returns a no-store 4×6 HTML
-attachment, and is unavailable until payment and provider confirmation. The
-screen uses conditional scan guidance because phone-screen scanning and
-drop-off versus pickup remain carrier/service capabilities.
+number, whether the label is available, and seller-only normalized
+`CounterQrStatus`. The app shows `กำลังเตรียม QR เคาน์เตอร์` immediately for
+the eligible paid managed path. Ready shows a large official PNG on white quiet
+space, carrier/tracking/ship-by, optional expiry, and `แสดงเต็มหน้าจอ`; Error
+shows `ลองโหลด QR อีกครั้ง`. The full-screen page keeps the screen awake and
+restores the prior setting when hidden; it does not change brightness or read
+the encoded payload aloud. `ดาวน์โหลดใบปะหน้า` opens the unchanged 4×6 HTML
+attachment directly in the native share/save/print sheet. There is no outbound
+label preview or WebView, and the manual tracking form remains hidden. Both QR
+and label endpoints are seller-only and no-store; neither proves carrier
+custody. Page exit cancels an in-flight QR image request and clears stale bytes;
+an expired image is never reused, and full-screen expiry is checked every
+second while visible. Seller and transaction authorization are refreshed at
+least every five seconds and fail closed if they cannot be verified.
+Authenticated-session reset performs the same clear, and
+a late non-cooperative response cannot restore the image. The complete QR card
+is hidden after the first trusted scan or when cancellation/refund, dispute,
+legal hold, or shipment mismatch revokes access. SHIPPOP QR stays hidden or
+unavailable until account- and service-specific certification is recorded.
 
 The first production mapping contains Thailand Post, Flash Express, and KEX
 Express. Tracking allocation is not proof that the carrier received the

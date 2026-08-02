@@ -643,6 +643,38 @@ created_at
 version
 ```
 
+Each confirmed outbound managed shipment may own one
+`shipment_counter_qr_resource`. It is operational fulfillment data, not a
+transaction state and not part of the paid snapshot:
+
+```text
+id
+transaction_id
+managed_shipment_id (unique)
+status = pending | ready | retryable_error | unavailable
+representation = provider_png | provider_counter_payload
+protected_artifact
+protection_version
+artifact_sha256
+provider_resource_digest
+provider_expires_at
+fetched_at
+last_sanitized_error_code
+attempt_count
+next_attempt_at
+lease_owner
+lease_expires_at
+created_at
+updated_at
+version
+```
+
+Raw payloads, provider URLs, tracking, purchase, address, and phone values are
+absent from QR audit metadata and ordinary transaction JSON. Artifact content
+is protected at rest and served only to the authenticated transaction seller
+with `no-store`. QR ready/retry never authorizes a carrier scan, delivery,
+refund, payout, or settlement transition.
+
 Outbound and return references are never interchangeable. A paid outbound
 snapshot is immutable; an approved return creates another managed shipment.
 `tracking_unverified` and `carrier_exception` block payout/refund while
@@ -975,10 +1007,11 @@ Seller can:
 
 - Join, complete, accept, or decline a buyer-created offer before payment.
 - View their transactions.
-- For a provider-managed physical shipment, download the label and hand the
-  parcel to the locked carrier before the policy deadline; the native app may
-  render a script-disabled full-screen copy and share/save/print the unchanged
-  original provider file. Tracking is read-only and provider-issued.
+- For a provider-managed physical shipment, show the certified official
+  Counter QR when ready, or retry only its read-only retrieval; download/share/
+  save/print the unchanged original label without an outbound in-app preview,
+  and hand the parcel to the locked carrier before the policy deadline.
+  Tracking is read-only and provider-issued.
 - Submit tracking only on a non-managed legacy shipping path.
 - Add dispute evidence.
 - View payout status.

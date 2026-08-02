@@ -207,6 +207,58 @@ public sealed class SaleTransaction
                 item.Status != ManagedShipmentStatus.Cancelled)
             .OrderByDescending(item => item.CreatedAt)
             .FirstOrDefault();
+    public bool CounterQrAccessAllowed =>
+        CurrentOutboundShipment is { } shipment &&
+        IsCounterQrAccessAllowed(shipment);
+
+    public bool IsCounterQrAccessAllowed(
+        ManagedShipment shipment)
+    {
+        ArgumentNullException.ThrowIfNull(shipment);
+        return shipment.TransactionId == Id &&
+               CurrentOutboundShipment?.Id == shipment.Id &&
+               FulfillmentType == FulfillmentType.PhysicalShipment &&
+               PaymentConfirmedAt.HasValue &&
+               (State is TransactionState.TrackingSubmitted or
+                   TransactionState.TrackingUnverified) &&
+               !HasActiveLegalHold &&
+               !(DisputeOpenedAt.HasValue &&
+                 !DisputeResolvedAt.HasValue) &&
+               !ReturnRequired &&
+               !RefundRequestedAt.HasValue &&
+               !RefundConfirmedAt.HasValue &&
+               !ShippingCancelledAt.HasValue &&
+               !FirstCarrierScanAt.HasValue &&
+               shipment.Direction == ShipmentDirection.Outbound &&
+               (shipment.Status is ManagedShipmentStatus.Confirmed or
+                   ManagedShipmentStatus.TrackingUnverified) &&
+               shipment.ConfirmedAt.HasValue &&
+               !shipment.CancelledAt.HasValue &&
+               !shipment.FirstCarrierScanAt.HasValue &&
+               string.Equals(
+                   shipment.Provider,
+                   ShippingQuoteProvider,
+                   StringComparison.Ordinal) &&
+               string.Equals(
+                   shipment.PurchaseReference,
+                   ShippingPurchaseReference,
+                   StringComparison.Ordinal) &&
+               string.Equals(
+                   shipment.ProviderTrackingCode,
+                   ShippingProviderTrackingCode,
+                   StringComparison.Ordinal) &&
+               ProviderTrackingMatches(
+                   shipment.CourierTrackingCode,
+                   ShippingCourierTrackingCode) &&
+               string.Equals(
+                   shipment.CarrierCode,
+                   CarrierCode,
+                   StringComparison.Ordinal) &&
+               string.Equals(
+                   shipment.ServiceCode,
+                   ShippingServiceCode,
+                   StringComparison.Ordinal);
+    }
     public bool IsProviderManagedShipment =>
         FulfillmentType == FulfillmentType.PhysicalShipment &&
         !string.IsNullOrWhiteSpace(ShippingPurchaseReference) &&
@@ -423,6 +475,89 @@ public sealed class SaleTransaction
                 shipmentId = operation.ManagedShipmentId,
                 operationId = operation.Id,
                 operation.OperationType
+            })));
+        Version++;
+    }
+
+    public ShipmentCounterQrResource QueueShipmentCounterQr(
+        Guid managedShipmentId,
+        string actorId,
+        DateTimeOffset now)
+    {
+        var shipment = _managedShipments.SingleOrDefault(
+            item => item.Id == managedShipmentId)
+            ?? throw new DomainException(
+                "ไม่พบรายการจัดส่งสำหรับ QR");
+        if (!IsCounterQrAccessAllowed(shipment))
+            throw new DomainException(
+                "รายการนี้ยังไม่อนุญาตให้เตรียม QR เคาน์เตอร์");
+        var existing = shipment.CounterQrResource;
+        var resource = shipment.QueueCounterQr(now);
+        if (existing is not null)
+            return resource;
+        _auditEvents.Add(new AuditEvent(
+            Id,
+            ActorRole.System,
+            Required(actorId, "ผู้เตรียม QR"),
+            "shipping.counter_qr_queued",
+            State,
+            State,
+            now,
+            resource.Id.ToString("N"),
+            $"counter-qr-queued:{resource.Id:N}",
+            JsonSerializer.Serialize(new
+            {
+                shipmentId = managedShipmentId,
+                shipment.ServiceCode
+            })));
+        Version++;
+        return resource;
+    }
+
+    public void RecordShipmentCounterQrOutcome(
+        Guid resourceId,
+        string outcome,
+        string? safeReasonCode,
+        string actorId,
+        DateTimeOffset now)
+    {
+        var shipment = _managedShipments.SingleOrDefault(
+            item => item.CounterQrResource?.Id == resourceId)
+            ?? throw new DomainException(
+                "ไม่พบ QR สำหรับรายการจัดส่ง");
+        var cleanOutcome = Required(
+            outcome,
+            "ผลการเตรียม QR").ToLowerInvariant();
+        if (cleanOutcome is not (
+                "ready" or "retryable_error" or
+                "unavailable" or "retry_requested"))
+            throw new DomainException(
+                "ผลการเตรียม QR ไม่ถูกต้อง");
+        var idempotencyKey =
+            $"counter-qr:{resourceId:N}:{cleanOutcome}:{shipment.CounterQrResource!.Version}";
+        if (_auditEvents.Any(item =>
+                item.IdempotencyKey == idempotencyKey))
+            return;
+        _auditEvents.Add(new AuditEvent(
+            Id,
+            cleanOutcome == "retry_requested"
+                ? ActorRole.Seller
+                : ActorRole.System,
+            Required(actorId, "ผู้บันทึก QR"),
+            $"shipping.counter_qr_{cleanOutcome}",
+            State,
+            State,
+            now,
+            resourceId.ToString("N"),
+            idempotencyKey,
+            JsonSerializer.Serialize(new
+            {
+                shipmentId = shipment.Id,
+                shipment.ServiceCode,
+                reasonCode = CleanOptional(
+                    safeReasonCode,
+                    100,
+                    "รหัสผล QR")
             })));
         Version++;
     }
@@ -5090,6 +5225,22 @@ public sealed class SaleTransaction
             throw new DomainException(
                 "หมายเลขพัสดุจากผู้ให้บริการไม่ถูกต้อง");
         return clean;
+    }
+
+    private static bool ProviderTrackingMatches(
+        string? first,
+        string? second)
+    {
+        try
+        {
+            return SecureEquals(
+                NormalizeProviderTracking(first),
+                NormalizeProviderTracking(second));
+        }
+        catch (DomainException)
+        {
+            return false;
+        }
     }
 
     private static bool IsRetentionTerminalState(

@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Toklong.Mobile.Pages.CounterQrPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:converters="clr-namespace:Toklong.Mobile.Converters"
+    Title="QR เคาน์เตอร์"
+    SafeAreaEdges="Container"
+    Shell.NavBarIsVisible="True"
+    Shell.TabBarIsVisible="False">
+    <ContentPage.Resources>
+        <converters:ByteArrayImageSourceConverter
+            x:Key="ByteArrayImageSourceConverter" />
+    </ContentPage.Resources>
+    <ScrollView>
+        <VerticalStackLayout
+            MaximumWidthRequest="520"
+            Padding="20,18,20,30"
+            Spacing="18">
+            <VerticalStackLayout Spacing="5">
+                <Label
+                    HorizontalTextAlignment="Center"
+                    Style="{StaticResource PageTitle}"
+                    FontSize="24"
+                    Text="แสดงให้เจ้าหน้าที่สแกน" />
+                <Label
+                    HorizontalTextAlignment="Center"
+                    Style="{StaticResource MutedText}"
+                    Text="QR นี้ใช้สำหรับนำพัสดุส่งที่เคาน์เตอร์เท่านั้น" />
+            </VerticalStackLayout>
+
+            <Border
+                AutomationId="CounterQrFullscreenCard"
+                Padding="26"
+                BackgroundColor="White"
+                Stroke="{StaticResource Line}"
+                StrokeShape="RoundRectangle 24">
+                <Image
+                    AutomationId="CounterQrFullscreenImage"
+                    Aspect="AspectFit"
+                    HeightRequest="320"
+                    IsVisible="{Binding HasImage}"
+                    SemanticProperties.Description="QR สำหรับส่งที่เคาน์เตอร์พร้อมใช้งาน"
+                    Source="{Binding ImageBytes, Converter={StaticResource ByteArrayImageSourceConverter}}" />
+            </Border>
+
+            <ActivityIndicator
+                HorizontalOptions="Center"
+                Color="{StaticResource BrandBlue}"
+                IsRunning="{Binding IsBusy}"
+                IsVisible="{Binding IsBusy}" />
+
+            <VerticalStackLayout Spacing="6">
+                <Label
+                    HorizontalTextAlignment="Center"
+                    FontAttributes="Bold"
+                    FontSize="16"
+                    Text="{Binding ShippingServiceText}" />
+                <Label
+                    HorizontalTextAlignment="Center"
+                    Style="{StaticResource MutedText}"
+                    Text="{Binding TrackingNumberText, StringFormat='เลขพัสดุ {0}'}" />
+                <Label
+                    HorizontalTextAlignment="Center"
+                    Style="{StaticResource MutedText}"
+                    Text="{Binding ShipByText}" />
+                <Label
+                    HorizontalTextAlignment="Center"
+                    IsVisible="{Binding HasExpiry}"
+                    Style="{StaticResource RefinedHelperText}"
+                    Text="{Binding ExpiryText}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout
+                IsVisible="{Binding HasMessage}"
+                Spacing="10">
+                <Label
+                    HorizontalTextAlignment="Center"
+                    Style="{StaticResource RefinedValidationText}"
+                    Text="{Binding Message}" />
+                <Button
+                    AutomationId="RetryCounterQrFullscreenButton"
+                    Style="{StaticResource RefinedSecondaryActionButton}"
+                    Command="{Binding RetryCommand}"
+                    MinimumHeightRequest="48"
+                    Text="ลองโหลด QR อีกครั้ง" />
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

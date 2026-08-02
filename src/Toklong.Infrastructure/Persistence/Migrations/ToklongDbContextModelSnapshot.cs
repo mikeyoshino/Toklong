@@ -2259,6 +2259,86 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                     b.ToTable("transactions", (string)null);
                 });
 
+            modelBuilder.Entity("Toklong.Domain.Transactions.ShipmentCounterQrResource", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ArtifactSha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("FetchedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastSanitizedErrorCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset?>("LeaseExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LeaseOwner")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<Guid>("ManagedShipmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("ProtectedArtifact")
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("ProtectionVersion")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTimeOffset?>("ProviderExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ProviderResourceDigest")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Representation")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<Guid>("TransactionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LeaseExpiresAt");
+
+                    b.HasIndex("ManagedShipmentId")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "NextAttemptAt");
+
+                    b.ToTable("shipment_counter_qr_resources", (string)null);
+                });
+
             modelBuilder.Entity("Toklong.Domain.Transactions.ShippingInsuranceCase", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2676,6 +2756,15 @@ namespace Toklong.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("Toklong.Domain.Transactions.ShipmentCounterQrResource", b =>
+                {
+                    b.HasOne("Toklong.Domain.Transactions.ManagedShipment", null)
+                        .WithOne("CounterQrResource")
+                        .HasForeignKey("Toklong.Domain.Transactions.ShipmentCounterQrResource", "ManagedShipmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Toklong.Domain.Transactions.ShippingInsuranceCase", b =>
                 {
                     b.HasOne("Toklong.Domain.Transactions.ManagedShipment", null)
@@ -2709,6 +2798,11 @@ namespace Toklong.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Toklong.Domain.Sellers.SellerAccount", b =>
                 {
                     b.Navigation("PayoutAccounts");
+                });
+
+            modelBuilder.Entity("Toklong.Domain.Transactions.ManagedShipment", b =>
+                {
+                    b.Navigation("CounterQrResource");
                 });
 
             modelBuilder.Entity("Toklong.Domain.Transactions.SaleTransaction", b =>

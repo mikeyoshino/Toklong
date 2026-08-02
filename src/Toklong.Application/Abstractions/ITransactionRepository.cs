@@ -41,6 +41,10 @@ public interface ITransactionRepository
     Task<IReadOnlyList<SaleTransaction>>
         GetShipmentsPendingCancellationAsync(
             CancellationToken cancellationToken);
+    Task<IReadOnlyList<SaleTransaction>>
+        GetEligibleCounterQrTransactionsAsync(
+            CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<SaleTransaction>>([]);
 }
 
 public interface IUnitOfWork

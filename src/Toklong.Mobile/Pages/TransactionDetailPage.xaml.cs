@@ -8,6 +8,8 @@ public partial class TransactionDetailPage : ContentPage, IQueryAttributable
     private Guid? transactionId;
     private CancellationTokenSource? refreshCancellation;
     private Task? refreshTask;
+    private bool isAppeared;
+    private long appearanceGeneration;
 
     public TransactionDetailPage(TransactionDetailViewModel viewModel)
     {
@@ -20,9 +22,15 @@ public partial class TransactionDetailPage : ContentPage, IQueryAttributable
         if (query.TryGetValue("TransactionId", out var rawId) &&
             TryResolveId(rawId, out var resolvedId))
         {
+            var observedAppearance = Volatile.Read(
+                ref appearanceGeneration);
             transactionId = resolvedId;
-            await viewModel.LoadAsync(resolvedId);
-            if (IsVisible)
+            await viewModel.LoadAsync(
+                resolvedId,
+                EnsureRefreshCancellation().Token);
+            if (isAppeared &&
+                observedAppearance == Volatile.Read(
+                    ref appearanceGeneration))
                 StartRefreshLoop();
         }
     }
@@ -30,12 +38,21 @@ public partial class TransactionDetailPage : ContentPage, IQueryAttributable
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        isAppeared = true;
+        Interlocked.Increment(ref appearanceGeneration);
+        if (transactionId.HasValue)
+            _ = viewModel.RefreshAsync(
+                transactionId.Value,
+                EnsureRefreshCancellation().Token);
         StartRefreshLoop();
     }
 
     protected override void OnDisappearing()
     {
+        isAppeared = false;
+        Interlocked.Increment(ref appearanceGeneration);
         StopRefreshLoop();
+        viewModel.ClearSensitiveCounterQr();
         base.OnDisappearing();
     }
 
@@ -59,10 +76,21 @@ public partial class TransactionDetailPage : ContentPage, IQueryAttributable
             refreshTask is { IsCompleted: false })
             return;
 
-        refreshCancellation = new CancellationTokenSource();
+        var cancellation = EnsureRefreshCancellation();
         refreshTask = RefreshLoopAsync(
             transactionId.Value,
-            refreshCancellation.Token);
+            cancellation.Token);
+    }
+
+    private CancellationTokenSource EnsureRefreshCancellation()
+    {
+        if (refreshCancellation is null ||
+            refreshCancellation.IsCancellationRequested)
+        {
+            refreshCancellation?.Dispose();
+            refreshCancellation = new CancellationTokenSource();
+        }
+        return refreshCancellation;
     }
 
     private void StopRefreshLoop()
@@ -83,7 +111,7 @@ public partial class TransactionDetailPage : ContentPage, IQueryAttributable
         {
             while (await timer.WaitForNextTickAsync(
                        cancellationToken))
-                await viewModel.RefreshAsync(id);
+                await viewModel.RefreshAsync(id, cancellationToken);
         }
         catch (OperationCanceledException)
             when (cancellationToken.IsCancellationRequested)

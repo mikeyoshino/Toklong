@@ -1228,76 +1228,88 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
-    public void ManagedShippingLabelOpensAFullScreenViewer()
+    public void ManagedShippingUsesCounterQrAndLabelDownloadOnly()
     {
         var detail = Load(
             "Ui",
             "Pages",
             "TransactionDetailPage.xaml");
-        var labelCard = detail
+        var qrCard = detail
             .Descendants(Maui + "Border")
             .Single(border =>
                 AttributeValue(border, "AutomationId") ==
-                "ManagedShippingLabelCard");
+                "CounterQrImageCard");
         Assert.Contains(
-            labelCard.Descendants(Maui + "TapGestureRecognizer"),
-            gesture =>
-                AttributeValue(gesture, "Command") ==
-                "{Binding OpenShippingLabelCommand}");
-        Assert.Contains(
-            labelCard.Descendants(Maui + "Label"),
-            label =>
-                AttributeValue(label, "Text") ==
-                "›");
+            qrCard.Descendants(Maui + "Image"),
+            image =>
+                AttributeValue(image, "AutomationId") ==
+                    "CounterQrImage" &&
+                AttributeValue(image, "HeightRequest") == "240");
+        var buttons = detail.Descendants(Maui + "Button").ToArray();
+        Assert.Contains(buttons, button =>
+            AttributeValue(button, "AutomationId") ==
+                "OpenCounterQrFullscreenButton" &&
+            AttributeValue(button, "Text") ==
+                "แสดงเต็มหน้าจอ");
+        Assert.Contains(buttons, button =>
+            AttributeValue(button, "AutomationId") ==
+                "DownloadShippingLabelButton" &&
+            AttributeValue(button, "Command") ==
+                "{Binding DownloadShippingLabelCommand}" &&
+            AttributeValue(button, "Text") ==
+                "ดาวน์โหลดใบปะหน้า");
         Assert.DoesNotContain(
-            labelCard.Descendants(Maui + "Label"),
-            label =>
-                AttributeValue(label, "Text") ==
-                "↗");
-        Assert.Contains(
-            detail.Descendants(Maui + "Button"),
-            button =>
-                AttributeValue(button, "AutomationId") ==
-                    "OpenFullShippingLabelButton" &&
-                AttributeValue(button, "Text") ==
-                    "แตะเพื่อดูใบปะหน้าเต็มจอ");
+            "ManagedShippingLabelCard",
+            detail.ToString());
+        Assert.DoesNotContain(
+            "แตะเพื่อดูใบปะหน้าเต็มจอ",
+            detail.ToString());
 
         var viewer = Load(
             "Ui",
             "Pages",
-            "ShippingLabelPage.xaml");
-        var webView = viewer
-            .Descendants(Maui + "WebView")
-            .Single();
+            "CounterQrPage.xaml");
+        var image = viewer
+            .Descendants(Maui + "Image")
+            .Single(element =>
+                AttributeValue(element, "AutomationId") ==
+                    "CounterQrFullscreenImage");
         Assert.Equal(
-            "{Binding LabelSource}",
-            AttributeValue(webView, "Source"));
+            "320",
+            AttributeValue(image, "HeightRequest"));
         Assert.Equal(
-            "ShippingLabelWebView",
-            AttributeValue(webView, "AutomationId"));
+            "QR สำหรับส่งที่เคาน์เตอร์พร้อมใช้งาน",
+            AttributeValue(
+                image,
+                "SemanticProperties.Description"));
         Assert.Contains(
             viewer.Descendants(Maui + "Button"),
             button =>
                 AttributeValue(button, "AutomationId") ==
-                    "SaveShippingLabelButton" &&
+                    "RetryCounterQrFullscreenButton" &&
                 AttributeValue(button, "Command") ==
-                    "{Binding SaveCommand}" &&
+                    "{Binding RetryCommand}" &&
                 AttributeValue(button, "Text") ==
-                    "บันทึกลงเครื่อง");
+                    "ลองโหลด QR อีกครั้ง");
+
+        var detailLifetime = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "Ui",
+            "Pages",
+            "TransactionDetailPage.xaml.cs"));
+        Assert.Contains("isAppeared", detailLifetime);
+        Assert.Contains("appearanceGeneration", detailLifetime);
+        Assert.DoesNotContain("if (IsVisible)", detailLifetime);
+
+        var fullscreenLifetime = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "Ui",
+            "Pages",
+            "CounterQrPage.xaml.cs"));
+        Assert.Contains("authorizationTimer", fullscreenLifetime);
         Assert.Contains(
-            viewer.Descendants(Maui + "Button"),
-            button =>
-                AttributeValue(button, "AutomationId") ==
-                    "ShareOrPrintShippingLabelButton" &&
-                AttributeValue(button, "Command") ==
-                    "{Binding ShareOrPrintCommand}" &&
-                AttributeValue(button, "Text") ==
-                    "แชร์หรือพิมพ์");
-        Assert.DoesNotContain(
-            viewer.Descendants(Maui + "Label"),
-            label =>
-                AttributeValue(label, "FontAttributes") ==
-                    "Bold");
+            "RefreshAuthorizationAsync",
+            fullscreenLifetime);
     }
 
     [Fact]

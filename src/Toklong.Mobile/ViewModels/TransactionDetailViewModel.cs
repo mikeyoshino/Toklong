@@ -1,15 +1,16 @@
 using System.Collections.ObjectModel;
+using System.Security.Cryptography;
 using System.Windows.Input;
 using Toklong.Mobile.Core;
 using Toklong.Mobile.Pages;
 
 namespace Toklong.Mobile.ViewModels;
 
-public sealed class TransactionDetailViewModel(
-    ITransactionService transactionService,
-    IStripePaymentSheetService stripePaymentSheet,
-    IMobileAnalytics analytics) : ObservableViewModel
+public sealed class TransactionDetailViewModel : ObservableViewModel
 {
+    private readonly ITransactionService transactionService;
+    private readonly IStripePaymentSheetService stripePaymentSheet;
+    private readonly IMobileAnalytics analytics;
     private AppTransaction? transaction;
     private string message = "";
     private string invitationFeedback = "";
@@ -36,6 +37,24 @@ public sealed class TransactionDetailViewModel(
     private string? checkoutIdempotencyKey;
     private bool parcelProtectionOfferedTracked;
     private bool isPaymentSheetOpening;
+    private byte[]? counterQrImageBytes;
+    private Guid? counterQrLoadedFor;
+    private CancellationTokenSource? counterQrLoadCancellation;
+    private long counterQrLoadGeneration;
+    private long pageLifetimeGeneration;
+
+    public TransactionDetailViewModel(
+        ITransactionService transactionService,
+        IStripePaymentSheetService stripePaymentSheet,
+        IMobileAnalytics analytics,
+        AuthenticatedSessionBoundary? session = null)
+    {
+        this.transactionService = transactionService;
+        this.stripePaymentSheet = stripePaymentSheet;
+        this.analytics = analytics;
+        if (session is not null)
+            session.ResetRequested += OnSessionReset;
+    }
 
     public AppTransaction? Transaction
     {
@@ -46,6 +65,11 @@ public sealed class TransactionDetailViewModel(
                 transaction?.Id != value?.Id;
             if (SetProperty(ref transaction, value))
             {
+                if (transactionChanged ||
+                    value?.IsCounterQrReady != true)
+                {
+                    ClearCounterQrImage();
+                }
                 if (transactionChanged)
                 {
                     IsProblemFormExpanded = false;
@@ -81,6 +105,13 @@ public sealed class TransactionDetailViewModel(
                 OnPropertyChanged(nameof(IsBuyerDetail));
                 OnPropertyChanged(nameof(CanDownloadAgreementEvidence));
                 OnPropertyChanged(nameof(CanDownloadShippingLabel));
+                OnPropertyChanged(nameof(ShowCounterQrCard));
+                OnPropertyChanged(nameof(IsCounterQrPending));
+                OnPropertyChanged(nameof(IsCounterQrReady));
+                OnPropertyChanged(nameof(IsCounterQrError));
+                OnPropertyChanged(nameof(CounterQrStatusText));
+                OnPropertyChanged(nameof(CounterQrExpiryText));
+                OnPropertyChanged(nameof(CanOpenCounterQrFullscreen));
                 OnPropertyChanged(
                     nameof(CanDownloadReturnShippingLabel));
                 OnPropertyChanged(nameof(IsSellerDetail));
@@ -123,6 +154,47 @@ public sealed class TransactionDetailViewModel(
     public bool CanDownloadReturnShippingLabel =>
         Transaction?.Role == AppTransactionRole.Buyer &&
         Transaction.ReturnShippingLabelAvailable;
+
+    public byte[]? CounterQrImageBytes
+    {
+        get => counterQrImageBytes;
+        private set
+        {
+            if (SetProperty(ref counterQrImageBytes, value))
+            {
+                OnPropertyChanged(nameof(HasCounterQrImage));
+                OnPropertyChanged(nameof(CanOpenCounterQrFullscreen));
+            }
+        }
+    }
+
+    public bool HasCounterQrImage =>
+        CounterQrImageBytes is { Length: > 0 };
+
+    public bool ShowCounterQrCard =>
+        Transaction?.ShowCounterQrCard == true;
+
+    public bool IsCounterQrPending =>
+        Transaction?.IsCounterQrPending == true;
+
+    public bool IsCounterQrReady =>
+        Transaction?.IsCounterQrReady == true;
+
+    public bool IsCounterQrError =>
+        Transaction?.IsCounterQrError == true;
+
+    public bool CanOpenCounterQrFullscreen =>
+        IsCounterQrReady && HasCounterQrImage;
+
+    public string CounterQrStatusText =>
+        IsCounterQrPending
+            ? "กำลังเตรียม QR เคาน์เตอร์"
+            : IsCounterQrReady
+                ? "QR เคาน์เตอร์พร้อมใช้"
+                : "ยังโหลด QR เคาน์เตอร์ไม่ได้";
+
+    public string CounterQrExpiryText =>
+        Transaction?.CounterQrExpiryText ?? "";
 
     public bool IsBusy
     {
@@ -434,7 +506,8 @@ public sealed class TransactionDetailViewModel(
 
     public bool ShowShippingStatusDetails =>
         IsStatusOnly &&
-        (CanDownloadShippingLabel ||
+        (ShowCounterQrCard ||
+         CanDownloadShippingLabel ||
          Transaction?.HasTrackingNumber == true);
 
     public string DetailHeadline => Transaction?.Role switch
@@ -647,21 +720,43 @@ public sealed class TransactionDetailViewModel(
         new AsyncCommand(DownloadAgreementEvidenceAsync);
 
     public ICommand OpenShippingLabelCommand =>
-        new AsyncCommand(OpenShippingLabelAsync);
+        new AsyncCommand(DownloadShippingLabelAsync);
+
+    public ICommand DownloadShippingLabelCommand =>
+        new AsyncCommand(DownloadShippingLabelAsync);
+
+    public ICommand OpenCounterQrFullscreenCommand =>
+        new AsyncCommand(OpenCounterQrFullscreenAsync);
+
+    public ICommand RetryCounterQrCommand =>
+        new AsyncCommand(RetryCounterQrAsync);
 
     public ICommand OpenReturnShippingLabelCommand =>
         new AsyncCommand(OpenReturnShippingLabelAsync);
 
-    public Task LoadAsync(Guid transactionId) =>
-        LoadCoreAsync(transactionId, showBusy: true);
+    public Task LoadAsync(
+        Guid transactionId,
+        CancellationToken cancellationToken = default) =>
+        LoadCoreAsync(
+            transactionId,
+            showBusy: true,
+            cancellationToken);
 
-    public Task RefreshAsync(Guid transactionId) =>
-        LoadCoreAsync(transactionId, showBusy: false);
+    public Task RefreshAsync(
+        Guid transactionId,
+        CancellationToken cancellationToken = default) =>
+        LoadCoreAsync(
+            transactionId,
+            showBusy: false,
+            cancellationToken);
 
     private async Task LoadCoreAsync(
         Guid transactionId,
-        bool showBusy)
+        bool showBusy,
+        CancellationToken cancellationToken)
     {
+        var lifetimeGeneration = Volatile.Read(
+            ref pageLifetimeGeneration);
         if (IsBusy)
             return;
         if (showBusy)
@@ -672,8 +767,24 @@ public sealed class TransactionDetailViewModel(
         }
         try
         {
-            Transaction = await transactionService.GetTransactionAsync(transactionId);
+            var loaded = await transactionService.GetTransactionAsync(
+                transactionId,
+                cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (lifetimeGeneration != Volatile.Read(
+                    ref pageLifetimeGeneration))
+                return;
+            Transaction = loaded;
+            if (lifetimeGeneration != Volatile.Read(
+                    ref pageLifetimeGeneration))
+            {
+                Transaction = null;
+                return;
+            }
             Message = Transaction is null ? "ไม่พบรายการนี้" : "";
+            await SynchronizeCounterQrAsync(
+                cancellationToken,
+                lifetimeGeneration);
             if (CanLoadParcelProtection())
             {
                 ParcelProtection = await transactionService
@@ -700,8 +811,19 @@ public sealed class TransactionDetailViewModel(
                 carrierDataLoaded = true;
             }
         }
+        catch (OperationCanceledException)
+            when (cancellationToken.IsCancellationRequested)
+        {
+        }
         catch (Exception exception)
         {
+            if (exception is UnauthorizedAccessException ||
+                exception is MobileApiRequestException
+                {
+                    StatusCode: System.Net.HttpStatusCode.Unauthorized or
+                        System.Net.HttpStatusCode.Forbidden
+                })
+                ClearCounterQrImage();
             Message = showBusy
                 ? exception.Message
                 : $"อัปเดตสถานะไม่สำเร็จ · {exception.Message}";
@@ -1289,22 +1411,208 @@ public sealed class TransactionDetailViewModel(
         }
     }
 
-    private async Task OpenShippingLabelAsync()
+    private async Task DownloadShippingLabelAsync()
     {
         if (Transaction is null ||
             !CanDownloadShippingLabel)
             return;
 
-        if (Shell.Current is null)
+        IsBusy = true;
+        Message = "";
+        string? path = null;
+        try
         {
-            Message =
-                "เปิดใบปะหน้าไม่สำเร็จ กรุณาลองอีกครั้ง";
+            analytics.Track(
+                CounterQrAnalytics.LabelDownloadRequested());
+            var label = await transactionService
+                .DownloadShippingLabelAsync(Transaction.Id);
+            if (label.Content.Length is < 1 or > 5 * 1024 * 1024)
+                throw new InvalidOperationException(
+                    "ใบปะหน้ามีขนาดไม่ถูกต้อง");
+            var safeFileName = Path.GetFileName(label.FileName);
+            if (string.IsNullOrWhiteSpace(safeFileName) ||
+                !string.Equals(
+                    Path.GetExtension(safeFileName),
+                    ".html",
+                    StringComparison.OrdinalIgnoreCase))
+                safeFileName =
+                    $"TOKLONG-label-{Transaction.Id:N}.html";
+            path = Path.Combine(
+                FileSystem.CacheDirectory,
+                safeFileName);
+            await File.WriteAllBytesAsync(path, label.Content);
+            await Share.Default.RequestAsync(
+                new ShareFileRequest(
+                    "ดาวน์โหลด แชร์ หรือพิมพ์ใบปะหน้า",
+                    new ShareFile(path)));
+        }
+        catch (Exception exception)
+        {
+            Message = exception.Message;
+        }
+        finally
+        {
+            DeleteTemporaryFile(path);
+            IsBusy = false;
+        }
+    }
+
+    private async Task SynchronizeCounterQrAsync(
+        CancellationToken cancellationToken = default,
+        long? expectedLifetimeGeneration = null)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (expectedLifetimeGeneration.HasValue &&
+            expectedLifetimeGeneration.Value != Volatile.Read(
+                ref pageLifetimeGeneration))
+            return;
+        var current = Transaction;
+        if (current?.IsCounterQrReady != true)
+        {
+            ClearCounterQrImage();
             return;
         }
+        if (counterQrLoadedFor == current.Id &&
+            HasCounterQrImage)
+            return;
+        var (cancellation, generation) = BeginCounterQrLoad(
+            cancellationToken);
+        try
+        {
+            var image = await transactionService
+                .DownloadCounterQrAsync(
+                    current.Id,
+                    cancellation.Token);
+            if (cancellation.IsCancellationRequested ||
+                generation != Volatile.Read(
+                    ref counterQrLoadGeneration) ||
+                Transaction?.Id != current.Id ||
+                Transaction.IsCounterQrReady != true)
+            {
+                CryptographicOperations.ZeroMemory(image.Content);
+                return;
+            }
+            CounterQrImageBytes = [.. image.Content];
+            CryptographicOperations.ZeroMemory(image.Content);
+            counterQrLoadedFor = current.Id;
+            analytics.Track(CounterQrAnalytics.ReadyViewed());
+        }
+        catch (OperationCanceledException)
+            when (cancellation.IsCancellationRequested)
+        {
+        }
+        catch
+        {
+            ClearCounterQrImage();
+        }
+        finally
+        {
+            Interlocked.CompareExchange(
+                ref counterQrLoadCancellation,
+                null,
+                cancellation);
+            cancellation.Dispose();
+        }
+    }
 
+    private async Task OpenCounterQrFullscreenAsync()
+    {
+        if (Transaction is null ||
+            !CanOpenCounterQrFullscreen ||
+            Shell.Current is null)
+            return;
+        analytics.Track(CounterQrAnalytics.FullscreenOpened());
         await Shell.Current.GoToAsync(
-            $"{nameof(ShippingLabelPage)}" +
-            $"?TransactionId={Transaction.Id:D}");
+            $"CounterQrPage?TransactionId={Transaction.Id:D}");
+    }
+
+    private async Task RetryCounterQrAsync()
+    {
+        if (Transaction is null || !IsCounterQrError)
+            return;
+        IsBusy = true;
+        Message = "กำลังขอ QR ใหม่…";
+        try
+        {
+            await transactionService.RetryCounterQrAsync(
+                Transaction.Id);
+            analytics.Track(CounterQrAnalytics.RetryRequested());
+            ClearCounterQrImage();
+            Transaction = await transactionService
+                .GetTransactionAsync(Transaction.Id);
+            Message = "กำลังเตรียม QR เคาน์เตอร์";
+        }
+        catch (Exception exception)
+        {
+            Message = exception.Message;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    public void ClearSensitiveCounterQr()
+    {
+        Interlocked.Increment(ref pageLifetimeGeneration);
+        ClearCounterQrImage();
+    }
+
+    private void OnSessionReset(object? sender, EventArgs eventArgs)
+    {
+        Interlocked.Increment(ref pageLifetimeGeneration);
+        ClearCounterQrImage();
+        Transaction = null;
+        Message = "";
+        IsBusy = false;
+    }
+
+    private void ClearCounterQrImage()
+    {
+        Interlocked.Increment(ref counterQrLoadGeneration);
+        Interlocked.Exchange(
+                ref counterQrLoadCancellation,
+                null)
+            ?.Cancel();
+        if (counterQrImageBytes is not null)
+            CryptographicOperations.ZeroMemory(
+                counterQrImageBytes);
+        CounterQrImageBytes = null;
+        counterQrLoadedFor = null;
+    }
+
+    private (CancellationTokenSource Source, long Generation)
+        BeginCounterQrLoad(
+            CancellationToken cancellationToken = default)
+    {
+        var source = cancellationToken.CanBeCanceled
+            ? CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken)
+            : new CancellationTokenSource();
+        var generation = Interlocked.Increment(
+            ref counterQrLoadGeneration);
+        Interlocked.Exchange(
+                ref counterQrLoadCancellation,
+                source)
+            ?.Cancel();
+        return (source, generation);
+    }
+
+    private static void DeleteTemporaryFile(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) ||
+            !File.Exists(path))
+            return;
+        try
+        {
+            File.Delete(path);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
 
     private async Task OpenReturnShippingLabelAsync()

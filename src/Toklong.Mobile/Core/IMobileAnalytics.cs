@@ -9,6 +9,27 @@ public interface IMobileAnalytics
     void Track(MobileAnalyticsEvent value);
 }
 
+public static class CounterQrAnalytics
+{
+    public static MobileAnalyticsEvent ReadyViewed() =>
+        Event("counter_qr_ready_viewed");
+
+    public static MobileAnalyticsEvent FullscreenOpened() =>
+        Event("counter_qr_fullscreen");
+
+    public static MobileAnalyticsEvent RetryRequested() =>
+        Event("counter_qr_retry_requested");
+
+    public static MobileAnalyticsEvent LabelDownloadRequested() =>
+        Event("shipping_label_download_requested");
+
+    private static MobileAnalyticsEvent Event(string name) =>
+        new(
+            name,
+            new Dictionary<string, string>(
+                StringComparer.Ordinal));
+}
+
 public static class CreateOfferAnalytics
 {
     public static MobileAnalyticsEvent TypeSelectionOpened() =>

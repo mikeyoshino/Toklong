@@ -116,10 +116,14 @@ The committed payment values are intentionally disabled or blank. Persist the
 Data Protection key ring outside an ephemeral container, encrypt it with the
 configured PFX certificate, and restrict access to the application identity.
 The certificate and password-file paths are required for Production Web/API
-startup. Product images must also use persistent storage; the single-host
-Compose topology shares that path between Web and API. Do not put a signing
-secret, Stripe secret, SHIPPOP key, certificate, password file, or key ring in
-source control. Production requires `ShippingQuotes__Provider=Shippop`, the
+and Worker startup. API and Worker must mount the same persistent key-ring
+directory and the same key-encryption certificate so a QR written by the
+Worker can be decrypted by the API. Product images must also use persistent
+storage; the single-host Compose topology mounts that path for API, Worker,
+Web, and migration processes that enable persistent-storage validation.
+Do not put a signing secret, Stripe secret, SHIPPOP key, certificate, password
+file, or key ring in source control. Production requires
+`ShippingQuotes__Provider=Shippop`, the
 HTTPS SHIPPOP base URL, `Shippop__AllowInsecureHttp=false`, account email,
 API key, and a random quote-signing secret of at least 32 characters. An
 HTTP-only SHIPPOP Dev endpoint requires the explicit Development setting
@@ -203,7 +207,8 @@ API and run:
 This keeps `Toklong.Api` on the mobile app's expected port `5181` and runs
 `Toklong.Worker` plus the Stripe webhook listener alongside it. The Worker
 confirms the durable managed-shipping operation so the seller receives the
-provider-issued tracking number and shipping-label action. The mobile app
+provider-issued tracking number, deterministic Development Counter QR, and
+label-download action. The mobile app
 receives only the
 publishable key and PaymentIntent client secret; the secret key and webhook
 secret stay in the API process environment. This command also enables the
@@ -290,7 +295,8 @@ surface. OTP values and reusable credentials are never stored.
 
 `ShippingQuotes:Provider=Development` enables only the deterministic in-memory
 local managed-shipping adapter. It is never selected by default for production
-and does not represent SHIPPOP pricing. Its 4×6 HTML label contains the locked
+and does not represent SHIPPOP pricing. It issues its own deterministic local
+Counter QR for end-to-end UI testing. Its 4×6 HTML label contains the locked
 sender/recipient data, prepaid status, weight, service, tracking number, and a
 deterministic Code 39 barcode so the complete native viewer can be exercised
 without live credentials. `ShippingQuotes:Provider=Shippop`
@@ -535,11 +541,17 @@ Money inputs remain strings in the form and are parsed to integer satang at the 
   `complete` uses the provider POD time for delivery. Problem/invalid/return
   statuses enter the unverified path. The documented unsigned SHIPPOP callback
   is deliberately not exposed.
-- Managed tracking is read-only in mobile and Web. After payment the seller can
-  open the authenticated, no-store 4×6 HTML label in a dedicated native
-  full-screen viewer, pinch to zoom, and use the OS file/share sheet to save,
-  share, or print the unchanged file. The WebView uses a script-disabled,
-  navigation-blocked preview copy. Label allocation alone does not satisfy
+- Managed tracking is read-only in mobile and Web. After payment, the seller
+  sees a normalized Counter QR Pending/Ready/Error card. Ready PNG bytes are
+  encrypted at rest, seller-only, no-store, and available full-screen; retry is
+  a read-only resource operation. Expired QR artifacts are not served and may
+  be safely claimed for refresh. Access is revoked after first trusted scan,
+  cancellation/refund, open dispute, legal hold, or shipment mismatch. Incoming
+  provider PNGs are CRC-checked, dimension- and expansion-bounded, and fully
+  decoded before protection. SHIPPOP remains unavailable until its exact
+  official contract is certified per service. The unchanged 4×6 HTML label is
+  attachment/download-only and goes directly to the OS file/share sheet; no
+  outbound label WebView remains. QR or label allocation alone does not satisfy
   `ship_by_at`; the first carrier scan does. Before Stripe
   creates a refund for an unscanned managed shipment, the shipping Worker
   cancels it or records that a scan made cancellation inappropriate.
@@ -565,7 +577,8 @@ Money inputs remain strings in the form and are parsed to integer satang at the 
   approved bank/carrier mappings, private object storage, and live operational
   credentials remain blocked external capabilities. Code readiness does not
   imply those capabilities are active.
-- SHIPPOP production capability flags, including optional parcel protection,
+- SHIPPOP production capability flags, including optional parcel protection
+  and Counter QR,
   remain disabled by default. Account-specific certification must prove field
   names/units for weight and every dimension, included and maximum limits,
   integer-satang price conversion, terms/code, post-election booking, lookup/

@@ -24,6 +24,8 @@ using Toklong.Application.Features.Sales.SaveListingPhoto;
 using Toklong.Application.Features.Sellers;
 using Toklong.Application.Features.Shipping.GetShippingLabel;
 using Toklong.Application.Features.Shipping.GetShippingQuotes;
+using Toklong.Application.Features.Shipping.GetCounterQr;
+using Toklong.Application.Features.Shipping.RetryCounterQr;
 using Toklong.Application.Features.Transactions.GetTransaction;
 using Toklong.Application.Features.Transactions.GetAgreementEvidence;
 using Toklong.Application.Features.Transactions.ListTransactions;
@@ -57,7 +59,8 @@ public static class MobileApi
                     RequestCooldownException or
                     AccountNameChangeCooldownException or
                     AccountNameChangeFlowException or
-                    InvalidOperationException)
+                    InvalidOperationException or
+                    CounterQrNotReadyException)
                 {
                     if (context.Request.Path.StartsWithSegments(
                             "/api/mobile/me/name-change"))
@@ -148,6 +151,8 @@ public static class MobileApi
                             StatusCodes.Status404NotFound,
                         ForbiddenException =>
                             StatusCodes.Status403Forbidden,
+                        CounterQrNotReadyException =>
+                            StatusCodes.Status409Conflict,
                         RequestCooldownException =>
                             StatusCodes.Status429TooManyRequests,
                         DomainException =>
@@ -286,6 +291,14 @@ public static class MobileApi
         authenticated.MapGet(
             "/transactions/{transactionId:guid}/shipping-label",
             DownloadShippingLabelAsync);
+        authenticated.MapGet(
+                "/transactions/{transactionId:guid}/counter-qr",
+                DownloadCounterQrAsync)
+            .RequireRateLimiting("counter-qr");
+        authenticated.MapPost(
+                "/transactions/{transactionId:guid}/counter-qr/retry",
+                RetryCounterQrAsync)
+            .RequireRateLimiting("counter-qr");
         authenticated.MapGet(
             "/transactions/{transactionId:guid}/return-shipping-label",
             DownloadReturnShippingLabelAsync);
@@ -1575,6 +1588,51 @@ public static class MobileApi
             Encoding.UTF8);
     }
 
+    private static async Task<IResult> DownloadCounterQrAsync(
+        Guid transactionId,
+        ClaimsPrincipal principal,
+        ISender sender,
+        HttpResponse response,
+        CancellationToken cancellationToken)
+    {
+        var sellerId = PartyIds.From(principal).SellerId
+            ?? throw new ForbiddenException(
+                "เฉพาะผู้ขายของรายการนี้เท่านั้น");
+        var artifact = await sender.Send(
+            new GetCounterQrQuery(
+                transactionId,
+                sellerId),
+            cancellationToken);
+        response.Headers.CacheControl = "no-store";
+        response.Headers.Pragma = "no-cache";
+        response.Headers["X-Content-Type-Options"] = "nosniff";
+        response.Headers["Content-Security-Policy"] =
+            "default-src 'none'; sandbox";
+        return Results.File(
+            artifact.Content,
+            artifact.ContentType,
+            enableRangeProcessing: false);
+    }
+
+    private static async Task<IResult> RetryCounterQrAsync(
+        Guid transactionId,
+        ClaimsPrincipal principal,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        var sellerId = PartyIds.From(principal).SellerId
+            ?? throw new ForbiddenException(
+                "เฉพาะผู้ขายของรายการนี้เท่านั้น");
+        var changed = await sender.Send(
+            new RetryCounterQrCommand(
+                transactionId,
+                sellerId),
+            cancellationToken);
+        return Results.Accepted(
+            $"/api/mobile/transactions/{transactionId:N}/counter-qr",
+            new { status = changed ? "pending" : "unchanged" });
+    }
+
     private static async Task<IResult> DownloadReturnShippingLabelAsync(
         Guid transactionId,
         ClaimsPrincipal principal,
@@ -1893,6 +1951,17 @@ public static class MobileApi
         var returnLabelAvailable =
             isBuyer &&
             transaction.ReturnShippingLabelAvailable;
+        var counterQrStatus =
+            isBuyer || !transaction.CounterQrAccessAllowed
+                ? null
+                : transaction.CounterQrStatus ==
+                      CounterQrResourceStatus.Ready &&
+                  transaction.CounterQrExpiresAt.HasValue &&
+                  transaction.CounterQrExpiresAt.Value <=
+                      DateTimeOffset.UtcNow
+                    ? CounterQrResourceStatus.RetryableError.ToString()
+                    : transaction.CounterQrStatus?.ToString() ??
+                      CounterQrResourceStatus.Pending.ToString();
 
         return new MobileTransactionResponse(
             transaction.Id,
@@ -1971,7 +2040,14 @@ public static class MobileApi
             isBuyer
                 ? transaction.ShippingDeclaredValueSatang
                 : null,
-            null);
+            null,
+            counterQrStatus,
+            isBuyer || !transaction.CounterQrAccessAllowed
+                ? null
+                : transaction.CounterQrExpiresAt,
+            isBuyer || !transaction.CounterQrAccessAllowed
+                ? null
+                : transaction.CounterQrLastErrorCode);
     }
 
     private static async Task<Dictionary<string, string>>
@@ -2427,7 +2503,16 @@ public sealed record MobileTransactionResponse(
     long? ShippingDeclaredValueSatang,
     [property: JsonIgnore(
         Condition = JsonIgnoreCondition.WhenWritingNull)]
-    string? ShippingOperationStatus);
+    string? ShippingOperationStatus,
+    [property: JsonIgnore(
+        Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? CounterQrStatus,
+    [property: JsonIgnore(
+        Condition = JsonIgnoreCondition.WhenWritingNull)]
+    DateTimeOffset? CounterQrExpiresAt,
+    [property: JsonIgnore(
+        Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? CounterQrLastErrorCode);
 
 public sealed record MobilePaymentSheetRequest(bool AcceptedTerms);
 

@@ -11,6 +11,7 @@ using Toklong.Infrastructure.Security;
 using Toklong.Infrastructure.Services;
 using Toklong.Application.Features.Shipping.ProcessShippingOperations;
 using Toklong.Application.Features.Checkout.BookShipmentForPayment;
+using Microsoft.Extensions.Hosting;
 
 namespace Toklong.Infrastructure;
 
@@ -26,6 +27,9 @@ public static class DependencyInjection
         services.AddScoped<
             IShippingOperationRepository,
             ShippingOperationRepository>();
+        services.AddScoped<
+            ICounterQrResourceRepository,
+            CounterQrResourceRepository>();
         services.AddScoped<
             IBookingAttemptRepository,
             BookingAttemptRepository>();
@@ -157,6 +161,20 @@ public static class DependencyInjection
                 DevelopmentOtpVerificationProvider>();
         }
         services.AddSingleton<IClock, SystemClock>();
+        services.AddSingleton<ICounterQrArtifactProtector>(provider =>
+        {
+            var environment = provider.GetRequiredService<
+                IHostEnvironment>();
+            var keysPath = PersistentStoragePath.Resolve(
+                environment,
+                configuration,
+                "DataProtection:KeysPath",
+                "App_Data/data-protection-keys");
+            return new CounterQrArtifactProtector(
+                keysPath,
+                DataProtectionCertificateLoader.Load(
+                    configuration));
+        });
         services.AddSingleton<
             IParcelProtectionPricingPolicy,
             ParcelProtectionPricingPolicy>();

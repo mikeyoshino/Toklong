@@ -96,6 +96,33 @@ public sealed record ShipmentLabelRequest(
     ShippingContactAddress Destination,
     int WeightGrams);
 
+public sealed record CounterQrRequest(
+    Guid TransactionId,
+    Guid ManagedShipmentId,
+    string Provider,
+    string PurchaseReference,
+    string ProviderTrackingCode,
+    string CourierTrackingCode,
+    string CarrierCode,
+    string ServiceCode);
+
+public enum CounterQrReadStatus
+{
+    Ready,
+    RetryableError,
+    Unavailable
+}
+
+public sealed record CounterQrReadResult(
+    CounterQrReadStatus Status,
+    Toklong.Domain.Transactions.CounterQrRepresentation?
+        Representation,
+    byte[]? Artifact,
+    string ProviderResourceDigest,
+    DateTimeOffset? ExpiresAt,
+    DateTimeOffset FetchedAt,
+    string? SanitizedErrorCode);
+
 public enum ShipmentMutationOutcome
 {
     DefiniteFailure,
@@ -149,6 +176,18 @@ public interface IShipmentProvider
     Task<string> GetLabelHtmlAsync(
         ShipmentLabelRequest request,
         CancellationToken cancellationToken);
+
+    Task<CounterQrReadResult> GetCounterQrAsync(
+        CounterQrRequest request,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(new CounterQrReadResult(
+            CounterQrReadStatus.Unavailable,
+            null,
+            null,
+            new string('0', 64),
+            null,
+            DateTimeOffset.UtcNow,
+            "counter-qr-contract-not-certified"));
 
     Task CancelAsync(
         string courierTrackingCode,

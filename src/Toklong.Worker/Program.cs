@@ -10,7 +10,7 @@ ProductionConfigurationValidator.Validate(
     builder.Configuration,
     builder.Environment,
     requireMobileLinks: false,
-    requirePersistentStorage: false);
+    requirePersistentStorage: true);
 DisputeEvidenceStoreOptions.ValidateConfiguration(
     builder.Configuration,
     builder.Environment);

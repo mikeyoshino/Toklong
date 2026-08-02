@@ -16,6 +16,7 @@ public partial class AppShell : Shell
             typeof(CompleteRegistrationPage));
         Routing.RegisterRoute(nameof(TransactionDetailPage), typeof(TransactionDetailPage));
         Routing.RegisterRoute(nameof(ShippingLabelPage), typeof(ShippingLabelPage));
+        Routing.RegisterRoute(nameof(CounterQrPage), typeof(CounterQrPage));
         Routing.RegisterRoute(
             nameof(ProductTypeSelectionPage),
             typeof(ProductTypeSelectionPage));

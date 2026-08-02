@@ -46,6 +46,16 @@ public interface ITransactionService
         CancellationToken cancellationToken = default) =>
         throw new NotSupportedException();
 
+    Task<CounterQrImageFile> DownloadCounterQrAsync(
+        Guid transactionId,
+        CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException();
+
+    Task RetryCounterQrAsync(
+        Guid transactionId,
+        CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException();
+
     Task<ShippingLabelFile> DownloadReturnShippingLabelAsync(
         Guid transactionId,
         CancellationToken cancellationToken = default) =>
@@ -102,6 +112,8 @@ public sealed record AgreementEvidenceFile(
 public sealed record ShippingLabelFile(
     string FileName,
     byte[] Content);
+
+public sealed record CounterQrImageFile(byte[] Content);
 
 public sealed record BuyerParcelProtection(
     bool RequiresChoice,

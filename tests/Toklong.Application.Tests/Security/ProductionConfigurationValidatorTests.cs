@@ -9,6 +9,35 @@ namespace Toklong.Application.Tests.Security;
 public sealed class ProductionConfigurationValidatorTests
 {
     [Fact]
+    public void Production_worker_shares_protected_counter_qr_key_ring_with_api()
+    {
+        var composePath = FindRepositoryFile("compose.linux.yml");
+        var compose = File.ReadAllText(composePath);
+        var workerStart = compose.IndexOf(
+            "  worker:",
+            StringComparison.Ordinal);
+        var workerEnd = compose.IndexOf(
+            "\n  crm-migrate:",
+            workerStart,
+            StringComparison.Ordinal);
+        var worker = compose[workerStart..workerEnd];
+
+        Assert.Contains(
+            "DataProtection__KeysPath: /var/lib/toklong/data-protection/api",
+            worker);
+        Assert.Contains(
+            "DataProtection__CertificatePath: /run/secrets/data-protection-certificate",
+            worker);
+        Assert.Contains(
+            "ProductImages__StoragePath: /var/lib/toklong/product-images",
+            worker);
+        Assert.Contains("- data-protection-certificate", worker);
+        var program = File.ReadAllText(
+            FindRepositoryFile("src/Toklong.Worker/Program.cs"));
+        Assert.Contains("requirePersistentStorage: true", program);
+    }
+
+    [Fact]
     public void Unsafe_production_defaults_fail_closed()
     {
         var configuration = new ConfigurationBuilder()
@@ -555,5 +584,21 @@ public sealed class ProductionConfigurationValidatorTests
             Directory.GetCurrentDirectory();
         public IFileProvider ContentRootFileProvider { get; set; } =
             new NullFileProvider();
+    }
+
+    private static string FindRepositoryFile(string relativePath)
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            var candidate = Path.Combine(
+                directory.FullName,
+                relativePath);
+            if (File.Exists(candidate))
+                return candidate;
+            directory = directory.Parent;
+        }
+        throw new FileNotFoundException(
+            $"Could not locate repository file {relativePath}.");
     }
 }

@@ -275,7 +275,10 @@ public sealed class ShippopShippingProviderTests
             500_000,
             "CERT-DELIVERY-ONLY",
             IncludedCoverageSatang: 100_000,
-            OptionalProtectionEnabled: false);
+            OptionalProtectionEnabled: false,
+            CounterQrEnabled: true,
+            CounterQrCertificationReference:
+                "CERT-COUNTER-QR-TEST");
         var shippop = Provider(_ => Task.FromResult(
             Json(
                 """
@@ -1067,6 +1070,23 @@ public sealed class ShippopShippingProviderTests
         string baseUrl = "https://mkpservice.shippop.com/",
         bool allowInsecureHttp = false)
     {
+        profile ??= new ShippopServiceProfile(
+            "EMST",
+            QuoteEnabled: true,
+            BookOutboundEnabled: true,
+            ConfirmEnabled: true,
+            ReturnEnabled: true,
+            InsuranceEnabled: true,
+            OperationLookupEnabled: true,
+            HandoffMode: "DropOff",
+            MaximumCoverageSatang: 500_000,
+            CertificationReference: "CERT-TEST");
+        profile = profile with
+        {
+            CounterQrEnabled = true,
+            CounterQrCertificationReference =
+                "CERT-COUNTER-QR-TEST"
+        };
         var httpClient = new HttpClient(
             new StubHandler(response))
         {
@@ -1084,18 +1104,13 @@ public sealed class ShippopShippingProviderTests
                     "quote-signing-secret-longer-than-thirty-two-characters",
                 QuoteLifetimeMinutes = 120,
                 ServiceCodes = ["EMST"],
-                ServiceProfiles = profile is null
-                    ? new Dictionary<
+                ServiceProfiles = new Dictionary<
                         string,
                         ShippopServiceProfile>(
                             StringComparer.Ordinal)
-                    : new Dictionary<
-                        string,
-                        ShippopServiceProfile>(
-                            StringComparer.Ordinal)
-                    {
-                        [profile.ServiceCode] = profile
-                    }
+                {
+                    [profile.ServiceCode] = profile
+                }
             },
             new FixedClock());
     }
