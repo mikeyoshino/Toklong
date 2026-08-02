@@ -409,32 +409,27 @@ public sealed class ShippopServiceCertificationTests
     }
 
     [Theory]
-    [InlineData("http://mkpservice.shippop.dev", true)]
-    public void Certification_endpoint_allows_only_the_approved_dev_origin(
-        string baseUrl,
-        bool allowInsecureHttp)
+    [InlineData("https://mkpservice.shippop.dev")]
+    [InlineData("https://mkpservice.shippop.dev/")]
+    public void Certification_endpoint_allows_only_the_approved_https_dev_origin(
+        string baseUrl)
     {
-        CertificationEndpointGuard.EnsureApproved(
-            baseUrl,
-            allowInsecureHttp);
+        CertificationEndpointGuard.EnsureApproved(baseUrl);
     }
 
     [Theory]
-    [InlineData("https://mkpservice.shippop.com", true)]
-    [InlineData("https://mkpservice.shippop.dev", true)]
-    [InlineData("http://mkpservice.shippop.dev:80", true)]
-    [InlineData("http://mkpservice.shippop.dev/", true)]
-    [InlineData("http://mkpservice.shippop.dev/booking", true)]
-    [InlineData("http://mkpservice.shippop.dev?trace=1", true)]
-    [InlineData("http://mkpservice.shippop.dev", false)]
+    [InlineData("http://mkpservice.shippop.dev")]
+    [InlineData("https://mkpservice.shippop.com")]
+    [InlineData("https://mkpservice.shippop.dev:443")]
+    [InlineData("https://user@mkpservice.shippop.dev")]
+    [InlineData("https://mkpservice.shippop.dev/booking")]
+    [InlineData("https://mkpservice.shippop.dev?trace=1")]
+    [InlineData("https://mkpservice.shippop.dev.evil.test")]
     public void Certification_endpoint_rejects_every_unapproved_origin_before_credentials(
-        string baseUrl,
-        bool allowInsecureHttp)
+        string baseUrl)
     {
         Assert.Throws<InvalidOperationException>(() =>
-            CertificationEndpointGuard.EnsureApproved(
-                baseUrl,
-                allowInsecureHttp));
+            CertificationEndpointGuard.EnsureApproved(baseUrl));
     }
 
     [CertificationFact]
@@ -527,11 +522,7 @@ public sealed class ShippopServiceCertificationTests
         public static async Task<CertificationContext> LoadAsync()
         {
             var baseUrl = Required("SHIPPOP_BASE_URL");
-            var allowInsecureHttp = Enabled(
-                "SHIPPOP_ALLOW_INSECURE_HTTP");
-            CertificationEndpointGuard.EnsureApproved(
-                baseUrl,
-                allowInsecureHttp);
+            CertificationEndpointGuard.EnsureApproved(baseUrl);
 
             var addressPath = Required("SHIPPOP_SYNTHETIC_ADDRESS_JSON");
             using var document = JsonDocument.Parse(
@@ -545,7 +536,7 @@ public sealed class ShippopServiceCertificationTests
                     "SHIPPOP_SERVICE_CODE must be a supported TOKLONG service.");
             return new CertificationContext(
                 baseUrl,
-                allowInsecureHttp,
+                allowInsecureHttp: false,
                 Required("SHIPPOP_API_KEY"),
                 Required("SHIPPOP_ACCOUNT_EMAIL"),
                 serviceCode,
@@ -1250,24 +1241,6 @@ public sealed class ShippopServiceCertificationTests
             DateTimeOffset.UtcNow;
     }
 
-    private static class CertificationEndpointGuard
-    {
-        private const string ApprovedDevBaseUrl =
-            "http://mkpservice.shippop.dev";
-
-        public static void EnsureApproved(
-            string baseUrl,
-            bool allowInsecureHttp)
-        {
-            if (!allowInsecureHttp ||
-                !string.Equals(
-                    baseUrl,
-                    ApprovedDevBaseUrl,
-                    StringComparison.Ordinal))
-                throw new InvalidOperationException(
-                    "SHIPPOP certification endpoint is not approved.");
-        }
-    }
 }
 
 public sealed class CertificationFactAttribute : FactAttribute
