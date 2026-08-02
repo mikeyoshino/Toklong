@@ -766,7 +766,7 @@ public sealed class ShippopServiceCertificationTests
                 booking,
                 cancellationToken);
             return cancellation is
-                { Cancelled: true, FirstCarrierScanDetected: false }
+            { Cancelled: true, FirstCarrierScanDetected: false }
                 ? ParcelProtectionCertificationResult.PassedResult(
                     parcelFieldEvidence)
                 : ParcelProtectionCertificationResult.Failed(
