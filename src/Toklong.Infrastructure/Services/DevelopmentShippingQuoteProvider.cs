@@ -4,6 +4,8 @@ using System.Text;
 using System.Text.Encodings.Web;
 using Toklong.Application.Abstractions;
 using Toklong.Domain.Common;
+using Toklong.Domain.Transactions;
+using QRCoder;
 
 namespace Toklong.Infrastructure.Services;
 
@@ -441,6 +443,36 @@ public sealed class DevelopmentShippingQuoteProvider(
             </html>
             """;
         return Task.FromResult(html);
+    }
+
+    public Task<CounterQrReadResult> GetCounterQrAsync(
+        CounterQrRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.TransactionId == Guid.Empty ||
+            request.ManagedShipmentId == Guid.Empty ||
+            !string.Equals(
+                request.Provider,
+                ProviderName,
+                StringComparison.Ordinal))
+            throw new DomainException(
+                "ข้อมูล QR สำหรับจัดส่งไม่ถูกต้อง");
+        var png = PngByteQRCodeHelper.GetQRCode(
+            $"TOKLONG-DEVELOPMENT-COUNTER:{request.ManagedShipmentId:N}",
+            QRCodeGenerator.ECCLevel.Q,
+            12);
+        var digest = Convert.ToHexString(
+                SHA256.HashData(png))
+            .ToLowerInvariant();
+        return Task.FromResult(new CounterQrReadResult(
+            CounterQrReadStatus.Ready,
+            CounterQrRepresentation.ProviderPng,
+            png,
+            digest,
+            null,
+            clock.UtcNow,
+            null));
     }
 
     public Task CancelAsync(

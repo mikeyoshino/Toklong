@@ -115,4 +115,5 @@ namespace Toklong.Mobile.Pages
     public sealed class VerifyNameChangePage;
     public sealed class VerifyEmailChangePage;
     public sealed class ShippingLabelPage;
+    public sealed class CounterQrPage;
 }

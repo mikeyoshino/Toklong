@@ -63,6 +63,8 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         Set<DisputeEvidence>();
     public DbSet<ManagedShipment> ManagedShipments =>
         Set<ManagedShipment>();
+    public DbSet<ShipmentCounterQrResource> CounterQrResources =>
+        Set<ShipmentCounterQrResource>();
     public DbSet<ShippingOperation> ShippingOperations =>
         Set<ShippingOperation>();
     public DbSet<BookingAttempt> BookingAttempts =>
@@ -930,6 +932,44 @@ public sealed class ToklongDbContext(DbContextOptions<ToklongDbContext> options)
         shipment.Property(x => x.LastProviderStatus).HasMaxLength(40);
         shipment.Property(x => x.Version).IsConcurrencyToken();
         shipment.Ignore(x => x.HasOpenException);
+
+        var counterQr =
+            modelBuilder.Entity<ShipmentCounterQrResource>();
+        counterQr.ToTable("shipment_counter_qr_resources");
+        counterQr.HasKey(x => x.Id);
+        counterQr.Property(x => x.Id).ValueGeneratedNever();
+        counterQr.HasIndex(x => x.ManagedShipmentId).IsUnique();
+        counterQr.HasIndex(x => new
+        {
+            x.Status,
+            x.NextAttemptAt
+        });
+        counterQr.HasIndex(x => x.LeaseExpiresAt);
+        counterQr.Property(x => x.Status)
+            .HasConversion<string>()
+            .HasMaxLength(24);
+        counterQr.Property(x => x.Representation)
+            .HasConversion<string>()
+            .HasMaxLength(32);
+        counterQr.Property(x => x.ProtectedArtifact)
+            .HasColumnType("bytea");
+        counterQr.Property(x => x.ProtectionVersion)
+            .HasMaxLength(32);
+        counterQr.Property(x => x.ArtifactSha256)
+            .HasMaxLength(64);
+        counterQr.Property(x => x.ProviderResourceDigest)
+            .HasMaxLength(64);
+        counterQr.Property(x => x.LastSanitizedErrorCode)
+            .HasMaxLength(100);
+        counterQr.Property(x => x.LeaseOwner)
+            .HasMaxLength(120);
+        counterQr.Property(x => x.Version)
+            .IsConcurrencyToken();
+        shipment.HasOne(x => x.CounterQrResource)
+            .WithOne()
+            .HasForeignKey<ShipmentCounterQrResource>(
+                x => x.ManagedShipmentId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         var operation = modelBuilder.Entity<ShippingOperation>();
         operation.ToTable("shipping_operations");

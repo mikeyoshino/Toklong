@@ -304,14 +304,21 @@ PAYMENT_PENDING
 
 - Physical with a certified, enabled managed service: the background worker
   confirms the pre-payment reservation only after provider-confirmed buyer
-  payment. The provider supplies the carrier tracking number and printable 4×6
-  label; the seller
-  opens the label full-screen, may zoom it, and may save, share, or print the
-  original provider HTML before handing the parcel to the selected carrier by
-  `ship_by_at`. The seller does not type or replace tracking. Consumer copy
+  payment. The provider supplies the carrier tracking number. When the selected
+  service has a certified official Counter QR contract, the seller first sees
+  `กำลังเตรียม QR เคาน์เตอร์`, then the official QR with
+  `แสดงเต็มหน้าจอ`; retry affects only that read-only resource. The original
+  4×6 label remains available through `ดาวน์โหลดใบปะหน้า` and the native
+  share/save/print sheet without an outbound in-app HTML preview. The seller
+  does not type or replace tracking. Consumer copy
   must not claim that every service is drop-off or that every counter scans a
   phone screen; those instructions depend on the selected provider service.
-- A carrier scan, not merely allocation of a label/tracking number, satisfies
+- An expired official QR returns to `กำลังเตรียม QR เคาน์เตอร์` and is fetched
+  again through the read-only provider path. The QR disappears immediately
+  after the first trusted carrier scan, cancellation/refund begins, a dispute
+  or legal hold opens, or the locked shipment no longer matches.
+- Viewing a Counter QR does not prove carrier custody. A carrier scan, not
+  allocation of a QR, label, or tracking number, satisfies
   the managed-shipment deadline. If no scan occurs by `ship_by_at`, the
   shipment enters cancellation/refund handling.
 - The consumer shipping card uses `เตรียมจัดส่ง`,
@@ -412,7 +419,7 @@ or managed TRACKING_SUBMITTED / TRACKING_UNVERIFIED with no carrier scan
 ```
 
 For a provider-managed physical shipment, the first trusted carrier acceptance
-scan is the responsibility boundary. A label, tracking allocation, seller
+scan is the responsibility boundary. A Counter QR, label, tracking allocation, seller
 statement, or drop-off photo alone does not cross it. A timely trusted scan
 records that the seller handed the parcel to the locked carrier; it does not
 prove delivery or make payout eligible. Carrier delay, loss, failed delivery,
@@ -478,7 +485,7 @@ AI may assist with evidence but cannot select the binding outcome.
 | `SELLER_ACCEPTED_AWAITING_PAYMENT` | Seller accepted; payment is not confirmed | Buyer reviews and pays |
 | `CHECKOUT_STARTED` | Buyer accepted final terms | Complete provider checkout |
 | `PAYMENT_PENDING` | Provider has not confirmed payment | Wait/reconcile |
-| `PAID_AWAITING_SHIPMENT` | Confirmed payment; managed shipment is awaiting provider confirmation | System confirms booking, then seller downloads label |
+| `PAID_AWAITING_SHIPMENT` | Confirmed payment; managed shipment is awaiting provider confirmation | System confirms booking, then prepares Counter QR and label download |
 | `PAID_AWAITING_DIGITAL_DELIVERY` | Confirmed payment for digital item/right | Seller completes handoff |
 | `DIGITAL_DELIVERY_SUBMITTED` | Seller asserted handoff; payout blocked | Buyer confirms/reports or manual review |
 | `TRACKING_SUBMITTED` | Tracking recorded | Wait for carrier |

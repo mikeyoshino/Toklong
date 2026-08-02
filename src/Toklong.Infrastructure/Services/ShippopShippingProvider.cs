@@ -117,7 +117,9 @@ public sealed record ShippopServiceProfile(
     long MaximumCoverageSatang,
     string CertificationReference,
     long IncludedCoverageSatang = 0,
-    bool OptionalProtectionEnabled = false)
+    bool OptionalProtectionEnabled = false,
+    bool CounterQrEnabled = false,
+    string CounterQrCertificationReference = "")
 {
     internal static ShippopServiceProfile From(
         string serviceCode,
@@ -134,7 +136,9 @@ public sealed record ShippopServiceProfile(
             section.GetValue<long>("MaximumCoverageSatang"),
             section["CertificationReference"]?.Trim() ?? "",
             section.GetValue<long>("IncludedCoverageSatang"),
-            section.GetValue<bool>("OptionalProtectionEnabled"));
+            section.GetValue<bool>("OptionalProtectionEnabled"),
+            section.GetValue<bool>("CounterQrEnabled"),
+            section["CounterQrCertificationReference"]?.Trim() ?? "");
 }
 
 public sealed class ShippopShippingProvider(
@@ -245,8 +249,9 @@ public sealed class ShippopShippingProvider(
         {
             if (TryMapService(serviceCode) is null)
                 continue;
-            if (options.Profile(serviceCode) is { } profile &&
-                !profile.QuoteEnabled)
+            if (options.Profile(serviceCode) is not { } profile ||
+                !profile.QuoteEnabled ||
+                !IsCounterQrCertified(profile))
                 continue;
             data[(index++).ToString(CultureInfo.InvariantCulture)] =
                 ShipmentPayload(
@@ -290,6 +295,9 @@ public sealed class ShippopShippingProvider(
                 !options.ServiceCodes.Contains(
                     serviceCode,
                     StringComparer.OrdinalIgnoreCase) ||
+                options.Profile(serviceCode) is not { } profile ||
+                !profile.QuoteEnabled ||
+                !IsCounterQrCertified(profile) ||
                 TryBoolean(
                     candidate,
                     "available",
@@ -387,6 +395,7 @@ public sealed class ShippopShippingProvider(
             parts[5],
             profile => profile.QuoteEnabled,
             "quote");
+        EnsureCounterQrCertified(parts[5]);
 
         DateTimeOffset expiresAt;
         try
@@ -434,6 +443,9 @@ public sealed class ShippopShippingProvider(
             request.IsReturn
                 ? "return booking"
                 : "outbound booking");
+        if (!request.IsReturn)
+            EnsureCounterQrCertified(
+                request.Quote.ServiceCode);
         if (request.Quote.InsuranceFeeSatang > 0 ||
             !string.IsNullOrWhiteSpace(request.Quote.InsuranceCode))
         {
@@ -530,6 +542,8 @@ public sealed class ShippopShippingProvider(
                 returnedServiceCode,
                 request.Quote.ServiceCode,
                 StringComparison.OrdinalIgnoreCase) ||
+            !IsCounterQrCertified(
+                options.Profile(returnedServiceCode)) ||
             !string.Equals(
                 returnedService.CarrierCode,
                 request.Quote.CarrierCode,
@@ -592,6 +606,7 @@ public sealed class ShippopShippingProvider(
             serviceCode,
             profile => profile.ConfirmEnabled,
             "confirmation");
+        EnsureCounterQrCertified(serviceCode);
         var cleanPurchaseReference = Required(
             purchaseReference,
             "เลขอ้างอิงรายการขนส่ง");
@@ -606,6 +621,21 @@ public sealed class ShippopShippingProvider(
                 cancellationToken),
             "shippop-confirm-outcome-unknown",
             cancellationToken);
+    }
+
+    public Task<CounterQrReadResult> GetCounterQrAsync(
+        CounterQrRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return Task.FromResult(new CounterQrReadResult(
+            CounterQrReadStatus.Unavailable,
+            null,
+            null,
+            new string('0', 64),
+            null,
+            clock.UtcNow,
+            "counter-qr-contract-not-certified"));
     }
 
     private async Task<ShipmentConfirmation> ConfirmMutationAsync(
@@ -656,6 +686,7 @@ public sealed class ShippopShippingProvider(
                 "courier_code",
                 out var serviceCode) ||
             TryMapService(serviceCode) is not { } service ||
+            !IsCounterQrCertified(options.Profile(serviceCode)) ||
             !string.Equals(
                 service.CarrierCode,
                 carrierCode,
@@ -1147,11 +1178,26 @@ public sealed class ShippopShippingProvider(
         string capability)
     {
         var profile = options.Profile(serviceCode);
-        if (profile is not null &&
+        if (profile is null ||
             !enabled(profile))
             throw new InvalidOperationException(
                 $"SHIPPOP {capability} is disabled for {serviceCode}");
     }
+
+    private void EnsureCounterQrCertified(string serviceCode)
+    {
+        if (!IsCounterQrCertified(options.Profile(serviceCode)))
+            throw new InvalidOperationException(
+                $"SHIPPOP Counter QR is disabled for {serviceCode}");
+    }
+
+    private static bool IsCounterQrCertified(
+        ShippopServiceProfile? profile) =>
+        profile is
+        {
+            CounterQrEnabled: true,
+            CounterQrCertificationReference.Length: > 0
+        };
 
     private static void ValidateRequest(
         ShippingQuoteRequest request)

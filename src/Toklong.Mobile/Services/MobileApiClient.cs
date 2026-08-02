@@ -10,7 +10,8 @@ public sealed record MobileApiOptions(Uri BaseUri);
 
 public sealed class MobileApiClient(
     IHttpClientFactory httpClientFactory,
-    IMobileSessionStore sessionStore)
+    IMobileSessionStore sessionStore,
+    AuthenticatedSessionBoundary? sessionBoundary = null)
 {
     private readonly SemaphoreSlim refreshLock = new(1, 1);
 
@@ -22,8 +23,7 @@ public sealed class MobileApiClient(
         CancellationToken cancellationToken = default)
     {
         var session = await EnsureFreshSessionAsync(cancellationToken)
-            ?? throw new UnauthorizedAccessException(
-                "เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง");
+            ?? throw SessionExpired();
         using var firstRequest = requestFactory();
         firstRequest.Headers.Authorization =
             new AuthenticationHeaderValue("Bearer", session.AccessToken);
@@ -35,8 +35,7 @@ public sealed class MobileApiClient(
 
         response.Dispose();
         session = await RefreshAsync(cancellationToken, force: true)
-            ?? throw new UnauthorizedAccessException(
-                "เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง");
+            ?? throw SessionExpired();
         using var retryRequest = requestFactory();
         retryRequest.Headers.Authorization =
             new AuthenticationHeaderValue("Bearer", session.AccessToken);
@@ -118,14 +117,17 @@ public sealed class MobileApiClient(
                 cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
-                sessionStore.Clear();
+                ClearSession();
                 return null;
             }
             var issued = await response.Content
                 .ReadFromJsonAsync<SessionResponse>(
                     cancellationToken: cancellationToken);
             if (issued is null)
+            {
+                ClearSession();
                 return null;
+            }
             var replacement = new StoredMobileSession(
                 issued.AccessToken,
                 issued.RefreshToken,
@@ -137,6 +139,18 @@ public sealed class MobileApiClient(
         {
             refreshLock.Release();
         }
+    }
+
+    private UnauthorizedAccessException SessionExpired()
+    {
+        sessionBoundary?.Reset();
+        return new UnauthorizedAccessException(
+            "เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง");
+    }
+
+    private void ClearSession()
+    {
+        sessionStore.Clear();
     }
 
     internal sealed record SessionResponse(

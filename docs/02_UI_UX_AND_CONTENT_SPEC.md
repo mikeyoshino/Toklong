@@ -255,21 +255,35 @@ Show:
 
 - Shell title `รายการขาย` and the current purple seller transaction header.
 - Provider-confirmed status `ส่งสินค้าได้` plus the guidance
-  `ผู้ซื้อจ่ายแล้ว เปิดใบปะหน้าและส่งกับขนส่งที่เลือกไว้`; never infer
+  `ผู้ซื้อจ่ายแล้ว เตรียมนำพัสดุส่งกับขนส่งที่เลือกไว้`; never infer
   payment from a slip or client redirect.
 - Exact ship-by date and time.
 - Read-only selected carrier and the tracking number issued through the
   selected certified delivery service/provider.
-- Primary action `เปิดใบปะหน้า`.
-- The transaction detail shows one compact 4×6 label preview. Tapping either
-  the preview or `แตะเพื่อดูใบปะหน้าเต็มจอ` opens a dedicated seller-only
-  viewer. The viewer keeps the screen awake, allows pinch zoom, blocks scripts
-  and top-level navigation from provider HTML, and provides
-  `บันทึกลงเครื่อง` plus `แชร์หรือพิมพ์` through the native file/share sheet.
-- Scan-from-screen guidance is conditional: say
-  `หากจุดบริการรองรับการสแกนจากหน้าจอ`. Do not copy a marketplace counter QR
-  or claim drop-off/pickup behavior unless the selected provider service
-  explicitly supplies that capability.
+- Counter QR is seller-only and has exactly four normalized presentations:
+  `กำลังเตรียม QR เคาน์เตอร์`, `QR เคาน์เตอร์พร้อมใช้`,
+  `ยังโหลด QR เคาน์เตอร์ไม่ได้`, or hidden when inapplicable. Ready shows the
+  official provider PNG inside a large white quiet-zone card, carrier,
+  tracking, exact ship-by, optional authoritative expiry, and
+  `แสดงเต็มหน้าจอ`. Error provides `ลองโหลด QR อีกครั้ง`.
+- Treat an expired QR as Error/Pending and never keep showing its cached image.
+  While the full-screen page is open, re-check authoritative expiry at least
+  once per second and refresh seller/transaction authorization at least every
+  five seconds. Clear the image without waiting for navigation when either
+  check fails.
+  Hide the complete Counter QR card after the first trusted carrier scan or
+  when cancellation, refund, dispute, legal hold, or shipment mismatch makes
+  counter handoff inapplicable.
+- Leaving either QR presentation or crossing an authenticated-session boundary
+  cancels in-flight loads and clears resident QR bytes; a late response must
+  not repopulate the hidden page.
+- `ดาวน์โหลดใบปะหน้า` downloads the unchanged original 4×6 HTML into the
+  native share/save/print sheet. There is no outbound label thumbnail, WebView,
+  `เปิดใบปะหน้า`, or `แตะเพื่อดูใบปะหน้าเต็มจอ`.
+- Never derive a Counter QR from tracking, purchase, or label values. Show it
+  only when the selected provider service explicitly supplies and has certified
+  that counter capability. Viewing it is not evidence that the carrier took
+  custody of the parcel.
 - No manual carrier/tracking form for a provider-managed shipment.
 - Next status before the first carrier scan `นำพัสดุส่งภายใน [exact time]`;
   after the scan, `ขนส่งรับพัสดุแล้ว`.
@@ -646,8 +660,8 @@ Keep the role-specific three-step transaction progress unchanged. Inside the
 transaction detail, show a separate shipping card with four connected
 milestones:
 
-1. `เตรียมจัดส่ง` — provider booking is confirmed and the label is available;
-   no carrier scan exists.
+1. `เตรียมจัดส่ง` — provider booking is confirmed; the Counter QR may be
+   Pending/Ready/Error and the label is download-only; no carrier scan exists.
 2. `ขนส่งรับพัสดุแล้ว` — the first trusted matching carrier scan exists.
 3. `กำลังจัดส่ง` — trusted in-transit events exist.
 4. `ส่งถึงแล้ว` — the selected certified delivery service/provider reports
@@ -731,7 +745,7 @@ Seller:
 
 ### Payment confirmed — seller
 
-> ผู้ซื้อชำระแล้ว เปิดใบปะหน้าและส่งพัสดุภายใน 18 ก.ค. เวลา 18:00 น.
+> ผู้ซื้อชำระแล้ว นำพัสดุส่งภายใน 18 ก.ค. เวลา 18:00 น. ระบบกำลังเตรียม QR เคาน์เตอร์
 
 ### Tracking added — buyer
 

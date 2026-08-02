@@ -4,11 +4,16 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
+    xmlns:converters="clr-namespace:Toklong.Mobile.Converters"
     xmlns:theme="clr-namespace:Toklong.Mobile.Theming"
     Title="{Binding DetailHeadline}"
     SafeAreaEdges="Container"
     Shell.NavBarIsVisible="True"
     Shell.TabBarIsVisible="False">
+    <ContentPage.Resources>
+        <converters:ByteArrayImageSourceConverter
+            x:Key="ByteArrayImageSourceConverter" />
+    </ContentPage.Resources>
     <ContentPage.Background>
         <RadialGradientBrush Center="0.9,0.02" Radius="0.98">
             <GradientStop
@@ -617,8 +622,9 @@
                             Text="ข้อมูลจัดส่ง" />
                     </Grid>
                     <VerticalStackLayout
-                        IsVisible="{Binding CanDownloadShippingLabel}"
-                        Spacing="12">
+                        AutomationId="CounterQrCard"
+                        IsVisible="{Binding ShowCounterQrCard}"
+                        Spacing="14">
                         <BoxView
                             HeightRequest="1"
                             Color="#26000000" />
@@ -635,9 +641,7 @@
                                     Text="{Binding Transaction.ShippingServiceText}"
                                     TextColor="{StaticResource Ink}" />
                             </VerticalStackLayout>
-                            <VerticalStackLayout
-                                Grid.Column="1"
-                                Spacing="2">
+                            <VerticalStackLayout Grid.Column="1" Spacing="2">
                                 <Label
                                     FontSize="12"
                                     Text="เลขพัสดุ"
@@ -649,53 +653,106 @@
                                     TextColor="{StaticResource Ink}" />
                             </VerticalStackLayout>
                         </Grid>
+
                         <Border
-                            AutomationId="ManagedShippingLabelCard"
-                            Padding="14"
+                            IsVisible="{Binding IsCounterQrPending}"
+                            Padding="18"
                             BackgroundColor="{x:Static theme:SellerColorPaletteColors.Surface}"
                             Stroke="{x:Static theme:SellerColorPaletteColors.BorderBrush}"
-                            StrokeShape="RoundRectangle 14">
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer
-                                    Command="{Binding OpenShippingLabelCommand}" />
-                            </Border.GestureRecognizers>
-                            <Grid
-                                ColumnDefinitions="42,*,Auto"
-                                ColumnSpacing="11">
-                                <Border
-                                    WidthRequest="42"
-                                    HeightRequest="42"
-                                    BackgroundColor="{x:Static theme:SellerColorPaletteColors.Secondary}"
-                                    StrokeThickness="0"
-                                    StrokeShape="RoundRectangle 12">
-                                    <Image
-                                        Margin="8"
-                                        Source="ui_shipping_label.png" />
-                                </Border>
-                                <VerticalStackLayout
-                                    Grid.Column="1"
-                                    VerticalOptions="Center"
-                                    Spacing="2">
-                                    <Label
-                                        FontSize="16"
-                                        Text="ใบปะหน้า 4 × 6 นิ้ว" />
-                                    <Label
-                                        Style="{StaticResource RefinedHelperText}"
-                                        Text="ตรวจชื่อและที่อยู่ก่อนพิมพ์" />
-                                </VerticalStackLayout>
+                            StrokeShape="RoundRectangle 18">
+                            <VerticalStackLayout
+                                HorizontalOptions="Center"
+                                Spacing="10">
+                                <ActivityIndicator
+                                    Color="{x:Static theme:SellerColorPaletteColors.Role}"
+                                    IsRunning="True" />
                                 <Label
-                                    Grid.Column="2"
-                                    VerticalOptions="Center"
-                                    FontSize="22"
-                                    Text="›"
-                                    TextColor="{x:Static theme:SellerColorPaletteColors.Role}" />
-                            </Grid>
+                                    HorizontalTextAlignment="Center"
+                                    FontAttributes="Bold"
+                                    FontSize="16"
+                                    Text="กำลังเตรียม QR เคาน์เตอร์" />
+                                <Label
+                                    HorizontalTextAlignment="Center"
+                                    Style="{StaticResource RefinedHelperText}"
+                                    Text="ระบบยืนยันรายการจัดส่งแล้ว QR จะปรากฏที่นี่อัตโนมัติ" />
+                            </VerticalStackLayout>
                         </Border>
+
+                        <VerticalStackLayout
+                            IsVisible="{Binding IsCounterQrReady}"
+                            Spacing="12">
+                            <Border
+                                AutomationId="CounterQrImageCard"
+                                Padding="22"
+                                BackgroundColor="White"
+                                Stroke="{StaticResource Line}"
+                                StrokeShape="RoundRectangle 20">
+                                <Image
+                                    AutomationId="CounterQrImage"
+                                    Aspect="AspectFit"
+                                    HeightRequest="240"
+                                    SemanticProperties.Description="QR สำหรับส่งที่เคาน์เตอร์พร้อมใช้งาน"
+                                    Source="{Binding CounterQrImageBytes, Converter={StaticResource ByteArrayImageSourceConverter}}" />
+                            </Border>
+                            <Label
+                                HorizontalTextAlignment="Center"
+                                FontAttributes="Bold"
+                                FontSize="16"
+                                Text="QR เคาน์เตอร์พร้อมใช้" />
+                            <Label
+                                HorizontalTextAlignment="Center"
+                                Style="{StaticResource RefinedHelperText}"
+                                Text="แสดง QR นี้ให้เจ้าหน้าที่สแกนเมื่อนำพัสดุไปส่ง" />
+                            <Label
+                                HorizontalTextAlignment="Center"
+                                Style="{StaticResource RefinedHelperText}"
+                                Text="{Binding CounterQrExpiryText}" />
+                            <Button
+                                AutomationId="OpenCounterQrFullscreenButton"
+                                Style="{StaticResource RefinedPrimaryButton}"
+                                BackgroundColor="{x:Static theme:SellerColorPaletteColors.Role}"
+                                Command="{Binding OpenCounterQrFullscreenCommand}"
+                                IsEnabled="{Binding CanOpenCounterQrFullscreen}"
+                                MinimumHeightRequest="52"
+                                Text="แสดงเต็มหน้าจอ" />
+                        </VerticalStackLayout>
+
+                        <Border
+                            IsVisible="{Binding IsCounterQrError}"
+                            Padding="18"
+                            BackgroundColor="{StaticResource DangerSoft}"
+                            Stroke="#F3B7C3"
+                            StrokeShape="RoundRectangle 18">
+                            <VerticalStackLayout Spacing="10">
+                                <Label
+                                    HorizontalTextAlignment="Center"
+                                    FontAttributes="Bold"
+                                    FontSize="16"
+                                    Text="ยังโหลด QR เคาน์เตอร์ไม่ได้"
+                                    TextColor="{StaticResource Danger}" />
+                                <Label
+                                    HorizontalTextAlignment="Center"
+                                    Style="{StaticResource RefinedHelperText}"
+                                    Text="คุณยังดาวน์โหลดใบปะหน้าได้ หรือขอให้ระบบลองโหลด QR ใหม่"
+                                    TextColor="{StaticResource Danger}" />
+                                <Button
+                                    AutomationId="RetryCounterQrButton"
+                                    Style="{StaticResource RefinedSecondaryActionButton}"
+                                    Command="{Binding RetryCounterQrCommand}"
+                                    MinimumHeightRequest="48"
+                                    Text="ลองโหลด QR อีกครั้ง" />
+                            </VerticalStackLayout>
+                        </Border>
+
                         <Button
-                            AutomationId="OpenFullShippingLabelButton"
-                            Style="{StaticResource RefinedInlineButton}"
-                            Command="{Binding OpenShippingLabelCommand}"
-                            Text="แตะเพื่อดูใบปะหน้าเต็มจอ"
+                            AutomationId="DownloadShippingLabelButton"
+                            IsVisible="{Binding CanDownloadShippingLabel}"
+                            Style="{StaticResource RefinedSecondaryActionButton}"
+                            BackgroundColor="White"
+                            BorderColor="{x:Static theme:SellerColorPaletteColors.Border}"
+                            Command="{Binding DownloadShippingLabelCommand}"
+                            MinimumHeightRequest="48"
+                            Text="ดาวน์โหลดใบปะหน้า"
                             TextColor="{x:Static theme:SellerColorPaletteColors.Role}" />
                     </VerticalStackLayout>
                     <Label

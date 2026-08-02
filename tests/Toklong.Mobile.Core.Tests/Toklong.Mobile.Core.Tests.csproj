@@ -48,6 +48,8 @@
              Link="MobileViewModels/TransactionsViewModel.cs" />
     <Compile Include="../../src/Toklong.Mobile/ViewModels/TransactionDetailViewModel.cs"
              Link="MobileViewModels/TransactionDetailViewModel.cs" />
+    <Compile Include="../../src/Toklong.Mobile/ViewModels/CounterQrViewModel.cs"
+             Link="MobileViewModels/CounterQrViewModel.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -107,6 +109,12 @@
           CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../src/Toklong.Mobile/Pages/*.xaml"
           Link="Ui/Pages/%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Mobile/Pages/TransactionDetailPage.xaml.cs"
+          Link="Ui/Pages/TransactionDetailPage.xaml.cs"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Toklong.Mobile/Pages/CounterQrPage.xaml.cs"
+          Link="Ui/Pages/CounterQrPage.xaml.cs"
           CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

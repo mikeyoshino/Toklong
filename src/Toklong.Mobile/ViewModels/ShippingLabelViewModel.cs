@@ -112,7 +112,7 @@ public sealed class ShippingLabelViewModel : ObservableViewModel
     public ICommand RetryCommand => retryCommand;
 
     public Task LoadAsync(Guid id) =>
-        LoadAsync(id, isReturn: false);
+        LoadAsync(id, isReturn: true);
 
     public async Task LoadAsync(
         Guid id,
@@ -123,7 +123,7 @@ public sealed class ShippingLabelViewModel : ObservableViewModel
             return;
 
         transactionId = id;
-        returnLabel = isReturn;
+        returnLabel = true;
         IsBusy = true;
         Message = "";
         LabelSource = null;
@@ -135,29 +135,16 @@ public sealed class ShippingLabelViewModel : ObservableViewModel
             if (Transaction is null)
                 throw new InvalidOperationException(
                     "ไม่พบรายการนี้");
-            if (returnLabel &&
-                Transaction.Role !=
-                    AppTransactionRole.Buyer ||
-                !returnLabel &&
-                Transaction.Role !=
-                    AppTransactionRole.Seller)
+            if (Transaction.Role !=
+                    AppTransactionRole.Buyer)
                 throw new InvalidOperationException(
-                    returnLabel
-                        ? "เฉพาะผู้ซื้อของรายการนี้ที่เปิดใบปะหน้าส่งคืนได้"
-                        : "เฉพาะผู้ขายของรายการนี้ที่เปิดใบปะหน้าได้");
-            if (returnLabel
-                    ? !Transaction.ReturnShippingLabelAvailable
-                    : !Transaction.ShippingLabelAvailable)
+                    "เฉพาะผู้ซื้อของรายการนี้ที่เปิดใบปะหน้าส่งคืนได้");
+            if (!Transaction.ReturnShippingLabelAvailable)
                 throw new InvalidOperationException(
-                    returnLabel
-                        ? "กำลังออกใบปะหน้าส่งคืน กรุณารอสักครู่แล้วลองใหม่"
-                        : "กำลังออกใบปะหน้า กรุณารอสักครู่แล้วลองใหม่");
+                    "กำลังออกใบปะหน้าส่งคืน กรุณารอสักครู่แล้วลองใหม่");
 
-            labelFile = returnLabel
-                ? await transactionService
-                    .DownloadReturnShippingLabelAsync(id)
-                : await transactionService
-                    .DownloadShippingLabelAsync(id);
+            labelFile = await transactionService
+                .DownloadReturnShippingLabelAsync(id);
             var html = Encoding.UTF8.GetString(
                 labelFile.Content);
             LabelSource = new HtmlWebViewSource

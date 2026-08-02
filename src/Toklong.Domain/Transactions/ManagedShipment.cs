@@ -96,6 +96,8 @@ public sealed class ManagedShipment
     public DateTimeOffset? ExceptionResolvedAt { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public long Version { get; private set; }
+    public ShipmentCounterQrResource? CounterQrResource
+    { get; private set; }
     public bool HasOpenException =>
         (Status is ManagedShipmentStatus.TrackingUnverified or
             ManagedShipmentStatus.CarrierException) &&
@@ -269,6 +271,24 @@ public sealed class ManagedShipment
         LastReconciledAt = confirmedAt;
         Status = ManagedShipmentStatus.Confirmed;
         Version++;
+    }
+
+    public ShipmentCounterQrResource QueueCounterQr(
+        DateTimeOffset now)
+    {
+        if (Direction != ShipmentDirection.Outbound ||
+            !ConfirmedAt.HasValue ||
+            Status is ManagedShipmentStatus.PendingBooking or
+                ManagedShipmentStatus.Reserved or
+                ManagedShipmentStatus.Cancelled)
+            throw new DomainException(
+                "ยังเตรียม QR สำหรับการจัดส่งนี้ไม่ได้");
+        CounterQrResource ??=
+            ShipmentCounterQrResource.Queue(
+                TransactionId,
+                Id,
+                now);
+        return CounterQrResource;
     }
 
     public void RecordCancellation(

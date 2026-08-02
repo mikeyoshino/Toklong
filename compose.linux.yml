@@ -185,12 +185,18 @@ services:
     environment:
       <<: *toklong-environment
       AllowedHosts: "${TOKLONG_API_DOMAIN:?Set TOKLONG_API_DOMAIN}"
+      DataProtection__KeysPath: /var/lib/toklong/data-protection/api
+      DataProtection__CertificatePath: /run/secrets/data-protection-certificate
+      DataProtection__CertificatePasswordFile: /run/secrets/data-protection-certificate-password
+      ProductImages__StoragePath: /var/lib/toklong/product-images
     depends_on:
       crm-migrate:
         condition: service_completed_successfully
     volumes:
       - app-data:/var/lib/toklong
     secrets:
+      - data-protection-certificate
+      - data-protection-certificate-password
       - dispute-evidence-key
     tmpfs:
       - /tmp:size=64m,mode=1777

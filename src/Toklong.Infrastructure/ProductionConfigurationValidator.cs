@@ -198,6 +198,14 @@ public static class ProductionConfigurationValidator
                 if (profile.OptionalProtectionEnabled)
                     errors.Add(
                         $"Shippop service {serviceCode} optional protection requires a certified buyer terms and exclusions document and authenticated route");
+                if (profile.CounterQrEnabled &&
+                    string.IsNullOrWhiteSpace(
+                        profile.CounterQrCertificationReference))
+                    errors.Add(
+                        $"Shippop service {serviceCode} Counter QR requires a certification reference");
+                if (profile.CounterQrEnabled)
+                    errors.Add(
+                        $"Shippop service {serviceCode} Counter QR parser is not certified in this build");
             }
         }
 

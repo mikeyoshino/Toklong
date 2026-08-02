@@ -120,6 +120,10 @@ public sealed record TransactionView(
         init;
     }
     public bool ParcelProtectionBookingReady { get; init; }
+    public CounterQrResourceStatus? CounterQrStatus { get; init; }
+    public DateTimeOffset? CounterQrExpiresAt { get; init; }
+    public string? CounterQrLastErrorCode { get; init; }
+    public bool CounterQrAccessAllowed { get; init; }
 
     public bool IsProviderManagedShipment =>
         FulfillmentType ==
@@ -274,7 +278,14 @@ public sealed record TransactionView(
                     ManagedShipmentStatus.TrackingUnverified or
                     ManagedShipmentStatus.CarrierException or
                     ManagedShipmentStatus.Delivered),
-        ParcelProtectionBookingReady = transaction.ParcelProtectionBookingReady
+        ParcelProtectionBookingReady = transaction.ParcelProtectionBookingReady,
+        CounterQrStatus = transaction.CurrentOutboundShipment
+            ?.CounterQrResource?.Status,
+        CounterQrExpiresAt = transaction.CurrentOutboundShipment
+            ?.CounterQrResource?.ProviderExpiresAt,
+        CounterQrLastErrorCode = transaction.CurrentOutboundShipment
+            ?.CounterQrResource?.LastSanitizedErrorCode,
+        CounterQrAccessAllowed = transaction.CounterQrAccessAllowed
     };
 
     private static string ThaiStateLabel(

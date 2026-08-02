@@ -192,6 +192,45 @@ public sealed class ApiTransactionService(MobileApiClient api)
                 cancellationToken));
     }
 
+    public async Task<CounterQrImageFile> DownloadCounterQrAsync(
+        Guid transactionId,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await api.SendAuthenticatedAsync(
+            () => new HttpRequestMessage(
+                HttpMethod.Get,
+                $"api/mobile/transactions/{transactionId}/counter-qr"),
+            cancellationToken);
+        await MobileApiClient.EnsureSuccessAsync(
+            response,
+            cancellationToken);
+        var content = await response.Content.ReadAsByteArrayAsync(
+            cancellationToken);
+        if (content.Length is < 8 or > 2 * 1024 * 1024 ||
+            !content.AsSpan(0, 8).SequenceEqual(
+                new byte[]
+                {
+                    137, 80, 78, 71, 13, 10, 26, 10
+                }))
+            throw new InvalidOperationException(
+                "QR ที่ได้รับไม่ถูกต้อง กรุณาลองใหม่");
+        return new CounterQrImageFile(content);
+    }
+
+    public async Task RetryCounterQrAsync(
+        Guid transactionId,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await api.SendAuthenticatedAsync(
+            () => new HttpRequestMessage(
+                HttpMethod.Post,
+                $"api/mobile/transactions/{transactionId}/counter-qr/retry"),
+            cancellationToken);
+        await MobileApiClient.EnsureSuccessAsync(
+            response,
+            cancellationToken);
+    }
+
     public async Task<ShippingLabelFile>
         DownloadReturnShippingLabelAsync(
             Guid transactionId,

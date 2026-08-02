@@ -227,6 +227,46 @@ public sealed class TransactionRepository(ToklongDbContext dbContext) : ITransac
                 !transaction.ManagedShipments.Any())
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<SaleTransaction>>
+        GetEligibleCounterQrTransactionsAsync(
+            CancellationToken cancellationToken) =>
+        await Query()
+            .Where(transaction =>
+                transaction.PaymentConfirmedAt != null &&
+                (transaction.State == TransactionState.TrackingSubmitted ||
+                 transaction.State == TransactionState.TrackingUnverified) &&
+                transaction.FulfillmentType ==
+                    FulfillmentType.PhysicalShipment &&
+                transaction.LegalHoldPlacedAt == null &&
+                (transaction.DisputeOpenedAt == null ||
+                 transaction.DisputeResolvedAt != null) &&
+                !transaction.ReturnRequired &&
+                transaction.RefundRequestedAt == null &&
+                transaction.RefundConfirmedAt == null &&
+                transaction.ShippingCancelledAt == null &&
+                transaction.FirstCarrierScanAt == null &&
+                transaction.ManagedShipments.Any(shipment =>
+                    shipment.Direction == ShipmentDirection.Outbound &&
+                    (shipment.Status == ManagedShipmentStatus.Confirmed ||
+                     shipment.Status ==
+                         ManagedShipmentStatus.TrackingUnverified) &&
+                    shipment.ConfirmedAt != null &&
+                    shipment.CancelledAt == null &&
+                    shipment.FirstCarrierScanAt == null &&
+                    shipment.Provider ==
+                        transaction.ShippingQuoteProvider &&
+                    shipment.PurchaseReference ==
+                        transaction.ShippingPurchaseReference &&
+                    shipment.ProviderTrackingCode ==
+                        transaction.ShippingProviderTrackingCode &&
+                    shipment.CarrierCode == transaction.CarrierCode &&
+                    shipment.ServiceCode ==
+                        transaction.ShippingServiceCode &&
+                    shipment.CounterQrResource == null))
+            .OrderBy(transaction => transaction.CreatedAt)
+            .Take(100)
+            .ToListAsync(cancellationToken);
+
     private IQueryable<SaleTransaction> Query() =>
         dbContext.Transactions
             .Include(x => x.AuditEvents)
@@ -236,6 +276,7 @@ public sealed class TransactionRepository(ToklongDbContext dbContext) : ITransac
             .Include(x => x.Notifications)
             .Include(x => x.DisputeEvidence)
             .Include(x => x.ManagedShipments)
+                .ThenInclude(x => x.CounterQrResource)
             .Include(x => x.ShippingOperations)
             .Include(x => x.ParcelProtectionChangeRequests)
             .Include(x => x.ProviderShippingAdjustments)

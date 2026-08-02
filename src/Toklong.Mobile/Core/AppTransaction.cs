@@ -89,7 +89,10 @@ public sealed record AppTransaction(
     DateTimeOffset CreatedAt = default,
     long ParcelInsuranceFeeSatang = 0,
     long ShippingDeclaredValueSatang = 0,
-    string? ShippingOperationStatus = null)
+    string? ShippingOperationStatus = null,
+    string? CounterQrStatus = null,
+    DateTimeOffset? CounterQrExpiresAt = null,
+    string? CounterQrLastErrorCode = null)
 {
     private static readonly CultureInfo ThaiCulture =
         CultureInfo.GetCultureInfo("th-TH");
@@ -340,6 +343,48 @@ public sealed record AppTransaction(
 
     public bool IsSellerRole => Role == AppTransactionRole.Seller;
 
+    public bool ShowCounterQrCard =>
+        Role == AppTransactionRole.Seller &&
+        FulfillmentType == AppFulfillmentType.Physical &&
+        ShippingManagedByProvider &&
+        !FirstCarrierScanAt.HasValue &&
+        !string.IsNullOrWhiteSpace(CounterQrStatus);
+
+    public bool IsCounterQrPending =>
+        ShowCounterQrCard &&
+        string.Equals(
+            CounterQrStatus,
+            "Pending",
+            StringComparison.Ordinal);
+
+    public bool IsCounterQrReady =>
+        ShowCounterQrCard &&
+        string.Equals(
+            CounterQrStatus,
+            "Ready",
+            StringComparison.Ordinal) &&
+        !IsCounterQrExpired;
+
+    public bool IsCounterQrError =>
+        ShowCounterQrCard &&
+        (CounterQrStatus is "RetryableError" or "Unavailable" ||
+         IsCounterQrExpired);
+
+    private bool IsCounterQrExpired =>
+        string.Equals(
+            CounterQrStatus,
+            "Ready",
+            StringComparison.Ordinal) &&
+        CounterQrExpiresAt.HasValue &&
+        CounterQrExpiresAt <= DateTimeOffset.UtcNow;
+
+    public string CounterQrExpiryText =>
+        CounterQrExpiresAt.HasValue
+            ? $"ใช้ได้ถึง {CounterQrExpiresAt.Value
+                .ToLocalTime()
+                .ToString("d MMM yyyy · HH:mm น.", ThaiCulture)}"
+            : "";
+
     public string SellerNetText =>
         MoneyFormatter.Format(SellerExpectedNetSatang, Currency);
 
@@ -495,7 +540,7 @@ public sealed record AppTransaction(
             "คุณแจ้งการส่งมอบแล้ว รอผู้ซื้อตรวจและยืนยัน ไม่มีการจ่ายอัตโนมัติจากเวลา",
         "TrackingSubmitted" when
             ShippingManagedByProvider =>
-            $"ออกเลขพัสดุแล้ว เปิดใบปะหน้าและส่งให้ขนส่งภายใน {ExactDeadline()}",
+            $"ออกเลขพัสดุแล้ว แสดง QR ที่เคาน์เตอร์หรือนำใบปะหน้าไปส่งภายใน {ExactDeadline()}",
         "InTransit" =>
             "พัสดุกำลังเดินทาง เราจะอัปเดตจากบริษัทขนส่ง",
         "TrackingUnverified" when

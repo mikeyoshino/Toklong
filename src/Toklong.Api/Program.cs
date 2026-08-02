@@ -242,6 +242,19 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0,
                 AutoReplenishment = true
             }));
+    options.AddPolicy("counter-qr", context =>
+        RateLimitPartition.GetSlidingWindowLimiter(
+            AuthenticatedAccountRateLimitKey(
+                context,
+                rateLimiterPartitionSecret),
+            _ => new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                SegmentsPerWindow = 4,
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
     options.AddPolicy("email-change-request", context =>
         RateLimitPartition.GetFixedWindowLimiter(
             AuthenticatedBuyerRateLimitKey(

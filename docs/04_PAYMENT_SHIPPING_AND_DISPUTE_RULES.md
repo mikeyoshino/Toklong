@@ -148,13 +148,20 @@ The text and normalized snapshot must preserve what the buyer specified and the 
    verified payment for the exact final buyer total, the Worker confirms that
    booking. Buyer-paid shipping and optional protection are never added to
    seller proceeds.
-6. SHIPPOP supplies the courier tracking number and 4×6 HTML label. The seller
-   may open, zoom, save, share, or print the label only after authenticated
-   authorization and provider confirmation. The in-app preview disables
-   JavaScript and external top-level navigation; save/share uses the unchanged
-   provider HTML. A provider-managed transaction rejects manual carrier or
-   tracking replacement. Showing the barcode on a phone does not by itself
-   prove that a selected counter accepts screen scanning.
+6. SHIPPOP supplies the courier tracking number and 4×6 HTML label. The label
+   is seller-only, attachment/download-only, and opens the unchanged provider
+   HTML through the native share/save/print sheet without an outbound WebView.
+   A provider-managed transaction rejects manual carrier or tracking
+   replacement. An official Counter QR is a separate encrypted read-only
+   resource: it is enabled per service only after account-specific contract
+   certification and is never derived from tracking, purchase, or label data.
+   The official PNG is encrypted at rest, structurally decoded within bounded
+   square dimensions before storage, and refreshed only through a read-only
+   provider lookup after authoritative expiry. Access is revoked on the first
+   trusted scan, cancellation/refund, open dispute, legal hold, or shipment
+   identity mismatch.
+   Viewing either QR or label does not prove counter acceptance or carrier
+   custody.
 7. `ship_by_at` is fixed at provider-confirmed payment time plus 72 hours for
    the MVP. No buyer, seller, form, or client command may supply a different
    duration. Merely allocating a label or tracking number does not satisfy this
@@ -187,7 +194,7 @@ The text and normalized snapshot must preserve what the buyer specified and the 
       automatic missed-shipment path;
     - a trusted scan occurring at or before `ship_by_at` means the seller
       handed the parcel to the locked carrier on time;
-    - a label, tracking allocation, seller statement, receipt image, or
+    - a Counter QR, label, tracking allocation, seller statement, receipt image, or
       client-supplied event does not satisfy this boundary.
 14. A timely acceptance scan does not prove delivery or release payout. A
     subsequent delay, loss, failed delivery, return-to-sender, or delivery
@@ -211,6 +218,7 @@ The text and normalized snapshot must preserve what the buyer specified and the 
     cleanup retries in the background and never extends the consumer deadline.
 19. Each enabled service is drop-off only and must pass account-specific
     certification for quote, booking, confirmation, cancellation, label,
+    official Counter QR purpose/representation/expiry/safe repeated read,
     tracking/POD timestamp, rate limit, optional-protection availability,
     limits, terms, safe lookup/replay, cancellation before first scan, and
     weight/dimension fields and units. All SHIPPOP service flags remain off

@@ -880,8 +880,8 @@ measurements, and selected quote/service
 **And** the snapshot seal time equals the authoritative provider confirmation time
 **And** the shipping Worker confirms the exact reserved certified-provider
 purchase idempotently
-**And** the seller receives the provider-issued tracking number, label action,
-and exact ship-by notification
+**And** the seller receives the provider-issued tracking number, Counter QR
+Pending state, label-download action, and exact ship-by notification
 **And** the seller cannot replace the managed tracking number manually.
 
 ### B4 — Duplicate payment webhook is safe
@@ -910,12 +910,33 @@ and exact ship-by notification
 **And** records the matching courier tracking number through the domain
 transition service
 **And** the transaction becomes `TRACKING_SUBMITTED`
-**And** the authenticated seller may open the 4×6 label full-screen, pinch to
-zoom, and invoke native save/share/print actions
-**And** the in-app preview removes executable scripts and blocks top-level
-navigation while the exported file remains the original provider HTML
+**And** the authenticated seller first sees
+`กำลังเตรียม QR เคาน์เตอร์`, then an official provider QR only when the
+read-only resource is Ready
+**And** Ready provides `แสดงเต็มหน้าจอ`, while Error provides
+`ลองโหลด QR อีกครั้ง`
+**And** the unchanged 4×6 label is available only through
+`ดาวน์โหลดใบปะหน้า` and the native save/share/print sheet
+**And** outbound UI has no label thumbnail, HTML WebView,
+`เปิดใบปะหน้า`, or `แตะเพื่อดูใบปะหน้าเต็มจอ`
 **And** a non-seller or a transaction without provider-confirmed payment and
-shipping confirmation cannot retrieve the label
+shipping confirmation cannot retrieve the QR or label
+**And** QR bytes are protected at rest and returned with no-store, no-cache,
+nosniff, and restrictive CSP headers
+**And** malformed, oversized, out-of-bounds, or decompression-expanding PNG
+content is rejected before storage
+**And** an expired Ready resource is never served from cache and can be safely
+claimed for read-only refresh
+**And** first carrier scan, cancellation/refund, open dispute, legal hold, or
+shipment mismatch revokes seller QR access
+**And** leaving the page or losing the authenticated session cancels in-flight
+loads, clears resident image bytes, and rejects late non-cooperative responses
+**And** an open full-screen page clears the image when authoritative expiry is
+reached
+**And** the open full-screen page revalidates authorization at least every five
+seconds and fails closed on refund, dispute, legal hold, session loss, or an
+unverifiable refresh
+**And** Pending/Ready/Error/retry never changes transaction or shipment status
 **And** the seller and buyer cannot submit or replace carrier/tracking fields
 **And** retrying the Worker does not create a duplicate confirmation or audit
 event.
@@ -980,7 +1001,7 @@ refund instruction
 ### C1.5 — Carrier acceptance is the Seller Protection boundary
 
 **Given** a provider-managed physical shipment
-**When** only a label or tracking number exists at `ship_by_at`
+**When** only a Counter QR, label, or tracking number exists at `ship_by_at`
 **Then** Seller Protection is not eligible
 **And** the missed-shipment cancellation/refund path may begin.
 

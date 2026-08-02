@@ -201,11 +201,10 @@ Items below require explicit product, operations, legal, payment-provider, logis
   limits, integer-satang price units, terms/code, post-election exact booking,
   lookup/replay, cancellation before first scan, surcharge fields, claims SLA,
   and required parcel fields/units separately for each service.
-- Confirm per carrier whether a counter may scan the provider barcode directly
-  from a phone screen, whether a printed 4×6 label remains mandatory, and
-  whether SHIPPOP exposes an authenticated counter QR or branch-locator
-  capability. Until confirmed, mobile guidance is conditional and renders only
-  the provider-issued label/barcode.
+- Confirm per carrier whether a counter may scan an official provider QR from
+  a phone screen and whether a printed 4×6 label remains mandatory. Until
+  confirmed for a service, `CounterQrEnabled` stays false and mobile retains
+  only the seller label-download fallback; it never synthesizes a SHIPPOP QR.
 - Counter-QR response observation is discovery only. A candidate field in a
   booking or confirmation response does not enable a service. Production
   remains blocked until SHIPPOP documents the official counter purpose, exact
