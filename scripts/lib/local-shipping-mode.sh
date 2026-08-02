@@ -63,6 +63,14 @@ toklong_apply_local_shipping_mode() {
     local quote_signing_secret="${5:-}"
 
     if [[ "${mode}" == "Development" ]]; then
+        case "${keys_path}" in
+            /*)
+                ;;
+            *)
+                echo "DataProtection key path ต้องเป็น absolute path" >&2
+                return 2
+                ;;
+        esac
         case "${TOKLONG_DEVELOPMENT_AUTO_ADVANCE:-1}" in
             0)
                 export DevelopmentDemoSimulation__Enabled=false
@@ -75,7 +83,10 @@ toklong_apply_local_shipping_mode() {
                 return 2
                 ;;
         esac
+        mkdir -p -- "${keys_path}"
+        chmod 700 "${keys_path}"
         export ShippingQuotes__Provider=Development
+        export DataProtection__KeysPath="${keys_path}"
         return 0
     fi
     if [[ "${mode}" != "ShippopSandbox" ]]; then

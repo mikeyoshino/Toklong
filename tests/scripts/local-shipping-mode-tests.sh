@@ -59,6 +59,9 @@ test_development_is_the_default() {
 
     [[ "${ShippingQuotes__Provider}" == "Development" ]]
     [[ "${DevelopmentDemoSimulation__Enabled}" == "true" ]]
+    [[ "${DataProtection__KeysPath}" == \
+       "${test_tmp}/development-keys" ]]
+    [[ -d "${DataProtection__KeysPath}" ]]
 }
 
 test_development_can_disable_auto_advance() {
@@ -73,6 +76,20 @@ test_development_can_disable_auto_advance() {
 
     [[ "${ShippingQuotes__Provider}" == "Development" ]]
     [[ "${DevelopmentDemoSimulation__Enabled}" == "false" ]]
+    [[ "${DataProtection__KeysPath}" == \
+       "${test_tmp}/development-manual-keys" ]]
+}
+
+test_development_rejects_relative_data_protection_path() {
+    unset TOKLONG_SHIPPING_MODE
+    local error_path="${test_tmp}/development-relative-path-error"
+
+    if toklong_apply_local_shipping_mode \
+        "relative/keys" "" "" "" "" 2>"${error_path}"; then
+        return 1
+    fi
+
+    grep -Fq "DataProtection" "${error_path}"
 }
 
 test_invalid_development_auto_advance_is_rejected() {
@@ -417,6 +434,15 @@ test_backend_launcher_keeps_development_default() {
         "${capture}/api.env"
     grep -Fxq "DevelopmentDemoSimulation__Enabled=true" \
         "${capture}/api.env"
+    local api_keys_path
+    local worker_keys_path
+    api_keys_path="$(grep -F 'DataProtection__KeysPath=' \
+        "${capture}/api.env")"
+    worker_keys_path="$(grep -F 'DataProtection__KeysPath=' \
+        "${capture}/worker.env")"
+    [[ "${api_keys_path}" == "${worker_keys_path}" ]]
+    [[ "${api_keys_path}" == \
+       "DataProtection__KeysPath=${case_root}/runtime/data-protection-keys" ]]
 }
 
 test_dual_sim_sandbox_uses_direct_backend_runner() {
@@ -565,6 +591,8 @@ run_test "Development auto-advance can be disabled" \
     test_development_can_disable_auto_advance
 run_test "invalid Development auto-advance is rejected" \
     test_invalid_development_auto_advance_is_rejected
+run_test "Development rejects relative Data Protection path" \
+    test_development_rejects_relative_data_protection_path
 run_test "unknown mode is rejected without echoing it" \
     test_unknown_mode_is_rejected
 for required_name in \
