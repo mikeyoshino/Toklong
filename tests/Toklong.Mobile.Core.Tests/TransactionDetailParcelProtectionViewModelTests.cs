@@ -425,6 +425,33 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
     }
 
     [Fact]
+    public async Task Unavailable_add_on_is_persisted_once_before_payment()
+    {
+        var service = new ParcelProtectionService
+        {
+            Protection = UnavailableProtection(),
+            ProtectionAfterChoice = UnavailableProtection() with
+            {
+                ElectionPersisted = true
+            },
+            Transaction = Transaction(amountSatang: 5_238_00)
+        };
+        var sheet = new RecordingSheet();
+        var viewModel = ViewModel(service, sheet);
+
+        await viewModel.LoadAsync(service.Transaction.Id);
+
+        Assert.False(viewModel.ShowParcelProtectionToggle);
+        Assert.False(viewModel.CanToggleParcelProtection);
+        Assert.Equal([false], service.Choices);
+
+        await ExecuteAsync(viewModel.PrimaryActionCommand);
+
+        Assert.Equal(1, service.ChooseCalls);
+        Assert.Equal(1, sheet.Calls);
+    }
+
+    [Fact]
     public async Task Choosing_included_coverage_is_saved_before_payment()
     {
         var service = new ParcelProtectionService
@@ -846,6 +873,20 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
             CustomerPriceSatang = null,
             OptionReference = null
         };
+
+    private static BuyerParcelProtection UnavailableProtection() =>
+        new(
+            RequiresChoice: false,
+            AddOnAvailable: false,
+            IncludedCoverageLimitSatang: 0,
+            MaximumCoverageLimitSatang: null,
+            CustomerPriceSatang: null,
+            OptionReference: null,
+            TermsVersion: "parcel-protection-included-v1",
+            ExpiresAt: null,
+            Election: "Unavailable",
+            BookingReady: false,
+            ReconfirmationRequired: false);
 
     private sealed class RecordingSheet(
         PaymentSheetOutcome outcome = PaymentSheetOutcome.Cancelled)

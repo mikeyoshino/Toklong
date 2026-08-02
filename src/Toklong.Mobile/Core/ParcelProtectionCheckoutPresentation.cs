@@ -16,7 +16,12 @@ public static class ParcelProtectionCheckoutPresentation
             ? ParcelProtectionCheckoutStep.Reconfirm
             : protection.BookingReady ||
               protection.Election is
-                  "Accepted" or "Declined" or "NotApplicable"
+                  "Accepted" or "Declined" or "NotApplicable" ||
+              protection is
+              {
+                  Election: "Unavailable",
+                  ElectionPersisted: true
+              }
                 ? ParcelProtectionCheckoutStep.PresentPayment
                 : protection.RequiresChoice
                         ? ParcelProtectionCheckoutStep.Choose

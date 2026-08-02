@@ -548,6 +548,48 @@ public sealed class ShippopShippingProviderTests
     }
 
     [Fact]
+    public async Task Reservation_keeps_quote_coverage_separate_from_item_value()
+    {
+        var provider = Provider(_ => Task.FromResult(Json(
+            """
+            {
+              "status": true,
+              "purchase_id": 452004,
+              "total_price": 52,
+              "data": {
+                "0": {
+                  "status": true,
+                  "tracking_code": "SP452045857",
+                  "courier_code": "EMST",
+                  "price": 52
+                }
+              }
+            }
+            """)));
+        var shipment = Request() with
+        {
+            DeclaredValueSatang = 500_000
+        };
+        var quote = Quote() with
+        {
+            DeclaredValueSatang = 0
+        };
+
+        var reservation = await provider.ReserveAsync(
+            new ShipmentReservationRequest(
+                Guid.Parse(
+                    "11111111-2222-3333-4444-555555555555"),
+                shipment,
+                quote,
+                Guid.Empty,
+                false,
+                "checkout:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+            default);
+
+        Assert.Equal(0, reservation.DeclaredValueSatang);
+    }
+
+    [Fact]
     public async Task Return_booking_uses_distinct_managed_shipment_reference()
     {
         string? body = null;

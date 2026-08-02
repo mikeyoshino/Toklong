@@ -114,7 +114,8 @@ public sealed record BuyerParcelProtection(
     DateTimeOffset? ExpiresAt,
     string Election,
     bool BookingReady,
-    bool ReconfirmationRequired);
+    bool ReconfirmationRequired,
+    bool ElectionPersisted = false);
 
 public sealed record DisputeEvidenceUpload(
     string FileName,

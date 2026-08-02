@@ -911,6 +911,14 @@ public sealed class TransactionPresentationTests
         Assert.Equal(
             ParcelProtectionCheckoutStep.PresentPayment,
             ParcelProtectionCheckoutPresentation.Next(
+                included with
+                {
+                    Election = "Unavailable",
+                    ElectionPersisted = true
+                }));
+        Assert.Equal(
+            ParcelProtectionCheckoutStep.PresentPayment,
+            ParcelProtectionCheckoutPresentation.Next(
                 offered with
                 {
                     RequiresChoice = false,

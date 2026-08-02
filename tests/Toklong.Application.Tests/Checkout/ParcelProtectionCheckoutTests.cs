@@ -272,6 +272,7 @@ public sealed class ParcelProtectionCheckoutTests
 
         Assert.Equal(prepared, resumed);
         Assert.Equal("Unavailable", resumed.Election);
+        Assert.False(resumed.ElectionPersisted);
         Assert.False(resumed.RequiresChoice);
         Assert.False(resumed.AddOnAvailable);
         Assert.Equal(100_000, resumed.IncludedCoverageLimitSatang);
@@ -408,11 +409,19 @@ public sealed class ParcelProtectionCheckoutTests
 
         var view = await fixture.Prepare.Handle(fixture.PrepareCommand(), default);
         var result = await fixture.ChooseHandler.Handle(fixture.Choose(false), default);
+        var persisted = await new GetParcelProtectionHandler(
+            new TransactionRepository(fixture.Database), fixture.Clock).Handle(
+                new GetParcelProtectionQuery(
+                    fixture.Transaction.Id,
+                    fixture.BuyerId),
+                default);
 
         Assert.False(view.AddOnAvailable);
         Assert.Equal("Unavailable", view.Election);
+        Assert.False(view.ElectionPersisted);
         Assert.Equal(ParcelProtectionElectionStatus.Unavailable,
             fixture.Transaction.ParcelProtectionElection);
+        Assert.True(persisted.ElectionPersisted);
         Assert.Equal("selection_saved", result.BookingStatus);
         Assert.Equal(0, fixture.Provider.ValidateCalls);
     }

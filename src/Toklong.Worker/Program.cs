@@ -16,6 +16,9 @@ DisputeEvidenceStoreOptions.ValidateConfiguration(
     builder.Environment);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddToklongDataProtection(
+    builder.Configuration,
+    builder.Environment);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.Configure<ShippingWorkerOptions>(
     builder.Configuration.GetSection(

@@ -3,7 +3,6 @@ using System.Security.Cryptography;
 using System.Security.Claims;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.EntityFrameworkCore;
@@ -55,21 +54,9 @@ if (!builder.Environment.IsEnvironment("Testing"))
         provider.GetRequiredService<
             PendingRegistrationCleanupWorker>());
 
-var keysPath = Path.GetFullPath(
-    PersistentStoragePath.Resolve(
-        builder.Environment,
-        builder.Configuration,
-        "DataProtection:KeysPath",
-        "App_Data/data-protection-keys"));
-Directory.CreateDirectory(keysPath);
-var dataProtection = builder.Services.AddDataProtection()
-    .SetApplicationName("Toklong.MobileApi")
-    .PersistKeysToFileSystem(new DirectoryInfo(keysPath));
-var dataProtectionCertificate =
-    DataProtectionCertificateLoader.Load(builder.Configuration);
-if (dataProtectionCertificate is not null)
-    dataProtection.ProtectKeysWithCertificate(
-        dataProtectionCertificate);
+builder.Services.AddToklongDataProtection(
+    builder.Configuration,
+    builder.Environment);
 if (builder.Configuration.GetValue<bool>(
         "ReverseProxy:TrustForwardedHeaders"))
 {

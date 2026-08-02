@@ -81,6 +81,10 @@ public sealed class PrepareParcelProtectionHandler(
             presentationElection.ToString(),
             transaction.ParcelProtectionBookingReady,
             transaction.ParcelProtectionElection ==
-                ParcelProtectionElectionStatus.ReconfirmationRequired);
+                ParcelProtectionElectionStatus.ReconfirmationRequired,
+            ElectionPersisted:
+                transaction.ParcelProtectionBuyerElectedAt.HasValue &&
+                transaction.ParcelProtectionElection ==
+                    presentationElection);
     }
 }

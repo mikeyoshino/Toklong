@@ -551,7 +551,7 @@ public sealed class ShippopShippingProvider(
             returnedServiceCode,
             reservedFeeSatang,
             0,
-            request.Shipment.DeclaredValueSatang,
+            request.Quote.DeclaredValueSatang,
             null,
             clock.UtcNow);
     }

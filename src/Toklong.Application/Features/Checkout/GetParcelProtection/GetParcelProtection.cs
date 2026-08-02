@@ -22,7 +22,8 @@ public sealed record BuyerParcelProtectionView(
     DateTimeOffset? ExpiresAt,
     string Election,
     bool BookingReady,
-    bool ReconfirmationRequired);
+    bool ReconfirmationRequired,
+    bool ElectionPersisted = false);
 
 public sealed class GetParcelProtectionHandler(
     ITransactionRepository repository,
@@ -77,7 +78,8 @@ internal static partial class ParcelProtectionCheckout
                 prepared.MaximumCoverageLimitSatang, prepared.CustomerPriceSatang,
                 prepared.OptionReference, prepared.TermsVersion, prepared.ExpiresAt,
                 prepared.Election.ToString(),
-                transaction.ParcelProtectionBookingReady, false);
+                transaction.ParcelProtectionBookingReady, false,
+                ElectionPersisted: false);
         var notApplicable = transaction.FulfillmentType ==
             FulfillmentType.DigitalHandoff;
         var isPending = transaction.ParcelProtectionElection ==
@@ -101,7 +103,9 @@ internal static partial class ParcelProtectionCheckout
             notApplicable ? ParcelProtectionElectionStatus.NotApplicable.ToString()
                 : transaction.ParcelProtectionElection.ToString(),
             transaction.ParcelProtectionBookingReady,
-            reconfirmationRequired);
+            reconfirmationRequired,
+            ElectionPersisted: notApplicable ||
+                transaction.ParcelProtectionBuyerElectedAt.HasValue);
     }
 
     private static ParcelProtectionPreparedOffer? TryReadPreparedOffer(

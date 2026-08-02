@@ -1302,7 +1302,8 @@ public static class MobileApi
             view.ExpiresAt,
             view.Election,
             view.BookingReady,
-            view.ReconfirmationRequired);
+            view.ReconfirmationRequired,
+            view.ElectionPersisted);
 
     private static async Task<IResult> GetSellerOfferAsync(
         string publicToken,
@@ -2446,7 +2447,8 @@ public sealed record MobileParcelProtectionResponse(
     DateTimeOffset? ExpiresAt,
     string Election,
     bool BookingReady,
-    bool ReconfirmationRequired);
+    bool ReconfirmationRequired,
+    bool ElectionPersisted);
 
 public sealed record MobileParcelProtectionElectionRequest(
     bool AddProtection,

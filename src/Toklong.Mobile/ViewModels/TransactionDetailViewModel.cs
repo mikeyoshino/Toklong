@@ -259,8 +259,9 @@ public sealed class TransactionDetailViewModel(
         (ParcelProtection.AddOnAvailable ||
          ParcelProtection.ReconfirmationRequired ||
          ParcelProtection.Election == "Accepted" ||
-         Transaction.ItemPriceSatang >
-            ParcelProtection.IncludedCoverageLimitSatang);
+         (ParcelProtection.Election == "Declined" &&
+          Transaction.ItemPriceSatang >
+            ParcelProtection.IncludedCoverageLimitSatang));
 
     private bool IsParcelProtectionEditableState =>
         Transaction is
@@ -347,9 +348,10 @@ public sealed class TransactionDetailViewModel(
     public bool IsParcelProtectionUnavailable =>
         ParcelProtection is
         {
-            ReconfirmationRequired: true,
             AddOnAvailable: false
-        };
+        } &&
+        (ParcelProtection.ReconfirmationRequired ||
+         ParcelProtection.Election == "Unavailable");
 
     public bool IsParcelProtectionChoiceAvailable =>
         !IsParcelProtectionUnavailable;
