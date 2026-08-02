@@ -7,6 +7,29 @@ namespace Toklong.Mobile.Core.Tests;
 public sealed class TransactionDetailParcelProtectionViewModelTests
 {
     [Fact]
+    public async Task Ready_checkout_starts_without_a_separate_acceptance_toggle()
+    {
+        var service = new ParcelProtectionService
+        {
+            Protection = ReadyProtection(),
+            Transaction = Transaction(amountSatang: 456_00)
+        };
+        var sheet = new RecordingSheet(PaymentSheetOutcome.Completed);
+        var viewModel = ViewModel(service, sheet);
+
+        await viewModel.LoadAsync(service.Transaction.Id);
+
+        Assert.True(viewModel.CanStartPayment);
+        Assert.Equal(
+            "ยืนยันและชำระ ฿456",
+            viewModel.PaymentActionText);
+
+        await ExecuteAsync(viewModel.PrimaryActionCommand);
+
+        Assert.Equal(1, sheet.Calls);
+    }
+
+    [Fact]
     public async Task First_visit_prepares_toggle_without_opening_modal()
     {
         var service = new ParcelProtectionService
@@ -45,7 +68,6 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
         var viewModel = ViewModel(service, sheet, analytics);
 
         await viewModel.LoadAsync(service.Transaction.Id);
-        viewModel.AcceptedTerms = true;
         await ExecuteAsync(viewModel.PrimaryActionCommand);
 
         Assert.Equal(0, service.PrepareCalls);
@@ -70,7 +92,6 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
         var viewModel = ViewModel(service, sheet);
 
         await viewModel.LoadAsync(service.Transaction.Id);
-        viewModel.AcceptedTerms = true;
         await ExecuteAsync(viewModel.PrimaryActionCommand);
 
         Assert.Equal(2, service.GetProtectionCalls);
@@ -91,7 +112,6 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
         var viewModel = ViewModel(service, sheet);
 
         await viewModel.LoadAsync(service.Transaction.Id);
-        viewModel.AcceptedTerms = true;
         await ExecuteAsync(viewModel.PrimaryActionCommand);
         await ExecuteAsync(viewModel.PrimaryActionCommand);
 
@@ -119,7 +139,6 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
 
         await viewModel.LoadAsync(
             service.Transaction.Id);
-        viewModel.AcceptedTerms = true;
         await ExecuteAsync(
             viewModel.PrimaryActionCommand);
         await ExecuteAsync(
@@ -144,7 +163,6 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
         var viewModel = ViewModel(service, sheet);
 
         await viewModel.LoadAsync(service.Transaction.Id);
-        viewModel.AcceptedTerms = true;
         var execution = ExecuteAsync(
             viewModel.PrimaryActionCommand);
 
@@ -179,12 +197,10 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
         var viewModel = ViewModel(service, sheet);
 
         await viewModel.LoadAsync(first.Id);
-        viewModel.AcceptedTerms = true;
         await ExecuteAsync(viewModel.PrimaryActionCommand);
 
         service.Transaction = second;
         await viewModel.LoadAsync(second.Id);
-        viewModel.AcceptedTerms = true;
         await ExecuteAsync(viewModel.PrimaryActionCommand);
 
         Assert.Equal(2, sheet.Keys.Count);
@@ -221,13 +237,12 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
 
         Assert.True(viewModel.IsParcelProtectionAddOnSelected);
         Assert.Equal("฿456", viewModel.CheckoutAmountText);
-        Assert.Equal("ชำระ ฿456", viewModel.PaymentActionText);
+        Assert.Equal("ยืนยันและชำระ ฿456", viewModel.PaymentActionText);
         Assert.Equal(1, service.ChooseCalls);
         Assert.Equal(0, sheet.Calls);
         Assert.False(viewModel.IsParcelProtectionChoiceVisible);
         Assert.Equal(456_00, viewModel.Transaction!.AmountSatang);
 
-        viewModel.AcceptedTerms = true;
         await ExecuteAsync(viewModel.PrimaryActionCommand);
 
         Assert.Equal(1, service.ChooseCalls);
@@ -423,7 +438,6 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
         var viewModel = ViewModel(service, sheet);
 
         await viewModel.LoadAsync(service.Transaction.Id);
-        viewModel.AcceptedTerms = true;
         await ExecuteAsync(viewModel.PrimaryActionCommand);
 
         Assert.Equal(1, service.ChooseCalls);
@@ -480,7 +494,7 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
 
         Assert.False(viewModel.IsParcelProtectionChoiceVisible);
         Assert.True(viewModel.IsParcelProtectionAddOnSelected);
-        Assert.Equal("ชำระ ฿456", viewModel.PaymentActionText);
+        Assert.Equal("ยืนยันและชำระ ฿456", viewModel.PaymentActionText);
         Assert.Equal(1, service.ChooseCalls);
     }
 
@@ -513,7 +527,6 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
         }
         else
         {
-            firstViewModel.AcceptedTerms = true;
             await ExecuteAsync(
                 firstViewModel.PrimaryActionCommand);
         }
@@ -543,7 +556,6 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
         var viewModel = ViewModel(service, sheet);
 
         await viewModel.LoadAsync(service.Transaction.Id);
-        viewModel.AcceptedTerms = true;
         service.Protection = ChoiceProtection();
 
         await ExecuteAsync(viewModel.PrimaryActionCommand);
@@ -570,7 +582,6 @@ public sealed class TransactionDetailParcelProtectionViewModelTests
         var viewModel = ViewModel(service, sheet);
 
         await viewModel.LoadAsync(service.Transaction.Id);
-        viewModel.AcceptedTerms = true;
         await ExecuteAsync(viewModel.PrimaryActionCommand);
 
         Assert.True(viewModel.IsParcelProtectionChoiceVisible);

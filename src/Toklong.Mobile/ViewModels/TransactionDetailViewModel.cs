@@ -14,7 +14,6 @@ public sealed class TransactionDetailViewModel(
     private string message = "";
     private string invitationFeedback = "";
     private bool isBusy;
-    private bool acceptedTerms;
     private CarrierOption? selectedCarrier;
     private string trackingNumber = "";
     private string digitalHandoffStatement = "";
@@ -336,14 +335,13 @@ public sealed class TransactionDetailViewModel(
     }
 
     public string PaymentActionText =>
-        $"ชำระ {CheckoutAmountText}";
+        $"ยืนยันและชำระ {CheckoutAmountText}";
 
     public string PaymentSemanticDescription =>
-        $"เปิดหน้าจ่ายเงินยอด {CheckoutAmountText}";
+        $"ยืนยันข้อตกลงและเปิดหน้าจ่ายเงินยอด {CheckoutAmountText}";
 
     public bool CanStartPayment =>
         !IsBusy &&
-        AcceptedTerms &&
         !IsParcelProtectionChoiceVisible;
 
     public bool IsParcelProtectionUnavailable =>
@@ -488,16 +486,6 @@ public sealed class TransactionDetailViewModel(
             : BuyerConfirmation?.ProblemActionText ?? "";
 
     public ObservableCollection<CarrierOption> Carriers { get; } = [];
-
-    public bool AcceptedTerms
-    {
-        get => acceptedTerms;
-        set
-        {
-            if (SetProperty(ref acceptedTerms, value))
-                OnPropertyChanged(nameof(CanStartPayment));
-        }
-    }
 
     public CarrierOption? SelectedCarrier
     {
@@ -731,12 +719,6 @@ public sealed class TransactionDetailViewModel(
         if (Transaction.Presentation.PrimaryAction == TransactionAction.ReviewAndPay)
         {
             var transactionId = Transaction.Id;
-
-            if (!AcceptedTerms)
-            {
-                Message = "กดยืนยันก่อนว่าตรวจรายละเอียดและเงื่อนไขแล้ว";
-                return;
-            }
 
             IsPaymentSheetOpening = true;
             Message =

@@ -1899,15 +1899,11 @@ public sealed class UiLayoutConsistencyTests
             label =>
                 AttributeValue(label, "Text") ==
                     "{Binding Transaction.DeliveryAddressText}");
+        Assert.Empty(payment.Descendants(Maui + "CheckBox"));
         Assert.Contains(
-            payment.Descendants(Maui + "CheckBox"),
-            checkBox =>
-                AttributeValue(checkBox, "IsChecked") ==
-                    "{Binding AcceptedTerms}" &&
-                AttributeValue(
-                    checkBox,
-                    "SemanticProperties.Description") ==
-                    "ยืนยันว่าได้ตรวจรายละเอียดและเงื่อนไขแล้ว");
+            payment.Descendants(Maui + "Label"),
+            label => AttributeValue(label, "Text") ==
+                "เมื่อกดชำระ คุณยืนยันว่าได้ตรวจรายละเอียดและยอมรับข้อตกลงแล้ว");
         Assert.Contains(
             payment.Descendants(Maui + "Button"),
             button =>

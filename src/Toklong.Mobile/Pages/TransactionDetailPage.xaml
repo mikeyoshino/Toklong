@@ -484,21 +484,11 @@
                                 AutomationId="BuyerPaymentControls"
                                 IsVisible="{Binding IsPaymentAction}"
                                 Spacing="{StaticResource SpacingSm}">
-                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="9">
-                                    <CheckBox
-                                        VerticalOptions="Start"
-                                        MinimumWidthRequest="{StaticResource CompactControlMinimumHeight}"
-                                        MinimumHeightRequest="{StaticResource CompactControlMinimumHeight}"
-                                        Color="{StaticResource BrandBlue}"
-                                        IsChecked="{Binding AcceptedTerms}"
-                                        SemanticProperties.Description="ยืนยันว่าได้ตรวจรายละเอียดและเงื่อนไขแล้ว" />
-                                    <Label
-                                        Grid.Column="1"
-                                        VerticalOptions="Center"
-                                        FontSize="13"
-                                        LineBreakMode="WordWrap"
-                                        Text="ฉันตรวจสินค้า ราคา กำหนดส่ง และเวลาแจ้งปัญหาแล้ว" />
-                                </Grid>
+                                <Label
+                                    FontSize="13"
+                                    LineBreakMode="WordWrap"
+                                    Text="เมื่อกดชำระ คุณยืนยันว่าได้ตรวจรายละเอียดและยอมรับข้อตกลงแล้ว"
+                                    TextColor="{StaticResource Muted}" />
                                 <Button
                                     Style="{StaticResource RefinedPrimaryButton}"
                                     BackgroundColor="{Binding Transaction.RoleColor}"
