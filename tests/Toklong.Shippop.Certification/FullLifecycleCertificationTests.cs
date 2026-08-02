@@ -2,6 +2,7 @@ using Toklong.Application.Abstractions;
 
 namespace Toklong.Shippop.Certification;
 
+[Collection(CertificationEnvironmentCollection.Name)]
 public sealed class FullLifecycleCertificationTests
 {
     [Fact]
@@ -160,6 +161,90 @@ public sealed class FullLifecycleCertificationTests
             Row(result, "cancel").Outcome);
         Assert.False(result.Passed);
     }
+
+    [Fact]
+    public void Report_contains_only_sanitized_lifecycle_fields()
+    {
+        var report = FullLifecycleCertificationReport.Serialize(
+            ResultWithAllPasses(),
+            DateTimeOffset.UnixEpoch);
+
+        Assert.Contains(
+            "\"environment\": \"shippop-sandbox\"",
+            report,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "\"capability\": \"pricelist\"",
+            report,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "purchase-test",
+            report,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "courier-track-test",
+            report,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "<html",
+            report,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Report_rejects_a_non_allow_listed_reason()
+    {
+        var result = new FullLifecycleCertificationResult(
+            [
+                new FullLifecycleCheck(
+                    "pricelist",
+                    FullLifecycleOutcome.Fail,
+                    "raw provider body")
+            ]);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            FullLifecycleCertificationReport.Serialize(
+                result,
+                DateTimeOffset.UnixEpoch));
+    }
+
+    [FullLifecycleCertificationFact]
+    [Trait("Category", "ShippopFullLifecycle")]
+    public async Task Full_lifecycle_calls_every_current_endpoint_and_cleans_up()
+    {
+        var context =
+            await FullLifecycleCertificationContext.LoadAsync();
+        var provider = context.CreateProvider();
+        var result = await new FullLifecycleCertificationHarness(
+                provider,
+                provider)
+            .RunAsync(
+                context.Shipment,
+                context.ServiceCode,
+                mutationsEnabled: true,
+                CancellationToken.None);
+
+        FullLifecycleCertificationReport.Write(
+            result,
+            DateTimeOffset.UtcNow,
+            Console.Out);
+
+        Assert.True(
+            result.Passed,
+            "SHIPPOP Sandbox lifecycle did not pass; inspect sanitized rows only.");
+    }
+
+    private static FullLifecycleCertificationResult
+        ResultWithAllPasses() =>
+        new(
+            [
+                new("pricelist", FullLifecycleOutcome.Pass, "quote_valid"),
+                new("booking", FullLifecycleOutcome.Pass, "booking_valid"),
+                new("confirm", FullLifecycleOutcome.Pass, "confirm_valid"),
+                new("label", FullLifecycleOutcome.Pass, "label_valid"),
+                new("tracking", FullLifecycleOutcome.Pass, "tracking_valid"),
+                new("cancel", FullLifecycleOutcome.Pass, "cancel_confirmed")
+            ]);
 
     private static FullLifecycleCertificationHarness Harness(
         RecordingShipmentProvider provider) =>
