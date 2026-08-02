@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+mode="${1:-parcel-protection}"
+case "${mode}" in
+  parcel-protection|full-lifecycle)
+    ;;
+  *)
+    echo "Usage: ./scripts/shippop-certify.sh [parcel-protection|full-lifecycle]" >&2
+    exit 2
+    ;;
+esac
+
 required=(
   SHIPPOP_BASE_URL
   SHIPPOP_API_KEY
@@ -16,23 +26,32 @@ for name in "${required[@]}"; do
   fi
 done
 
-case "${SHIPPOP_BASE_URL}" in
-  https://*)
+if [[ "${SHIPPOP_BASE_URL}" != \
+      "https://mkpservice.shippop.dev" &&
+      "${SHIPPOP_BASE_URL}" != \
+      "https://mkpservice.shippop.dev/" ]]; then
+  echo "SHIPPOP_BASE_URL must be the approved HTTPS Sandbox endpoint." >&2
+  exit 2
+fi
+
+if [[ "${mode}" == "full-lifecycle" &&
+      "${SHIPPOP_CERTIFY_MUTATIONS:-}" != "1" ]]; then
+  echo "Set SHIPPOP_CERTIFY_MUTATIONS=1 for the synthetic lifecycle." >&2
+  exit 2
+fi
+
+export SHIPPOP_CERTIFY=1
+
+case "${mode}" in
+  parcel-protection)
+    filter="FullyQualifiedName~Protection_quote_and_booking_preserve_exact_values"
     ;;
-  http://*)
-    if [[ "${SHIPPOP_ALLOW_INSECURE_HTTP:-}" != "1" ]]; then
-      echo "HTTP requires SHIPPOP_ALLOW_INSECURE_HTTP=1 for explicit Dev certification opt-in." >&2
-      exit 2
-    fi
-    ;;
-  *)
-    echo "SHIPPOP_BASE_URL must use http:// or https://." >&2
-    exit 2
+  full-lifecycle)
+    filter="FullyQualifiedName~Full_lifecycle_calls_every_current_endpoint_and_cleans_up"
     ;;
 esac
 
-export SHIPPOP_CERTIFY=1
 dotnet test \
   tests/Toklong.Shippop.Certification/Toklong.Shippop.Certification.csproj \
-  --filter FullyQualifiedName~Certified_service_returns_full_value_insured_quote \
+  --filter "${filter}" \
   --logger "console;verbosity=minimal"

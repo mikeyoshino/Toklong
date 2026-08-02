@@ -8,28 +8,22 @@ certification
 ## Safe setup
 
 credential มาจาก local environment หรือ secret storage เท่านั้น และห้ามใช้
-ที่อยู่หรือเบอร์ของลูกค้าจริง คำสั่ง opt-in ที่ต้องใช้จาก repository root คือ:
+ที่อยู่หรือเบอร์ของลูกค้าจริง คำสั่ง optional-protection certification จาก
+repository root คือ:
 
 ```bash
-SHIPPOP_CERTIFY=1 \
-SHIPPOP_BASE_URL=http://mkpservice.shippop.dev \
-SHIPPOP_ALLOW_INSECURE_HTTP=1 \
+SHIPPOP_BASE_URL=https://mkpservice.shippop.dev \
 SHIPPOP_API_KEY="$SHIPPOP_API_KEY" \
 SHIPPOP_ACCOUNT_EMAIL="$SHIPPOP_ACCOUNT_EMAIL" \
 SHIPPOP_SERVICE_CODE=EMST \
 SHIPPOP_SYNTHETIC_ADDRESS_JSON=/absolute/path/synthetic-address.json \
-dotnet test tests/Toklong.Shippop.Certification/Toklong.Shippop.Certification.csproj
+./scripts/shippop-certify.sh parcel-protection
 ```
 
-`SHIPPOP_ALLOW_INSECURE_HTTP=1` ใช้ได้เฉพาะ SHIPPOP Dev HTTP endpoint และ
-local Development/provider certification เท่านั้น เพราะ API key และข้อมูล
-ที่อยู่จะเดินทางโดยไม่มี TLS ห้ามใช้กับ Production
-
 ก่อน test อ่าน synthetic address, API key หรือ account email จะยอมรับเฉพาะ
-string `http://mkpservice.shippop.dev` ตามคำสั่งข้างบนเท่านั้น ต้องมี
-`SHIPPOP_ALLOW_INSECURE_HTTP=1` ด้วย URL ที่เป็น HTTPS, host อื่น, port,
-trailing slash, path หรือ query—even a production host—ถูกปฏิเสธโดยไม่แสดง URL
-หรืออ่าน credential
+`https://mkpservice.shippop.dev` (มี trailing slash ได้) เท่านั้น HTTP,
+Production host, host เลียนแบบ, explicit port, user info, path, query หรือ
+fragment ถูกปฏิเสธก่อนอ่าน fixture หรือ credential
 
 เมื่อไม่มี `SHIPPOP_CERTIFY=1` เฉพาะ live `[CertificationFact]` ต้องรายงาน
 `Skipped`; endpoint guard และ deterministic harness แบบ offline ยังต้องทำงาน
@@ -61,6 +55,42 @@ tracking, terms text หรือ raw provider response. การรันท�
 `TestResults/shippop-certification/`; directory นี้ถูก ignore โดย Git. รายงานมี
 เฉพาะ service code, เวลา UTC, unit `satang`, ชื่อ field parcel ที่ส่งพร้อม unit,
 และผล `passed`/`blocked`/`failed` ของ assertion เท่านั้น
+
+## Full lifecycle Sandbox audit
+
+ใช้ mode นี้เมื่อต้องตรวจ API ทุกตัวที่ adapter ปัจจุบันเรียก โดยจะสร้าง
+shipment สังเคราะห์ไม่เกินหนึ่งรายการและเรียกตามลำดับ
+`pricelist → booking → confirm → label → tracking → cancel`:
+
+```bash
+SHIPPOP_BASE_URL=https://mkpservice.shippop.dev \
+SHIPPOP_API_KEY="$SHIPPOP_API_KEY" \
+SHIPPOP_ACCOUNT_EMAIL="$SHIPPOP_ACCOUNT_EMAIL" \
+SHIPPOP_SERVICE_CODE=EMST \
+SHIPPOP_SYNTHETIC_ADDRESS_JSON=/absolute/path/synthetic-address.json \
+SHIPPOP_CERTIFY_MUTATIONS=1 \
+./scripts/shippop-certify.sh full-lifecycle
+```
+
+fixture ต้องเป็น absolute path มี `"certificationFixture": true`, ชื่อผู้ส่ง
+และผู้รับต้องมี `TOKLONG TEST`, เบอร์ทั้งสองเป็น `0000000000` และชื่อพัสดุเป็น
+`TOKLONG TEST PARCEL` ทุกน้ำหนัก/มิติและ `declaredValueSatang` ต้องเป็นจำนวนเต็ม
+บวก
+
+ผลลัพธ์มีเฉพาะหก endpoint, outcome และ reason code ที่ sanitize แล้ว:
+
+- `pass` หมายถึง contract ของ endpoint นั้นผ่านใน Sandbox รอบนี้
+- `fail` หมายถึงมีผลตอบกลับหรือ contract ที่ไม่ผ่านอย่างชัดเจน
+- `blocked` หมายถึง prerequisite ก่อนหน้าไม่ผ่าน จึงไม่เรียก endpoint นั้น
+- `cleanup_required` หมายถึงยังยืนยันการยกเลิกอย่างปลอดภัยไม่ได้
+
+ห้าม rerun หลังเห็น `cleanup_required`; ให้ operator/provider ตรวจ Sandbox
+record ก่อน และห้ามลอง `booking`, `confirm` หรือ `cancel` ซ้ำเอง การติดตามใน
+Sandbox อาจคงอยู่ที่ pre-scan/pending ซึ่งไม่ใช่หลักฐานว่าส่งถึงแล้ว
+
+ผลผ่านเป็นหลักฐานของ Sandbox account ณ เวลาที่รันเท่านั้น ไม่ได้เปิดใช้
+Production, ไม่ได้ทดสอบ carrier scan จริง และไม่เปลี่ยนสถานะ transaction,
+payment, dispute, delivery หรือ payout ของ TOKLONG
 
 ## Required evidence
 
@@ -116,7 +146,7 @@ not the identifier values.
 Booking/replay/lookup/cancel are provider mutations. Even after an adapter
 implements the certification operations boundary, they remain `blocked` unless
 the operator additionally sets `SHIPPOP_CERTIFY_MUTATIONS=1` for a disposable
-Dev-only synthetic shipment. Do not set that variable against Production.
+Sandbox-only synthetic shipment. Do not set that variable against Production.
 
 ## Current provider blocker — 30 July 2026
 
