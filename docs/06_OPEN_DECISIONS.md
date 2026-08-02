@@ -206,6 +206,12 @@ Items below require explicit product, operations, legal, payment-provider, logis
   whether SHIPPOP exposes an authenticated counter QR or branch-locator
   capability. Until confirmed, mobile guidance is conditional and renders only
   the provider-issued label/barcode.
+- Counter-QR response observation is discovery only. A candidate field in a
+  booking or confirmation response does not enable a service. Production
+  remains blocked until SHIPPOP documents the official counter purpose, exact
+  representation, expiry/rotation behavior, a read-only post-confirmation
+  retrieval path with safe repeated-read semantics, and controlled counter-
+  acceptance evidence for the specific account and service code.
 - Handling of pickup points, locker delivery, recipient refusal, failed delivery, return-to-sender, and carrier status correction.
 - Decided for MVP: ship-by is fixed at 72 hours after provider-confirmed payment and is not user-configurable.
 - Whether same-day/local courier deliveries are supported.
