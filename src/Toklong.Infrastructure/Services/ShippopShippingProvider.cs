@@ -253,7 +253,7 @@ public sealed class ShippopShippingProvider(
                     request,
                     serviceCode,
                     includeReference: null,
-                    showAll: false);
+                    showAll: true);
         }
         if (data.Count == 0)
             throw new InvalidOperationException(

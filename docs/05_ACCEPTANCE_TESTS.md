@@ -690,7 +690,10 @@ created.
 length, and height in centimeters
 **Then** the backend derives origin and destination postal codes and returns
 only provider quote options matching those inputs
-**And** no client-computed shipping fee is trusted.
+**And** no client-computed shipping fee is trusted
+**And** each SHIPPOP Check Price shipment uses the published request shape,
+including integer `showall: 1`, without trusting a client-computed fee or
+falling back to a simulated quote when SHIPPOP rejects the request.
 
 **When** the seller selects `จำต้นทางนี้ไว้` and presses `ยืนยันพร้อมขาย` with a still-valid quote
 **Then** the seller profile contains exactly one saved origin

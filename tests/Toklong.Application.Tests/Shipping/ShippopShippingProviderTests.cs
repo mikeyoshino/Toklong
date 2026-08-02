@@ -452,6 +452,49 @@ public sealed class ShippopShippingProviderTests
     }
 
     [Fact]
+    public async Task Quote_request_includes_documented_showall_flag()
+    {
+        string? body = null;
+        var provider = Provider(async request =>
+        {
+            body = await request.Content!.ReadAsStringAsync();
+            return Json(
+                """
+                {
+                  "status": true,
+                  "data": {
+                    "0": {
+                      "EMST": {
+                        "available": true,
+                        "courier_code": "EMST",
+                        "courier_name": "EMS Thailand Post",
+                        "price": "52.00"
+                      }
+                    }
+                  }
+                }
+                """);
+        });
+
+        await provider.GetQuotesAsync(Request(), default);
+
+        Assert.NotNull(body);
+        using var document = JsonDocument.Parse(body);
+        var shipment = document.RootElement
+            .GetProperty("data")
+            .GetProperty("0");
+        Assert.Equal(1, shipment.GetProperty("showall").GetInt32());
+        Assert.Equal(
+            "EMST",
+            shipment.GetProperty("courier_code").GetString());
+        Assert.Equal(
+            1_200,
+            shipment.GetProperty("parcel")
+                .GetProperty("weight")
+                .GetInt32());
+    }
+
+    [Fact]
     public async Task Reservation_is_unconfirmed_and_price_must_match_quote()
     {
         string? body = null;
