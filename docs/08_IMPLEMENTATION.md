@@ -230,6 +230,39 @@ devices and PostgreSQL by default. Set `TOKLONG_KEEP_POSTGRES_RUNNING=1` or
 device IDs with `TOKLONG_BUYER_SIMULATOR_UDID` and
 `TOKLONG_SELLER_SIMULATOR_UDID`.
 
+The lifecycle launcher defaults to deterministic Development shipping. A
+developer can opt in to the real SHIPPOP Dev API for one allow-listed physical
+shipping service with:
+
+```bash
+TOKLONG_SHIPPING_MODE=ShippopSandbox \
+SHIPPOP_API_KEY='<SHIPPOP test API key>' \
+SHIPPOP_ACCOUNT_EMAIL='<SHIPPOP sandbox account email>' \
+SHIPPOP_SERVICE_CODE='EMST' \
+SHIPPOP_QUOTE_SIGNING_SECRET='<a separate random value of at least 32 characters>' \
+./scripts/run-local-dual-sim.sh
+```
+
+The launcher validates every value before starting PostgreSQL or either
+simulator. In this mode API and Worker receive the same SHIPPOP credentials,
+selected service profile, and local Data Protection key path. Only quote,
+outbound booking, confirmation, operation lookup, tracking, and label download
+are enabled. `DevelopmentDemoSimulation` is disabled, and provider failures
+remain visible instead of falling back to the Development provider.
+
+Stripe remains in Test Mode and still requires a signature-verified webhook
+before payment is confirmed. SHIPPOP booking does not change the trusted
+delivery rule: an unverified tracking result cannot start the 72-hour
+inspection clock or release payout. Return, insurance, optional protection,
+and real Counter QR remain disabled until their provider contracts are
+certified separately.
+
+`mkpservice.shippop.dev` uses HTTP, so this mode accepts only
+provider-approved synthetic contacts and addresses. The test key must come
+from the command environment or a local secret manager. A value placed in a
+committed `appsettings*.json` file is intentionally not the supported local
+workflow and must be removed before committing.
+
 New offers use snapshot schema version 11. The product photo is optional and is
 represented by its managed reference or explicit `null`; when supplied it
 remains immutable. For physical goods, offer creation resolves and locks the

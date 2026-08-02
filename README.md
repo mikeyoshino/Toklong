@@ -229,6 +229,31 @@ apps. Stop the complete setup with:
 ./scripts/stop-local-dual-sim.sh
 ```
 
+The command above keeps the deterministic Development shipping provider as
+the default. To exercise the physical-item flow against the real SHIPPOP Dev
+API, opt in explicitly:
+
+```bash
+TOKLONG_SHIPPING_MODE=ShippopSandbox \
+SHIPPOP_API_KEY='<SHIPPOP test API key>' \
+SHIPPOP_ACCOUNT_EMAIL='<SHIPPOP sandbox account email>' \
+SHIPPOP_SERVICE_CODE='EMST' \
+SHIPPOP_QUOTE_SIGNING_SECRET='<a separate random value of at least 32 characters>' \
+./scripts/run-local-dual-sim.sh
+```
+
+Sandbox mode configures both API and Worker for the selected allow-listed
+service (`EMST`, `FLE`, `KRYX`, or `KRYS`), disables the Development shipping
+simulation, and exercises SHIPPOP quote, outbound booking, confirmation,
+tracking, and label download. Stripe remains in Test Mode. A SHIPPOP failure
+does not fall back to deterministic Development shipping.
+
+The SHIPPOP Dev endpoint uses HTTP. Use provider-approved synthetic names,
+phones, and addresses only. Supply the test key through the command environment
+or a local secret manager; do not put it in `appsettings*.json` or Git. Return,
+insurance, optional protection, and real Counter QR remain disabled in this
+slice.
+
 The default simulator IDs target this repository's local buyer and seller
 devices. Override them on another Mac with
 `TOKLONG_BUYER_SIMULATOR_UDID` and `TOKLONG_SELLER_SIMULATOR_UDID`. Set
