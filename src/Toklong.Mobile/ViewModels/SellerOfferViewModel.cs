@@ -32,6 +32,9 @@ public sealed class SellerOfferViewModel(
     private string lengthCentimeters = "";
     private string heightCentimeters = "";
     private MobileShippingQuote? selectedShippingQuote;
+    private string shippingQuoteMessage = "";
+    private bool isLoadingShippingQuotes;
+    private int shippingQuoteInputVersion;
 
     public AppTransaction? Transaction => invitation?.Transaction;
     public string ProductName => Transaction?.ProductName ?? "";
@@ -111,8 +114,7 @@ public sealed class SellerOfferViewModel(
         {
             if (SetProperty(ref useSavedOrigin, value))
             {
-                ShippingQuotes.Clear();
-                SelectedShippingQuote = null;
+                ResetQuotes();
                 OnPropertyChanged(nameof(ShowOriginEditor));
                 OnPropertyChanged(nameof(ShowSavedOrigin));
             }
@@ -228,6 +230,31 @@ public sealed class SellerOfferViewModel(
     public bool HasShippingQuotes => ShippingQuotes.Count > 0;
     public string ShippingFeeText =>
         SelectedShippingQuote?.FeeText ?? "—";
+
+    public string ShippingQuoteMessage
+    {
+        get => shippingQuoteMessage;
+        private set
+        {
+            if (SetProperty(ref shippingQuoteMessage, value))
+                OnPropertyChanged(nameof(HasShippingQuoteMessage));
+        }
+    }
+
+    public bool HasShippingQuoteMessage =>
+        !string.IsNullOrWhiteSpace(ShippingQuoteMessage);
+
+    public bool IsLoadingShippingQuotes
+    {
+        get => isLoadingShippingQuotes;
+        private set
+        {
+            if (SetProperty(ref isLoadingShippingQuotes, value))
+                OnPropertyChanged(nameof(CanLoadShippingQuotes));
+        }
+    }
+
+    public bool CanLoadShippingQuotes => !IsLoadingShippingQuotes;
 
     public bool TransferRightsAttested
     {
@@ -377,13 +404,17 @@ public sealed class SellerOfferViewModel(
 
     private async Task LoadShippingQuotesAsync()
     {
+        if (IsLoadingShippingQuotes)
+            return;
+        ShippingQuoteMessage = "";
         if (!TryGetPackage(
                 out var weight,
                 out var width,
                 out var length,
                 out var height))
         {
-            Message = "กรอกน้ำหนักและขนาดพัสดุให้ครบ";
+            ShippingQuoteMessage =
+                "กรอกน้ำหนักและขนาดพัสดุให้ครบ";
             return;
         }
         if (!UseSavedOrigin &&
@@ -392,11 +423,16 @@ public sealed class SellerOfferViewModel(
              SelectedOriginDistrict is null ||
              SelectedOriginSubdistrict is null))
         {
-            Message = "กรอกที่อยู่ต้นทางให้ครบ";
+            ShippingQuoteMessage = "กรอกที่อยู่ต้นทางให้ครบ";
             return;
         }
 
-        await RunAsync(async () =>
+        var inputVersion = shippingQuoteInputVersion;
+        ShippingQuotes.Clear();
+        SelectedShippingQuote = null;
+        OnPropertyChanged(nameof(HasShippingQuotes));
+        IsLoadingShippingQuotes = true;
+        try
         {
             var quotes = await sellerOffers.GetShippingQuotesAsync(
                 publicToken,
@@ -416,16 +452,29 @@ public sealed class SellerOfferViewModel(
                     width,
                     length,
                     height));
-            ShippingQuotes.Clear();
+            if (inputVersion != shippingQuoteInputVersion)
+                return;
+
             foreach (var quote in quotes)
                 ShippingQuotes.Add(quote);
-            SelectedShippingQuote =
-                ShippingQuotes.FirstOrDefault();
+            SelectedShippingQuote = ShippingQuotes.FirstOrDefault();
             OnPropertyChanged(nameof(HasShippingQuotes));
-            Message = quotes.Count == 0
+            ShippingQuoteMessage = quotes.Count == 0
                 ? "ยังไม่พบตัวเลือกจัดส่งสำหรับพัสดุนี้"
                 : "";
-        });
+        }
+        catch (Exception)
+        {
+            if (inputVersion == shippingQuoteInputVersion)
+            {
+                ShippingQuoteMessage =
+                    "ยังดูค่าจัดส่งไม่ได้ กรุณาลองอีกครั้ง";
+            }
+        }
+        finally
+        {
+            IsLoadingShippingQuotes = false;
+        }
     }
 
     private SellerShippingSelection BuildShippingSelection()
@@ -536,8 +585,10 @@ public sealed class SellerOfferViewModel(
 
     private void ResetQuotes()
     {
+        shippingQuoteInputVersion++;
         ShippingQuotes.Clear();
         SelectedShippingQuote = null;
+        ShippingQuoteMessage = "";
         OnPropertyChanged(nameof(HasShippingQuotes));
     }
 
