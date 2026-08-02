@@ -5,6 +5,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 runtime_directory="${TOKLONG_LOCAL_RUNTIME_DIR:-${TMPDIR:-/tmp}/toklong-local-dual-sim}"
 backend_runtime_directory="${runtime_directory}/backend"
+backend_runner_pid_file="${runtime_directory}/backend-runner.pid"
 backend_launch_label="${TOKLONG_BACKEND_LAUNCH_LABEL:-th.co.toklong.local-backend}"
 launch_domain="gui/$(id -u)"
 postgres_started_marker="${runtime_directory}/postgres-started"
@@ -44,11 +45,25 @@ for _ in {1..50}; do
     sleep 0.1
 done
 
+backend_runner_pid=""
+if [[ -r "${backend_runner_pid_file}" ]]; then
+    backend_runner_pid="$(<"${backend_runner_pid_file}")"
+fi
+stop_pid_file "${backend_runner_pid_file}"
+if [[ "${backend_runner_pid}" =~ ^[0-9]+$ ]]; then
+    for _ in {1..50}; do
+        if ! kill -0 "${backend_runner_pid}" 2>/dev/null; then
+            break
+        fi
+        sleep 0.1
+    done
+fi
+
 for child_name in api worker stripe-listener; do
     stop_pid_file "${backend_runtime_directory}/${child_name}.pid"
 done
 rm -f -- \
-    "${runtime_directory}/backend-runner.pid" \
+    "${backend_runner_pid_file}" \
     "${backend_runtime_directory}/api.pid" \
     "${backend_runtime_directory}/worker.pid" \
     "${backend_runtime_directory}/stripe-listener.pid"

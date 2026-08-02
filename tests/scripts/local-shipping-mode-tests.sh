@@ -230,6 +230,56 @@ EOF
         "${fake_bin}/lsof"
 }
 
+create_dual_sim_fake_commands() {
+    local fake_bin="$1"
+    create_backend_fake_commands "${fake_bin}"
+
+    cat >"${fake_bin}/curl" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"${TOKLONG_TEST_CAPTURE}/curl.calls"
+exit 0
+EOF
+
+    cat >"${fake_bin}/docker" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"${TOKLONG_TEST_CAPTURE}/docker.calls"
+if [[ "${1:-}" == "inspect" ]]; then
+    echo "true"
+fi
+EOF
+
+    cat >"${fake_bin}/launchctl" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"${TOKLONG_TEST_CAPTURE}/launchctl.args"
+if [[ "${1:-}" == "print" ]]; then
+    exit 1
+fi
+exit 0
+EOF
+
+    cat >"${fake_bin}/open" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"${TOKLONG_TEST_CAPTURE}/open.calls"
+EOF
+
+    cat >"${fake_bin}/xcrun" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"${TOKLONG_TEST_CAPTURE}/xcrun.calls"
+EOF
+
+    chmod 700 \
+        "${fake_bin}/curl" \
+        "${fake_bin}/docker" \
+        "${fake_bin}/launchctl" \
+        "${fake_bin}/open" \
+        "${fake_bin}/xcrun"
+}
+
 wait_for_file() {
     local path="$1"
     local attempt
@@ -335,6 +385,122 @@ test_backend_launcher_keeps_development_default() {
         "${capture}/api.env"
 }
 
+test_dual_sim_sandbox_uses_direct_backend_runner() {
+    local case_root="${test_tmp}/dual-sandbox"
+    local fake_bin="${case_root}/fake-bin"
+    local capture="${case_root}/capture"
+    local runtime="${case_root}/runtime"
+    local app_path="${case_root}/Toklong.Mobile.app"
+    mkdir -p -- "${capture}" "${app_path}"
+    create_dual_sim_fake_commands "${fake_bin}"
+
+    PATH="${fake_bin}:${PATH}" \
+    TOKLONG_TEST_CAPTURE="${capture}" \
+    TOKLONG_LOCAL_RUNTIME_DIR="${runtime}" \
+    TOKLONG_IOS_APP_PATH="${app_path}" \
+    TOKLONG_SKIP_MOBILE_BUILD=1 \
+    STRIPE_SECRET_KEY=sk_test_local \
+    STRIPE_PUBLISHABLE_KEY=pk_test_local \
+    TOKLONG_SHIPPING_MODE=ShippopSandbox \
+    SHIPPOP_API_KEY=test-api-key \
+    SHIPPOP_ACCOUNT_EMAIL=tester@example.invalid \
+    SHIPPOP_SERVICE_CODE=EMST \
+    SHIPPOP_QUOTE_SIGNING_SECRET=12345678901234567890123456789012 \
+        bash "${repo_root}/scripts/run-local-dual-sim.sh" \
+        >"${capture}/dual-output" 2>"${capture}/dual-error"
+
+    [[ -f "${runtime}/backend-runner.pid" ]]
+    ! grep -Fq "submit" "${capture}/launchctl.args"
+    ! grep -Fq "test-api-key" "${capture}/launchctl.args"
+    ! grep -Fq "12345678901234567890123456789012" \
+        "${capture}/launchctl.args"
+    ! grep -Fq "test-api-key" "${capture}/dual-output"
+    ! grep -Fq "test-api-key" "${capture}/dual-error"
+    ! grep -Fq "12345678901234567890123456789012" \
+        "${capture}/dual-output"
+    ! grep -Fq "12345678901234567890123456789012" \
+        "${capture}/dual-error"
+    ! grep -Fq "test-api-key" "${runtime}/backend.log"
+    ! grep -Fq "12345678901234567890123456789012" \
+        "${runtime}/backend.log"
+}
+
+test_dual_sim_rejects_invalid_sandbox_before_side_effects() {
+    local case_root="${test_tmp}/dual-invalid"
+    local fake_bin="${case_root}/fake-bin"
+    local capture="${case_root}/capture"
+    local runtime="${case_root}/runtime"
+    local app_path="${case_root}/Toklong.Mobile.app"
+    mkdir -p -- "${capture}" "${app_path}"
+    create_dual_sim_fake_commands "${fake_bin}"
+    unset SHIPPOP_API_KEY
+
+    local status
+    set +e
+    PATH="${fake_bin}:${PATH}" \
+    TOKLONG_TEST_CAPTURE="${capture}" \
+    TOKLONG_LOCAL_RUNTIME_DIR="${runtime}" \
+    TOKLONG_IOS_APP_PATH="${app_path}" \
+    TOKLONG_SKIP_MOBILE_BUILD=1 \
+    STRIPE_SECRET_KEY=sk_test_local \
+    STRIPE_PUBLISHABLE_KEY=pk_test_local \
+    TOKLONG_SHIPPING_MODE=ShippopSandbox \
+    SHIPPOP_ACCOUNT_EMAIL=tester@example.invalid \
+    SHIPPOP_SERVICE_CODE=EMST \
+    SHIPPOP_QUOTE_SIGNING_SECRET=12345678901234567890123456789012 \
+        bash "${repo_root}/scripts/run-local-dual-sim.sh" \
+        >"${capture}/dual-output" 2>"${capture}/dual-error"
+    status="$?"
+    set -e
+
+    [[ "${status}" -eq 2 ]]
+    grep -Fq "SHIPPOP_API_KEY" "${capture}/dual-error"
+    [[ ! -e "${capture}/docker.calls" ]]
+    [[ ! -e "${capture}/xcrun.calls" ]]
+    [[ ! -e "${capture}/open.calls" ]]
+    [[ ! -e "${capture}/stripe.env" ]]
+    [[ ! -e "${capture}/worker.env" ]]
+    [[ ! -e "${capture}/api.env" ]]
+}
+
+test_stopper_terminates_direct_backend_runner() {
+    local case_root="${test_tmp}/stop-direct-runner"
+    local fake_bin="${case_root}/fake-bin"
+    local capture="${case_root}/capture"
+    local runtime="${case_root}/runtime"
+    mkdir -p -- "${capture}" "${runtime}/backend"
+    create_dual_sim_fake_commands "${fake_bin}"
+
+    local runner_pid
+    runner_pid="$(bash -c \
+        'sleep 60 </dev/null >/dev/null 2>&1 & echo "$!"')"
+    printf '%s\n' "${runner_pid}" >"${runtime}/backend-runner.pid"
+
+    local stopped=false
+    trap 'kill '"${runner_pid}"' 2>/dev/null || true' RETURN
+    PATH="${fake_bin}:${PATH}" \
+    TOKLONG_TEST_CAPTURE="${capture}" \
+    TOKLONG_LOCAL_RUNTIME_DIR="${runtime}" \
+    TOKLONG_KEEP_POSTGRES_RUNNING=1 \
+    TOKLONG_KEEP_SIMULATORS_BOOTED=1 \
+        bash "${repo_root}/scripts/stop-local-dual-sim.sh" \
+        >"${capture}/stop-output" 2>"${capture}/stop-error"
+
+    local attempt
+    for attempt in 1 2 3 4 5 6 7 8 9 10; do
+        if ! kill -0 "${runner_pid}" 2>/dev/null; then
+            stopped=true
+            break
+        fi
+        sleep 0.02
+    done
+    trap - RETURN
+    if [[ "${stopped}" != true ]]; then
+        kill "${runner_pid}" 2>/dev/null || true
+    fi
+    [[ "${stopped}" == true ]]
+}
+
 run_test "Development is the default" test_development_is_the_default
 run_test "unknown mode is rejected without echoing it" \
     test_unknown_mode_is_rejected
@@ -366,6 +532,12 @@ run_test "backend applies Sandbox config without leaking secrets to Stripe" \
     test_backend_launcher_applies_sandbox_to_api_and_worker
 run_test "backend keeps Development as its default" \
     test_backend_launcher_keeps_development_default
+run_test "dual simulator uses direct runner for Sandbox" \
+    test_dual_sim_sandbox_uses_direct_backend_runner
+run_test "dual simulator rejects invalid Sandbox before side effects" \
+    test_dual_sim_rejects_invalid_sandbox_before_side_effects
+run_test "stopper terminates direct backend runner" \
+    test_stopper_terminates_direct_backend_runner
 
 if [[ "${failures}" -ne 0 ]]; then
     echo "${failures} local shipping mode test(s) failed" >&2
