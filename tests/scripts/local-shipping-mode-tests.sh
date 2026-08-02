@@ -50,7 +50,8 @@ set_valid_sandbox_inputs() {
 test_development_is_the_default() {
     unset TOKLONG_SHIPPING_MODE SHIPPOP_API_KEY \
         SHIPPOP_ACCOUNT_EMAIL SHIPPOP_SERVICE_CODE \
-        SHIPPOP_QUOTE_SIGNING_SECRET
+        SHIPPOP_QUOTE_SIGNING_SECRET \
+        TOKLONG_DEVELOPMENT_AUTO_ADVANCE
 
     toklong_validate_local_shipping_mode
     toklong_apply_local_shipping_mode \
@@ -58,6 +59,35 @@ test_development_is_the_default() {
 
     [[ "${ShippingQuotes__Provider}" == "Development" ]]
     [[ "${DevelopmentDemoSimulation__Enabled}" == "true" ]]
+}
+
+test_development_can_disable_auto_advance() {
+    unset TOKLONG_SHIPPING_MODE SHIPPOP_API_KEY \
+        SHIPPOP_ACCOUNT_EMAIL SHIPPOP_SERVICE_CODE \
+        SHIPPOP_QUOTE_SIGNING_SECRET
+    TOKLONG_DEVELOPMENT_AUTO_ADVANCE=0
+
+    toklong_validate_local_shipping_mode
+    toklong_apply_local_shipping_mode \
+        "${test_tmp}/development-manual-keys" "" "" "" ""
+
+    [[ "${ShippingQuotes__Provider}" == "Development" ]]
+    [[ "${DevelopmentDemoSimulation__Enabled}" == "false" ]]
+}
+
+test_invalid_development_auto_advance_is_rejected() {
+    unset TOKLONG_SHIPPING_MODE SHIPPOP_API_KEY \
+        SHIPPOP_ACCOUNT_EMAIL SHIPPOP_SERVICE_CODE \
+        SHIPPOP_QUOTE_SIGNING_SECRET
+    TOKLONG_DEVELOPMENT_AUTO_ADVANCE=yes
+    local error_path="${test_tmp}/invalid-auto-advance-error"
+
+    if toklong_validate_local_shipping_mode 2>"${error_path}"; then
+        return 1
+    fi
+
+    grep -Fq "TOKLONG_DEVELOPMENT_AUTO_ADVANCE" \
+        "${error_path}"
 }
 
 test_unknown_mode_is_rejected() {
@@ -429,6 +459,31 @@ test_dual_sim_sandbox_uses_direct_backend_runner() {
         "${runtime}/backend.log"
 }
 
+test_dual_sim_forwards_development_auto_advance() {
+    local case_root="${test_tmp}/dual-development-manual"
+    local fake_bin="${case_root}/fake-bin"
+    local capture="${case_root}/capture"
+    local runtime="${case_root}/runtime"
+    local app_path="${case_root}/Toklong.Mobile.app"
+    mkdir -p -- "${capture}" "${app_path}"
+    create_dual_sim_fake_commands "${fake_bin}"
+
+    unset TOKLONG_SHIPPING_MODE SHIPPOP_API_KEY \
+        SHIPPOP_ACCOUNT_EMAIL SHIPPOP_SERVICE_CODE \
+        SHIPPOP_QUOTE_SIGNING_SECRET
+    PATH="${fake_bin}:${PATH}" \
+    TOKLONG_TEST_CAPTURE="${capture}" \
+    TOKLONG_LOCAL_RUNTIME_DIR="${runtime}" \
+    TOKLONG_IOS_APP_PATH="${app_path}" \
+    TOKLONG_SKIP_MOBILE_BUILD=1 \
+    TOKLONG_DEVELOPMENT_AUTO_ADVANCE=0 \
+        bash "${repo_root}/scripts/run-local-dual-sim.sh" \
+        >"${capture}/dual-output" 2>"${capture}/dual-error"
+
+    grep -Fq "TOKLONG_DEVELOPMENT_AUTO_ADVANCE=0" \
+        "${capture}/launchctl.args"
+}
+
 test_dual_sim_rejects_invalid_sandbox_before_side_effects() {
     local case_root="${test_tmp}/dual-invalid"
     local fake_bin="${case_root}/fake-bin"
@@ -506,6 +561,10 @@ test_stopper_terminates_direct_backend_runner() {
 }
 
 run_test "Development is the default" test_development_is_the_default
+run_test "Development auto-advance can be disabled" \
+    test_development_can_disable_auto_advance
+run_test "invalid Development auto-advance is rejected" \
+    test_invalid_development_auto_advance_is_rejected
 run_test "unknown mode is rejected without echoing it" \
     test_unknown_mode_is_rejected
 for required_name in \
@@ -538,6 +597,8 @@ run_test "backend keeps Development as its default" \
     test_backend_launcher_keeps_development_default
 run_test "dual simulator uses direct runner for Sandbox" \
     test_dual_sim_sandbox_uses_direct_backend_runner
+run_test "dual simulator forwards Development auto-advance" \
+    test_dual_sim_forwards_development_auto_advance
 run_test "dual simulator rejects invalid Sandbox before side effects" \
     test_dual_sim_rejects_invalid_sandbox_before_side_effects
 run_test "stopper terminates direct backend runner" \

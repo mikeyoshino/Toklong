@@ -219,6 +219,17 @@ in-transit and delivered one backend step at a time; after the buyer taps
 the next step. No carrier or payout command is needed during the demo. Stop the
 command with `Ctrl+C`.
 
+To review the seller Counter QR before the simulated carrier accepts the
+parcel, disable automatic tracking advancement for that local run:
+
+```bash
+TOKLONG_DEVELOPMENT_AUTO_ADVANCE=0 ./scripts/run-local-dual-sim.sh
+```
+
+Create and pay for a new transaction after restarting. The deterministic
+Development QR remains available until the first trusted carrier scan. This QR
+is for local UI testing only and cannot be scanned at a real carrier counter.
+
 For the standard two-device iOS workflow, use the lifecycle scripts:
 
 ```bash

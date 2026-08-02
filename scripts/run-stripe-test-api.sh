@@ -150,6 +150,9 @@ if [[ "${shipping_mode}" == "ShippopSandbox" ]]; then
     echo "Shipping: SHIPPOP Sandbox (${shippop_service_code})"
 else
     echo "Shipping: deterministic Development provider"
+    if [[ "${DevelopmentDemoSimulation__Enabled}" == "false" ]]; then
+        echo "Development auto-advance: disabled"
+    fi
 fi
 unset shippop_api_key shippop_account_email \
     shippop_quote_signing_secret

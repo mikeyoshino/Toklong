@@ -147,6 +147,7 @@ else
         "TMPDIR=${TMPDIR:-/tmp}"
         "TOKLONG_BACKEND_RUNTIME_DIR=${backend_runtime_directory}"
         "TOKLONG_STRIPE_TEST_PORT=${api_port}"
+        "TOKLONG_DEVELOPMENT_AUTO_ADVANCE=${TOKLONG_DEVELOPMENT_AUTO_ADVANCE:-1}"
     )
     if [[ -n "${STRIPE_CONFIG_PATH:-}" ]]; then
         backend_environment+=(

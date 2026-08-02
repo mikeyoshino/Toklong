@@ -4,6 +4,14 @@ toklong_validate_local_shipping_mode() {
     local mode="${TOKLONG_SHIPPING_MODE:-Development}"
     case "${mode}" in
         Development)
+            case "${TOKLONG_DEVELOPMENT_AUTO_ADVANCE:-1}" in
+                0|1)
+                    ;;
+                *)
+                    echo "ค่า TOKLONG_DEVELOPMENT_AUTO_ADVANCE ต้องเป็น 0 หรือ 1" >&2
+                    return 2
+                    ;;
+            esac
             return 0
             ;;
         ShippopSandbox)
@@ -55,8 +63,19 @@ toklong_apply_local_shipping_mode() {
     local quote_signing_secret="${5:-}"
 
     if [[ "${mode}" == "Development" ]]; then
+        case "${TOKLONG_DEVELOPMENT_AUTO_ADVANCE:-1}" in
+            0)
+                export DevelopmentDemoSimulation__Enabled=false
+                ;;
+            1)
+                export DevelopmentDemoSimulation__Enabled=true
+                ;;
+            *)
+                echo "ค่า TOKLONG_DEVELOPMENT_AUTO_ADVANCE ต้องเป็น 0 หรือ 1" >&2
+                return 2
+                ;;
+        esac
         export ShippingQuotes__Provider=Development
-        export DevelopmentDemoSimulation__Enabled=true
         return 0
     fi
     if [[ "${mode}" != "ShippopSandbox" ]]; then
