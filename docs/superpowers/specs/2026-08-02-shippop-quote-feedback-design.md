@@ -1,7 +1,7 @@
 # SHIPPOP Quote Request and Mobile Feedback Design
 
 Date: 2026-08-02  
-Status: Approved direction; written-spec review pending
+Status: Approved on 2026-08-02
 
 ## Problem
 
