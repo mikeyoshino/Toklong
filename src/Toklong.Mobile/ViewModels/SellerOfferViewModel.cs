@@ -6,7 +6,8 @@ namespace Toklong.Mobile.ViewModels;
 
 public sealed class SellerOfferViewModel(
     ISellerOfferService sellerOffers,
-    IAddressService addresses) : ObservableViewModel
+    IAddressService addresses,
+    IMobileAnalytics analytics) : ObservableViewModel
 {
     private string publicToken = "";
     private SellerOfferInvitation? invitation;
@@ -265,7 +266,8 @@ public sealed class SellerOfferViewModel(
         () => UseSavedOrigin = false);
     public ICommand UseSavedOriginCommand => new Command(
         () => UseSavedOrigin = true);
-    public ICommand AcceptCommand => new AsyncCommand(AcceptAsync);
+    public ICommand ConfirmReadyCommand =>
+        new AsyncCommand(ConfirmReadyAsync);
     public ICommand DeclineCommand => new AsyncCommand(DeclineAsync);
 
     public async Task LoadAsync(string token)
@@ -321,23 +323,32 @@ public sealed class SellerOfferViewModel(
         });
     }
 
-    private async Task AcceptAsync()
+    private async Task ConfirmReadyAsync()
     {
         if (invitation is null)
             return;
         if (SelectedPayoutAccount is null)
         {
+            analytics.Track(SellerReadinessAnalytics.ValidationFailed(
+                invitation.Transaction.FulfillmentType,
+                SellerReadinessFailureReason.PayoutAccount));
             Message = "เพิ่มหรือเลือกบัญชีรับเงินก่อนยืนยัน";
             return;
         }
         if (!TransferRightsAttested || !AcceptedTerms)
         {
+            analytics.Track(SellerReadinessAnalytics.ValidationFailed(
+                invitation.Transaction.FulfillmentType,
+                SellerReadinessFailureReason.Confirmations));
             Message = "ยืนยันสิทธิ์ในสินค้าและยอมรับเงื่อนไขให้ครบ";
             return;
         }
         if (IsPhysical &&
             SelectedShippingQuote is null)
         {
+            analytics.Track(SellerReadinessAnalytics.ValidationFailed(
+                invitation.Transaction.FulfillmentType,
+                SellerReadinessFailureReason.ShippingSelection));
             Message = "กรุณาระบุต้นทาง ขนาดพัสดุ และเลือกค่าจัดส่ง";
             return;
         }
@@ -352,6 +363,8 @@ public sealed class SellerOfferViewModel(
                 IsPhysical
                     ? BuildShippingSelection()
                     : null);
+            analytics.Track(SellerReadinessAnalytics.Confirmed(
+                invitation.Transaction.FulfillmentType));
             await Shell.Current.GoToAsync("..");
             await Shell.Current.GoToAsync(
                 nameof(Pages.TransactionDetailPage),
@@ -532,6 +545,11 @@ public sealed class SellerOfferViewModel(
         await RunAsync(async () =>
         {
             await sellerOffers.DeclineAsync(publicToken);
+            if (invitation is not null)
+            {
+                analytics.Track(SellerReadinessAnalytics.Declined(
+                    invitation.Transaction.FulfillmentType));
+            }
             await Shell.Current.GoToAsync("..");
         });
 

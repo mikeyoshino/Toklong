@@ -1312,7 +1312,7 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
-    public void SellerOffer_ExplainsAcceptanceAndShowsMaterialReadOnlyTerms()
+    public void SellerOffer_PreparesSaleAndShowsMaterialReadOnlyTerms()
     {
         var page = Load("Ui", "Pages", "SellerOfferPage.xaml");
         var labels = page.Descendants(Maui + "Label")
@@ -1326,10 +1326,10 @@ public sealed class UiLayoutConsistencyTests
             .Single(border =>
                 AttributeValue(border, "AutomationId") ==
                     "SellerOfferConfirmations");
-        var accept = page.Descendants(Maui + "Button")
+        var confirm = page.Descendants(Maui + "Button")
             .Single(button =>
                 AttributeValue(button, "AutomationId") ==
-                    "AcceptSellerOfferButton");
+                    "ConfirmSellerReadyButton");
         var dimensions = page.Descendants(Maui + "Grid")
             .Single(grid => grid.Descendants(Maui + "Entry")
                 .Any(entry =>
@@ -1352,6 +1352,13 @@ public sealed class UiLayoutConsistencyTests
         Assert.Contains(
             "หากรายละเอียดไม่ถูกต้อง ให้ปฏิเสธและขอให้ผู้ซื้อสร้างข้อเสนอใหม่",
             labels);
+        Assert.Contains("เตรียมขาย", labels);
+        Assert.Contains("เตรียมการจัดส่ง", labels);
+        Assert.Contains("เตรียมส่งมอบไอดีเกม", labels);
+        Assert.Contains(
+            "ห้ามกรอกหรือแนบรหัสผ่าน OTP รหัสกู้คืน QR เข้าสู่ระบบ หรือข้อมูลลับใน TOKLONG",
+            labels);
+        Assert.DoesNotContain("ตรวจข้อเสนอจากผู้ซื้อ", labels);
         Assert.All(
             confirmations.Descendants(Maui + "CheckBox"),
             checkBox => Assert.False(string.IsNullOrWhiteSpace(
@@ -1359,8 +1366,12 @@ public sealed class UiLayoutConsistencyTests
                     checkBox,
                     "SemanticProperties.Description"))));
         Assert.Equal(
-            "ยืนยันข้อเสนอและอนุญาตให้ผู้ซื้อชำระเงิน",
-            AttributeValue(accept, "SemanticProperties.Description"));
+            "ยืนยันว่ารายละเอียดถูกต้องและเปิดให้ผู้ซื้อชำระเงิน",
+            AttributeValue(confirm, "SemanticProperties.Description"));
+        Assert.Equal(
+            "{Binding ConfirmReadyCommand}",
+            AttributeValue(confirm, "Command"));
+        Assert.Equal("ยืนยันพร้อมขาย", AttributeValue(confirm, "Text"));
         Assert.Equal("*,*", AttributeValue(dimensions, "ColumnDefinitions"));
         Assert.Equal("Auto,Auto", AttributeValue(dimensions, "RowDefinitions"));
         var height = dimensions.Descendants(Maui + "Entry")

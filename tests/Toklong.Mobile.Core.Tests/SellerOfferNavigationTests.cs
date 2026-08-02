@@ -11,15 +11,17 @@ public sealed class SellerOfferNavigationTests
         Shell.Current = new Shell();
         var transaction = Transaction();
         var service = new SellerOfferServiceStub(transaction);
+        var analytics = new RecordingAnalytics();
         var viewModel = new SellerOfferViewModel(
             service,
-            new AddressServiceStub());
+            new AddressServiceStub(),
+            analytics);
         await viewModel.LoadAsync("public-token");
         viewModel.TransferRightsAttested = true;
         viewModel.AcceptedTerms = true;
         var navigated = RoutesCompleted(2);
 
-        viewModel.AcceptCommand.Execute(null);
+        viewModel.ConfirmReadyCommand.Execute(null);
         await navigated.WaitAsync(TimeSpan.FromSeconds(2));
 
         Assert.Equal(
@@ -28,6 +30,10 @@ public sealed class SellerOfferNavigationTests
         var detail = Assert.Single(Shell.Current.ParameterizedRoutes);
         Assert.Equal(transaction.Id, detail.Parameters["TransactionId"]);
         Assert.Equal(1, service.AcceptCalls);
+        var readiness = Assert.Single(analytics.Events);
+        Assert.Equal("seller_readiness_confirmed", readiness.Name);
+        Assert.Equal("game_account", readiness.Properties["type"]);
+        Assert.Single(readiness.Properties);
         Assert.False(viewModel.HasMessage);
     }
 
@@ -38,7 +44,8 @@ public sealed class SellerOfferNavigationTests
         var service = new SellerOfferServiceStub(Transaction());
         var viewModel = new SellerOfferViewModel(
             service,
-            new AddressServiceStub());
+            new AddressServiceStub(),
+            new RecordingAnalytics());
         await viewModel.LoadAsync("public-token");
         var navigated = RoutesCompleted(1);
 
@@ -48,6 +55,13 @@ public sealed class SellerOfferNavigationTests
         Assert.Equal([".."], Shell.Current.Routes);
         Assert.Equal(1, service.DeclineCalls);
         Assert.False(viewModel.HasMessage);
+    }
+
+    private sealed class RecordingAnalytics : IMobileAnalytics
+    {
+        public List<MobileAnalyticsEvent> Events { get; } = [];
+
+        public void Track(MobileAnalyticsEvent value) => Events.Add(value);
     }
 
     private static Task RoutesCompleted(int expected)

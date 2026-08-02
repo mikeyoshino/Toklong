@@ -4,16 +4,16 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
-    Title="ข้อเสนอขาย"
+    Title="เตรียมขาย"
     SafeAreaEdges="Container"
     Shell.TabBarIsVisible="False">
     <ScrollView SafeAreaEdges="SoftInput">
         <VerticalStackLayout Style="{StaticResource RefinedScreenContent}">
             <VerticalStackLayout Spacing="6">
-                <Label Style="{StaticResource PageTitle}" Text="ตรวจข้อเสนอจากผู้ซื้อ" />
+                <Label Style="{StaticResource PageTitle}" Text="เตรียมขาย" />
                 <Label
                     Style="{StaticResource RefinedBodyText}"
-                    Text="ตรวจรายละเอียดทั้งหมดก่อนเลือกยืนยันหรือปฏิเสธ"
+                    Text="ตรวจรายละเอียดและเตรียมข้อมูลให้ครบก่อนเปิดให้ผู้ซื้อชำระ"
                     TextColor="{StaticResource InkSoft}" />
             </VerticalStackLayout>
 
@@ -181,7 +181,7 @@
                     <VerticalStackLayout Spacing="3">
                         <Label
                             Style="{StaticResource SectionTitle}"
-                            Text="เตรียมค่าจัดส่ง" />
+                            Text="เตรียมการจัดส่ง" />
                         <Label
                             Style="{StaticResource RefinedHelperText}"
                             Text="ระบุต้นทางและขนาดพัสดุ ระบบจะแสดงค่าจัดส่งที่ผู้ซื้อต้องจ่าย" />
@@ -364,6 +364,30 @@
             </Border>
 
             <Border
+                IsVisible="False"
+                Style="{StaticResource RefinedFormCard}">
+                <Border.Triggers>
+                    <DataTrigger
+                        TargetType="Border"
+                        Binding="{Binding IsPhysical}"
+                        Value="False">
+                        <Setter Property="IsVisible" Value="True" />
+                    </DataTrigger>
+                </Border.Triggers>
+                <VerticalStackLayout Spacing="{StaticResource SpacingSm}">
+                    <Label
+                        Style="{StaticResource SectionTitle}"
+                        Text="เตรียมส่งมอบไอดีเกม" />
+                    <Label
+                        Style="{StaticResource RefinedHelperText}"
+                        Text="เตรียมช่องทางส่งมอบที่ตกลงกันไว้ และส่งมอบหลังระบบยืนยันยอดชำระแล้วเท่านั้น" />
+                    <Label
+                        Style="{StaticResource RefinedHelperText}"
+                        Text="ห้ามกรอกหรือแนบรหัสผ่าน OTP รหัสกู้คืน QR เข้าสู่ระบบ หรือข้อมูลลับใน TOKLONG" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border
                 IsVisible="{Binding HasPayoutAccounts}"
                 Style="{StaticResource RefinedFormCard}">
                 <VerticalStackLayout Spacing="{StaticResource SpacingSm}">
@@ -428,7 +452,7 @@
                     <VerticalStackLayout Spacing="3">
                         <Label
                             Style="{StaticResource SectionTitle}"
-                            Text="ยืนยันก่อนตอบรับ" />
+                            Text="ยืนยันก่อนพร้อมขาย" />
                         <Label
                             Style="{StaticResource RefinedHelperText}"
                             Text="ตรวจให้ครบ เพราะหลังผู้ซื้อชำระ รายละเอียดที่ตกลงแล้วจะแก้ไขไม่ได้" />
@@ -468,17 +492,17 @@
                 Text="หากรายละเอียดไม่ถูกต้อง ให้ปฏิเสธและขอให้ผู้ซื้อสร้างข้อเสนอใหม่" />
 
             <Button
-                AutomationId="AcceptSellerOfferButton"
+                AutomationId="ConfirmSellerReadyButton"
                 Style="{StaticResource RefinedPrimaryButton}"
-                Command="{Binding AcceptCommand}"
-                SemanticProperties.Description="ยืนยันข้อเสนอและอนุญาตให้ผู้ซื้อชำระเงิน"
-                Text="ยืนยันข้อเสนอ" />
+                Command="{Binding ConfirmReadyCommand}"
+                SemanticProperties.Description="ยืนยันว่ารายละเอียดถูกต้องและเปิดให้ผู้ซื้อชำระเงิน"
+                Text="ยืนยันพร้อมขาย" />
             <Button
                 AutomationId="DeclineSellerOfferButton"
                 Style="{StaticResource RefinedSecondaryActionButton}"
                 Command="{Binding DeclineCommand}"
-                SemanticProperties.Description="ปฏิเสธข้อเสนอนี้"
-                Text="ปฏิเสธข้อเสนอ" />
+                SemanticProperties.Description="ปฏิเสธรายการนี้"
+                Text="ปฏิเสธรายการ" />
 
             <Border
                 IsVisible="{Binding HasMessage}"
