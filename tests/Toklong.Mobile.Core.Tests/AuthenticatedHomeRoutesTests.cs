@@ -11,17 +11,17 @@ public sealed class AuthenticatedHomeRoutesTests
             AuthenticatedHomeRoutes.Default);
 
     [Theory]
-    [InlineData(TransactionRoleRoute.Buying, "//main/buying")]
-    [InlineData(TransactionRoleRoute.Selling, "//main/selling")]
-    public void Root_returns_native_tab_route(
+    [InlineData(TransactionRoleRoute.Buying, "//buying")]
+    [InlineData(TransactionRoleRoute.Selling, "//selling")]
+    public void Root_returns_hidden_shell_root(
         TransactionRoleRoute role,
         string expected) =>
         Assert.Equal(expected, AuthenticatedHomeRoutes.Root(role));
 
     [Theory]
-    [InlineData("//main/buying", TransactionRoleRoute.Buying)]
-    [InlineData("//main/selling", TransactionRoleRoute.Selling)]
-    [InlineData("main/selling/TransactionDetailPage", TransactionRoleRoute.Selling)]
+    [InlineData("//buying", TransactionRoleRoute.Buying)]
+    [InlineData("//selling", TransactionRoleRoute.Selling)]
+    [InlineData("selling/TransactionDetailPage", TransactionRoleRoute.Selling)]
     public void TryParseRoot_recognizes_role_root(
         string route,
         TransactionRoleRoute expected)
@@ -37,6 +37,8 @@ public sealed class AuthenticatedHomeRoutesTests
     [InlineData("//main/buying-tools")]
     [InlineData("//main/reselling")]
     [InlineData("//main/account#return=/buying")]
+    [InlineData("//main/buying")]
+    [InlineData("//main/selling")]
     [InlineData(null)]
     public void TryParseRoot_ignores_non_role_destinations(string? route) =>
         Assert.False(AuthenticatedHomeRoutes.TryParseRoot(route, out _));

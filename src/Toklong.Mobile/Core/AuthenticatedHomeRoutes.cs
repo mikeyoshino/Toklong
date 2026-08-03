@@ -8,8 +8,8 @@ public enum TransactionRoleRoute
 
 public static class AuthenticatedHomeRoutes
 {
-    public const string Buying = "//main/buying";
-    public const string Selling = "//main/selling";
+    public const string Buying = "//buying";
+    public const string Selling = "//selling";
     public const string Default = Buying;
 
     public static string Root(TransactionRoleRoute role) =>
@@ -34,14 +34,10 @@ public static class AuthenticatedHomeRoutes
             var segments = path.Split(
                 '/',
                 StringSplitOptions.RemoveEmptyEntries);
-            if (segments.Length >= 2 &&
-                string.Equals(
-                    segments[0],
-                    "main",
-                    StringComparison.Ordinal))
+            if (segments.Length >= 1)
             {
                 if (string.Equals(
-                        segments[1],
+                        segments[0],
                         "selling",
                         StringComparison.Ordinal))
                 {
@@ -50,7 +46,7 @@ public static class AuthenticatedHomeRoutes
                 }
 
                 if (string.Equals(
-                        segments[1],
+                        segments[0],
                         "buying",
                         StringComparison.Ordinal))
                 {

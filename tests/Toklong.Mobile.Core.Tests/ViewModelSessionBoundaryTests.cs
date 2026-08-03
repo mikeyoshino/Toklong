@@ -308,9 +308,6 @@ public sealed class ViewModelSessionBoundaryTests :
             session,
             new AccountEmailChangeCompletionState(
                 session));
-        var workspaceRoles = new WorkspaceRolePreference(session);
-        workspaceRoles.SavePreferredRole(TransactionRoleRoute.Selling);
-
         await account.SignOutAsync();
         await buyer.LoadAsync();
         await seller.LoadAsync();
@@ -319,9 +316,6 @@ public sealed class ViewModelSessionBoundaryTests :
         await Task.WhenAll(oldBuyerLoad, oldSellerLoad);
 
         Assert.Equal(["//welcome"], Shell.Current.Routes);
-        Assert.Equal(
-            TransactionRoleRoute.Buying,
-            workspaceRoles.GetPreferredRole());
         Assert.True(authentication.SignedOut);
         Assert.Empty(buyer.Transactions);
         Assert.Null(buyer.SpotlightTransaction);
@@ -388,6 +382,98 @@ public sealed class ViewModelSessionBoundaryTests :
         Assert.All(
             seller.Transactions.Append(seller.SpotlightTransaction!),
             item => Assert.Equal(AppTransactionRole.Seller, item.Role));
+    }
+
+    [Fact]
+    public async Task Fixed_role_workspace_commands_only_open_the_opposite_root()
+    {
+        var session = new AuthenticatedSessionBoundary();
+        var service = new SequencedTransactionService();
+        var buyerAnalytics = new RecordingAnalytics();
+        var sellerAnalytics = new RecordingAnalytics();
+        var buyer = new TransactionsViewModel(
+            service,
+            new NoOpDeepLinks(),
+            buyerAnalytics,
+            session,
+            RoleFilter.Buying);
+        var seller = new TransactionsViewModel(
+            service,
+            new NoOpDeepLinks(),
+            sellerAnalytics,
+            session,
+            RoleFilter.Selling);
+
+        Shell.Current = new Shell();
+        buyer.OpenBuyingCommand.Execute(null);
+        await Task.Yield();
+        Assert.Empty(Shell.Current.Routes);
+
+        buyer.OpenSellingCommand.Execute(null);
+        await Task.Yield();
+        Assert.Equal(["//selling"], Shell.Current.Routes);
+        Assert.Equal(
+            "workspace_opened",
+            Assert.Single(buyerAnalytics.Events).Name);
+
+        Shell.Current = new Shell();
+        seller.OpenSellingCommand.Execute(null);
+        await Task.Yield();
+        Assert.Empty(Shell.Current.Routes);
+
+        seller.OpenBuyingCommand.Execute(null);
+        await Task.Yield();
+        Assert.Equal(["//buying"], Shell.Current.Routes);
+        Assert.Equal(
+            "workspace_opened",
+            Assert.Single(sellerAnalytics.Events).Name);
+    }
+
+    [Fact]
+    public async Task Create_offer_entry_is_single_flight_from_selling()
+    {
+        var navigationStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var navigationGate = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        Shell.Current = new Shell
+        {
+            Navigate = _ =>
+            {
+                navigationStarted.TrySetResult();
+                return navigationGate.Task;
+            }
+        };
+        var analytics = new RecordingAnalytics();
+        var viewModel = new TransactionsViewModel(
+            new SequencedTransactionService(),
+            new NoOpDeepLinks(),
+            analytics,
+            new AuthenticatedSessionBoundary(),
+            RoleFilter.Selling);
+        var commandCompleted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        viewModel.CreateOfferCommand.CanExecuteChanged += (_, _) =>
+        {
+            if (viewModel.CreateOfferCommand.CanExecute(null))
+                commandCompleted.TrySetResult();
+        };
+
+        viewModel.CreateOfferCommand.Execute(null);
+        await navigationStarted.Task;
+        viewModel.CreateOfferCommand.Execute(null);
+
+        Assert.False(viewModel.CreateOfferCommand.CanExecute(null));
+
+        navigationGate.SetResult();
+        await commandCompleted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.Equal(
+            [nameof(Toklong.Mobile.Pages.ProductTypeSelectionPage)],
+            Shell.Current.Routes);
+        Assert.Equal(
+            ["create_offer_started", "buyer_offer_type_selection_opened"],
+            analytics.Events.Select(value => value.Name));
     }
 
     [Fact]

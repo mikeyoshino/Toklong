@@ -11,6 +11,7 @@ public partial class App : Application
     private readonly IPushRegistrationService pushRegistration;
     private readonly StartupLogoPage startupPage;
     private readonly StartupCoordinator startupCoordinator;
+    private readonly IMobileAnalytics analytics;
     private readonly ILogger<App> logger;
     private readonly CancellationTokenSource startupCancellation = new();
     private int startupStarted;
@@ -21,6 +22,7 @@ public partial class App : Application
         IPushRegistrationService pushRegistration,
         StartupLogoPage startupPage,
         StartupCoordinator startupCoordinator,
+        IMobileAnalytics analytics,
         ILogger<App> logger)
     {
         InitializeComponent();
@@ -29,6 +31,7 @@ public partial class App : Application
         this.pushRegistration = pushRegistration;
         this.startupPage = startupPage;
         this.startupCoordinator = startupCoordinator;
+        this.analytics = analytics;
         this.logger = logger;
     }
 
@@ -78,8 +81,16 @@ public partial class App : Application
 
             window.Page = shell;
             await shell.GoToAsync(result.Route, false);
-            if (AuthenticatedHomeRoutes.IsAuthenticatedRoot(result.Route))
+            if (AuthenticatedHomeRoutes.TryParseRoot(
+                    result.Route,
+                    out var initialRole))
+            {
+                analytics.Track(
+                    WorkspaceNavigationAnalytics.Opened(
+                        initialRole,
+                        WorkspaceNavigationSource.Startup));
                 _ = InitializeAuthenticatedServicesAsync();
+            }
         }
         catch (OperationCanceledException)
         {

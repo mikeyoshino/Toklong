@@ -68,8 +68,12 @@ public sealed class TransactionsViewModel : ObservableViewModel
             () => SelectSellerWork(SellerWorkCategory.All));
         OpenTransactionCommand = new Command<AppTransaction>(
             async item => await OpenTransactionAsync(item));
-        CreateOfferCommand = new Command(
-            async () => await OpenProductTypeSelectionAsync());
+        OpenBuyingCommand = new AsyncCommand(
+            () => OpenWorkspaceAsync(TransactionRoleRoute.Buying));
+        OpenSellingCommand = new AsyncCommand(
+            () => OpenWorkspaceAsync(TransactionRoleRoute.Selling));
+        CreateOfferCommand = new AsyncCommand(
+            OpenProductTypeSelectionAsync);
         RefreshCommand = new AsyncCommand(RefreshAsync);
     }
 
@@ -85,6 +89,8 @@ public sealed class TransactionsViewModel : ObservableViewModel
     public ICommand SelectSellerProblemsCommand { get; }
     public ICommand SelectAllSellerWorkCommand { get; }
     public ICommand OpenTransactionCommand { get; }
+    public ICommand OpenBuyingCommand { get; }
+    public ICommand OpenSellingCommand { get; }
     public ICommand CreateOfferCommand { get; }
     public ICommand RefreshCommand { get; }
 
@@ -441,9 +447,25 @@ public sealed class TransactionsViewModel : ObservableViewModel
 
     private async Task OpenProductTypeSelectionAsync()
     {
+        analytics.Track(
+            WorkspaceNavigationAnalytics.CreateOfferStarted(roleFilter));
         analytics.Track(CreateOfferAnalytics.TypeSelectionOpened());
         await Shell.Current.GoToAsync(
             nameof(ProductTypeSelectionPage));
+    }
+
+    private async Task OpenWorkspaceAsync(TransactionRoleRoute target)
+    {
+        if ((target == TransactionRoleRoute.Buying && IsBuying) ||
+            (target == TransactionRoleRoute.Selling && IsSelling))
+            return;
+
+        analytics.Track(
+            WorkspaceNavigationAnalytics.Opened(
+                target,
+                WorkspaceNavigationSource.BottomAction));
+        await Shell.Current.GoToAsync(
+            AuthenticatedHomeRoutes.Root(target));
     }
 
 }
