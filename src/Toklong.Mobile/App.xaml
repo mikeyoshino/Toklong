@@ -6,10 +6,19 @@
     UserAppTheme="Light">
     <Application.Resources>
         <ResourceDictionary>
-            <Color x:Key="Ink">#101828</Color>
+            <Color x:Key="CleanLedgerRootBackground">#F6F8FA</Color>
+            <Color x:Key="TrustNavy">#12364F</Color>
+            <Color x:Key="BuyerBlue">#1988D3</Color>
+            <Color x:Key="BuyerBlueSoft">#E9F6FF</Color>
+            <Color x:Key="SellerIndigo">#55508A</Color>
+            <Color x:Key="SellerIndigoSoft">#EFEDFB</Color>
+            <Color x:Key="VerifiedMint">#65C8B4</Color>
+            <Color x:Key="DeadlineRust">#BD563A</Color>
+
+            <Color x:Key="Ink">#112337</Color>
             <Color x:Key="InkSoft">#475467</Color>
-            <Color x:Key="Muted">#667085</Color>
-            <Color x:Key="Line">#E4EAF1</Color>
+            <Color x:Key="Muted">#647589</Color>
+            <Color x:Key="Line">#DCE5EC</Color>
             <Color x:Key="Surface">#FFFFFF</Color>
             <Color x:Key="SurfaceSoft">#F6F9FC</Color>
             <Color x:Key="SurfaceBlue">#EEF7FF</Color>
@@ -38,7 +47,7 @@
             <Thickness x:Key="AuthScreenPadding">22,20,22,28</Thickness>
 
             <Style TargetType="ContentPage">
-                <Setter Property="BackgroundColor" Value="#FBFDFF" />
+                <Setter Property="BackgroundColor" Value="{StaticResource CleanLedgerRootBackground}" />
             </Style>
             <Style TargetType="Label">
                 <Setter Property="FontFamily" Value="NotoSansThai" />
@@ -199,6 +208,23 @@
                 <Setter Property="BackgroundColor" Value="#F7FFFFFF" />
                 <Setter Property="Stroke" Value="#110F172A" />
                 <Setter Property="StrokeThickness" Value="1" />
+                <Setter Property="StrokeShape" Value="RoundRectangle 20" />
+            </Style>
+            <Style x:Key="LedgerSurfaceCard" TargetType="Border">
+                <Setter Property="BackgroundColor" Value="White" />
+                <Setter Property="Stroke" Value="{StaticResource Line}" />
+                <Setter Property="StrokeThickness" Value="1" />
+                <Setter Property="StrokeShape" Value="RoundRectangle 18" />
+            </Style>
+            <Style x:Key="LedgerPrimaryButton" TargetType="Button">
+                <Setter Property="BackgroundColor" Value="{StaticResource TrustNavy}" />
+                <Setter Property="TextColor" Value="White" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="MinimumHeightRequest" Value="52" />
+                <Setter Property="CornerRadius" Value="14" />
+            </Style>
+            <Style x:Key="LedgerSummaryCard" TargetType="Border">
+                <Setter Property="StrokeThickness" Value="0" />
                 <Setter Property="StrokeShape" Value="RoundRectangle 20" />
             </Style>
             <Style x:Key="Eyebrow" TargetType="Label">

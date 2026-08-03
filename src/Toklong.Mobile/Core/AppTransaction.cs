@@ -228,47 +228,47 @@ public sealed record AppTransaction(
 
     public string RoleColor =>
         Role == AppTransactionRole.Buyer
-            ? "#145FC7"
+            ? CleanLedgerPalette.BuyerBlue
             : SellerColorPalette.Role;
 
     public string RoleBackground =>
         Role == AppTransactionRole.Buyer
-            ? "#EAF4FF"
+            ? CleanLedgerPalette.BuyerBlueSoft
             : SellerColorPalette.Surface;
 
     public string RoleHeaderStart =>
         Role == AppTransactionRole.Buyer
-            ? "#3C8AF1"
+            ? CleanLedgerPalette.TrustNavy
             : SellerColorPalette.HeaderStart;
 
     public string RoleHeaderMiddle =>
         Role == AppTransactionRole.Buyer
-            ? "#236DCE"
+            ? "#14608A"
             : SellerColorPalette.HeaderMiddle;
 
     public string RoleHeaderEnd =>
         Role == AppTransactionRole.Buyer
-            ? "#185CB9"
+            ? CleanLedgerPalette.BuyerBlue
             : SellerColorPalette.HeaderEnd;
 
     public string RolePageTint =>
         Role == AppTransactionRole.Buyer
-            ? "#DCEFFF"
+            ? CleanLedgerPalette.BuyerBlueSoft
             : SellerColorPalette.Surface;
 
     public string RolePageMiddle =>
         Role == AppTransactionRole.Buyer
-            ? "#F6FAFF"
+            ? CleanLedgerPalette.Surface
             : SellerColorPalette.BadgeSurface;
 
     public string RoleHeaderSecondary =>
         Role == AppTransactionRole.Buyer
-            ? "#D8E7FF"
+            ? CleanLedgerPalette.BuyerBlueSoft
             : SellerColorPalette.Secondary;
 
     public string RoleDot =>
         Role == AppTransactionRole.Buyer
-            ? "#9CEBD9"
+            ? CleanLedgerPalette.VerifiedMint
             : SellerColorPalette.Accent;
 
     public string StatusLabel => Presentation.StatusLabel;
@@ -781,8 +781,9 @@ public sealed record AppTransaction(
                   ThaiCulture) +
               " · บัญชีที่ยืนยันด้วยเบอร์โทร";
 
-    private const string BuyerProgress = "#145FC7";
-    private const string BuyerProgressBackground = "#EAF4FF";
+    private const string BuyerProgress = CleanLedgerPalette.BuyerBlue;
+    private const string BuyerProgressBackground =
+        CleanLedgerPalette.BuyerBlueSoft;
     private const string SellerProgress = SellerColorPalette.Role;
     private const string SellerProgressBackground =
         SellerColorPalette.Surface;

@@ -404,9 +404,9 @@ public sealed class TransactionPresentationTests
         Assert.Equal("progress_physical_receipt_disabled.png", item.ProgressThree.Icon);
         Assert.Equal("สร้างข้อตกลง เสร็จแล้ว", item.ProgressOne.SemanticDescription);
         Assert.Equal("จ่ายเงิน ยังไม่เสร็จ", item.ProgressTwo.SemanticDescription);
-        Assert.Equal("#EAF4FF", item.ProgressOne.BackgroundColor);
-        Assert.Equal("#145FC7", item.ProgressOne.StrokeColor);
-        Assert.Equal("#145FC7", item.ProgressOne.LabelColor);
+        Assert.Equal("#E9F6FF", item.ProgressOne.BackgroundColor);
+        Assert.Equal("#1988D3", item.ProgressOne.StrokeColor);
+        Assert.Equal("#1988D3", item.ProgressOne.LabelColor);
         Assert.Equal("#FFFFFF", item.ProgressTwo.BackgroundColor);
         Assert.Equal("#E4EAF1", item.ProgressTwo.StrokeColor);
         Assert.Equal("#98A2B3", item.ProgressTwo.LabelColor);
@@ -532,10 +532,10 @@ public sealed class TransactionPresentationTests
 
         Assert.Equal("#E4EAF1", firstComplete.ProgressConnectorOneColor);
         Assert.Equal("#E4EAF1", firstComplete.ProgressConnectorTwoColor);
-        Assert.Equal("#145FC7", secondComplete.ProgressConnectorOneColor);
+        Assert.Equal("#1988D3", secondComplete.ProgressConnectorOneColor);
         Assert.Equal("#E4EAF1", secondComplete.ProgressConnectorTwoColor);
-        Assert.Equal("#145FC7", thirdComplete.ProgressConnectorOneColor);
-        Assert.Equal("#145FC7", thirdComplete.ProgressConnectorTwoColor);
+        Assert.Equal("#1988D3", thirdComplete.ProgressConnectorOneColor);
+        Assert.Equal("#1988D3", thirdComplete.ProgressConnectorTwoColor);
 
         var seller = thirdComplete with
         {

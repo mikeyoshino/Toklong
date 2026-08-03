@@ -2,15 +2,15 @@ namespace Toklong.Mobile.Core;
 
 public static class SellerColorPalette
 {
-    public const string Role = "#3B5266";
-    public const string HeaderStart = "#4B6073";
-    public const string HeaderMiddle = "#3D5163";
-    public const string HeaderEnd = "#304354";
-    public const string Surface = "#EDF2F5";
-    public const string Border = "#C8D4DC";
-    public const string Secondary = "#DCE7EC";
-    public const string BadgeSurface = "#F3F7F9";
-    public const string Accent = "#8DE8D2";
+    public const string Role = CleanLedgerPalette.SellerIndigo;
+    public const string HeaderStart = "#302D56";
+    public const string HeaderMiddle = "#45416F";
+    public const string HeaderEnd = CleanLedgerPalette.SellerIndigo;
+    public const string Surface = CleanLedgerPalette.SellerIndigoSoft;
+    public const string Border = CleanLedgerPalette.Line;
+    public const string Secondary = CleanLedgerPalette.SellerIndigoSoft;
+    public const string BadgeSurface = CleanLedgerPalette.SellerIndigoSoft;
+    public const string Accent = CleanLedgerPalette.VerifiedMint;
 
     public const string NewOfferBorder = "#DDB866";
     public const string NewOfferText = "#8A5100";

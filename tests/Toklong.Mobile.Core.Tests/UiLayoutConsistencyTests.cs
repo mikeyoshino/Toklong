@@ -2545,6 +2545,28 @@ public sealed class UiLayoutConsistencyTests
         }
     }
 
+    [Fact]
+    public void App_resources_expose_semantic_clean_ledger_styles()
+    {
+        var app = Load("Ui", "App.xaml");
+        var keys = app.Descendants()
+            .Select(element => AttributeValue(element, "Key"))
+            .Where(value => value is not null)
+            .ToHashSet(StringComparer.Ordinal);
+
+        Assert.Contains("CleanLedgerRootBackground", keys);
+        Assert.Contains("TrustNavy", keys);
+        Assert.Contains("BuyerBlue", keys);
+        Assert.Contains("BuyerBlueSoft", keys);
+        Assert.Contains("SellerIndigo", keys);
+        Assert.Contains("SellerIndigoSoft", keys);
+        Assert.Contains("VerifiedMint", keys);
+        Assert.Contains("DeadlineRust", keys);
+        Assert.Contains("LedgerSurfaceCard", keys);
+        Assert.Contains("LedgerPrimaryButton", keys);
+        Assert.Contains("LedgerSummaryCard", keys);
+    }
+
     private static void AssertStyle(
         XDocument document,
         string page,
