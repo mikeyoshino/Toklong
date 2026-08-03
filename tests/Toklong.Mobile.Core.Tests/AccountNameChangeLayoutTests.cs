@@ -38,7 +38,7 @@ public sealed class AccountNameChangeLayoutTests
         var entries = page.Descendants(Maui + "Entry").ToArray();
         var primary = page.Descendants(Maui + "Button")
             .Where(button => Attribute(button, "Style") ==
-                "{StaticResource RefinedPrimaryButton}")
+                "{StaticResource LedgerPrimaryButton}")
             .ToArray();
 
         Assert.Contains(entries, entry =>

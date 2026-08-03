@@ -5,7 +5,9 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
     Title="บัญชีรับเงิน"
+    BackgroundColor="{StaticResource CleanLedgerRootBackground}"
     SafeAreaEdges="Container"
+    Shell.NavBarIsVisible="True"
     Shell.TabBarIsVisible="False">
     <ScrollView SafeAreaEdges="SoftInput">
         <VerticalStackLayout Style="{StaticResource RefinedScreenContent}">
@@ -19,7 +21,9 @@
                     TextColor="{StaticResource InkSoft}" />
             </VerticalStackLayout>
 
-            <Border Style="{StaticResource RefinedFormCard}">
+            <Border
+                Padding="{StaticResource SpacingLg}"
+                Style="{StaticResource LedgerSurfaceCard}">
                 <VerticalStackLayout Spacing="{StaticResource SpacingMd}">
                     <VerticalStackLayout
                         Style="{StaticResource RefinedFormSection}">
@@ -74,7 +78,7 @@
             </Border>
 
             <Button
-                Style="{StaticResource RefinedPrimaryButton}"
+                Style="{StaticResource LedgerPrimaryButton}"
                 Command="{Binding SaveCommand}"
                 Text="บันทึกบัญชีรับเงิน" />
 

@@ -83,7 +83,7 @@ public sealed class EmailChangeLayoutTests
             .Descendants(Maui + "Button")
             .Where(button =>
                 AttributeValue(button, "Style") ==
-                "{StaticResource RefinedPrimaryButton}")
+                "{StaticResource LedgerPrimaryButton}")
             .ToArray();
         var emailEntry = request
             .Descendants(Maui + "Entry")
@@ -151,7 +151,7 @@ public sealed class EmailChangeLayoutTests
             .Descendants(Maui + "Button")
             .Where(button =>
                 AttributeValue(button, "Style") ==
-                "{StaticResource RefinedPrimaryButton}")
+                "{StaticResource LedgerPrimaryButton}")
             .ToArray();
         var newRequest = primaryButtons.Single(button =>
             AttributeValue(button, "Command") ==

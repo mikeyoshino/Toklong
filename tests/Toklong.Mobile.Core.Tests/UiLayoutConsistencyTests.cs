@@ -531,13 +531,59 @@ public sealed class UiLayoutConsistencyTests
         Assert.DoesNotContain("Badge", header.ToString());
     }
 
-    [Fact]
-    public void Account_exposes_global_activity_header()
+    [Theory]
+    [InlineData("ActivityPage.xaml", "กิจกรรม")]
+    [InlineData("AccountPage.xaml", "บัญชี")]
+    public void Secondary_hubs_are_pushed_pages_without_root_action_bar(
+        string fileName,
+        string title)
     {
-        var account = Load("Ui", "Pages", "AccountPage.xaml");
-        Assert.Contains(account.Descendants(), element =>
-            element.Name.LocalName == "RootPageHeaderView" &&
-            AttributeValue(element, "Title") == "บัญชี");
+        var page = Load("Ui", "Pages", fileName);
+
+        Assert.Equal(title, AttributeValue(page.Root!, "Title"));
+        Assert.Equal(
+            "{StaticResource CleanLedgerRootBackground}",
+            AttributeValue(page.Root!, "BackgroundColor"));
+        Assert.Equal(
+            "True",
+            AttributeValue(page.Root!, "Shell.NavBarIsVisible"));
+        Assert.Equal(
+            "False",
+            AttributeValue(page.Root!, "Shell.TabBarIsVisible"));
+        Assert.DoesNotContain(page.Descendants(), element =>
+            element.Name.LocalName is
+                "RootPageHeaderView" or "AuthenticatedRootFrame");
+        Assert.Contains(page.Descendants(Maui + "Border"), border =>
+            AttributeValue(border, "Style") ==
+                "{StaticResource LedgerSurfaceCard}");
+    }
+
+    [Theory]
+    [InlineData("PayoutSettingsPage.xaml")]
+    [InlineData("ChangeEmailPage.xaml")]
+    [InlineData("VerifyEmailChangePage.xaml")]
+    [InlineData("ChangeNamePage.xaml")]
+    [InlineData("VerifyNameChangePage.xaml")]
+    public void Account_subflows_use_clean_ledger_navigation_and_actions(
+        string fileName)
+    {
+        var page = Load("Ui", "Pages", fileName);
+
+        Assert.Equal(
+            "{StaticResource CleanLedgerRootBackground}",
+            AttributeValue(page.Root!, "BackgroundColor"));
+        Assert.Equal(
+            "True",
+            AttributeValue(page.Root!, "Shell.NavBarIsVisible"));
+        Assert.Equal(
+            "False",
+            AttributeValue(page.Root!, "Shell.TabBarIsVisible"));
+        Assert.Contains(page.Descendants(Maui + "Border"), border =>
+            AttributeValue(border, "Style") ==
+                "{StaticResource LedgerSurfaceCard}");
+        Assert.Contains(page.Descendants(Maui + "Button"), button =>
+            AttributeValue(button, "Style") ==
+                "{StaticResource LedgerPrimaryButton}");
     }
 
     [Fact]

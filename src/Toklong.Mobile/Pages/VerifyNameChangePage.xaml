@@ -5,16 +5,10 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
     Title="ยืนยันการเปลี่ยนชื่อ"
+    BackgroundColor="{StaticResource CleanLedgerRootBackground}"
     SafeAreaEdges="Container"
+    Shell.NavBarIsVisible="True"
     Shell.TabBarIsVisible="False">
-    <ContentPage.Background>
-        <RadialGradientBrush Center="0.88,0.02" Radius="0.95">
-            <GradientStop Color="#DCEFFF" Offset="0" />
-            <GradientStop Color="#F6FAFF" Offset="0.34" />
-            <GradientStop Color="#FFFFFF" Offset="0.84" />
-        </RadialGradientBrush>
-    </ContentPage.Background>
-
     <ScrollView x:Name="NameVerificationScroll" SafeAreaEdges="SoftInput">
         <VerticalStackLayout Style="{StaticResource RefinedScreenContent}">
             <VerticalStackLayout Spacing="7">
@@ -29,10 +23,8 @@
             <Border
                 AutomationId="NameChangeSummary"
                 Padding="14"
-                BackgroundColor="{StaticResource BrandBlueSoft}"
                 SemanticProperties.Description="{Binding PendingNameSemanticDescription}"
-                StrokeThickness="0"
-                StrokeShape="RoundRectangle 14">
+                Style="{StaticResource LedgerSurfaceCard}">
                 <VerticalStackLayout
                     AutomationProperties.IsInAccessibleTree="False"
                     Spacing="3">
@@ -51,10 +43,8 @@
             <Border
                 AutomationId="MaskedPhoneDestination"
                 Padding="14"
-                BackgroundColor="#F4F7FB"
                 SemanticProperties.Description="{Binding MaskedPhoneSemanticDescription}"
-                Stroke="{StaticResource Line}"
-                StrokeShape="RoundRectangle 14">
+                Style="{StaticResource LedgerSurfaceCard}">
                 <VerticalStackLayout
                     AutomationProperties.IsInAccessibleTree="False"
                     Spacing="3">
@@ -84,7 +74,7 @@
 
                 <Button
                     x:Name="NewRequestButton"
-                    Style="{StaticResource RefinedPrimaryButton}"
+                    Style="{StaticResource LedgerPrimaryButton}"
                     Command="{Binding StartNewRequestCommand}"
                     IsVisible="{Binding RequiresNewRequest}"
                     SemanticProperties.Description="เริ่มขอเปลี่ยนชื่อและรับรหัสยืนยันใหม่"
@@ -92,7 +82,7 @@
 
                 <Button
                     x:Name="ReturnToAccountButton"
-                    Style="{StaticResource RefinedPrimaryButton}"
+                    Style="{StaticResource LedgerPrimaryButton}"
                     Command="{Binding ReturnToAccountCommand}"
                     IsVisible="{Binding CanReturnToAccount}"
                     SemanticProperties.Description="กลับไปหน้าบัญชีเพื่อตรวจสอบชื่อปัจจุบัน"

@@ -5,16 +5,10 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
     Title="เปลี่ยนอีเมล"
+    BackgroundColor="{StaticResource CleanLedgerRootBackground}"
     SafeAreaEdges="Container"
+    Shell.NavBarIsVisible="True"
     Shell.TabBarIsVisible="False">
-    <ContentPage.Background>
-        <RadialGradientBrush Center="0.88,0.02" Radius="0.95">
-            <GradientStop Color="#DCEFFF" Offset="0" />
-            <GradientStop Color="#F6FAFF" Offset="0.34" />
-            <GradientStop Color="#FFFFFF" Offset="0.84" />
-        </RadialGradientBrush>
-    </ContentPage.Background>
-
     <ScrollView
         x:Name="EmailChangeScroll"
         SafeAreaEdges="SoftInput">
@@ -33,7 +27,9 @@
                     TextColor="{StaticResource InkSoft}" />
             </VerticalStackLayout>
 
-            <Border Style="{StaticResource RefinedFormCard}">
+            <Border
+                Padding="{StaticResource SpacingLg}"
+                Style="{StaticResource LedgerSurfaceCard}">
                 <VerticalStackLayout Spacing="{StaticResource SpacingLg}">
                     <VerticalStackLayout
                         Style="{StaticResource RefinedFormSection}">
@@ -63,7 +59,7 @@
 
                     <Button
                         x:Name="SubmitButton"
-                        Style="{StaticResource RefinedPrimaryButton}"
+                        Style="{StaticResource LedgerPrimaryButton}"
                         Command="{Binding SubmitCommand}"
                         SemanticProperties.Description="{Binding SubmitSemanticDescription}"
                         Text="{Binding SubmitButtonText}">

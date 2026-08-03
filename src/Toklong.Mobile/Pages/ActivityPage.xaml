@@ -4,17 +4,10 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     Title="กิจกรรม"
+    BackgroundColor="{StaticResource CleanLedgerRootBackground}"
     SafeAreaEdges="Container"
     Shell.NavBarIsVisible="True"
     Shell.TabBarIsVisible="False">
-    <ContentPage.Background>
-        <RadialGradientBrush Center="0.88,0.02" Radius="0.95">
-            <GradientStop Color="#DCEFFF" Offset="0" />
-            <GradientStop Color="#F6FAFF" Offset="0.34" />
-            <GradientStop Color="#FFFFFF" Offset="0.84" />
-        </RadialGradientBrush>
-    </ContentPage.Background>
-
     <RefreshView
         Command="{Binding RefreshCommand}"
         IsRefreshing="{Binding IsRefreshing, Mode=TwoWay}">
@@ -76,7 +69,7 @@
                     <Border
                         Margin="20,0,20,10"
                         Padding="16"
-                        Style="{StaticResource SurfaceCard}">
+                        Style="{StaticResource LedgerSurfaceCard}">
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer
                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.OpenCommand}"

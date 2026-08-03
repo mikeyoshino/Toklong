@@ -3,25 +3,15 @@
     x:Class="Toklong.Mobile.Pages.AccountPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
+    Title="บัญชี"
+    BackgroundColor="{StaticResource CleanLedgerRootBackground}"
     SafeAreaEdges="Container"
-    Shell.NavBarIsVisible="False">
-    <ContentPage.Background>
-        <RadialGradientBrush Center="0.88,0.02" Radius="0.95">
-            <GradientStop Color="#DCEFFF" Offset="0" />
-            <GradientStop Color="#F6FAFF" Offset="0.34" />
-            <GradientStop Color="#FFFFFF" Offset="0.84" />
-        </RadialGradientBrush>
-    </ContentPage.Background>
+    Shell.NavBarIsVisible="True"
+    Shell.TabBarIsVisible="False">
 
     <ScrollView>
         <VerticalStackLayout
             Style="{StaticResource RefinedScreenContent}">
-            <controls:RootPageHeaderView
-                Title="บัญชี"
-                Subtitle="ข้อมูลของคุณ"
-                AccentColor="{StaticResource BrandBlue}" />
-
             <Border
                 Padding="18"
                 StrokeThickness="0"
@@ -99,7 +89,7 @@
                 <Label
                     Style="{StaticResource SectionTitle}"
                     Text="ข้อมูลติดต่อ" />
-                <Border Style="{StaticResource SurfaceCard}" Padding="17">
+                <Border Style="{StaticResource LedgerSurfaceCard}" Padding="17">
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer
                             Command="{Binding OpenEmailChangeCommand}" />
@@ -160,7 +150,7 @@
                     Text="แก้ไข"
                     TextColor="{StaticResource BrandBlue}" />
             </Grid>
-            <Border Style="{StaticResource SurfaceCard}" Padding="17">
+            <Border Style="{StaticResource LedgerSurfaceCard}" Padding="17">
                 <Border.GestureRecognizers>
                     <TapGestureRecognizer
                         Command="{Binding OpenPayoutSettingsCommand}" />
@@ -217,7 +207,7 @@
                     Text="แก้ไข"
                     TextColor="{StaticResource BrandBlue}" />
             </Grid>
-            <Border Style="{StaticResource SurfaceCard}" Padding="17">
+            <Border Style="{StaticResource LedgerSurfaceCard}" Padding="17">
                 <Grid ColumnDefinitions="44,*" ColumnSpacing="13">
                     <Border
                         WidthRequest="44"
@@ -247,7 +237,7 @@
                 Margin="0,4,0,0"
                 Style="{StaticResource SectionTitle}"
                 Text="ช่วยเหลือและความปลอดภัย" />
-            <Border Style="{StaticResource SurfaceCard}" Padding="0">
+            <Border Style="{StaticResource LedgerSurfaceCard}" Padding="0">
                 <VerticalStackLayout Spacing="0">
                     <Grid Padding="17" ColumnDefinitions="32,*,Auto" ColumnSpacing="11">
                         <Image Source="ui_help.png" />
