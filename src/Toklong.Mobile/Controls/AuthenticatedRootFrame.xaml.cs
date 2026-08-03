@@ -99,13 +99,13 @@ public partial class AuthenticatedRootFrame : ContentView
     private async void OnCreatePressed(object? sender, EventArgs args)
     {
         if (!reducedMotionEnabled)
-            await CreateButton.ScaleToAsync(0.96, 120, Easing.CubicOut);
+            await CreateActionVisual.ScaleToAsync(0.94, 100, Easing.CubicOut);
     }
 
     private async void OnCreateReleased(object? sender, EventArgs args)
     {
         if (!reducedMotionEnabled)
-            await CreateButton.ScaleToAsync(1.0, 120, Easing.CubicOut);
+            await CreateActionVisual.ScaleToAsync(1.0, 100, Easing.CubicOut);
     }
 
     private void UpdateSelectedState()
@@ -120,18 +120,18 @@ public partial class AuthenticatedRootFrame : ContentView
             SellButton,
             sellingSelected ? "ขาย เลือกอยู่" : "ขาย");
 
-        BuyButton.BackgroundColor = Color.FromArgb(
-            buyingSelected
-                ? CleanLedgerPalette.BuyerBlueSoft
-                : "#00FFFFFF");
+        BuyButton.BackgroundColor = Colors.Transparent;
+        BuyButton.ImageSource = buyingSelected
+            ? "nav_buy_active.png"
+            : "nav_buy.png";
         BuyButton.TextColor = Color.FromArgb(
             buyingSelected
                 ? CleanLedgerPalette.BuyerBlue
                 : CleanLedgerPalette.MutedInk);
-        SellButton.BackgroundColor = Color.FromArgb(
-            sellingSelected
-                ? CleanLedgerPalette.SellerIndigoSoft
-                : "#00FFFFFF");
+        SellButton.BackgroundColor = Colors.Transparent;
+        SellButton.ImageSource = sellingSelected
+            ? "nav_sell_active.png"
+            : "nav_sell.png";
         SellButton.TextColor = Color.FromArgb(
             sellingSelected
                 ? CleanLedgerPalette.SellerIndigo

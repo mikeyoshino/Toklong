@@ -250,6 +250,66 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
+    public void Root_frame_uses_a_compact_dock_without_shrinking_touch_targets()
+    {
+        var frame = Load(
+            "Ui",
+            "Controls",
+            "AuthenticatedRootFrame.xaml");
+        var page = Load("Ui", "Pages", "TransactionsPage.xaml");
+        var dock = frame.Descendants(Maui + "Grid")
+            .Single(element =>
+                AttributeValue(element, "AutomationId") ==
+                "AuthenticatedNavigationDock");
+        var bodyHost = frame.Descendants(Maui + "ContentView")
+            .Single(element => AttributeValue(element, "Name") == "BodyHost");
+        var frameCode = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "Ui",
+            "Controls",
+            "AuthenticatedRootFrame.xaml.cs"));
+        var dockSurface = dock.Elements(Maui + "Border").Single();
+        var buttons = frame.Descendants(Maui + "Button").ToArray();
+        var createVisual = frame.Descendants(Maui + "Border")
+            .Single(element =>
+                AttributeValue(element, "Name") ==
+                "CreateActionVisual");
+        var createLabel = frame.Descendants(Maui + "Label")
+            .Single(element => AttributeValue(element, "Text") == "สร้างดีล");
+
+        Assert.Null(AttributeValue(dock, "Margin"));
+        Assert.Equal("None", AttributeValue(page.Root!, "SafeAreaEdges"));
+        Assert.Equal("Container", AttributeValue(bodyHost, "SafeAreaEdges"));
+        Assert.Equal("Container", AttributeValue(dock, "SafeAreaEdges"));
+        Assert.Equal("0,22,0,0", AttributeValue(dockSurface, "Margin"));
+        Assert.Equal("20,6,20,8", AttributeValue(dockSurface, "Padding"));
+        var dockCorners = dockSurface
+            .Element(Maui + "Border.StrokeShape")!
+            .Element(Maui + "RoundRectangle")!;
+        Assert.Equal(
+            "26,26,0,0",
+            AttributeValue(dockCorners, "CornerRadius"));
+        Assert.All(
+            new[] { buttons[0], buttons[2] },
+            button =>
+            {
+                Assert.True(
+                    double.Parse(AttributeValue(button, "MinimumHeightRequest")!) >= 44);
+                Assert.Equal("88", AttributeValue(button, "MaximumWidthRequest"));
+                Assert.Equal("End", AttributeValue(button, "VerticalOptions"));
+            });
+        Assert.Equal("58", AttributeValue(createVisual, "WidthRequest"));
+        Assert.Equal("58", AttributeValue(createVisual, "HeightRequest"));
+        Assert.Equal("10", AttributeValue(createLabel, "TranslationY"));
+        Assert.Equal("64", AttributeValue(buttons[1], "MinimumWidthRequest"));
+        Assert.Equal("64", AttributeValue(buttons[1], "MinimumHeightRequest"));
+        Assert.DoesNotContain("BuyerBlueSoft", frameCode);
+        Assert.DoesNotContain("SellerIndigoSoft", frameCode);
+        Assert.Contains("nav_buy_active.png", frameCode);
+        Assert.Contains("nav_sell_active.png", frameCode);
+    }
+
+    [Fact]
     public void Authenticated_navigation_has_no_second_role_chooser()
     {
         var shell = Load("Ui", "AppShell.xaml");

@@ -8,7 +8,7 @@
     xmlns:core="clr-namespace:Toklong.Mobile.Core"
     xmlns:theme="clr-namespace:Toklong.Mobile.Theming"
     BackgroundColor="{StaticResource CleanLedgerRootBackground}"
-    SafeAreaEdges="Container"
+    SafeAreaEdges="None"
     Shell.NavBarIsVisible="False">
     <controls:AuthenticatedRootFrame
         x:Name="RootFrame"
