@@ -7,16 +7,9 @@
     xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
     xmlns:core="clr-namespace:Toklong.Mobile.Core"
     xmlns:theme="clr-namespace:Toklong.Mobile.Theming"
+    BackgroundColor="{StaticResource CleanLedgerRootBackground}"
     SafeAreaEdges="Container"
     Shell.NavBarIsVisible="False">
-    <ContentPage.Background>
-        <RadialGradientBrush Center="0.86,0.02" Radius="0.94">
-            <GradientStop Color="#DCEFFF" Offset="0.0" />
-            <GradientStop Color="#F6FAFF" Offset="0.34" />
-            <GradientStop Color="#FFFFFF" Offset="0.82" />
-        </RadialGradientBrush>
-    </ContentPage.Background>
-
     <controls:AuthenticatedRootFrame
         x:Name="RootFrame"
         SelectedRole="{Binding Role}"
@@ -40,6 +33,72 @@
                             Title="{Binding ModeTitle}"
                             Subtitle="{Binding ModeSubtitle}"
                             AccentColor="{Binding WorkspaceAccentColor}" />
+
+                        <Grid MinimumHeightRequest="132">
+                            <Border
+                                AutomationId="WorkspaceSummaryCard"
+                                MinimumHeightRequest="132"
+                                Padding="18"
+                                Style="{StaticResource LedgerSummaryCard}">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                        <GradientStop Color="{Binding WorkspaceSummaryStart}" Offset="0" />
+                                        <GradientStop Color="{Binding WorkspaceSummaryMiddle}" Offset="0.62" />
+                                        <GradientStop Color="{Binding WorkspaceSummaryEnd}" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,*,Auto">
+                                    <Label
+                                        FontAttributes="Bold"
+                                        FontSize="12"
+                                        Text="{Binding WorkspaceLabel}"
+                                        TextColor="#DFFFFFFF" />
+                                    <Label
+                                        Grid.Row="1"
+                                        VerticalOptions="Center"
+                                        FontAttributes="Bold"
+                                        FontSize="26"
+                                        Text="{Binding ModeTitle}"
+                                        TextColor="White" />
+                                    <Label
+                                        Grid.Row="2"
+                                        FontSize="12"
+                                        Text="{Binding ActiveTransactionLabel}"
+                                        TextColor="#DFFFFFFF" />
+                                    <Label
+                                        Grid.RowSpan="3"
+                                        Grid.Column="1"
+                                        VerticalOptions="Center"
+                                        FontAttributes="Bold"
+                                        FontSize="22"
+                                        Text="{Binding ActiveTransactionCountText}"
+                                        TextColor="White" />
+                                    <Label
+                                        IsVisible="{Binding IsBuying}"
+                                        AutomationProperties.IsInAccessibleTree="False"
+                                        Text="พื้นที่ของผู้ซื้อ"
+                                        Opacity="0" />
+                                    <Label
+                                        IsVisible="{Binding IsSelling}"
+                                        AutomationProperties.IsInAccessibleTree="False"
+                                        Text="พื้นที่ของผู้ขาย"
+                                        Opacity="0" />
+                                </Grid>
+                            </Border>
+
+                            <Grid
+                                AutomationId="WorkspaceInitialSkeleton"
+                                IsVisible="{Binding ShowInitialSkeleton}"
+                                MinimumHeightRequest="132"
+                                Padding="18"
+                                BackgroundColor="{StaticResource Surface}">
+                                <Grid RowDefinitions="18,*,16" RowSpacing="12">
+                                    <BoxView WidthRequest="110" HorizontalOptions="Start" Color="{StaticResource Line}" CornerRadius="8" />
+                                    <BoxView Grid.Row="1" WidthRequest="170" HeightRequest="30" HorizontalOptions="Start" VerticalOptions="Center" Color="#C8D4DD" CornerRadius="10" />
+                                    <BoxView Grid.Row="2" WidthRequest="138" HorizontalOptions="Start" Color="{StaticResource Line}" CornerRadius="8" />
+                                </Grid>
+                            </Grid>
+                        </Grid>
 
                         <Border
                             IsVisible="{Binding HasError}"
@@ -313,6 +372,22 @@
                             </Grid>
                         </Grid>
 
+                        <Button
+                            AutomationId="SellerCompletedFilter"
+                            IsVisible="{Binding IsSelling}"
+                            HorizontalOptions="Start"
+                            Style="{StaticResource HomeStatusFilter}"
+                            Command="{Binding SelectCompletedCommand}"
+                            Text="เสร็จแล้ว">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding IsCompleted}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource SellerIndigo}" />
+                                    <Setter Property="BorderColor" Value="{StaticResource SellerIndigo}" />
+                                    <Setter Property="TextColor" Value="White" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+
                         <Border
                             AutomationId="SellerProblemBanner"
                             IsVisible="{Binding HasSellerProblems}"
@@ -360,7 +435,7 @@
                             StrokeShape="RoundRectangle 24">
                             <Border.Shadow>
                                 <Shadow
-                                    Brush="#2B7FFF"
+                                    Brush="{StaticResource BuyerBlue}"
                                     Offset="0,10"
                                     Opacity="0.18"
                                     Radius="24" />
@@ -382,7 +457,7 @@
                                                 <Span
                                                     FontAttributes="Bold"
                                                     Text="●"
-                                                    TextColor="#9CEBD9" />
+                                                    TextColor="{StaticResource VerifiedMint}" />
                                                 <Span
                                                     FontAttributes="Bold"
                                                     Text="  ต้องทำตอนนี้"
@@ -498,8 +573,8 @@
                                         Text="ทุกสถานะ">
                                         <Button.Triggers>
                                             <DataTrigger TargetType="Button" Binding="{Binding IsAllBuckets}" Value="True">
-                                                <Setter Property="BackgroundColor" Value="{StaticResource BrandBlue}" />
-                                                <Setter Property="BorderColor" Value="{StaticResource BrandBlue}" />
+                                                <Setter Property="BackgroundColor" Value="{StaticResource BuyerBlue}" />
+                                                <Setter Property="BorderColor" Value="{StaticResource BuyerBlue}" />
                                                 <Setter Property="TextColor" Value="White" />
                                             </DataTrigger>
                                         </Button.Triggers>
@@ -510,8 +585,8 @@
                                         Text="ต้องทำ">
                                         <Button.Triggers>
                                             <DataTrigger TargetType="Button" Binding="{Binding IsActionRequired}" Value="True">
-                                                <Setter Property="BackgroundColor" Value="{StaticResource BrandBlue}" />
-                                                <Setter Property="BorderColor" Value="{StaticResource BrandBlue}" />
+                                                <Setter Property="BackgroundColor" Value="{StaticResource BuyerBlue}" />
+                                                <Setter Property="BorderColor" Value="{StaticResource BuyerBlue}" />
                                                 <Setter Property="TextColor" Value="White" />
                                             </DataTrigger>
                                         </Button.Triggers>
@@ -522,8 +597,8 @@
                                         Text="กำลังดำเนินการ">
                                         <Button.Triggers>
                                             <DataTrigger TargetType="Button" Binding="{Binding IsInProgress}" Value="True">
-                                                <Setter Property="BackgroundColor" Value="{StaticResource BrandBlue}" />
-                                                <Setter Property="BorderColor" Value="{StaticResource BrandBlue}" />
+                                                <Setter Property="BackgroundColor" Value="{StaticResource BuyerBlue}" />
+                                                <Setter Property="BorderColor" Value="{StaticResource BuyerBlue}" />
                                                 <Setter Property="TextColor" Value="White" />
                                             </DataTrigger>
                                         </Button.Triggers>
@@ -534,8 +609,8 @@
                                         Text="เสร็จแล้ว">
                                         <Button.Triggers>
                                             <DataTrigger TargetType="Button" Binding="{Binding IsCompleted}" Value="True">
-                                                <Setter Property="BackgroundColor" Value="{StaticResource BrandBlue}" />
-                                                <Setter Property="BorderColor" Value="{StaticResource BrandBlue}" />
+                                                <Setter Property="BackgroundColor" Value="{StaticResource BuyerBlue}" />
+                                                <Setter Property="BorderColor" Value="{StaticResource BuyerBlue}" />
                                                 <Setter Property="TextColor" Value="White" />
                                             </DataTrigger>
                                         </Button.Triggers>

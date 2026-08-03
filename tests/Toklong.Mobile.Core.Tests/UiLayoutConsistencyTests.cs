@@ -381,6 +381,39 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
+    public void Workspace_xaml_uses_clean_ledger_summary_and_stable_spotlight()
+    {
+        var page = Load("Ui", "Pages", "TransactionsPage.xaml");
+        var summary = page.Descendants(Maui + "Border").Single(element =>
+            AttributeValue(element, "AutomationId") ==
+            "WorkspaceSummaryCard");
+        var skeleton = page.Descendants(Maui + "Grid").Single(element =>
+            AttributeValue(element, "AutomationId") ==
+            "WorkspaceInitialSkeleton");
+
+        Assert.Equal(
+            "{Binding ShowInitialSkeleton}",
+            AttributeValue(skeleton, "IsVisible"));
+        Assert.Equal(
+            AttributeValue(summary, "MinimumHeightRequest"),
+            AttributeValue(skeleton, "MinimumHeightRequest"));
+        Assert.Equal(
+            "{StaticResource CleanLedgerRootBackground}",
+            AttributeValue(page.Root!, "BackgroundColor"));
+        Assert.Contains(page.Descendants(Maui + "Label"), label =>
+            AttributeValue(label, "Text") == "พื้นที่ของผู้ซื้อ");
+        Assert.Contains(page.Descendants(Maui + "Label"), label =>
+            AttributeValue(label, "Text") == "พื้นที่ของผู้ขาย");
+        Assert.Contains(page.Descendants(Maui + "Button"), button =>
+            AttributeValue(button, "AutomationId") ==
+                "SellerCompletedFilter" &&
+            AttributeValue(button, "Command") ==
+                "{Binding SelectCompletedCommand}");
+        Assert.DoesNotContain(page.Descendants(Maui + "Button"), button =>
+            AttributeValue(button, "Text") == "+ สร้างดีลซื้อ");
+    }
+
+    [Fact]
     public void Root_header_opens_activity_without_fake_unread_state()
     {
         var header = Load("Ui", "Controls", "RootPageHeaderView.xaml");

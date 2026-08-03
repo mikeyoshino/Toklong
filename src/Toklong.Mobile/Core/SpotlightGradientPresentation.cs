@@ -5,9 +5,9 @@ namespace Toklong.Mobile.Core;
 public sealed class SpotlightGradientPresentation :
     INotifyPropertyChanged
 {
-    private string start = "#3C8AF1";
-    private string middle = "#236DCE";
-    private string end = "#185CB9";
+    private string start = CleanLedgerPalette.TrustNavy;
+    private string middle = "#14608A";
+    private string end = CleanLedgerPalette.BuyerBlue;
 
     public SpotlightGradientPresentation(AppTransaction? spotlight) =>
         SetSpotlight(spotlight);

@@ -97,7 +97,11 @@ public sealed class TransactionsViewModel : ObservableViewModel
     public bool IsBusy
     {
         get => isBusy;
-        private set => SetProperty(ref isBusy, value);
+        private set
+        {
+            if (SetProperty(ref isBusy, value))
+                OnPropertyChanged(nameof(ShowInitialSkeleton));
+        }
     }
 
     public bool IsRefreshing
@@ -154,8 +158,23 @@ public sealed class TransactionsViewModel : ObservableViewModel
     public bool IsSelling => roleFilter == RoleFilter.Selling;
     public RoleFilter Role => roleFilter;
     public string WorkspaceAccentColor => IsBuying
-        ? "#2B7FFF"
+        ? CleanLedgerPalette.BuyerBlue
         : SellerColorPalette.Role;
+    public string WorkspaceSummaryStart => IsBuying
+        ? CleanLedgerPalette.TrustNavy
+        : SellerColorPalette.HeaderStart;
+    public string WorkspaceSummaryMiddle => IsBuying
+        ? "#14608A"
+        : SellerColorPalette.HeaderMiddle;
+    public string WorkspaceSummaryEnd => IsBuying
+        ? CleanLedgerPalette.BuyerBlue
+        : SellerColorPalette.HeaderEnd;
+    public string WorkspaceLabel => IsBuying
+        ? "พื้นที่ของผู้ซื้อ"
+        : "พื้นที่ของผู้ขาย";
+    public string ActiveTransactionLabel => IsBuying
+        ? "ดีลที่กำลังดำเนินการ"
+        : "รายการขายที่ยังไม่จบ";
     public bool IsAllBuckets => bucketFilter == BucketFilter.All;
     public bool IsActionRequired => bucketFilter == BucketFilter.ActionRequired;
     public bool IsInProgress => bucketFilter == BucketFilter.InProgress;
@@ -236,6 +255,19 @@ public sealed class TransactionsViewModel : ObservableViewModel
         ? "วันนี้ไม่มีรายการที่ต้องทำ"
         : $"มี {ActionRequiredCount} รายการรอคุณทำต่อ";
 
+    public int ActiveTransactionCount =>
+        TransactionFilter.Apply(
+                allTransactions,
+                roleFilter,
+                BucketFilter.All)
+            .Count(item =>
+                item.Presentation.Bucket != TransactionBucket.Completed);
+
+    public string ActiveTransactionCountText =>
+        $"{ActiveTransactionCount} ดีล";
+
+    public bool ShowInitialSkeleton => IsBusy && !hasSuccessfulLoad;
+
     public async Task LoadAsync()
     {
         if (IsBusy)
@@ -257,6 +289,7 @@ public sealed class TransactionsViewModel : ObservableViewModel
             RaiseSellerSummaryProperties();
             OnPropertyChanged(nameof(ActionRequiredCount));
             OnPropertyChanged(nameof(ActionSummary));
+            RaiseWorkspaceSummaryProperties();
         }
         catch
         {
@@ -271,6 +304,7 @@ public sealed class TransactionsViewModel : ObservableViewModel
             }
             OnPropertyChanged(nameof(ActionRequiredCount));
             OnPropertyChanged(nameof(ActionSummary));
+            RaiseWorkspaceSummaryProperties();
             ErrorText = sellerState.LoadErrorText;
         }
         finally
@@ -297,6 +331,9 @@ public sealed class TransactionsViewModel : ObservableViewModel
 
     private void SelectBucket(BucketFilter value)
     {
+        if (IsSelling && value == BucketFilter.Completed)
+            sellerState.Select(SellerWorkCategory.All);
+
         bucketFilter = value;
         RaiseFilterProperties();
         ApplyFilter();
@@ -317,6 +354,21 @@ public sealed class TransactionsViewModel : ObservableViewModel
     {
         if (IsSelling)
         {
+            if (bucketFilter == BucketFilter.Completed)
+            {
+                SpotlightTransaction = null;
+                TransactionCollectionSynchronizer.Synchronize(
+                    Transactions,
+                    TransactionFilter.Apply(
+                        allTransactions,
+                        RoleFilter.Selling,
+                        BucketFilter.Completed));
+                EmptyText = "ยังไม่มีรายการขายที่เสร็จแล้ว";
+                OnPropertyChanged(
+                    nameof(ShowTransactionCollectionEmptyState));
+                return;
+            }
+
             var snapshot = sellerState.Snapshot;
             SpotlightTransaction = snapshot.Spotlight;
             TransactionCollectionSynchronizer.Synchronize(
@@ -371,12 +423,14 @@ public sealed class TransactionsViewModel : ObservableViewModel
         RaiseFilterProperties();
         OnPropertyChanged(nameof(ActionRequiredCount));
         OnPropertyChanged(nameof(ActionSummary));
+        RaiseWorkspaceSummaryProperties();
         OnPropertyChanged(
             nameof(ShowTransactionCollectionEmptyState));
     }
 
     private void SelectSellerWork(SellerWorkCategory category)
     {
+        bucketFilter = BucketFilter.All;
         sellerState.Select(category);
         ApplyFilter();
         var snapshot = sellerState.Snapshot;
@@ -384,7 +438,7 @@ public sealed class TransactionsViewModel : ObservableViewModel
             SellerWorkspaceAnalytics.FilterSelected(
                 snapshot.SelectedCategory,
                 snapshot.VisibleTransactions.Count));
-        RaiseSellerSummaryProperties();
+        RaiseFilterProperties();
     }
 
     private void RaiseSellerSummaryProperties()
@@ -404,6 +458,13 @@ public sealed class TransactionsViewModel : ObservableViewModel
         OnPropertyChanged(nameof(IsSellerInProgressSelected));
         OnPropertyChanged(nameof(SpotlightAmountText));
         OnPropertyChanged(nameof(SellerPriorityExplanation));
+    }
+
+    private void RaiseWorkspaceSummaryProperties()
+    {
+        OnPropertyChanged(nameof(ActiveTransactionCount));
+        OnPropertyChanged(nameof(ActiveTransactionCountText));
+        OnPropertyChanged(nameof(ShowInitialSkeleton));
     }
 
     private static string SellerSemanticText(

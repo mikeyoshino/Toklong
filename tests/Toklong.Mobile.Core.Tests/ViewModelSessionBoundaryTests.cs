@@ -371,7 +371,7 @@ public sealed class ViewModelSessionBoundaryTests :
         await seller.LoadAsync();
 
         Assert.True(buyer.IsBuying);
-        Assert.Equal("#2B7FFF", buyer.WorkspaceAccentColor);
+        Assert.Equal("#1988D3", buyer.WorkspaceAccentColor);
         Assert.All(
             buyer.Transactions.Append(buyer.SpotlightTransaction!),
             item => Assert.Equal(AppTransactionRole.Buyer, item.Role));
@@ -382,6 +382,115 @@ public sealed class ViewModelSessionBoundaryTests :
         Assert.All(
             seller.Transactions.Append(seller.SpotlightTransaction!),
             item => Assert.Equal(AppTransactionRole.Seller, item.Role));
+    }
+
+    [Fact]
+    public async Task Workspace_summary_counts_only_active_matching_role_records()
+    {
+        var service = new SequencedTransactionService();
+        service.EnqueueResult(
+            new AppTransaction(
+                Guid.Parse("00000000-0000-0000-0000-000000000A01"),
+                "กล้อง",
+                100_000,
+                "THB",
+                AppTransactionRole.Buyer,
+                AppFulfillmentType.Physical,
+                "SellerAcceptedAwaitingPayment",
+                DateTimeOffset.Parse("2026-08-03T10:00:00+07:00"),
+                DateTimeOffset.Parse("2026-08-03T11:00:00+07:00"),
+                "ผู้ขาย"),
+            new AppTransaction(
+                Guid.Parse("00000000-0000-0000-0000-000000000A02"),
+                "รองเท้า",
+                200_000,
+                "THB",
+                AppTransactionRole.Buyer,
+                AppFulfillmentType.Physical,
+                "PaidOut",
+                DateTimeOffset.Parse("2026-08-03T09:00:00+07:00"),
+                null,
+                "ผู้ขาย"),
+            new AppTransaction(
+                Guid.Parse("00000000-0000-0000-0000-000000000A03"),
+                "กระเป๋า",
+                300_000,
+                "THB",
+                AppTransactionRole.Seller,
+                AppFulfillmentType.Physical,
+                "PaidAwaitingShipment",
+                DateTimeOffset.Parse("2026-08-03T08:00:00+07:00"),
+                DateTimeOffset.Parse("2026-08-06T08:00:00+07:00"),
+                "ผู้ซื้อ"));
+        var buyer = new TransactionsViewModel(
+            service,
+            new NoOpDeepLinks(),
+            new RecordingAnalytics(),
+            new AuthenticatedSessionBoundary(),
+            RoleFilter.Buying);
+
+        await buyer.LoadAsync();
+
+        Assert.Equal(1, buyer.ActiveTransactionCount);
+        Assert.Equal("1 ดีล", buyer.ActiveTransactionCountText);
+        Assert.All(
+            buyer.Transactions.Append(buyer.SpotlightTransaction!),
+            item => Assert.Equal(AppTransactionRole.Buyer, item.Role));
+    }
+
+    [Fact]
+    public async Task Initial_skeleton_stops_after_the_first_successful_load()
+    {
+        var service = new SequencedTransactionService();
+        var pending = service.EnqueuePending();
+        var viewModel = new TransactionsViewModel(
+            service,
+            new NoOpDeepLinks(),
+            new RecordingAnalytics(),
+            new AuthenticatedSessionBoundary(),
+            RoleFilter.Buying);
+
+        var load = viewModel.LoadAsync();
+
+        Assert.True(viewModel.ShowInitialSkeleton);
+
+        pending.SetResult([]);
+        await load;
+
+        Assert.False(viewModel.ShowInitialSkeleton);
+    }
+
+    [Fact]
+    public async Task Seller_completed_filter_contains_only_completed_sales()
+    {
+        var service = new SequencedTransactionService();
+        service.EnqueueResult(
+            Item(
+                "00000000-0000-0000-0000-000000000A04",
+                "ขายสำเร็จ",
+                "ผู้ซื้อหนึ่ง",
+                "PaidOut"),
+            Item(
+                "00000000-0000-0000-0000-000000000A05",
+                "กำลังส่ง",
+                "ผู้ซื้อสอง",
+                "InTransit"));
+        var seller = new TransactionsViewModel(
+            service,
+            new NoOpDeepLinks(),
+            new RecordingAnalytics(),
+            new AuthenticatedSessionBoundary(),
+            RoleFilter.Selling);
+        await seller.LoadAsync();
+
+        seller.SelectSellerNewOffersCommand.Execute(null);
+        seller.SelectCompletedCommand.Execute(null);
+
+        var completed = Assert.Single(seller.Transactions);
+        Assert.Equal("ขายสำเร็จ", completed.ProductName);
+        Assert.Equal(TransactionBucket.Completed, completed.Presentation.Bucket);
+        Assert.Null(seller.SpotlightTransaction);
+        Assert.False(seller.IsSellerNewOffersSelected);
     }
 
     [Fact]

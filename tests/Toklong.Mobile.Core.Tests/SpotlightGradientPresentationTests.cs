@@ -5,6 +5,16 @@ namespace Toklong.Mobile.Core.Tests;
 public sealed class SpotlightGradientPresentationTests
 {
     [Fact]
+    public void Empty_spotlight_starts_with_the_clean_ledger_buyer_gradient()
+    {
+        var presentation = new SpotlightGradientPresentation(null);
+
+        Assert.Equal("#12364F", presentation.Start);
+        Assert.Equal("#14608A", presentation.Middle);
+        Assert.Equal("#1988D3", presentation.End);
+    }
+
+    [Fact]
     public void Colors_remain_valid_when_spotlight_is_removed()
     {
         var spotlight = new AppTransaction(
