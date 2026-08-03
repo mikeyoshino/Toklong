@@ -3,18 +3,11 @@
     x:Class="Toklong.Mobile.Pages.ProductTypeSelectionPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    BackgroundColor="{StaticResource CleanLedgerRootBackground}"
     Title="เลือกประเภทสินค้า"
     SafeAreaEdges="Container"
     Shell.NavBarIsVisible="False"
     Shell.TabBarIsVisible="False">
-    <ContentPage.Background>
-        <RadialGradientBrush Center="0.86,0.02" Radius="0.94">
-            <GradientStop Color="#DCEFFF" Offset="0" />
-            <GradientStop Color="#F6FAFF" Offset="0.34" />
-            <GradientStop Color="#F7FAFF" Offset="0.82" />
-        </RadialGradientBrush>
-    </ContentPage.Background>
-
     <Grid RowDefinitions="Auto,*">
         <Border
             Grid.Row="0"
@@ -48,8 +41,7 @@
                     MaximumHeightRequest="300"
                     Padding="12,22"
                     VerticalOptions="Start"
-                    BackgroundColor="#F7FFFFFF"
-                    Stroke="{StaticResource Line}"
+                    Style="{StaticResource LedgerSurfaceCard}"
                     StrokeShape="RoundRectangle 20">
                     <Border.Shadow>
                         <Shadow
@@ -117,8 +109,7 @@
                     MaximumHeightRequest="300"
                     Padding="12,22"
                     VerticalOptions="Start"
-                    BackgroundColor="#F7FFFFFF"
-                    Stroke="{StaticResource Line}"
+                    Style="{StaticResource LedgerSurfaceCard}"
                     StrokeShape="RoundRectangle 20">
                     <Border.Shadow>
                         <Shadow

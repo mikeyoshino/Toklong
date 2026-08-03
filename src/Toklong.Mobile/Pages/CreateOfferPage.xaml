@@ -8,14 +8,14 @@
     SafeAreaEdges="Container"
     Shell.NavBarIsVisible="False"
     Shell.TabBarIsVisible="False"
-    BackgroundColor="#FBFDFF">
+    BackgroundColor="{StaticResource CleanLedgerRootBackground}">
 
     <Grid RowDefinitions="Auto,*">
         <Border
             Grid.Row="0"
             AutomationId="CreateOfferHeader"
             Padding="20,12,20,18"
-            BackgroundColor="White"
+            BackgroundColor="Transparent"
             StrokeThickness="0">
             <VerticalStackLayout Spacing="14">
                 <Grid
@@ -280,14 +280,23 @@
                     </VerticalStackLayout>
                 </VerticalStackLayout>
 
-                <Button
-                    AutomationId="OpenAiAgreementDraftButton"
-                    Style="{StaticResource RefinedSecondaryActionButton}"
-                    Command="{Binding OpenAiSheetCommand}"
-                    ContentLayout="Left,10"
-                    ImageSource="ui_ai_assist.png"
-                    SemanticProperties.Description="ให้ AI ช่วยกรอกข้อมูลจากรูปหรือข้อความแชต"
-                    Text="ให้ AI ช่วยกรอก" />
+                <Border
+                    AutomationId="AgreementDraftAssistant"
+                    Padding="6"
+                    BackgroundColor="#EFFBF8"
+                    Stroke="{StaticResource VerifiedMint}"
+                    StrokeShape="RoundRectangle 16">
+                    <Button
+                        AutomationId="OpenAiAgreementDraftButton"
+                        Style="{StaticResource RefinedSecondaryActionButton}"
+                        BackgroundColor="Transparent"
+                        BorderWidth="0"
+                        Command="{Binding OpenAiSheetCommand}"
+                        ContentLayout="Left,10"
+                        ImageSource="ui_ai_assist.png"
+                        SemanticProperties.Description="ให้ AI ช่วยกรอกข้อมูลจากรูปหรือข้อความแชต"
+                        Text="ให้ AI ช่วยกรอก" />
+                </Border>
 
                 <VerticalStackLayout
                     AutomationId="OptionalProductPhotoField"
@@ -375,7 +384,7 @@
 
                 <Button
                     AutomationId="ContinueFromDealButton"
-                    Style="{StaticResource RefinedPrimaryButton}"
+                    Style="{StaticResource LedgerPrimaryButton}"
                     Command="{Binding ContinueFromDealCommand}"
                     Text="{Binding ContinueFromDealLabel}" />
             </VerticalStackLayout>
@@ -539,7 +548,7 @@
 
                 <Button
                     AutomationId="ContinueFromFulfillmentButton"
-                    Style="{StaticResource RefinedPrimaryButton}"
+                    Style="{StaticResource LedgerPrimaryButton}"
                     Command="{Binding ContinueFromFulfillmentCommand}"
                     Text="ถัดไป: ตรวจและส่ง  →">
                     <Button.Triggers>
@@ -650,7 +659,7 @@
                 <Button
                     x:Name="SubmitReviewedOfferButton"
                     AutomationId="SubmitReviewedOfferButton"
-                    Style="{StaticResource RefinedPrimaryButton}"
+                    Style="{StaticResource LedgerPrimaryButton}"
                     Command="{Binding SubmitCommand}"
                     SemanticProperties.Description="ส่งข้อเสนอที่ตรวจแล้วให้ผู้ขาย"
                     Text="ส่งข้อเสนอให้ผู้ขาย">
@@ -737,7 +746,7 @@
                                 Text="AI ช่วยเตรียมข้อมูลเท่านั้น กรุณาอย่าใส่ OTP รหัสผ่าน หรือข้อมูลบัตร" />
                             <Button
                                 AutomationId="AnalyzeAiAgreementDraftButton"
-                                Style="{StaticResource RefinedPrimaryButton}"
+                                Style="{StaticResource LedgerPrimaryButton}"
                                 Command="{Binding AnalyzeAiSourceCommand}"
                                 Text="วิเคราะห์ข้อมูล">
                                 <Button.Triggers>
@@ -773,7 +782,7 @@
                                 Text="ระบบจะเติมเฉพาะช่องที่ยังว่าง และคุณแก้ไขได้ก่อนส่งให้ผู้ขาย" />
                             <Button
                                 AutomationId="ApplyAiAgreementDraftButton"
-                                Style="{StaticResource RefinedPrimaryButton}"
+                                Style="{StaticResource LedgerPrimaryButton}"
                                 Command="{Binding ApplyAiDraftCommand}"
                                 Text="เติมลงในแบบฟอร์ม" />
                         </VerticalStackLayout>

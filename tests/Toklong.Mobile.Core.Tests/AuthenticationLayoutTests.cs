@@ -2,6 +2,23 @@ namespace Toklong.Mobile.Core.Tests;
 
 public sealed class AuthenticationLayoutTests
 {
+    [Theory]
+    [InlineData("WelcomePage.xaml")]
+    [InlineData("SignInPage.xaml")]
+    [InlineData("SignUpPage.xaml")]
+    [InlineData("VerifyCodePage.xaml")]
+    [InlineData("CompleteRegistrationPage.xaml")]
+    public void Authentication_pages_use_the_shared_mist_background(
+        string page)
+    {
+        var xaml = ReadPage(page);
+
+        Assert.Contains(
+            "{StaticResource CleanLedgerRootBackground}",
+            xaml);
+        Assert.DoesNotContain("RadialGradientBrush", xaml);
+    }
+
     [Fact]
     public void Welcome_uses_centered_brand_and_removes_old_hero_art()
     {

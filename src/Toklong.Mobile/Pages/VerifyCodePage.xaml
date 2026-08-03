@@ -4,16 +4,10 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
+    BackgroundColor="{StaticResource CleanLedgerRootBackground}"
     SafeAreaEdges="Container"
     Shell.NavBarIsVisible="False"
     Shell.TabBarIsVisible="False">
-    <ContentPage.Background>
-        <RadialGradientBrush Center="0.5,0.03" Radius="0.95">
-            <GradientStop Color="#E2F1FF" Offset="0" />
-            <GradientStop Color="#F8FBFF" Offset="0.44" />
-            <GradientStop Color="#FFFFFF" Offset="1" />
-        </RadialGradientBrush>
-    </ContentPage.Background>
     <ScrollView SafeAreaEdges="SoftInput">
         <VerticalStackLayout
             MaximumWidthRequest="520"

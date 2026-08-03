@@ -455,6 +455,54 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
+    public void Create_flow_uses_clean_ledger_tokens_without_changing_steps()
+    {
+        var create = Load("Ui", "Pages", "CreateOfferPage.xaml");
+        var header = create.Descendants(Maui + "Border").Single(element =>
+            AttributeValue(element, "AutomationId") ==
+            "CreateOfferHeader");
+        var assistant = create.Descendants(Maui + "Border").Single(element =>
+            AttributeValue(element, "AutomationId") ==
+            "AgreementDraftAssistant");
+
+        Assert.Equal(
+            "{StaticResource CleanLedgerRootBackground}",
+            AttributeValue(create.Root!, "BackgroundColor"));
+        Assert.Equal("Transparent", AttributeValue(header, "BackgroundColor"));
+        Assert.Equal(
+            "{StaticResource VerifiedMint}",
+            AttributeValue(assistant, "Stroke"));
+        Assert.Contains(create.Descendants(Maui + "Button"), button =>
+            AttributeValue(button, "Style") ==
+            "{StaticResource LedgerPrimaryButton}");
+        Assert.Contains(create.Descendants(Maui + "Label"), label =>
+            AttributeValue(label, "Text") == "สร้างดีลซื้อ");
+        Assert.Contains(create.Descendants(), element =>
+            AttributeValue(element, "IsVisible") ==
+            "{Binding IsDealStep}");
+        Assert.Contains(create.Descendants(), element =>
+            AttributeValue(element, "IsVisible") ==
+            "{Binding IsFulfillmentStep}");
+        Assert.Contains(create.Descendants(), element =>
+            AttributeValue(element, "IsVisible") ==
+            "{Binding IsReviewStep}");
+        Assert.NotEqual(
+            "True",
+            AttributeValue(create.Root!, "Shell.TabBarIsVisible"));
+
+        var productType = Load(
+            "Ui",
+            "Pages",
+            "ProductTypeSelectionPage.xaml");
+        Assert.Equal(
+            2,
+            productType.Descendants(Maui + "Button").Count(button =>
+                AttributeValue(button, "AutomationId") is
+                    "SelectPhysicalProductTypeButton" or
+                    "SelectGameAccountProductTypeButton"));
+    }
+
+    [Fact]
     public void Root_header_opens_activity_without_fake_unread_state()
     {
         var header = Load("Ui", "Controls", "RootPageHeaderView.xaml");
