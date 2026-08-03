@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:converters="clr-namespace:Toklong.Mobile.Converters"
+    BackgroundColor="{StaticResource CleanLedgerRootBackground}"
     Title="QR เคาน์เตอร์"
     SafeAreaEdges="Container"
     Shell.NavBarIsVisible="True"
@@ -32,8 +33,7 @@
             <Border
                 AutomationId="CounterQrFullscreenCard"
                 Padding="26"
-                BackgroundColor="White"
-                Stroke="{StaticResource Line}"
+                Style="{StaticResource LedgerSurfaceCard}"
                 StrokeShape="RoundRectangle 24">
                 <Image
                     AutomationId="CounterQrFullscreenImage"

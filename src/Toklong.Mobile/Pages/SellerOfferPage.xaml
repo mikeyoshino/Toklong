@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
+    BackgroundColor="{StaticResource CleanLedgerRootBackground}"
     Title="เตรียมขาย"
     SafeAreaEdges="Container"
     Shell.TabBarIsVisible="False">
@@ -59,7 +60,7 @@
                 </Grid>
             </Border>
 
-            <Border Style="{StaticResource SurfaceCard}" Padding="17">
+            <Border Style="{StaticResource LedgerSurfaceCard}" Padding="17">
                 <Grid ColumnDefinitions="76,*" ColumnSpacing="14">
                     <Border
                         WidthRequest="76"
@@ -521,7 +522,7 @@
 
             <Button
                 AutomationId="ConfirmSellerReadyButton"
-                Style="{StaticResource RefinedPrimaryButton}"
+                Style="{StaticResource LedgerPrimaryButton}"
                 Command="{Binding ConfirmReadyCommand}"
                 SemanticProperties.Description="ยืนยันว่ารายละเอียดถูกต้องและเปิดให้ผู้ซื้อชำระเงิน"
                 Text="ยืนยันพร้อมขาย" />

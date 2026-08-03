@@ -414,6 +414,47 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
+    public void Transaction_detail_uses_role_header_and_commandless_guidance()
+    {
+        var detail = Load("Ui", "Pages", "TransactionDetailPage.xaml");
+        Assert.Contains(detail.Descendants(), element =>
+            element.Name.LocalName == "RoleTransactionHeader" &&
+            AttributeValue(element, "Transaction") ==
+                "{Binding Transaction}");
+        Assert.Contains(detail.Descendants(), element =>
+            element.Name.LocalName == "DealGuidanceCard" &&
+            AttributeValue(element, "Transaction") ==
+                "{Binding Transaction}");
+
+        var guidance = Load(
+            "Ui",
+            "Controls",
+            "DealGuidanceCard.xaml");
+        Assert.Empty(guidance.Descendants(Maui + "Button"));
+        Assert.Empty(guidance.Descendants(Maui + "Entry"));
+        Assert.Empty(guidance.Descendants(Maui + "Editor"));
+        Assert.Empty(guidance.Descendants(Maui + "TapGestureRecognizer"));
+    }
+
+    [Theory]
+    [InlineData("TransactionDetailPage.xaml")]
+    [InlineData("SellerOfferPage.xaml")]
+    [InlineData("CounterQrPage.xaml")]
+    [InlineData("ShippingLabelPage.xaml")]
+    public void Transaction_support_pages_use_clean_ledger_surfaces(
+        string fileName)
+    {
+        var page = Load("Ui", "Pages", fileName);
+
+        Assert.Equal(
+            "{StaticResource CleanLedgerRootBackground}",
+            AttributeValue(page.Root!, "BackgroundColor"));
+        Assert.Contains(page.Descendants(Maui + "Border"), border =>
+            AttributeValue(border, "Style") ==
+            "{StaticResource LedgerSurfaceCard}");
+    }
+
+    [Fact]
     public void Root_header_opens_activity_without_fake_unread_state()
     {
         var header = Load("Ui", "Controls", "RootPageHeaderView.xaml");
@@ -665,11 +706,15 @@ public sealed class UiLayoutConsistencyTests
             "{x:Static theme:SellerColorPaletteColors.Role}",
             AttributeValue(shareButton, "BackgroundColor"));
 
+        var roleHeader = Load(
+            "Ui",
+            "Controls",
+            "RoleTransactionHeader.xaml");
         Assert.Contains(
-            detail.Descendants(Maui + "GradientStop"),
+            roleHeader.Descendants(Maui + "GradientStop"),
             stop =>
                 AttributeValue(stop, "Color") ==
-                "{Binding Transaction.RoleHeaderStart, FallbackValue=#3C8AF1, TargetNullValue=#3C8AF1}");
+                "{Binding Transaction.RoleHeaderStart, Source={x:Reference Root}, FallbackValue=#12364F, TargetNullValue=#12364F}");
     }
 
     [Fact]
@@ -1682,21 +1727,21 @@ public sealed class UiLayoutConsistencyTests
     [Fact]
     public void TransactionHeaderUsesRoleSpecificAmount()
     {
-        var detail = Load(
+        var header = Load(
             "Ui",
-            "Pages",
-            "TransactionDetailPage.xaml");
+            "Controls",
+            "RoleTransactionHeader.xaml");
 
         Assert.Contains(
-            detail.Descendants(Maui + "Label"),
+            header.Descendants(Maui + "Label"),
             label =>
                 AttributeValue(label, "Text") ==
-                    "{Binding Transaction.RoleAmountLabel}");
+                    "{Binding Transaction.RoleAmountLabel, Source={x:Reference Root}}");
         Assert.Contains(
-            detail.Descendants(Maui + "Label"),
+            header.Descendants(Maui + "Label"),
             label =>
                 AttributeValue(label, "Text") ==
-                    "{Binding Transaction.RoleAmountText}");
+                    "{Binding Transaction.RoleAmountText, Source={x:Reference Root}}");
     }
 
     [Fact]
@@ -1704,10 +1749,13 @@ public sealed class UiLayoutConsistencyTests
     {
         var detail = Load("Ui", "Pages", "TransactionDetailPage.xaml");
         var scroll = detail.Descendants(Maui + "ScrollView").First();
-        var state = detail.Descendants(Maui + "Border")
-            .Single(border =>
-                AttributeValue(border, "AutomationId") ==
-                    "TransactionCurrentStateCard");
+        var state = detail.Descendants()
+            .Single(element =>
+                element.Name.LocalName == "DealGuidanceCard");
+        var guidance = Load(
+            "Ui",
+            "Controls",
+            "DealGuidanceCard.xaml");
         var agreement = detail.Descendants(Maui + "Grid")
             .Single(grid =>
                 AttributeValue(grid, "AutomationId") ==
@@ -1725,14 +1773,14 @@ public sealed class UiLayoutConsistencyTests
         Assert.Equal("{Binding HasTransaction}", AttributeValue(scroll, "IsVisible"));
         Assert.True(documentOrder.IndexOf(state) < documentOrder.IndexOf(agreement));
         Assert.Contains(
-            state.Descendants(Maui + "Label"),
+            guidance.Descendants(Maui + "Label"),
             label => AttributeValue(label, "Text") ==
-                "{Binding Transaction.StatusGuidance}");
+                "{Binding Transaction.StatusGuidance, Source={x:Reference Root}}");
         Assert.Null(AttributeValue(state, "SemanticProperties.Description"));
         Assert.Contains(
-            state.Descendants(Maui + "Label"),
+            guidance.Descendants(Maui + "Label"),
             label => AttributeValue(label, "Text") ==
-                "{Binding Transaction.StatusLabel}");
+                "{Binding Transaction.StatusLabel, Source={x:Reference Root}}");
         Assert.Contains(
             agreement.Descendants(Maui + "Label"),
             label =>
@@ -2351,11 +2399,11 @@ public sealed class UiLayoutConsistencyTests
     [Fact]
     public void TransactionDetailGradients_HaveColorsBeforeTransactionLoads()
     {
-        var detail = Load(
+        var header = Load(
             "Ui",
-            "Pages",
-            "TransactionDetailPage.xaml");
-        var dynamicGradientStops = detail
+            "Controls",
+            "RoleTransactionHeader.xaml");
+        var dynamicGradientStops = header
             .Descendants(Maui + "GradientStop")
             .Select(stop => AttributeValue(stop, "Color"))
             .Where(color =>
@@ -2364,7 +2412,7 @@ public sealed class UiLayoutConsistencyTests
                     StringComparison.Ordinal) == true)
             .ToArray();
 
-        Assert.Equal(5, dynamicGradientStops.Length);
+        Assert.Equal(3, dynamicGradientStops.Length);
         Assert.All(
             dynamicGradientStops,
             color =>

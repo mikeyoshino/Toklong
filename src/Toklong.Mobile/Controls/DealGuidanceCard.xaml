@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Toklong.Mobile.Controls.DealGuidanceCard"
+    x:Name="Root"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+    <Border
+        Padding="16"
+        BackgroundColor="{Binding Transaction.StatusGuidanceBackground, Source={x:Reference Root}}"
+        Stroke="{StaticResource Line}"
+        StrokeShape="RoundRectangle 18">
+        <Grid ColumnDefinitions="42,*" ColumnSpacing="12">
+            <Border
+                WidthRequest="42"
+                HeightRequest="42"
+                VerticalOptions="Start"
+                BackgroundColor="White"
+                StrokeThickness="0"
+                StrokeShape="RoundRectangle 13">
+                <Image
+                    Margin="9"
+                    AutomationProperties.IsInAccessibleTree="False"
+                    Source="{Binding Transaction.StatusGuidanceIcon, Source={x:Reference Root}}" />
+            </Border>
+            <VerticalStackLayout Grid.Column="1" Spacing="3">
+                <Label
+                    FontAttributes="Bold"
+                    FontSize="12"
+                    Text="คำแนะนำสำหรับขั้นตอนนี้"
+                    TextColor="{Binding Transaction.StatusGuidanceColor, Source={x:Reference Root}}" />
+                <Label
+                    FontAttributes="Bold"
+                    FontSize="17"
+                    LineBreakMode="WordWrap"
+                    Text="{Binding Transaction.StatusLabel, Source={x:Reference Root}}"
+                    TextColor="{Binding Transaction.StatusGuidanceColor, Source={x:Reference Root}}" />
+                <Label
+                    FontSize="13"
+                    LineBreakMode="WordWrap"
+                    LineHeight="1.4"
+                    Text="{Binding Transaction.StatusGuidance, Source={x:Reference Root}}"
+                    TextColor="{Binding Transaction.StatusGuidanceColor, Source={x:Reference Root}}" />
+            </VerticalStackLayout>
+        </Grid>
+    </Border>
+</ContentView>

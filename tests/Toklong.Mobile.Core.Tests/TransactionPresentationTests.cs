@@ -4,6 +4,38 @@ namespace Toklong.Mobile.Core.Tests;
 
 public sealed class TransactionPresentationTests
 {
+    [Theory]
+    [InlineData("PaymentPending", AppTransactionRole.Buyer)]
+    [InlineData("Disputed", AppTransactionRole.Seller)]
+    [InlineData("DigitalDeliverySubmitted", AppTransactionRole.Buyer)]
+    public void Guidance_contains_no_internal_transaction_vocabulary(
+        string state,
+        AppTransactionRole role)
+    {
+        var guidance = (CreateItem(null) with
+        {
+            State = state,
+            Role = role
+        }).StatusGuidance;
+
+        Assert.DoesNotContain(
+            "webhook",
+            guidance,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(
+            "state machine",
+            guidance,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(
+            "hash",
+            guidance,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(
+            "reconciliation",
+            guidance,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public void SellerAcceptedOfferRequiresBuyerPaymentAction()
     {

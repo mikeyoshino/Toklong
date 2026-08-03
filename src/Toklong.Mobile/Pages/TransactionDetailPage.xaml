@@ -6,6 +6,7 @@
     xmlns:controls="clr-namespace:Toklong.Mobile.Controls"
     xmlns:converters="clr-namespace:Toklong.Mobile.Converters"
     xmlns:theme="clr-namespace:Toklong.Mobile.Theming"
+    BackgroundColor="{StaticResource CleanLedgerRootBackground}"
     Title="{Binding DetailHeadline}"
     SafeAreaEdges="Container"
     Shell.NavBarIsVisible="True"
@@ -14,18 +15,6 @@
         <converters:ByteArrayImageSourceConverter
             x:Key="ByteArrayImageSourceConverter" />
     </ContentPage.Resources>
-    <ContentPage.Background>
-        <RadialGradientBrush Center="0.9,0.02" Radius="0.98">
-            <GradientStop
-                Color="{Binding Transaction.RolePageTint, FallbackValue=#DCEFFF, TargetNullValue=#DCEFFF}"
-                Offset="0" />
-            <GradientStop
-                Color="{Binding Transaction.RolePageMiddle, FallbackValue=#F6FAFF, TargetNullValue=#F6FAFF}"
-                Offset="0.34" />
-            <GradientStop Color="#FFFFFF" Offset="0.84" />
-        </RadialGradientBrush>
-    </ContentPage.Background>
-
     <Grid>
     <ScrollView
         IsVisible="{Binding HasTransaction}"
@@ -35,168 +24,17 @@
             HorizontalOptions="Fill"
             Padding="{StaticResource RefinedScreenPadding}"
             Spacing="{StaticResource SpacingLg}">
-            <Border
-                Padding="18"
-                StrokeThickness="0"
-                StrokeShape="RoundRectangle 24">
-                <Border.Shadow>
-                    <Shadow
-                        Brush="{Binding Transaction.RoleColor, FallbackValue=#2B7FFF, TargetNullValue=#2B7FFF}"
-                        Offset="0,10"
-                        Opacity="0.18"
-                        Radius="24" />
-                </Border.Shadow>
-                <Border.Background>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                        <GradientStop
-                            Color="{Binding Transaction.RoleHeaderStart, FallbackValue=#3C8AF1, TargetNullValue=#3C8AF1}"
-                            Offset="0" />
-                        <GradientStop
-                            Color="{Binding Transaction.RoleHeaderMiddle, FallbackValue=#236DCE, TargetNullValue=#236DCE}"
-                            Offset="0.64" />
-                        <GradientStop
-                            Color="{Binding Transaction.RoleHeaderEnd, FallbackValue=#185CB9, TargetNullValue=#185CB9}"
-                            Offset="1" />
-                    </LinearGradientBrush>
-                </Border.Background>
-                <VerticalStackLayout Spacing="12">
-                    <Grid
-                        ColumnDefinitions="*,*"
-                        ColumnSpacing="8">
-                        <HorizontalStackLayout Spacing="8">
-                            <BoxView
-                                WidthRequest="7"
-                                HeightRequest="7"
-                                VerticalOptions="Center"
-                                Color="{Binding Transaction.RoleDot}"
-                                CornerRadius="4" />
-                            <Label
-                                FontAttributes="Bold"
-                                FontSize="12"
-                                LineBreakMode="WordWrap"
-                                MaxLines="2"
-                                Text="{Binding Transaction.RoleLabel}"
-                                TextColor="#DFFFFFFF" />
-                        </HorizontalStackLayout>
-                        <Border
-                            Grid.Column="1"
-                            HorizontalOptions="End"
-                            Padding="9,5"
-                            BackgroundColor="#24FFFFFF"
-                            Stroke="#30FFFFFF"
-                            StrokeShape="RoundRectangle 99">
-                            <Label
-                                FontAttributes="Bold"
-                                FontSize="12"
-                                LineBreakMode="WordWrap"
-                                MaxLines="2"
-                                Text="{Binding Transaction.StatusLabel}"
-                                TextColor="White" />
-                        </Border>
-                    </Grid>
+            <controls:RoleTransactionHeader
+                AutomationId="RoleTransactionHeader"
+                Transaction="{Binding Transaction}" />
 
-                    <Grid ColumnDefinitions="56,*" ColumnSpacing="12">
-                        <Border
-                            WidthRequest="56"
-                            HeightRequest="56"
-                            BackgroundColor="#E8FFFFFF"
-                            Stroke="#30FFFFFF"
-                            StrokeShape="RoundRectangle 17">
-                            <Image
-                                Margin="8"
-                                Source="{Binding Transaction.ProductVisual}" />
-                        </Border>
-                        <Label
-                            Grid.Column="1"
-                            VerticalOptions="Center"
-                            FontAttributes="Bold"
-                            FontSize="21"
-                            LineBreakMode="TailTruncation"
-                            MaxLines="2"
-                            Text="{Binding Transaction.ProductName}"
-                            TextColor="White" />
-                    </Grid>
-
-                    <VerticalStackLayout Spacing="8">
-                        <VerticalStackLayout Spacing="2">
-                            <Label
-                                FontSize="12"
-                                Text="{Binding Transaction.RoleAmountLabel}"
-                                TextColor="{Binding Transaction.RoleHeaderSecondary}" />
-                            <Label
-                                FontAttributes="Bold"
-                                FontSize="27"
-                                CharacterSpacing="-0.5"
-                                Text="{Binding Transaction.RoleAmountText}"
-                                TextColor="White" />
-                        </VerticalStackLayout>
-                        <BoxView
-                            HeightRequest="1"
-                            Color="#24FFFFFF" />
-                        <VerticalStackLayout Spacing="3">
-                            <Label
-                                FontSize="12"
-                                LineBreakMode="WordWrap"
-                                Text="{Binding Transaction.CounterpartyLabel}"
-                                TextColor="{Binding Transaction.RoleHeaderSecondary}" />
-                            <Label
-                                FontSize="12"
-                                LineBreakMode="WordWrap"
-                                Text="{Binding Transaction.DeadlineText}"
-                                TextColor="{Binding Transaction.RoleHeaderSecondary}" />
-                        </VerticalStackLayout>
-                    </VerticalStackLayout>
-                </VerticalStackLayout>
-            </Border>
-
-            <Border
-                AutomationId="TransactionCurrentStateCard"
-                Padding="16"
-                BackgroundColor="{Binding Transaction.StatusGuidanceBackground}"
-                StrokeThickness="0"
-                StrokeShape="RoundRectangle 18">
-                <Grid
-                    ColumnDefinitions="42,*"
-                    ColumnSpacing="12">
-                    <Border
-                        WidthRequest="42"
-                        HeightRequest="42"
-                        VerticalOptions="Start"
-                        BackgroundColor="White"
-                        StrokeThickness="0"
-                        StrokeShape="RoundRectangle 13">
-                        <Image
-                            Margin="9"
-                            AutomationProperties.IsInAccessibleTree="False"
-                            Source="{Binding Transaction.StatusGuidanceIcon}" />
-                    </Border>
-                    <VerticalStackLayout
-                        Grid.Column="1"
-                        Spacing="3">
-                        <Label
-                            FontAttributes="Bold"
-                            FontSize="12"
-                            Text="ขั้นตอนนี้"
-                            TextColor="{Binding Transaction.StatusGuidanceColor}" />
-                        <Label
-                            FontAttributes="Bold"
-                            FontSize="17"
-                            LineBreakMode="WordWrap"
-                            Text="{Binding Transaction.StatusLabel}"
-                            TextColor="{Binding Transaction.StatusGuidanceColor}" />
-                        <Label
-                            FontSize="13"
-                            LineBreakMode="WordWrap"
-                            LineHeight="1.4"
-                            Text="{Binding Transaction.StatusGuidance}"
-                            TextColor="{Binding Transaction.StatusGuidanceColor}" />
-                    </VerticalStackLayout>
-                </Grid>
-            </Border>
+            <controls:DealGuidanceCard
+                AutomationId="DealGuidanceCard"
+                Transaction="{Binding Transaction}" />
 
             <Border
                 IsVisible="{Binding Transaction.ShowShippingProgress}"
-                Style="{StaticResource SurfaceCard}"
+                Style="{StaticResource LedgerSurfaceCard}"
                 Padding="17">
                 <VerticalStackLayout Spacing="14">
                     <Label
@@ -210,7 +48,7 @@
             </Border>
 
             <Border
-                Style="{StaticResource SurfaceCard}"
+                Style="{StaticResource LedgerSurfaceCard}"
                 Padding="18">
                 <VerticalStackLayout Spacing="11">
                     <Grid
