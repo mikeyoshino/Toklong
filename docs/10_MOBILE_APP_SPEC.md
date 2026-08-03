@@ -35,21 +35,18 @@ another without changing accounts or entering a separate seller area.
 
 ## Navigation
 
-The bottom navigation contains only three destinations:
+The authenticated root action bar contains `ซื้อ | + สร้างดีล | ขาย` in that
+order. Buy and Sell are separate fixed-role transaction workspaces. The raised
+center action has the accessible name `สร้างข้อเสนอซื้อ`; it always opens the
+buyer product-type choice and never creates a marketplace or seller listing.
+It creates one private buyer offer for an item already agreed outside TOKLONG,
+and only after final submission.
 
-1. `รายการ` — all purchases and sales, ordered by urgency.
-2. `กิจกรรม` — important status changes and exact deadlines.
-3. `บัญชี` — identity, one saved delivery address, seller payout account, help,
-   and terms.
-
-`สร้างข้อเสนอ` is the prominent action on the transaction screen. It is not a
-marketplace listing action. It creates one private buyer offer for an item already
-agreed outside TOKLONG.
-
-The three root destinations do not show a native navigation bar. Pushed
-transaction screens such as create-offer and transaction detail show the native
-back navigation and temporarily hide the bottom tabs. Authentication screens
-use the same 44-point custom back action beside the brand lockup so their layout
+The root workspaces do not show a native navigation bar. `กิจกรรม` and `บัญชี` are
+top-right actions and open as pushed Activity and Account pages. Pushed screens
+show native Back navigation and hide the authenticated root action bar.
+Authentication screens use the same 44-point custom back action beside the
+brand lockup so their layout
 does not shift between sign-in, registration, and verification. Returning must
 restore the root chrome and preserve the transaction-list scroll offset;
 reloading the collection must not jump past its header.
@@ -75,8 +72,9 @@ The visible transaction-detail screen refreshes from the API every five seconds
 while waiting for either party or for payment confirmation, and stops polling
 when the page is no longer visible.
 
-The root role control is a persisted top-level `ซื้อ | ขาย` mode switch; there
-is no mixed `ทั้งหมด` role. Buyer status filters are `ทุกสถานะ`, `ต้องทำ`,
+The root action bar selects the fixed `ซื้อ` or `ขาย` workspace; there is no
+mixed `ทั้งหมด` role and ordinary authenticated entry always opens `ซื้อ`.
+Buyer status filters are `ทุกสถานะ`, `ต้องทำ`,
 `กำลังดำเนินการ`, and `เสร็จแล้ว`. Seller filters are `ทุกสถานะ`, `ต้องตอบ`,
 `ต้องส่ง`, `รอรับเงิน`, and `เสร็จแล้ว`.
 
@@ -110,7 +108,7 @@ phone supplied by the buyer. Possession of an invitation link is not sufficient
 authorization: every seller offer read, accept, and decline request rechecks the
 authenticated phone on the server.
 
-The `กิจกรรม` destination loads the authenticated notification inbox rather
+The pushed `กิจกรรม` page loads the authenticated notification inbox rather
 than static sample data. Notification templates provide a reusable title, body,
 and deep link for offer, payment, delivery, dispute, refund, and payout events.
 The first invitation displays `ได้รับข้อเสนอซื้อ` and

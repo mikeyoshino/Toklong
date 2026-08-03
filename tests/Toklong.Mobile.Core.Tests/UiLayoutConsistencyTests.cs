@@ -2788,6 +2788,32 @@ public sealed class UiLayoutConsistencyTests
         Assert.Contains("LedgerSummaryCard", keys);
     }
 
+    [Fact]
+    public void Binding_docs_describe_the_shipped_root_navigation()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var uiSpec = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "docs",
+            "02_UI_UX_AND_CONTENT_SPEC.md"));
+        var acceptance = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "docs",
+            "05_ACCEPTANCE_TESTS.md"));
+
+        Assert.Contains("ซื้อ | + สร้างดีล | ขาย", uiSpec);
+        Assert.Contains("สร้างข้อเสนอซื้อ", uiSpec);
+        Assert.Contains("Account", uiSpec);
+        Assert.Contains(
+            "center action",
+            acceptance,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            "buyer-created",
+            acceptance,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
     private static void AssertStyle(
         XDocument document,
         string page,
@@ -2811,6 +2837,20 @@ public sealed class UiLayoutConsistencyTests
     {
         var path = pathSegments.Prepend(AppContext.BaseDirectory).ToArray();
         return XDocument.Load(Path.Combine(path));
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "Toklong.slnx")))
+                return directory.FullName;
+        }
+
+        throw new DirectoryNotFoundException(
+            "Could not locate Toklong.slnx.");
     }
 
     private static string ResourceValue(XDocument document, string key)

@@ -475,14 +475,20 @@ the new account instead of rendering the previous account's data.
 
 ### Authenticated root navigation
 
-The native bottom bar contains `ซื้อ`, `ขาย`, and `บัญชี` in that order.
-`กิจกรรม` is a top-right action on all three roots and opens as a pushed page
-with Back navigation. The transaction roots do not render another `ซื้อ | ขาย`
-switch.
+The authenticated root action bar is `ซื้อ | + สร้างดีล | ขาย` in that exact
+order. Its center action has the accessible name `สร้างข้อเสนอซื้อ`, always
+opens the buyer product-type choice once, and never creates a seller listing.
+The transaction roots do not render another `ซื้อ | ขาย` switch.
+
+The top-right actions are `กิจกรรม` (Activity) and `บัญชี` (Account).
+Both open as pushed pages with native Back navigation. Activity, Account,
+transaction details, and create/support flows hide the authenticated root
+action bar while pushed and retain Back navigation even when their content
+cannot load.
 
 Every ordinary authenticated start opens `ซื้อ`; the user does not pass through
 an authenticated Buy/Sell chooser and does not resume on `ขาย`. `ขาย` remains
-one tap away in the native bottom bar. Authorized deep links still take
+one tap away in the root action bar. Authorized deep links still take
 precedence and open the exact transaction without changing this default.
 
 ### Three-step buyer offer creation

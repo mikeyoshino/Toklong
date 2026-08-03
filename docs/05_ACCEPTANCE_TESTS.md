@@ -263,11 +263,12 @@ finishes
 **Then** the native `ซื้อ` root opens first.
 
 **When** the user needs seller work
-**Then** `ขาย` remains available from the native bottom bar without passing
+**Then** `ขาย` remains available from the authenticated root action bar without passing
 through a Buy/Sell chooser.
 
-**When** the user opens `กิจกรรม` from `ซื้อ`, `ขาย`, or `บัญชี`
-**Then** Activity opens as a pushed page and Back returns to the originating root.
+**When** the user opens `กิจกรรม` or `บัญชี` from `ซื้อ` or `ขาย`
+**Then** the selected secondary hub opens as a pushed page and Back returns to
+the originating root.
 
 **When** the user explicitly logs out
 **Then** a later authenticated entry opens `ซื้อ`.
@@ -275,6 +276,46 @@ through a Buy/Sell chooser.
 **When** an authorized transaction deep link arrives
 **Then** the exact authorized destination opens directly
 **And** no seller-created link action is shown.
+
+### A0.0.4.4.1 — Root actions are ordered, accessible, and role-isolated
+
+**Given** an authenticated account on either transaction root
+**When** the authenticated root action bar is shown
+**Then** its controls appear in the exact order `ซื้อ | + สร้างดีล | ขาย`
+**And** the center action has the accessible name `สร้างข้อเสนอซื้อ`
+**And** Buy and Sell have at least 44-point targets
+**And** the raised center action has at least a 64-by-64-point target
+**And** the selected Buy or Sell state is both visible and announced
+**And** buyer and seller data, filters, loading, errors, and session state never
+mix.
+
+**When** large Dynamic Type is enabled
+**Then** Thai labels wrap without hiding any primary action or overlapping the
+safe area.
+
+**When** Reduced Motion is enabled
+**Then** switching roots and opening create introduces no animation delay.
+
+### A0.0.4.4.2 — The center action is single-flight and buyer-only
+
+**Given** the user is on either `ซื้อ` or `ขาย`
+**When** the center action is invoked repeatedly before navigation completes
+**Then** the buyer product-type page opens exactly once
+**And** no seller listing, transaction, immutable snapshot, notification,
+payment, refund, payout, or financial audit transition is created.
+
+**When** role navigation or commandless guidance is shown or invoked
+**Then** it creates no transaction or financial transition
+**And** a buyer-created offer exists only after the final buyer submission.
+
+### A0.0.4.4.3 — Secondary hubs retain Back navigation
+
+**Given** the user opens Activity or Account from either transaction root
+**When** the pushed page loads, fails, is empty, or is refreshed
+**Then** the authenticated root action bar is hidden
+**And** native Back remains available as at least a 44-point target
+**And** Back returns to the originating transaction root without changing role
+data or creating a domain transition.
 
 ### A0.0.4.5 — Buyer offer wizard creates only on final submit
 
@@ -394,8 +435,8 @@ registration-proof hash.
 
 **Given** the app starts after interruption
 **When** startup state is resolved
-**Then** a valid authenticated session routes to the preferred native `ซื้อ` or
-`ขาย` root, defaulting to `ซื้อ`
+**Then** a valid authenticated session routes to the native `ซื้อ` root for
+ordinary entry
 **And** without a session, a valid pending registration routes to profile
 completion
 **And** without either, the app routes to Welcome
@@ -415,7 +456,7 @@ AutoFill support.
 **Given** the user opens create-offer or transaction detail from the selected
 native `ซื้อ` or `ขาย` root
 **When** the buyer navigates back without completing an action
-**Then** the root navigation bar remains hidden and the bottom tabs remain visible
+**Then** the authenticated root action bar is visible again
 **And** the transaction list preserves its previous scroll offset
 **And** refreshing the backing collection does not jump directly to the first
 transaction card or hide the list header
