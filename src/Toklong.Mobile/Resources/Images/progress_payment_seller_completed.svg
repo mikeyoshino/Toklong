@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
-  <path id="rail-primary" d="M7 20 H17 C21 20 22 24 24 24 C26 24 27 20 31 20 H41" fill="none" stroke="#3B5266" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-  <path id="rail-secondary" d="M7 28 H17 C21 28 22 24 24 24 C26 24 27 28 31 28 H41" fill="none" stroke="#4B6073" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle id="rail-node" cx="24" cy="24" r="4" fill="#8DE8D2" stroke="#FFFFFF" stroke-width="1.5"/>
+  <path id="rail-primary" d="M7 20 H17 C21 20 22 24 24 24 C26 24 27 20 31 20 H41" fill="none" stroke="#55508A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path id="rail-secondary" d="M7 28 H17 C21 28 22 24 24 24 C26 24 27 28 31 28 H41" fill="none" stroke="#302D56" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle id="rail-node" cx="24" cy="24" r="4" fill="#65C8B4" stroke="#FFFFFF" stroke-width="1.5"/>
 </svg>
