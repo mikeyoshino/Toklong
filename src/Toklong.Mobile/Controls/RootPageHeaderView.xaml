@@ -4,17 +4,29 @@
     x:Name="Root"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
-    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-        <VerticalStackLayout Spacing="3">
+    <Grid
+        RowDefinitions="Auto,Auto"
+        ColumnDefinitions="Auto,*,Auto,Auto"
+        ColumnSpacing="8"
+        RowSpacing="14">
+        <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+            <Image
+                WidthRequest="28"
+                HeightRequest="28"
+                Aspect="AspectFit"
+                Source="brand_mark.png"
+                SemanticProperties.Description="โลโก้ TOKLONG" />
             <Label
-                Style="{StaticResource Eyebrow}"
-                Text="{Binding Subtitle, Source={x:Reference Root}}" />
-            <Label
-                Style="{StaticResource PageTitle}"
-                Text="{Binding Title, Source={x:Reference Root}}" />
-        </VerticalStackLayout>
+                AutomationProperties.IsInAccessibleTree="False"
+                VerticalOptions="Center"
+                FontAttributes="Bold"
+                FontSize="14"
+                CharacterSpacing="1.2"
+                Text="TOKLONG"
+                TextColor="{StaticResource TrustNavy}" />
+        </HorizontalStackLayout>
         <Button
-            Grid.Column="1"
+            Grid.Column="2"
             AutomationId="OpenActivityButton"
             WidthRequest="44"
             HeightRequest="44"
@@ -27,5 +39,30 @@
             ImageSource="nav_activity.png"
             SemanticProperties.Description="กิจกรรม"
             SemanticProperties.Hint="เปิดการอัปเดตจากรายการซื้อและขาย" />
+        <Button
+            Grid.Column="3"
+            AutomationId="OpenAccountButton"
+            WidthRequest="44"
+            HeightRequest="44"
+            Padding="10"
+            BackgroundColor="White"
+            BorderColor="{Binding AccentColor, Source={x:Reference Root}}"
+            BorderWidth="1"
+            CornerRadius="14"
+            Clicked="OnAccountClicked"
+            ImageSource="nav_account.png"
+            SemanticProperties.Description="บัญชี"
+            SemanticProperties.Hint="เปิดข้อมูลบัญชีและการตั้งค่า" />
+        <VerticalStackLayout
+            Grid.Row="1"
+            Grid.ColumnSpan="4"
+            Spacing="3">
+            <Label
+                Style="{StaticResource Eyebrow}"
+                Text="{Binding Subtitle, Source={x:Reference Root}}" />
+            <Label
+                Style="{StaticResource PageTitle}"
+                Text="{Binding Title, Source={x:Reference Root}}" />
+        </VerticalStackLayout>
     </Grid>
 </ContentView>

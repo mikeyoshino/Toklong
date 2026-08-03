@@ -193,24 +193,21 @@ public sealed class UiLayoutConsistencyTests
     }
 
     [Fact]
-    public void Shell_exposes_buy_sell_account_and_pushes_activity()
+    public void Authenticated_shell_uses_hidden_roots_without_native_tabbar()
     {
         var shell = Load("Ui", "AppShell.xaml");
-        var tabBar = shell.Descendants()
-            .Single(element => element.Name.LocalName == "TabBar");
-        var roots = tabBar.Elements()
-            .Where(element => element.Name.LocalName == "ShellContent")
+        Assert.Empty(shell.Descendants(Maui + "TabBar"));
+        var roots = shell.Descendants(Maui + "ShellContent")
+            .Where(root =>
+                AttributeValue(root, "Route") is "buying" or "selling")
             .ToArray();
 
         Assert.Equal(
-            ["ซื้อ", "ขาย", "บัญชี"],
-            roots.Select(root => AttributeValue(root, "Title")));
-        Assert.Equal(
-            ["buying", "selling", "account"],
+            ["buying", "selling"],
             roots.Select(root => AttributeValue(root, "Route")));
-        Assert.DoesNotContain(
-            roots,
-            root => AttributeValue(root, "Route") == "activity");
+        Assert.All(roots, root => Assert.Equal(
+            "False",
+            AttributeValue(root, "Shell.NavBarIsVisible")));
 
         var shellCode = File.ReadAllText(Path.Combine(
             AppContext.BaseDirectory,
@@ -219,6 +216,37 @@ public sealed class UiLayoutConsistencyTests
         Assert.Contains(
             "Routing.RegisterRoute(nameof(ActivityPage)",
             shellCode);
+        Assert.Contains(
+            "Routing.RegisterRoute(nameof(AccountPage)",
+            shellCode);
+    }
+
+    [Fact]
+    public void Root_frame_exposes_buy_create_sell_in_that_order()
+    {
+        var frame = Load(
+            "Ui",
+            "Controls",
+            "AuthenticatedRootFrame.xaml");
+        var buttons = frame.Descendants(Maui + "Button").ToArray();
+
+        Assert.Equal(
+            ["ซื้อ", "สร้างข้อเสนอซื้อ", "ขาย"],
+            buttons.Select(button =>
+                AttributeValue(
+                    button,
+                    "SemanticProperties.Description")));
+        Assert.Equal(
+            "64",
+            AttributeValue(buttons[1], "MinimumWidthRequest"));
+        Assert.Equal(
+            "64",
+            AttributeValue(buttons[1], "MinimumHeightRequest"));
+        Assert.Equal(
+            "เริ่มสร้างข้อเสนอซื้อส่วนตัว",
+            AttributeValue(
+                buttons[1],
+                "SemanticProperties.Hint"));
     }
 
     [Fact]
@@ -324,13 +352,23 @@ public sealed class UiLayoutConsistencyTests
             AttributeValue(element, "AutomationId") ==
             "TransactionRoleModeSwitch");
 
-        var create = page.Descendants(Maui + "Button").Single(button =>
+        var frame = page.Descendants().Single(element =>
+            element.Name.LocalName == "AuthenticatedRootFrame");
+        Assert.Equal(
+            "{Binding Role}",
+            AttributeValue(frame, "SelectedRole"));
+        Assert.Equal(
+            "{Binding OpenBuyingCommand}",
+            AttributeValue(frame, "OpenBuyingCommand"));
+        Assert.Equal(
+            "{Binding CreateOfferCommand}",
+            AttributeValue(frame, "CreateOfferCommand"));
+        Assert.Equal(
+            "{Binding OpenSellingCommand}",
+            AttributeValue(frame, "OpenSellingCommand"));
+        Assert.DoesNotContain(page.Descendants(Maui + "Button"), button =>
             AttributeValue(button, "Command") ==
             "{Binding CreateOfferCommand}");
-        Assert.Equal(
-            "{Binding IsBuying}",
-            AttributeValue(create, "IsVisible"));
-        Assert.Equal("Fill", AttributeValue(create, "HorizontalOptions"));
 
         var spotlight = page.Descendants(Maui + "Border").Single(element =>
             AttributeValue(element, "AutomationId") ==
@@ -339,7 +377,6 @@ public sealed class UiLayoutConsistencyTests
             AttributeValue(element, "AutomationId") ==
             "SellerWorkSummary");
         var order = page.Descendants().ToList();
-        Assert.True(order.IndexOf(create) < order.IndexOf(spotlight));
         Assert.True(order.IndexOf(sellerSummary) < order.IndexOf(spotlight));
     }
 
@@ -350,6 +387,12 @@ public sealed class UiLayoutConsistencyTests
         Assert.Contains(header.Descendants(Maui + "Button"), button =>
             AttributeValue(button, "AutomationId") ==
             "OpenActivityButton");
+        Assert.Contains(header.Descendants(Maui + "Button"), button =>
+            AttributeValue(button, "AutomationId") ==
+            "OpenAccountButton");
+        Assert.Single(header.Descendants(Maui + "Image"), image =>
+            AttributeValue(image, "SemanticProperties.Description") ==
+            "โลโก้ TOKLONG");
 
         var source = File.ReadAllText(Path.Combine(
             AppContext.BaseDirectory,
@@ -358,6 +401,9 @@ public sealed class UiLayoutConsistencyTests
             "RootPageHeaderView.xaml.cs"));
         Assert.Contains(
             "Shell.Current.GoToAsync(nameof(ActivityPage))",
+            source);
+        Assert.Contains(
+            "Shell.Current.GoToAsync(nameof(AccountPage))",
             source);
         Assert.DoesNotContain("Unread", source);
         Assert.DoesNotContain("Badge", header.ToString());

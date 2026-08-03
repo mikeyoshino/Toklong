@@ -45,4 +45,7 @@ public partial class RootPageHeaderView : ContentView
 
     private async void OnActivityClicked(object? sender, EventArgs args) =>
         await Shell.Current.GoToAsync(nameof(ActivityPage));
+
+    private async void OnAccountClicked(object? sender, EventArgs args) =>
+        await Shell.Current.GoToAsync(nameof(AccountPage));
 }

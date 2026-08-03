@@ -17,6 +17,13 @@
         </RadialGradientBrush>
     </ContentPage.Background>
 
+    <controls:AuthenticatedRootFrame
+        x:Name="RootFrame"
+        SelectedRole="{Binding Role}"
+        OpenBuyingCommand="{Binding OpenBuyingCommand}"
+        CreateOfferCommand="{Binding CreateOfferCommand}"
+        OpenSellingCommand="{Binding OpenSellingCommand}">
+        <controls:AuthenticatedRootFrame.Body>
     <Grid>
         <RefreshView
             MaximumWidthRequest="720"
@@ -33,20 +40,6 @@
                             Title="{Binding ModeTitle}"
                             Subtitle="{Binding ModeSubtitle}"
                             AccentColor="{Binding WorkspaceAccentColor}" />
-
-                        <Button
-                            HorizontalOptions="Fill"
-                            IsVisible="{Binding IsBuying}"
-                            MinimumHeightRequest="{StaticResource SecondaryButtonMinimumHeight}"
-                            Padding="16,0"
-                            BackgroundColor="{StaticResource BrandBlue}"
-                            Command="{Binding CreateOfferCommand}"
-                            CornerRadius="14"
-                            FontAttributes="Bold"
-                            FontSize="14"
-                            SemanticProperties.Description="สร้างข้อตกลงซื้อขาย"
-                            Text="+ สร้างดีลซื้อ"
-                            TextColor="White" />
 
                         <Border
                             IsVisible="{Binding HasError}"
@@ -877,4 +870,6 @@
             </CollectionView>
         </RefreshView>
     </Grid>
+        </controls:AuthenticatedRootFrame.Body>
+    </controls:AuthenticatedRootFrame>
 </ContentPage>

@@ -6,17 +6,23 @@ namespace Toklong.Mobile.Pages;
 public partial class TransactionsPage : ContentPage
 {
     private readonly TransactionsViewModel viewModel;
+    private readonly IStartupMotionPreference motionPreference;
     private readonly RefreshLoopLifecycle refreshLoop = new();
 
-    public TransactionsPage(TransactionsViewModel viewModel)
+    public TransactionsPage(
+        TransactionsViewModel viewModel,
+        IStartupMotionPreference motionPreference)
     {
         InitializeComponent();
         BindingContext = this.viewModel = viewModel;
+        this.motionPreference = motionPreference;
     }
 
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        await RootFrame.RevealAsync(
+            motionPreference.IsReducedMotionEnabled);
         var refreshToken = refreshLoop.Begin();
         await viewModel.LoadAsync();
         if (refreshLoop.IsCurrent(refreshToken))
@@ -43,7 +49,6 @@ public partial class TransactionsPage : ContentPage
         Shell.SetNavBarIsVisible(this, true);
         Shell.SetNavBarIsVisible(this, false);
         Shell.SetTabBarIsVisible(this, false);
-        Shell.SetTabBarIsVisible(this, true);
         InvalidateMeasure();
     }
 

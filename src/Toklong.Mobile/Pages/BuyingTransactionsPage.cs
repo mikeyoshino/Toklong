@@ -5,8 +5,12 @@ namespace Toklong.Mobile.Pages;
 
 public sealed class BuyingTransactionsPage : TransactionsPage
 {
-    public BuyingTransactionsPage(TransactionWorkspaceViewModelFactory factory)
-        : base(factory.Create(RoleFilter.Buying))
+    public BuyingTransactionsPage(
+        TransactionWorkspaceViewModelFactory factory,
+        IStartupMotionPreference motionPreference)
+        : base(
+            factory.Create(RoleFilter.Buying),
+            motionPreference)
     {
     }
 }
