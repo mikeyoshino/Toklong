@@ -242,7 +242,9 @@ It must not:
 
 - infer a payment, carrier, refund, or payout result;
 - recommend a binding dispute outcome;
-- expose internal state names, provider terminology, hashes, or webhook copy;
+- expose internal state names, raw provider state, hashes, webhook, or
+  reconciliation copy; approved consumer-facing provider instructions such as
+  Stripe PromptPay refund action copy remain allowed;
 - claim Toklong holds money or guarantees an outcome; or
 - replace the primary action or mandatory pre-payment disclosure.
 
