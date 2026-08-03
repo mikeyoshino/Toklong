@@ -2819,6 +2819,17 @@ public sealed class UiLayoutConsistencyTests
             "buyer-created",
             acceptance,
             StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            "shared center action remains visible on both roots",
+            acceptance,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(
+            "`+ สร้างดีลซื้อ` is visible",
+            acceptance);
+        Assert.DoesNotContain(
+            "no create, copy-link",
+            acceptance,
+            StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

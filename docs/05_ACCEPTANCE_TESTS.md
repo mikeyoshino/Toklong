@@ -88,13 +88,17 @@ provider acknowledges delivery
 **Given** one account has both buyer and seller transactions
 **When** the user opens the native `ซื้อ` root
 **Then** spotlight, filters, empty state, and list contain buyer transactions only
-**And** `+ สร้างดีลซื้อ` is visible
 **And** no in-page Buy/Sell switch or authenticated chooser is present.
 
 **When** the user opens the native `ขาย` root
 **Then** spotlight, filters, empty state, and list contain seller transactions only
 **And** `ต้องตอบ`, `ต้องส่ง`, `รอรับเงิน`, and `เสร็จแล้ว` are available
-**And** no create, copy-link, or clipboard-open action is visible.
+**And** no seller-create, copy-link, or clipboard-open action is visible.
+
+**When** either root is visible
+**Then** the shared center action remains visible on both roots as `+ สร้างดีล`
+**And** its accessible name is `สร้างข้อเสนอซื้อ`
+**And** invoking it starts only the buyer-created private-offer flow.
 
 **When** either selected mode has no action-required transaction
 **Then** `ยังไม่มีรายการ` reserves the same minimum height as a populated
