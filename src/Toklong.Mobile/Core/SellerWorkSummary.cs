@@ -73,7 +73,11 @@ public static class SellerWorkSummary
                 .Where(value => value.Category == selectedCategory)
                 .Select(value => value.Item)
                 .ToArray();
-        var ordered = visible
+        var newestFirst = visible
+            .OrderByDescending(item => item.CreatedAt)
+            .ThenBy(item => item.Id)
+            .ToArray();
+        var spotlight = visible
             .OrderBy(Priority)
             .ThenBy(item =>
                 Priority(item) < 3
@@ -84,15 +88,16 @@ public static class SellerWorkSummary
                     ? item.UpdatedAt
                     : item.CreatedAt)
             .ThenBy(item => item.Id)
-            .ToArray();
-        var spotlight = ordered.FirstOrDefault(item =>
-            item.Presentation.PrimaryAction is
-                TransactionAction.ReviewSellerOffer or
-                TransactionAction.AddTracking or
-                TransactionAction.ConfirmDigitalHandoff);
+            .FirstOrDefault(item =>
+                item.Presentation.PrimaryAction is
+                    TransactionAction.ReviewSellerOffer or
+                    TransactionAction.AddTracking or
+                    TransactionAction.ConfirmDigitalHandoff);
         var remaining = spotlight is null
-            ? ordered
-            : ordered.Where(item => item.Id != spotlight.Id).ToArray();
+            ? newestFirst
+            : newestFirst
+                .Where(item => item.Id != spotlight.Id)
+                .ToArray();
 
         return new SellerWorkSnapshot(
             seller.Length,
@@ -104,7 +109,7 @@ public static class SellerWorkSummary
             selectedCategory,
             spotlight,
             seller,
-            ordered,
+            newestFirst,
             remaining);
     }
 

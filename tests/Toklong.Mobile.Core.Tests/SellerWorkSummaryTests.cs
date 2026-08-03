@@ -138,18 +138,48 @@ public sealed class SellerWorkSummaryTests
     }
 
     [Fact]
+    public void List_is_newest_created_first_even_when_older_work_owns_spotlight()
+    {
+        var olderUrgent = Item(
+            "00000000-0000-0000-0000-000000000024",
+            AppTransactionRole.Seller,
+            "ShipmentOverdue",
+            Now.AddHours(-1),
+            createdAt: Now.AddDays(-2));
+        var newerInProgress = Item(
+            "00000000-0000-0000-0000-000000000025",
+            AppTransactionRole.Seller,
+            "InTransit",
+            null,
+            createdAt: Now.AddDays(-1));
+
+        var result = SellerWorkSummary.Create(
+            [olderUrgent, newerInProgress]);
+
+        Assert.Equal(olderUrgent.Id, result.Spotlight?.Id);
+        Assert.Equal(
+            [newerInProgress.Id, olderUrgent.Id],
+            result.VisibleTransactions.Select(item => item.Id));
+        Assert.Equal(
+            [newerInProgress.Id],
+            result.RemainingTransactions.Select(item => item.Id));
+    }
+
+    [Fact]
     public void Selected_category_recalculates_spotlight_and_visible_records()
     {
         var first = Item(
             "00000000-0000-0000-0000-000000000031",
             AppTransactionRole.Seller,
             "AwaitingSellerAcceptance",
-            Now.AddHours(8));
+            Now.AddHours(8),
+            createdAt: Now);
         var urgent = Item(
             "00000000-0000-0000-0000-000000000032",
             AppTransactionRole.Seller,
             "AwaitingSellerAcceptance",
-            Now.AddHours(1));
+            Now.AddHours(1),
+            createdAt: Now.AddMinutes(-10));
         var shipping = Item(
             "00000000-0000-0000-0000-000000000033",
             AppTransactionRole.Seller,
@@ -162,7 +192,7 @@ public sealed class SellerWorkSummaryTests
 
         Assert.Equal(urgent.Id, result.Spotlight?.Id);
         Assert.Equal(
-            [urgent.Id, first.Id],
+            [first.Id, urgent.Id],
             result.VisibleTransactions.Select(item => item.Id));
         Assert.Equal(
             [first.Id],
@@ -201,32 +231,36 @@ public sealed class SellerWorkSummaryTests
     }
 
     [Fact]
-    public void In_progress_and_problem_filters_sort_by_latest_update()
+    public void In_progress_and_problem_filters_sort_by_creation_not_update()
     {
         var olderProgress = Item(
             "00000000-0000-0000-0000-000000000053",
             AppTransactionRole.Seller,
             "InTransit",
             null,
-            updatedAt: Now.AddHours(-4));
+            createdAt: Now.AddHours(-2),
+            updatedAt: Now);
         var newerProgress = Item(
             "00000000-0000-0000-0000-000000000054",
             AppTransactionRole.Seller,
             "PayoutPending",
             null,
-            updatedAt: Now.AddHours(-3));
+            createdAt: Now.AddHours(-1),
+            updatedAt: Now.AddHours(-4));
         var olderProblem = Item(
             "00000000-0000-0000-0000-000000000051",
             AppTransactionRole.Seller,
             "Disputed",
             null,
-            updatedAt: Now.AddHours(-2));
+            createdAt: Now.AddHours(-2),
+            updatedAt: Now);
         var newerProblem = Item(
             "00000000-0000-0000-0000-000000000052",
             AppTransactionRole.Seller,
             "ResolutionPending",
             null,
-            updatedAt: Now.AddHours(-1));
+            createdAt: Now.AddHours(-1),
+            updatedAt: Now.AddHours(-4));
 
         var progress = SellerWorkSummary.Create(
             [olderProgress, newerProgress],
@@ -276,19 +310,24 @@ public sealed class SellerWorkSummaryTests
             "00000000-0000-0000-0000-000000000071",
             AppTransactionRole.Seller,
             "PaidAwaitingShipment",
-            Now.AddHours(1));
+            Now.AddHours(1),
+            createdAt: Now);
         var correction = Item(
             "00000000-0000-0000-0000-000000000072",
             AppTransactionRole.Seller,
             "TrackingUnverified",
-            Now.AddHours(12));
+            Now.AddHours(12),
+            createdAt: Now.AddDays(-1));
 
         var result = SellerWorkSummary.Create([paid, correction]);
 
         Assert.Equal(correction.Id, result.Spotlight?.Id);
         Assert.Equal(
-            [correction.Id, paid.Id],
+            [paid.Id, correction.Id],
             result.VisibleTransactions.Select(item => item.Id));
+        Assert.Equal(
+            [paid.Id],
+            result.RemainingTransactions.Select(item => item.Id));
     }
 
     private static AppTransaction Item(

@@ -416,12 +416,20 @@ public sealed class AccountViewModel :
     {
         try
         {
-            await Shell.Current.GoToAsync("//main/account");
+            await NavigateToAccountAsync();
         }
         catch
         {
             // The session owner controls its next safe route after reset.
         }
+    }
+
+    private static async Task NavigateToAccountAsync()
+    {
+        var root = AuthenticatedHomeRoutes.RootOrDefault(
+            Shell.Current.CurrentState.Location.OriginalString);
+        await Shell.Current.GoToAsync(root);
+        await Shell.Current.GoToAsync(nameof(Pages.AccountPage));
     }
 
     private static AccountNameChangeFailureReason FailureReason(

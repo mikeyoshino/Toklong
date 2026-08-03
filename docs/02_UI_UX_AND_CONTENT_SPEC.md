@@ -559,11 +559,12 @@ an `ทั้งหมด` view. Notification and deep-link navigation still ope
 authorized transaction directly. Each root starts with its role title and the
 global Activity action; there is no second role chooser.
 
-- `ซื้อ`: buyer-only spotlight/list, `+ สร้างดีลซื้อ`, and buyer status
-  filters.
+- `ซื้อ`: buyer-only spotlight/list and buyer status filters.
 - `ขาย`: seller-only spotlight/list with `ต้องตอบ`, `ต้องส่ง`, `รอรับเงิน`,
-  and `เสร็จแล้ว` filters. It has no create or clipboard-link action.
-- Buyer Blue and Seller Graphite/Navy support the visible `ซื้อ` and `ขาย`
+  and `เสร็จแล้ว` filters. It has no seller-create or clipboard-link action.
+- The shared center action remains available from both roots and always starts
+  a buyer-created private offer.
+- Buyer Blue and Seller Indigo support the visible `ซื้อ` and `ขาย`
   labels; role is never communicated by color alone.
 - Within every buyer or seller filter, order transactions by creation time from
   newest to oldest. Status bucket and action deadline must not move an older

@@ -74,8 +74,11 @@ public sealed class Shell
     public List<(
         string Route,
         IReadOnlyDictionary<string, object> Parameters)>
-        ParameterizedRoutes { get; } = [];
+        ParameterizedRoutes
+    { get; } = [];
     public Func<string, Task>? Navigate { get; set; }
+    public string CurrentRoute { get; set; } = "//buying";
+    public ShellNavigationState CurrentState => new(CurrentRoute);
 
     public async Task GoToAsync(string route)
     {
@@ -104,10 +107,16 @@ public sealed class Shell
         string cancel) => Task.FromResult(false);
 }
 
+public sealed class ShellNavigationState(string route)
+{
+    public Uri Location { get; } = new(route, UriKind.RelativeOrAbsolute);
+}
+
 namespace Toklong.Mobile.Pages
 {
     public sealed class ChangeNamePage;
     public sealed class ChangeEmailPage;
+    public sealed class AccountPage;
     public sealed class CreateOfferPage;
     public sealed class ProductTypeSelectionPage;
     public sealed class PayoutSettingsPage;

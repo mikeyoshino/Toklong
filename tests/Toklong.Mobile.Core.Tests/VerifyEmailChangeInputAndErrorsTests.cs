@@ -208,7 +208,7 @@ public sealed class VerifyEmailChangeInputAndErrorsTests :
         await viewModel.ReturnToAccountAsync();
 
         Assert.Equal(
-            ["//main/account"],
+            ["//buying", "AccountPage"],
             Shell.Current.Routes);
         Assert.Empty(
             Shell.Current.ParameterizedRoutes);
@@ -254,7 +254,7 @@ public sealed class VerifyEmailChangeInputAndErrorsTests :
         await viewModel.ReturnToAccountAsync();
 
         Assert.Equal(
-            ["//main/account"],
+            ["//buying", "AccountPage"],
             Shell.Current.Routes);
         Assert.Empty(
             Shell.Current.ParameterizedRoutes);

@@ -63,4 +63,9 @@ public static class AuthenticatedHomeRoutes
     public static bool IsAuthenticatedRoot(string? route) =>
         TryParseRoot(route, out _);
 
+    public static string RootOrDefault(string? route) =>
+        TryParseRoot(route, out var role)
+            ? Root(role)
+            : Default;
+
 }

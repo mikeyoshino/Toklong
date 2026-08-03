@@ -806,8 +806,13 @@ public sealed class VerifyNameChangeViewModel : ObservableViewModel, IDisposable
                 remainingAttempts,
                 nextAllowedAt));
 
-    private static Task NavigateToAccountAsync() =>
-        Shell.Current.GoToAsync("//main/account");
+    private static async Task NavigateToAccountAsync()
+    {
+        var root = AuthenticatedHomeRoutes.RootOrDefault(
+            Shell.Current.CurrentState.Location.OriginalString);
+        await Shell.Current.GoToAsync(root);
+        await Shell.Current.GoToAsync(nameof(Pages.AccountPage));
+    }
 
     private static AccountNameChangeFailureReason FailureReason(
         AccountNameChangeErrorKind kind) =>

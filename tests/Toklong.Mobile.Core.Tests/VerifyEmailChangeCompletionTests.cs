@@ -9,7 +9,11 @@ public sealed class VerifyEmailChangeCompletionTests :
     [Fact]
     public async Task Successful_verification_records_one_shot_account_completion_without_shell_parameters()
     {
-        Shell.Current = new Shell();
+        Shell.Current = new Shell
+        {
+            CurrentRoute =
+                "//selling/AccountPage/ChangeEmailPage/VerifyEmailChangePage"
+        };
         var authentication = new RecordingAuthentication();
         var analytics = new RecordingAnalytics();
         var session = new AuthenticatedSessionBoundary();
@@ -31,7 +35,7 @@ public sealed class VerifyEmailChangeCompletionTests :
         Assert.Single(authentication.VerifyCalls);
         Assert.Equal(1, authentication.ProfileCalls);
         Assert.Equal(
-            ["//main/account"],
+            ["//selling", "AccountPage"],
             Shell.Current.Routes);
         Assert.Empty(
             Shell.Current.ParameterizedRoutes);
@@ -173,7 +177,7 @@ public sealed class VerifyEmailChangeCompletionTests :
         await viewModel.ReturnToAccountAsync();
 
         Assert.Equal(
-            ["//main/account"],
+            ["//buying", "AccountPage"],
             Shell.Current.Routes);
     }
 
@@ -271,7 +275,7 @@ public sealed class VerifyEmailChangeCompletionTests :
         await viewModel.ConfirmAsync();
 
         Assert.Equal(
-            ["//main/account"],
+            ["//buying", "AccountPage"],
             Shell.Current.Routes);
         Assert.Single(
             analytics.Events,

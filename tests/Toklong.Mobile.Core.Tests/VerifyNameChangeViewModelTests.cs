@@ -339,7 +339,11 @@ public sealed class VerifyNameChangeViewModelTests :
     [Fact]
     public async Task Success_refreshes_profile_returns_to_account_and_is_consumed_once()
     {
-        Shell.Current = new Shell();
+        Shell.Current = new Shell
+        {
+            CurrentRoute =
+                "//selling/AccountPage/ChangeNamePage/VerifyNameChangePage"
+        };
         var authentication = new RecordingAuthentication
         {
             GetProfile = () => Task.FromResult(
@@ -360,7 +364,9 @@ public sealed class VerifyNameChangeViewModelTests :
 
         await viewModel.ConfirmAsync();
 
-        Assert.Equal(["//main/account"], Shell.Current.Routes);
+        Assert.Equal(
+            ["//selling", "AccountPage"],
+            Shell.Current.Routes);
         Assert.Equal(1, authentication.ProfileCalls);
         Assert.Single(analytics.Events, value =>
             value.Name == "account_name_change_verified");
@@ -406,7 +412,9 @@ public sealed class VerifyNameChangeViewModelTests :
         Shell.Current.Navigate = null;
         await viewModel.ReturnToAccountAsync();
 
-        Assert.Equal(["//main/account"], Shell.Current.Routes);
+        Assert.Equal(
+            ["//buying", "AccountPage"],
+            Shell.Current.Routes);
         Assert.Single(authentication.VerifyNameCalls);
         Assert.Single(analytics.Events, value =>
             value.Name == "account_name_change_verified");

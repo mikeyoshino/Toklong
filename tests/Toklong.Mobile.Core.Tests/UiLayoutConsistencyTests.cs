@@ -2805,6 +2805,13 @@ public sealed class UiLayoutConsistencyTests
         Assert.Contains("สร้างข้อเสนอซื้อ", uiSpec);
         Assert.Contains("Account", uiSpec);
         Assert.Contains(
+            "shared center action remains available from both roots",
+            uiSpec,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Seller Indigo", uiSpec);
+        Assert.DoesNotContain("It has no create", uiSpec);
+        Assert.DoesNotContain("Seller Graphite/Navy", uiSpec);
+        Assert.Contains(
             "center action",
             acceptance,
             StringComparison.OrdinalIgnoreCase);
@@ -2812,6 +2819,28 @@ public sealed class UiLayoutConsistencyTests
             "buyer-created",
             acceptance,
             StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Account_flows_do_not_target_the_removed_main_shell_hierarchy()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        foreach (var fileName in new[]
+                 {
+                     "AccountViewModel.cs",
+                     "VerifyEmailChangeViewModel.cs",
+                     "VerifyNameChangeViewModel.cs"
+                 })
+        {
+            var source = File.ReadAllText(Path.Combine(
+                repositoryRoot,
+                "src",
+                "Toklong.Mobile",
+                "ViewModels",
+                fileName));
+
+            Assert.DoesNotContain("//main/account", source);
+        }
     }
 
     private static void AssertStyle(

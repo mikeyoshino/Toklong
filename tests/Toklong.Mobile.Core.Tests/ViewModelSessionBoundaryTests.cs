@@ -173,7 +173,9 @@ public sealed class ViewModelSessionBoundaryTests :
         Assert.Equal("บัญชีบี", destination.FirstName);
         Assert.Equal("ใหม่", destination.LastName);
         Assert.DoesNotContain("บัญชีเอ", destination.FirstName);
-        Assert.Equal("//main/account", Shell.Current.Routes[^1]);
+        Assert.Equal(
+            ["//buying", "AccountPage"],
+            Shell.Current.Routes[^2..]);
         destination.Dispose();
     }
 
@@ -235,7 +237,9 @@ public sealed class ViewModelSessionBoundaryTests :
         Assert.Equal("09x-xxx-9876", destination.MaskedPhoneNumber);
         Assert.Equal("บัญชีบี ใหม่", destination.PendingDisplayName);
         Assert.DoesNotContain("08x-xxx-1234", destination.MaskedPhoneNumber);
-        Assert.Equal("//main/account", Shell.Current.Routes[^1]);
+        Assert.Equal(
+            ["//buying", "AccountPage"],
+            Shell.Current.Routes[^2..]);
         destination.Dispose();
     }
 
